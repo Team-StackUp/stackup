@@ -1,0 +1,92 @@
+name: Lint Check
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+  push:
+    branches:
+      - main
+      - develop
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      # Frontend (TypeScript)
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Lint frontend
+        working-directory: ./frontend
+        run: npm run lint
+
+      - name: Type check frontend
+        working-directory: ./frontend
+        run: npm run type-check
+
+      # Backend (Java + Go)
+      - name: Lint backend Java
+        working-directory: ./backend
+        run: |
+          if [ -f "pom.xml" ]; then
+            mvn checkstyle:check
+          elif [ -f "build.gradle" ] || [ -f "build.gradle.kts" ]; then
+            ./gradlew checkstyleMain checkstyleTest
+          fi
+
+      - name: Lint backend Go
+        working-directory: ./backend
+        run: |
+          if [ -f "go.mod" ]; then
+            go fmt ./...
+            go vet ./...
+            if ! command -v golangci-lint &> /dev/null; then
+              curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
+            fi
+            golangci-lint run
+          fi
+
+      # AI (Python)
+      - name: Install AI dependencies
+        working-directory: ./ai
+        run: |
+          pip install -r requirements.txt
+          pip install flake8 black pylint
+
+      - name: Lint AI (flake8)
+        working-directory: ./ai
+        run: flake8 . --max-line-length=120 --exclude=venv,__pycache__
+
+      - name: Check AI formatting (black)
+        working-directory: ./ai
+        run: black --check .
