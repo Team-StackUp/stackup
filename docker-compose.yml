@@ -1,0 +1,70 @@
+services:
+  postgres:
+    build: ./infra/postgres
+    container_name: stackup-postgres
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-stackup}
+      POSTGRES_USER: ${POSTGRES_USER:-stackup}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-stackup}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-stackup}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  rabbitmq:
+    build: ./infra/rabbitmq
+    container_name: stackup-rabbitmq
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-stackup}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-stackup}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    build: ./infra/minio
+    container_name: stackup-minio
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: stackup-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_BUCKET: ${MINIO_BUCKET:-stackup}
+    volumes:
+      - ./infra/minio/init.sh:/init.sh:ro
+    entrypoint: ["/bin/sh", "/init.sh"]
+
+volumes:
+  postgres_data:
+  rabbitmq_data:
+  minio_data:

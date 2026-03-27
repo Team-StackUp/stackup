@@ -1,0 +1,109 @@
+{
+  "vhosts": [
+    { "name": "/" }
+  ],
+  "exchanges": [
+    {
+      "name": "stackup.core-to-ai",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false
+    },
+    {
+      "name": "stackup.ai-to-core",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false
+    }
+  ],
+  "queues": [
+    {
+      "name": "ai.analyze.repository",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "ai.analyze.resume",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "ai.generate.questions",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "ai.generate.followup",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "core.callback.analysis",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "core.callback.questions",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    }
+  ],
+  "bindings": [
+    {
+      "source": "stackup.core-to-ai",
+      "vhost": "/",
+      "destination": "ai.analyze.repository",
+      "destination_type": "queue",
+      "routing_key": "analyze.repository"
+    },
+    {
+      "source": "stackup.core-to-ai",
+      "vhost": "/",
+      "destination": "ai.analyze.resume",
+      "destination_type": "queue",
+      "routing_key": "analyze.resume"
+    },
+    {
+      "source": "stackup.core-to-ai",
+      "vhost": "/",
+      "destination": "ai.generate.questions",
+      "destination_type": "queue",
+      "routing_key": "generate.questions"
+    },
+    {
+      "source": "stackup.core-to-ai",
+      "vhost": "/",
+      "destination": "ai.generate.followup",
+      "destination_type": "queue",
+      "routing_key": "generate.followup"
+    },
+    {
+      "source": "stackup.ai-to-core",
+      "vhost": "/",
+      "destination": "core.callback.analysis",
+      "destination_type": "queue",
+      "routing_key": "callback.analysis"
+    },
+    {
+      "source": "stackup.ai-to-core",
+      "vhost": "/",
+      "destination": "core.callback.questions",
+      "destination_type": "queue",
+      "routing_key": "callback.questions"
+    }
+  ]
+}
