@@ -27,8 +27,10 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-          cache: 'pip'
+          python-version: '3.13'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -79,14 +81,12 @@ jobs:
       # AI (Python)
       - name: Install AI dependencies
         working-directory: ./ai
-        run: |
-          pip install -r requirements.txt
-          pip install flake8 black pylint
+        run: uv sync --extra dev
 
       - name: Lint AI (flake8)
         working-directory: ./ai
-        run: flake8 . --max-line-length=120 --exclude=venv,__pycache__
+        run: uv run flake8 .
 
       - name: Check AI formatting (black)
         working-directory: ./ai
-        run: black --check .
+        run: uv run black --check .
