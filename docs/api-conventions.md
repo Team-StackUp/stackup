@@ -87,7 +87,7 @@ GET    /api/sessions/{id}/feedback 피드백 조회
 
 ### 2.5 시스템
 ```
-GET    /api/system/health          헬스체크 (PG/Redis/MQ 상태)
+GET    /api/system/health          헬스체크 (PG/MQ/S3/AI 상태)
 GET    /api/system/version         버전 정보
 ```
 

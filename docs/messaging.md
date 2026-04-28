@@ -287,8 +287,11 @@ x-dead-letter-exchange: stackup.dlx
 > 현재 `definitions.json`은 기본 큐 (classic) — Phase 2에 quorum + DLX 도입.
 
 ### 멱등 처리
-- Consumer는 `messageId`를 Redis에 24h TTL로 기록 (`processed:msg:{messageId}`)
-- 이미 존재하면 skip + ACK
+- Consumer는 `messageId`를 PostgreSQL `processed_messages` 테이블 (`UNIQUE(message_id)`)에 INSERT 시도
+  - 충돌(duplicate key) 시 skip + ACK
+  - 24h 이상 된 row는 cron으로 정리
+- AI Server는 인메모리 LRU + RabbitMQ delivery_tag 조합도 허용 (재시작 시 RabbitMQ가 미ACK 메시지 재전달)
+- (Redis 미사용 — [`architecture.md §4.5`](./architecture.md))
 
 ---
 

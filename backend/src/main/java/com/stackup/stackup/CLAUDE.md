@@ -53,6 +53,8 @@ presentation  →  application  →  domain
 - presentation은 application까지만 의존
 - application은 domain만 의존 (인터페이스 통해 infrastructure 사용)
 - domain은 다른 도메인의 entity 직접 참조 금지 — `id`만 보유, lookup은 service에서
+- **도메인 간 순환 의존 절대 금지** — 단방향 그래프(DAG)만 허용
+- **자동 검증**: ArchUnit으로 의존 방향·순환·setter 등 빌드 단계에서 차단 ([`/backend/CLAUDE.md §16`](../../../../../CLAUDE.md))
 
 ---
 

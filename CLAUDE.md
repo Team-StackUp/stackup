@@ -28,7 +28,7 @@ Nginx Gateway
 │ AI (FastAPI/LangChain)       │
 └──────────────────────────────┘
 
-PostgreSQL+pgvector  ·  Redis  ·  S3/MinIO
+PostgreSQL+pgvector  ·  S3/MinIO
 ```
 
 자세한 다이어그램과 책임 매트릭스: [`docs/architecture.md`](./docs/architecture.md)
@@ -83,7 +83,7 @@ PostgreSQL+pgvector  ·  Redis  ·  S3/MinIO
 ## 4. 핵심 설계 원칙 (전 컴포넌트 공통)
 
 1. **PostgreSQL 단독 접근** — Core 서버만 직접 접근. AI/RealTime은 API 또는 RabbitMQ 경유. ([architecture §4.1](./docs/architecture.md))
-2. **Hybrid Storage** — 관계형 → PG, 임베딩 → pgvector, 대용량 → S3, 휘발성 → Redis.
+2. **Hybrid Storage** — 관계형 → PG, 임베딩 → pgvector, 대용량 → S3. (Redis 사용 안 함 — 휘발성 데이터는 DB short-lived 레코드 또는 Core 인메모리)
 3. **LLM 이중 모델** — 세션 시작은 Pro(품질), 꼬리질문은 Flash + RAG(저지연 < 3s).
 4. **분산 추적** — 모든 요청에 `X-Trace-Id` 전파. RabbitMQ 메시지 헤더에도 동일.
 5. **MVP 우선** — 필요해질 때 추가, 미래 가정 테이블/기능 만들지 않음.
@@ -145,7 +145,8 @@ cd frontend && npm install && npm run dev
 - 디자인 시스템 토큰 파일 미생성 — 디자인 적용 첫 PR에서 `frontend/src/app/styles/tokens.css` 생성.
 - Spring Security, RabbitMQ starter, Flyway는 백엔드 기능 작성 PR과 함께 도입.
 - `infra/rabbitmq/definitions.json`은 현재 큐 6개 정의 (resume/repo 분석, questions/followup 생성, 콜백 2개). 피드백 큐는 US-24 작업 시 추가.
-- `Redis`는 docker-compose에 미포함. 세션 ephemeral state, 멱등 키, SSE pub/sub 도입 시 추가.
-- `RealTime Server (Go)`는 아직 디렉토리 없음. WebRTC/WebSocket/SSE Phase 2 시점에 작성.
+- **Redis 미사용** — 휘발성 데이터(OAuth state, 멱등 키, 질문 풀 캐시)는 PostgreSQL의 short-lived 레코드 또는 Core 서버 인메모리로 처리.
+- 실시간 푸시는 **SSE 단일화** (양방향 WebSocket 미사용). 미디어 스트림만 WebRTC.
+- `RealTime Server (Go)`는 아직 디렉토리 없음. SSE/WebRTC가 필요한 시점에 작성.
 
 문서 변경 원칙: 코드와 함께 같은 PR에 포함. 단일 출처 원칙(SSOT) 유지.

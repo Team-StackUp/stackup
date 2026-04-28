@@ -111,12 +111,69 @@ export function reachedLimit(session: InterviewSession): boolean {
 
 ```
 domain/*  →  shared/*       ✓
-domain/*  →  domain/*       ✓ (다른 도메인 참조 가능, 단 순환 금지)
+domain/*  →  domain/*       ⚠️ 단방향만 ✓, 순환 ✗
 domain/*  →  features/*     ✗
 domain/*  →  pages/*, app/* ✗
 ```
 
 타입 자체는 다른 도메인을 참조 가능 (예: `Session`이 `User`를 알고 있음).
+
+### 6.1 순환 참조 절대 금지
+
+도메인 간 의존성은 **단방향 그래프(DAG)** 여야 한다. 순환이 발생하면 타입 추론 무한 루프, 모듈 번들 분리 불가, 테스트 시 mock 지옥 등 실질적 피해가 크다.
+
+**나쁜 예 (순환)**:
+```ts
+// domain/session/model/types.ts
+import type { User } from '@/domain/user';
+export type Session = { user: User; ... };
+
+// domain/user/model/types.ts
+import type { Session } from '@/domain/session';   // ❌ 순환!
+export type User = { recentSessions: Session[]; ... };
+```
+
+**좋은 예 (단방향)**:
+```ts
+// domain/user (의존 없음, 가장 아래)
+export type User = { id: number; githubUsername: string; ... };
+
+// domain/session (user에 의존)
+import type { User } from '@/domain/user';
+export type Session = { userId: User['id']; ... };  // ID만 보유
+
+// "user의 최근 세션" 같은 derived view는 features/history에서 조합
+```
+
+### 6.2 도메인 의존성 그래프 (현재)
+
+```
+session  →  user
+rag      →  user
+```
+
+새 도메인 추가 시 본 그래프를 갱신하고, **위쪽에 위치한 도메인이 아래쪽을 import**하는 방향만 허용.
+
+### 6.3 자동 검증
+
+ESLint `no-restricted-imports` 또는 `eslint-plugin-boundaries` 도입 시:
+```js
+// eslint.config.js (예시)
+{
+  rules: {
+    'boundaries/element-types': ['error', {
+      default: 'disallow',
+      rules: [
+        { from: 'domain-user',    allow: ['shared'] },
+        { from: 'domain-session', allow: ['shared', 'domain-user'] },
+        { from: 'domain-rag',     allow: ['shared', 'domain-user'] },
+      ],
+    }],
+  },
+}
+```
+
+CI 단계에서 자동으로 위반 차단. 백엔드는 ArchUnit 사용 ([`/backend/CLAUDE.md`](../../../CLAUDE.md)).
 
 ---
 
@@ -146,3 +203,5 @@ API 응답 boundary에서만 검증 (호출 시마다 검증하면 비용).
 - ❌ 글로벌 변수, mutable state
 - ❌ `Date.now()`, `Math.random()` 같은 비결정적 호출 (테스트 불가)
 - ❌ 백엔드 응답 그대로 노출 (필요하면 도메인 타입으로 변환)
+- ❌ **도메인 간 순환 import** — 발견 즉시 ID 참조로 분해 (§6.1)
+- ❌ 한 도메인이 너무 많은 다른 도메인 import — 책임 경계 재검토 필요

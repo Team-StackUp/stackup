@@ -193,8 +193,9 @@ import { LoginButton } from '@/features/auth/ui/LoginButton';
 
 ## 10. 실시간 이벤트
 
-- SSE: `shared/hooks/useEventStream.ts` (자동 재연결 + 폴링 fallback)
-- WebSocket: `features/interview/lib/socket/` (면접 세션 메시지 push)
+- **SSE 단일화** — 양방향 WebSocket 미사용. 모든 서버 → 클라이언트 푸시는 SSE로 처리.
+- 구현: `shared/hooks/useEventStream.ts` (자동 재연결 + 폴링 fallback)
+- 미디어 스트림(음성/영상)만 WebRTC: `features/interview/lib/media/`
 - 이벤트 스펙: [`/docs/event-stream.md`](../docs/event-stream.md)
 
 ---

@@ -16,9 +16,15 @@
     ┌─────────────────┐
     │     Unit        │  ← 도메인 로직 (가장 많음)
     └─────────────────┘
+
+    [별도 축] 아키텍처 검증 — ArchUnit (백엔드), eslint-plugin-boundaries (프론트)
 ```
 
 비율 목표: Unit 70% / Integration 25% / E2E 5%.
+
+**아키텍처 테스트는 별도 축**으로 항상 켜져 있어야 한다. 의존 방향, 패키지 룰, 순환 참조를 빌드 단계에서 차단해 사람 리뷰의 부담을 줄인다.
+- 백엔드: ArchUnit ([`/backend/CLAUDE.md §16`](../backend/CLAUDE.md))
+- 프론트: ESLint flat config + `eslint-plugin-boundaries` ([`/frontend/src/domain/CLAUDE.md §6.3`](../frontend/src/domain/CLAUDE.md))
 
 ---
 
@@ -108,7 +114,6 @@ LLM 호출은 mock (실제 API 호출은 별도 contract test로 분리).
 | PostgreSQL | mock (Mockito) | Testcontainer | Testcontainer |
 | RabbitMQ | mock | Testcontainer | Testcontainer |
 | S3 / MinIO | mock | MinIO container | MinIO container |
-| Redis | mock | Testcontainer | Testcontainer |
 | GitHub API | mock | mock or sandbox | recorded fixture |
 | LLM API | mock | mock (LangChain `FakeListLLM`) | recorded fixture |
 | STT/TTS | mock | mock | recorded fixture |

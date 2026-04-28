@@ -15,7 +15,7 @@
 6. refresh_token은 **HttpOnly + Secure + SameSite=Strict** 쿠키로 전달
 7. access_token은 응답 본문 → Frontend가 메모리 또는 localStorage에 보관
 
-> **state 검증 누락 = CSRF 취약**. Redis에 5분 TTL로 저장하고 검증.
+> **state 검증 누락 = CSRF 취약**. PostgreSQL `oauth_states` 테이블 (state PK + expires_at + 사용 후 DELETE)에 5분 TTL로 저장하고 검증. 또는 stateless 방식으로 HMAC-서명된 state 사용.
 
 ### 1.2 JWT 정책
 | 토큰 | TTL | 저장 위치 | 갱신 |

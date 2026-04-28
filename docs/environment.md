@@ -54,12 +54,9 @@ MINIO_CONSOLE_PORT=9001
 MINIO_ROOT_USER=minioadmin
 MINIO_ROOT_PASSWORD=minioadmin
 MINIO_BUCKET=stackup
-
-# ===== Redis =====
-REDIS_HOST=redis
-REDIS_PORT=6379
-REDIS_PASSWORD=
 ```
+
+> Redis 미사용 ([`architecture.md §4.5`](./architecture.md)).
 
 ---
 
@@ -97,18 +94,19 @@ AI_LOG_LEVEL=INFO
 
 # ===== LLM =====
 GEMINI_API_KEY=
-OPENAI_API_KEY=
+OPENAI_API_KEY=                   # Whisper STT에도 사용
 LLM_DEFAULT_PROVIDER=gemini       # gemini | openai
-LLM_PRO_MODEL=gemini-1.5-pro
-LLM_FLASH_MODEL=gemini-1.5-flash
+LLM_PRO_MODEL=gemini-3.1-pro
+LLM_FLASH_MODEL=gemini-3.1-flash
 
 # ===== Embedding =====
 EMBEDDING_MODEL=text-embedding-004
 EMBEDDING_DIM=768                 # 모델별 차원수 (DB 스키마와 일치 필수)
 
-# ===== STT/TTS (Phase 2) =====
-STT_PROVIDER=                     # 결정 시 추가
-TTS_PROVIDER=
+# ===== STT/TTS =====
+STT_PROVIDER=whisper-api          # whisper-api | whisper-self-hosted
+WHISPER_MODEL=whisper-1           # OpenAI Whisper API 모델
+TTS_PROVIDER=                     # 결정 시 추가
 ```
 
 ---
@@ -134,8 +132,6 @@ VITE_SENTRY_DSN=                    # 옵션
 ```dotenv
 REALTIME_PORT=9090
 CORE_SERVER_BASE_URL=http://core:8080
-REDIS_HOST=redis
-REDIS_PORT=6379
 ```
 
 ---
@@ -178,7 +174,7 @@ public record SecurityProperties(
 ```python
 class Settings(BaseSettings):
     GEMINI_API_KEY: str  # required
-    LLM_PRO_MODEL: str = "gemini-1.5-pro"
+    LLM_PRO_MODEL: str = "gemini-3.1-pro"
     model_config = SettingsConfigDict(env_file=".env")
 ```
 

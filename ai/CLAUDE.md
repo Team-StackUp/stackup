@@ -106,8 +106,9 @@ async def consume_resume_analyze(message: AbstractIncomingMessage) -> None:
 ```
 
 ### 멱등 처리
-- envelope의 `messageId`를 Redis (`processed:msg:{id}` TTL 24h)에 기록
+- envelope의 `messageId`를 PostgreSQL `processed_messages` 테이블 (Core API 경유) 또는 AI 프로세스 인메모리 LRU 캐시에 기록
 - 이미 존재하면 skip + ACK
+- (Redis 미사용 — DB 1쿼리 부담을 감수하거나, 인메모리만 쓰고 재시작 시 RabbitMQ delivery_tag로 보조)
 
 ---
 
@@ -116,8 +117,8 @@ async def consume_resume_analyze(message: AbstractIncomingMessage) -> None:
 ### 6.1 모델 선택
 | 시점 | 모델 | 용도 |
 |------|------|------|
-| 세션 시작 | Pro (Gemini 1.5 Pro 기본) | 질문 풀 (품질) |
-| 세션 중 | Flash (Gemini 1.5 Flash) | 꼬리질문 (저지연 < 3s) |
+| 세션 시작 | Pro (Gemini 3.1 Pro 기본) | 질문 풀 (품질) |
+| 세션 중 | Flash (Gemini 3.1 Flash) | 꼬리질문 (저지연 < 3s) |
 | 분석 (이력서/레포) | Pro | 마크다운 구조화 |
 
 설정은 `settings.py` + 환경변수로 모델명 주입 (코드에 하드코딩 금지).
@@ -166,8 +167,12 @@ chain = prompt | llm | StructuredOutputParser(schema=...)
 
 ## 8. 음성 처리 (Phase 2)
 
-- STT/TTS 제공자 미정 → 도입 시 본 섹션 갱신
-- 추상화 계층 두기: `voice/stt/base.py` (interface), `voice/stt/{provider}.py`
+- **STT: OpenAI Whisper API 채택** (한국어 + 개발 영어 혼용 환경 정확도 우수)
+  - 비용: $0.006 / 분 (1시간 면접 ≈ ₩500 / USD ≈ $0.36)
+  - 셀프호스팅 옵션: `whisper.cpp` 또는 `faster-whisper` (GPU 권장, 비용 ↓ but 운영 부담 ↑)
+  - 브라우저 내장 SpeechRecognition API는 정확도 부족으로 채택 안 함
+- TTS 제공자 미정 → 도입 시 본 섹션 갱신
+- 추상화 계층 두기: `voice/stt/base.py` (interface), `voice/stt/whisper_api.py`, `voice/tts/{provider}.py`
 - 분석:
   - WPM = words / minutes
   - 간투어: 한국어 정규식 `r"\b(음+|어+|그+)\b"` 카운트
@@ -189,8 +194,8 @@ class Settings(BaseSettings):
     s3_bucket_name: str
     openai_api_key: str = ""
     google_api_key: str = ""
-    llm_pro_model: str = "gemini-1.5-pro"
-    llm_flash_model: str = "gemini-1.5-flash"
+    llm_pro_model: str = "gemini-3.1-pro"
+    llm_flash_model: str = "gemini-3.1-flash"
     embedding_model: str = "text-embedding-004"
     embedding_dim: int = 768
     core_server_base_url: str = "http://core:8080"

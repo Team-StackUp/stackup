@@ -105,7 +105,7 @@ async def trace_middleware(request, call_next):
 
 ```
 request_type    예: 'session.followup', 'resume.analyze'
-model_name      예: 'gemini-1.5-pro', 'gpt-4o-mini'
+model_name      예: 'gemini-3.1-pro', 'gemini-3.1-flash', 'whisper-1'
 input_tokens    토큰 카운트
 output_tokens
 latency_ms
@@ -159,8 +159,7 @@ GET /api/system/health
   "status": "UP",
   "components": {
     "database":  { "status": "UP" },
-    "redis":     { "status": "UP" },
-    "rabbitmq":  { "status": "UP", "details": { "queues": 5 } },
+    "rabbitmq":  { "status": "UP", "details": { "queues": 6 } },
     "s3":        { "status": "UP" },
     "aiServer":  { "status": "UP", "details": { "endpoint": "..." } }
   }

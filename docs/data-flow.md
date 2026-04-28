@@ -9,21 +9,21 @@
 ```
 [사용자] 레포 선택
   → [Core] repositories INSERT (status=PENDING)
-  → [Core] RabbitMQ publish: ai.request.repo.analyze
+  → [Core] RabbitMQ publish: stackup.core-to-ai / analyze.repository
   → [AI] consume → GitHub API (파일 구조 + README + 주요 코드)
-  → [AI] LLM 호출 → 프로젝트 요약 마크다운 생성
+  → [AI] LLM 호출 (Gemini 3.1 Pro) → 프로젝트 요약 마크다운 생성
   → [AI] S3 PUT: analyzed/repository/{repo_id}/summary.md
   → [AI] 청킹 → 임베딩 → pgvector INSERT (Core API 경유)
-  → [AI] RabbitMQ publish: ai.callback.repo.analyzed
+  → [AI] RabbitMQ publish: stackup.ai-to-core / callback.analysis
   → [Core] consume → analyzed_documents INSERT
                   → repositories.status = ANALYZED
-  → [Core] SSE broadcast: { type: 'REPO_ANALYZED', repo_id }
-  → [Frontend] 상태 자동 갱신
+  → [Core] SSE broadcast: { type: 'REPO_STATE', state: 'ANALYZED', repositoryId }
+  → [Frontend] EventSource 수신 → 상태 자동 갱신
 ```
 
 **실패 시**:
-- AI 분석 실패 → `ai.callback.repo.failed` 발행 → `repositories.status = FAILED`
-- DLQ(Dead Letter Queue)로 이동, 운영자 수동 재시도
+- AI 분석 실패 → `callback.analysis` 발행 (`status: FAILED`) → `repositories.status = FAILED`
+- 재시도 한도 초과 시 DLQ 이동, 운영자 수동 재시도
 
 ---
 
@@ -33,12 +33,12 @@
 [사용자] PDF 업로드
   → [Core] S3 PUT: resumes/raw/{user_id}/{uuid}.pdf
   → [Core] resumes INSERT (status=PENDING, file_path=S3 key)
-  → [Core] RabbitMQ publish: ai.request.resume.analyze
+  → [Core] RabbitMQ publish: stackup.core-to-ai / analyze.resume
   → [AI] consume → S3 GET (PDF) → 텍스트 추출
-  → [AI] LLM → 마크다운 변환 (기술 스택, 경력, 프로젝트 구조화)
+  → [AI] LLM (Gemini 3.1 Pro) → 마크다운 변환 (기술 스택, 경력, 프로젝트 구조화)
   → [AI] S3 PUT: analyzed/resume/{resume_id}/summary.md
-  → [AI] 청킹 → 임베딩 → pgvector INSERT
-  → [AI] RabbitMQ publish: ai.callback.resume.analyzed
+  → [AI] 청킹 → 임베딩 → pgvector INSERT (Core API 경유)
+  → [AI] RabbitMQ publish: stackup.ai-to-core / callback.analysis
   → [Core] analyzed_documents INSERT (summary, tech_stack JSONB)
         → resumes.status = ANALYZED
   → [Frontend] SSE 수신 → UI 갱신
@@ -54,30 +54,32 @@
 [사용자] 세션 설정 (모드/유형/직군/최대 질문 수/참조 문서)
   → [Core] interview_sessions INSERT (status=READY)
         → session_contexts INSERT (선택된 analyzed_documents 연결)
-  → [Core] RabbitMQ publish: ai.request.session.questionPool (Pro 모델)
-  → [AI] RAG 검색 (pgvector 유사도) → 컨텍스트 추출
-  → [AI] Pro 모델 → 질문 풀 생성 (10~15개)
-  → [AI] RabbitMQ publish: ai.callback.session.questionPool
-  → [Core] 질문 풀을 Redis에 캐싱 (TTL=세션 max_duration)
+  → [Core] RabbitMQ publish: stackup.core-to-ai / generate.questions
+  → [AI] RAG 검색 (pgvector 유사도, Core API 경유) → 컨텍스트 추출
+  → [AI] Gemini 3.1 Pro → 질문 풀 생성 (10~15개)
+  → [AI] RabbitMQ publish: stackup.ai-to-core / callback.questions (kind=POOL)
+  → [Core] 질문 풀을 interview_sessions row 또는 별도 테이블에 저장
+        (Redis 미사용 — 세션 단위 데이터이므로 PG로 충분)
 ```
 
 ### 3.2 질문-답변 사이클 (반복)
 
 ```
-[RealTime] WebSocket → 첫 질문 전송
+[Core/RealTime] SSE → 첫 질문 push
   → [Frontend] 표시 + 마이크 활성화
   → [사용자] 음성 답변 (Phase 2) 또는 텍스트
   → [Frontend] (음성 모드) WebRTC stream → RealTime
-  → [RealTime] STT 청크 단위 → 최종 텍스트
-  → [RealTime] Core REST: POST /api/sessions/{id}/messages
+        ㄴ Phase 2 RealTime 분리 전: 청크를 REST POST로 업로드
+  → [AI] Whisper API → 텍스트 변환
+  → [Frontend → Core] POST /api/sessions/{id}/messages (텍스트 답변)
   → [Core] interview_messages INSERT (role=INTERVIEWEE, parent=직전 질문)
-  → [Core] RabbitMQ publish: ai.request.session.followup (Flash + RAG)
-  → [AI] 답변 평가 + 꼬리질문 생성
-        → 답변 음성이면 음성 분석도 병행
-  → [AI] RabbitMQ publish: ai.callback.session.followup
+  → [Core] RabbitMQ publish: stackup.core-to-ai / generate.followup
+  → [AI] 답변 평가 + 꼬리질문 생성 (Gemini 3.1 Flash + RAG)
+        → 답변이 음성이면 음성 분석도 병행
+  → [AI] RabbitMQ publish: stackup.ai-to-core / callback.questions (kind=FOLLOWUP)
   → [Core] interview_messages INSERT (role=INTERVIEWER, 꼬리질문)
         → message_voice_analyses INSERT (음성 모드일 경우)
-  → [RealTime] WebSocket → 다음 질문 전송
+  → [Core] SSE → 다음 질문 push
 ```
 
 ### 3.3 세션 종료
@@ -85,10 +87,10 @@
 ```
 [사용자] 종료 버튼  OR  최대 질문/시간 도달
   → [Core] interview_sessions.status = COMPLETED, ended_at = now()
-  → [Core] RabbitMQ publish: ai.request.session.feedback
-  → [AI] 전체 메시지 + 음성 분석 → 종합 평가
+  → [Core] RabbitMQ publish: stackup.core-to-ai / generate.feedback (예정)
+  → [AI] 전체 메시지 + 음성 분석 → 종합 평가 (Gemini 3.1 Pro)
   → [AI] S3 PUT: feedback/{session_id}/report.md
-  → [AI] RabbitMQ publish: ai.callback.session.feedback
+  → [AI] RabbitMQ publish: stackup.ai-to-core / callback.feedback (예정)
   → [Core] session_feedbacks INSERT
   → [Frontend] SSE → 리포트 페이지 자동 라우팅
 ```
@@ -98,11 +100,14 @@
 ## 4. 인증 흐름 (US-01)
 
 ```
-[Frontend] /api/auth/github 호출 (state 동봉)
-  → [Core] GitHub OAuth URL 발급 → 302 redirect
-  → [GitHub] 사용자 동의 → callback URL?code=xxx
-  → [Frontend] /api/auth/github/callback?code=xxx
-  → [Core] GitHub Token Exchange → access_token
+[Frontend] /api/auth/github 호출
+  → [Core] GitHub OAuth URL 발급 + state 발급
+        → state는 PostgreSQL `oauth_states` 테이블에 저장 (TTL 5분)
+        → 302 redirect
+  → [GitHub] 사용자 동의 → callback URL?code=xxx&state=yyy
+  → [Frontend] /api/auth/github/callback?code=xxx&state=yyy
+  → [Core] state 검증 (oauth_states 조회 + 만료 체크 + DELETE)
+        → GitHub Token Exchange → access_token
         → users UPSERT (github_id 기준, encrypted_github_access_token)
         → JWT access_token 발급 (15분)
         → JWT refresh_token 발급 → refresh_tokens INSERT (해시만 저장)
@@ -120,18 +125,21 @@
 
 ---
 
-## 5. 분석 상태 실시간 알림 (US-11)
+## 5. 분석 상태 실시간 알림 (US-11) — SSE 단일 경로
 
 ```
-[AI 작업 시작] → RabbitMQ publish: ai.status.* (QUEUED|PROCESSING|...)
-  → [Core] consume → Redis pub: stream:user:{user_id}
-  → [RealTime] subscribe Redis → SSE broadcast (user_id로 필터)
+[AI 작업 시작/진행/완료]
+  → AI Server: RabbitMQ publish (callback.analysis 등)
+  → [Core] consume → DB 상태 갱신 + 인메모리 채널로 push
+  → [Core] SSE 엔드포인트가 user별 구독자에게 broadcast
   → [Frontend] EventSource 수신 → 상태 UI 갱신
 
 SSE 끊김 시:
   → [Frontend] 자동 재연결 (EventSource 기본 동작)
   → [Frontend] 폴링 fallback: GET /api/documents/{id} (5초 간격)
 ```
+
+> 단일 Core 인스턴스에서는 인메모리 채널로 충분. 멀티 인스턴스 시점에 RabbitMQ fanout exchange 도입 (Redis 미사용 결정 — [`architecture.md §4.5`](./architecture.md))
 
 상세 이벤트 스펙은 [`event-stream.md`](./event-stream.md) 참조.
 

@@ -18,7 +18,7 @@
 | DB | PostgreSQL + pgvector |
 | Build | Gradle (Groovy DSL) |
 | Test | JUnit 5 + Spring Boot Test |
-| 추가 예정 | Spring Security, Spring AI, RabbitMQ starter, Redis, Flyway, springdoc-openapi |
+| 추가 예정 | Spring Security, RabbitMQ starter, Flyway, springdoc-openapi, **ArchUnit** (의존성 검증) |
 
 > 신규 의존성 추가 시 [`/docs/coding-conventions.md §6`](../docs/coding-conventions.md) 절차 + `build.gradle` 갱신.
 
@@ -231,8 +231,86 @@ spring.jpa.hibernate.ddl-auto=validate   # Flyway 사용 → validate
 
 - 단위: `*Test.java` (Spring 컨텍스트 X, 빠름)
 - 통합: `*IT.java` 또는 `*IntegrationTest.java` + Testcontainers (PG/RabbitMQ)
+- 아키텍처: `*ArchTest.java` (ArchUnit) — 의존성 방향·패키지 규칙 검증 (§16)
 - Builder 패턴으로 fixture (`UserBuilder.aUser()`)
 - 자세한 전략: [`/docs/testing-strategy.md`](../docs/testing-strategy.md)
+
+## 16. ArchUnit — 아키텍처 룰 자동 검증
+
+도메인 우선 패키지 구조 + 레이어 의존성 방향(§3)을 **빌드 단계에서 강제**한다. 사람의 리뷰가 놓치기 쉬운 위반을 컴파일/테스트로 차단.
+
+### 의존성 추가
+```gradle
+testImplementation 'com.tngtech.archunit:archunit-junit5:1.3.0'
+```
+
+### 권장 룰 (`src/test/java/com/stackup/stackup/architecture/ArchitectureTest.java`)
+
+```java
+@AnalyzeClasses(packages = "com.stackup.stackup",
+                importOptions = ImportOption.DoNotIncludeTests.class)
+class ArchitectureTest {
+
+    // 1. 도메인 패키지 의존 방향 (presentation → application → domain)
+    @ArchTest
+    static final ArchRule domain_should_not_depend_on_application_or_presentation =
+        noClasses().that().resideInAPackage("..domain..")
+            .should().dependOnClassesThat().resideInAnyPackage(
+                "..application..", "..presentation..", "..infrastructure..");
+
+    @ArchTest
+    static final ArchRule application_should_not_depend_on_presentation =
+        noClasses().that().resideInAPackage("..application..")
+            .should().dependOnClassesThat().resideInAPackage("..presentation..");
+
+    // 2. 컨트롤러는 서비스만 의존 (Repository 직접 호출 금지)
+    @ArchTest
+    static final ArchRule controllers_should_not_use_repositories =
+        noClasses().that().resideInAPackage("..presentation..")
+            .should().dependOnClassesThat().areAssignableTo(JpaRepository.class);
+
+    // 3. Entity setter 노출 금지
+    @ArchTest
+    static final ArchRule entities_should_not_have_public_setters =
+        noMethods().that().areDeclaredInClassesThat()
+            .areAnnotatedWith(Entity.class)
+            .should().bePublic().andShould().haveNameStartingWith("set");
+
+    // 4. 도메인 간 순환 의존 금지
+    @ArchTest
+    static final ArchRule no_cyclic_dependencies_between_domains =
+        slices().matching("com.stackup.stackup.(*)..").should().beFreeOfCycles();
+
+    // 5. @Transactional은 application(service) 레이어에서만
+    @ArchTest
+    static final ArchRule transactional_only_in_application_layer =
+        classes().that().areAnnotatedWith(Transactional.class)
+            .should().resideInAPackage("..application..");
+
+    // 6. JPA 엔티티는 domain 패키지에만
+    @ArchTest
+    static final ArchRule entities_should_reside_in_domain_package =
+        classes().that().areAnnotatedWith(Entity.class)
+            .should().resideInAPackage("..domain..");
+
+    // 7. Native query 사용 금지 (필요시 specific 케이스만 화이트리스트)
+    @ArchTest
+    static final ArchRule no_native_query_outside_whitelist =
+        noClasses().that().resideOutsideOfPackages(
+                "..document.infrastructure..")  // pgvector 검색은 예외
+            .should().dependOnClassesThat().haveNameMatching(".*NativeQuery.*");
+}
+```
+
+### CI 통합
+- `./gradlew test` 에 자동 포함됨 (별도 task 분리 불필요)
+- 위반 발견 시 빌드 실패 → PR 머지 차단
+- 신규 룰 추가 시 기존 코드를 `freeze` (당장 위반은 허용, 신규는 차단)할 수도 있음 (`FreezingArchRule`)
+
+### 룰 진화 원칙
+- **합의된 규약만 코드화**. 본 문서/도메인 패키지 가이드에 적힌 것만 ArchUnit에 옮긴다.
+- 위반이 정당화될 때는 룰을 풀기보다 **예외 패키지 명시** (위 §7 native query처럼)
+- 룰 추가 PR은 본 문서·도메인 가이드 동시 갱신
 
 ---
 
@@ -279,6 +357,7 @@ docker compose up -d
 - Spring Security 미도입 → US-01 작업 시 도입
 - RabbitMQ starter 미도입 → US-09 작업 시 도입
 - Flyway 미도입 → 첫 entity 작성 PR에서 도입
-- Spring AI 추가 검토 (벡터 검색을 Core가 제공한다면)
+- **Spring AI 미사용** — LLM·임베딩 호출은 모두 AI 서버 위임. Core는 RabbitMQ 발행만 담당.
+- **Redis 미사용** — 휘발성 데이터는 DB short-lived 레코드 또는 인메모리로.
 
 각 도입 시 본 문서 §1, 관련 도메인 `CLAUDE.md` 갱신.

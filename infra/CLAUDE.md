@@ -37,7 +37,7 @@ docker-compose.yml         # 모든 인프라 서비스 + 헬스체크
 | `minio` | `minio/minio` (커스텀 빌드) | 9000 / 9001 | S3 호환 객체 스토리지 |
 | `minio-init` | `minio/mc` | — | 부트스트랩: 버킷 생성 후 종료 |
 
-> **Redis는 아직 docker-compose에 미포함**. 세션 ephemeral state, SSE pub/sub, 멱등 키 도입 시 추가 예정.
+> **Redis 미사용** — 휘발성 데이터(OAuth state, 멱등 키, 질문 풀 캐시)는 PostgreSQL의 short-lived 레코드 또는 Core 서버 인메모리로 처리. 본 의사결정 배경: 컴포넌트 단순화 (1개 줄임), 운영 부담 감소.
 > **AI 서버, Core 서버는 docker-compose 미포함** (현재는 호스트에서 직접 실행). 향후 추가 시 본 표에 등록.
 
 ---
@@ -235,8 +235,8 @@ docker system df
 
 ## 11. 새 인프라 추가 절차
 
-예: Redis 추가 시
-1. `infra/redis/Dockerfile` (필요 시) + 설정 파일
+예: 새 컴포넌트(예: Elasticsearch) 추가 시
+1. `infra/{name}/Dockerfile` (필요 시) + 설정 파일
 2. `docker-compose.yml`에 서비스 추가 (포트, healthcheck, volume)
 3. `.env.example` 변수 추가
 4. 본 문서 §2, §7 갱신
