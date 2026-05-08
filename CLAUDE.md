@@ -41,10 +41,9 @@ PostgreSQL+pgvector  ·  S3/MinIO
 |--------|------|------|
 | 프론트엔드 | [`frontend/CLAUDE.md`](./frontend/CLAUDE.md) | React 19 + TypeScript + Vite, FSD 구조 |
 | 백엔드 (Core) | [`backend/CLAUDE.md`](./backend/CLAUDE.md) | Java 21 + Spring Boot 4 + JPA + QueryDSL |
+| RealTime 서버 | [`realtime/CLAUDE.md`](./realtime/CLAUDE.md) | Go 1.26 + chi + amqp091-go, SSE/WebSocket |
 | AI 서버 | [`ai/CLAUDE.md`](./ai/CLAUDE.md) | Python 3.13 + FastAPI + LangChain |
 | 인프라 | [`infra/CLAUDE.md`](./infra/CLAUDE.md) | Docker Compose: PG(+pgvector), RabbitMQ, MinIO |
-
-> **RealTime Server (Go)** 는 아직 구현 디렉토리 없음. 추가 시 `realtime/CLAUDE.md` 생성.
 
 각 레이어 하위 슬라이스/도메인 패키지에도 `CLAUDE.md`가 배치되어 있을 수 있다. 작업할 디렉토리에서 가장 가까운 것을 우선 읽는다.
 
@@ -144,9 +143,9 @@ cd frontend && npm install && npm run dev
 - Phase 1 (MVP) 진행 중. US-01 ~ US-20 우선.
 - 디자인 시스템 토큰 파일 미생성 — 디자인 적용 첫 PR에서 `frontend/src/app/styles/tokens.css` 생성.
 - Spring Security, RabbitMQ starter, Flyway는 백엔드 기능 작성 PR과 함께 도입.
-- `infra/rabbitmq/definitions.json`은 현재 큐 6개 정의 (resume/repo 분석, questions/followup 생성, 콜백 2개). 피드백 큐는 US-24 작업 시 추가.
+- `infra/rabbitmq/definitions.json`은 현재 exchange 3개 (`stackup.core-to-ai`, `stackup.ai-to-core`, `stackup.realtime`), 큐 7개 정의. 피드백 큐는 US-24 작업 시 추가.
 - **Redis 미사용** — 휘발성 데이터(OAuth state, 멱등 키, 질문 풀 캐시)는 PostgreSQL의 short-lived 레코드 또는 Core 서버 인메모리로 처리.
-- 실시간 푸시는 **SSE 단일화** (양방향 WebSocket 미사용). 미디어 스트림만 WebRTC.
-- `RealTime Server (Go)`는 아직 디렉토리 없음. SSE/WebRTC가 필요한 시점에 작성.
+- 실시간 푸시는 **SSE + WebSocket 병행**. SSE는 작업 상태(RT2), WebSocket은 라이브 면접 메시지(RT1) 및 음성 스트림(RT3). 미디어 시그널링은 추후 WebRTC 도입 시점에 검토.
+- `RealTime Server (Go)`는 `realtime/` 디렉토리에 부트스트랩 완료. 현재 SSE만 활성, WS 엔드포인트는 US-Session-03 / US-Voice-01에서 도입.
 
 문서 변경 원칙: 코드와 함께 같은 PR에 포함. 단일 출처 원칙(SSOT) 유지.
