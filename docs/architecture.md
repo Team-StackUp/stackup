@@ -87,14 +87,13 @@
 - **AI → Core**: `stackup.ai-to-core` exchange
 - 메시지 envelope·routing key·재시도: [`messaging.md`](./messaging.md)
 
-### 3.3 실시간 푸시 (SSE 단일화)
+### 3.3 실시간 푸시 (SSE + WebSocket)
 
-- **Frontend ← Core (또는 RealTime)**: SSE — AI 작업 상태, 면접 메시지 push
-- **WebSocket 미사용** — 양방향 채널이 필요 없는 시나리오는 SSE가 더 효율적:
-  - 트래픽: HTTP/2 multiplexing 친화적
-  - 인프라: 추가 컴포넌트(WS 서버, 핸드셰이크) 불필요
-  - 클라이언트: 브라우저 EventSource가 자동 재연결
-  - 단방향만 필요 (서버 → 클라이언트). 클라이언트 → 서버는 일반 REST POST로 충분
+- **SSE (작업 상태)**: Frontend ← RealTime — AI 분석 진행 상태, 세션 알림. 단방향, EventSource 자동 재연결.
+- **WebSocket (라이브 면접)**: Frontend ↔ RealTime — RT1은 면접 메시지 양방향 (FE answer → RealTime → Core `/internal/messages`), RT3은 음성 스트림.
+- **선택 기준**:
+  - 단방향 push만 필요 → SSE (트래픽·인프라 단순, 자동 재연결)
+  - 양방향 + 저지연 필요 (라이브 면접, 음성) → WebSocket
 - 이벤트 스펙: [`event-stream.md`](./event-stream.md)
 
 ### 3.4 미디어 (WebRTC)

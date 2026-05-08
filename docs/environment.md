@@ -129,14 +129,35 @@ VITE_SENTRY_DSN=                    # 옵션
 
 ## 6. RealTime Server 환경 변수
 
-```dotenv
-REALTIME_PORT=9090
-CORE_SERVER_BASE_URL=http://core:8080
-```
+| 변수 | 기본값 | 용도 |
+|------|--------|------|
+| `REALTIME_LISTEN_ADDR` | `:8081` | HTTP 리슨 |
+| `REALTIME_RABBITMQ_URL` | `amqp://stackup:stackup@localhost:5672/` | AMQP 연결 |
+| `REALTIME_LOG_LEVEL` | `info` | slog 레벨 (debug/info/warn/error) |
+| `REALTIME_QUEUE_NAME` | `q.realtime.session.notify` | 구독 큐 |
+| `REALTIME_SSE_PING_INTERVAL` | `30s` | SSE heartbeat 주기 |
+| `REALTIME_SSE_SLOW_CONSUMER_TIMEOUT` | `5s` | 구독자 send timeout |
+| `REALTIME_SSE_BUFFER_SIZE` | `16` | 구독자별 채널 버퍼 |
+
+루트 `.env.example`은 `REALTIME_PORT`, `REALTIME_LOG_LEVEL` 만 노출 (compose에서 매핑).
 
 ---
 
-## 7. .env 파일 관리 룰
+## 7. AI Server (메시징)
+
+| 변수 | 기본값 | 용도 |
+|------|--------|------|
+| `RABBITMQ_URL` | `amqp://stackup:stackup@localhost:5672/` | AMQP 연결 |
+| `AI_QUEUE_RESUME` | `ai.analyze.resume` | 이력서 분석 큐 |
+| `AI_QUEUE_PREFETCH` | `10` | consumer prefetch |
+| `AI_CALLBACK_EXCHANGE` | `stackup.ai-to-core` | 콜백 발행 exchange |
+| `AI_CALLBACK_ROUTING_ANALYSIS` | `callback.analysis` | 콜백 routing key |
+| `AI_PUBLISHER_NAME` | `ai-server` | envelope.publisher 값 |
+| `AI_IDEMPOTENCY_LRU_SIZE` | `1024` | LRU 멱등 캐시 크기 |
+
+---
+
+## 8. .env 파일 관리 룰
 
 - `.env.example` (루트, frontend, ai 각각): **커밋 O** — 키 이름 + dummy 값
 - `.env`, `.env.local`, `.env.production`: **커밋 X** — `.gitignore`로 차단
@@ -144,7 +165,7 @@ CORE_SERVER_BASE_URL=http://core:8080
 
 ---
 
-## 8. 비밀 관리 (운영)
+## 9. 비밀 관리 (운영)
 
 | 환경 | 저장소 |
 |------|--------|
@@ -156,7 +177,7 @@ CORE_SERVER_BASE_URL=http://core:8080
 
 ---
 
-## 9. 설정 검증
+## 10. 설정 검증
 
 서비스 부팅 시점에 필수 환경변수 검증:
 
@@ -182,7 +203,7 @@ class Settings(BaseSettings):
 
 ---
 
-## 10. 개발 환경 부트스트랩
+## 11. 개발 환경 부트스트랩
 
 ```bash
 cp .env.example .env                    # 루트
