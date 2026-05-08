@@ -16,6 +16,13 @@
       "type": "topic",
       "durable": true,
       "auto_delete": false
+    },
+    {
+      "name": "stackup.realtime",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false
     }
   ],
   "queues": [
@@ -56,6 +63,13 @@
     },
     {
       "name": "core.callback.questions",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "q.realtime.session.notify",
       "vhost": "/",
       "durable": true,
       "auto_delete": false,
@@ -104,6 +118,13 @@
       "destination": "core.callback.questions",
       "destination_type": "queue",
       "routing_key": "callback.questions"
+    },
+    {
+      "source": "stackup.realtime",
+      "vhost": "/",
+      "destination": "q.realtime.session.notify",
+      "destination_type": "queue",
+      "routing_key": "realtime.session.*"
     }
   ]
 }
