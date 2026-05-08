@@ -1,29 +1,22 @@
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
-from pydantic.alias_generators import to_camel
+from pydantic import BaseModel
+
+from ai_server.model._config import camel_config
 
 TargetType = Literal["RESUME", "REPOSITORY"]
 AnalysisStatus = Literal["ANALYZED", "FAILED"]
 
 
-def _camel_config() -> ConfigDict:
-    return ConfigDict(
-        alias_generator=to_camel,
-        populate_by_name=True,
-        extra="ignore",
-    )
-
-
 class ResumeAnalyzeRequest(BaseModel):
-    model_config = _camel_config()
+    model_config = camel_config()
 
     resume_id: int
     s3_key: str
 
 
 class AnalysisCallbackPayload(BaseModel):
-    model_config = _camel_config()
+    model_config = camel_config()
 
     target_type: TargetType
     target_id: int
