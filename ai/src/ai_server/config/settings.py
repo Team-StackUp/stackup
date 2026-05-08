@@ -16,6 +16,14 @@ class Settings(BaseSettings):
     # RabbitMQ
     rabbitmq_url: str = "amqp://stackup:stackup@localhost:5672/"
 
+    # AI consumer
+    ai_queue_resume: str = "ai.analyze.resume"
+    ai_queue_prefetch: int = 10
+    ai_callback_exchange: str = "stackup.ai-to-core"
+    ai_callback_routing_analysis: str = "callback.analysis"
+    ai_publisher_name: str = "ai-server"
+    ai_idempotency_lru_size: int = 1024
+
     # S3 / MinIO
     s3_endpoint_url: str = "http://localhost:9000"
     s3_access_key: str = ""
