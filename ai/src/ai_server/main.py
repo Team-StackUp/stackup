@@ -1,17 +1,28 @@
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
+import structlog
 from fastapi import FastAPI
 
 from ai_server.api.health import router as health_router
 from ai_server.config.settings import Settings, get_settings
+from ai_server.messaging.runner import MessagingRuntime
+
+log = structlog.get_logger(__name__)
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    # Startup
-    yield
-    # Shutdown
+def _build_lifespan(settings: Settings):
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+        runtime = MessagingRuntime(settings)
+        await runtime.start()
+        app.state.messaging = runtime
+        try:
+            yield
+        finally:
+            await runtime.stop()
+
+    return lifespan
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -21,7 +32,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(
         title=settings.app_name,
         version=settings.app_version,
-        lifespan=lifespan,
+        lifespan=_build_lifespan(settings),
     )
 
     app.include_router(health_router)
