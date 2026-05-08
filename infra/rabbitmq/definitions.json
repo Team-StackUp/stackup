@@ -2,6 +2,23 @@
   "vhosts": [
     { "name": "/" }
   ],
+  "users": [
+    {
+      "name": "stackup",
+      "password_hash": "+ViZ+UsTDxbQQtWjjlb/NrzNcJhbD+oLu9wxpxeAk0gvTgue",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": ["administrator"]
+    }
+  ],
+  "permissions": [
+    {
+      "user": "stackup",
+      "vhost": "/",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    }
+  ],
   "exchanges": [
     {
       "name": "stackup.core-to-ai",
