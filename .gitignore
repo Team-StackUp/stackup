@@ -1,5 +1,6 @@
 .vscode
 .claude
 
-# Local worktrees for parallel feature development
 .worktrees/
+.env
+!.env.example
