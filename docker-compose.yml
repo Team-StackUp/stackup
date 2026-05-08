@@ -99,7 +99,7 @@ services:
       rabbitmq:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8081/health"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8081/health"]
       interval: 10s
       timeout: 5s
       retries: 5
