@@ -51,8 +51,49 @@
   --color-primary-pressed: var(--color-sage-700);
 
   /* =========================================================
-   * 4. Typography — Font Families
-   *    font-heading, font-subheading, font-sans
+   * 4. Color — Status (Success / Warning / Danger / Info)
+   *    Sage 톤과 조화되는 muted jewel tones.
+   *    스케일: -50 (연한 배경), -500 (기본/표면), -700 (강조/텍스트)
+   *    축약 별칭: bg-success / text-warning / border-danger ...
+   * ========================================================= */
+  --color-success-50: #e8efe1;
+  --color-success-500: #5b7c47;
+  --color-success-700: #3f5731;
+  --color-success: var(--color-success-500);
+
+  --color-warning-50: #f4e8d4;
+  --color-warning-500: #b88840;
+  --color-warning-700: #8a6529;
+  --color-warning: var(--color-warning-500);
+
+  --color-danger-50: #f4e0d8;
+  --color-danger-500: #a8503c;
+  --color-danger-700: #803a2a;
+  --color-danger: var(--color-danger-500);
+
+  --color-info-50: #dde4ea;
+  --color-info-500: #4d6878;
+  --color-info-700: #36475a;
+  --color-info: var(--color-info-500);
+
+  /* =========================================================
+   * 5. Color — Domain (Jobs / Interview Types)
+   *    StackUp 도메인 한정. features/[domain]/ui 의 도메인 뱃지에서만 사용.
+   *    Sage 모노크로매틱과 조화되도록 muted jewel tone 으로 통일.
+   * ========================================================= */
+  --color-job-frontend: #5e8a98; /* teal */
+  --color-job-backend:  #7d6c93; /* plum */
+  --color-job-infra:    #b06c70; /* rose */
+  --color-job-dba:      #b89c5e; /* gold */
+
+  --color-type-personality: #6f9978; /* mint */
+  --color-type-technical:   #6c8294; /* slate */
+  --color-type-live-coding: #a87385; /* mauve */
+  --color-type-integrated:  #8a7896; /* violet */
+
+  /* =========================================================
+   * 6. Typography — Font Families
+   *    font-heading, font-subheading, font-sans, font-mono
    * ========================================================= */
   --font-heading:
     'Fira Sans Extra Condensed', 'Pretendard Variable', system-ui, sans-serif;
@@ -68,9 +109,9 @@
     'Geist Mono', ui-monospace, 'JetBrains Mono', Consolas, monospace;
 
   /* =========================================================
-   * 5. Typography — Text Scale
-   *    text-display, text-h1 ... text-caption
-   *    (각 토큰은 size + line-height + letter-spacing + weight 페어)
+   * 7. Typography — Text Scale
+   *    text-display / text-h2..h6 / text-rich / text-body / text-button / text-caption
+   *    각 토큰은 size + line-height + letter-spacing + font-weight 페어.
    *
    *    반응형: 모바일 (< lg) 에서는 *-mobile 변형을 사용.
    *      ex) <h1 class="text-display-mobile lg:text-display">
@@ -144,7 +185,7 @@
   --text-caption--font-weight: 400;
 
   /* =========================================================
-   * 6. Radius
+   * 8. Radius
    * ========================================================= */
   --radius-sm: 4px;
   --radius-md: 8px;
@@ -154,7 +195,8 @@
   --radius-pill: 9999px;
 
   /* =========================================================
-   * 7. Shadow / Elevation
+   * 9. Shadow / Elevation (sage-tint)
+   *    shadow-sm, shadow-md, shadow-lg, shadow-focus-ring
    * ========================================================= */
   --shadow-sm: 0 1px 2px rgba(31, 39, 27, 0.06);
   --shadow-md:
@@ -166,7 +208,8 @@
   --shadow-focus-ring: 0 0 0 3px rgba(98, 110, 92, 0.45);
 
   /* =========================================================
-   * 8. Motion
+   * 10. Motion
+   *    duration-fast/normal/slow, ease-standard/decelerate/accelerate
    * ========================================================= */
   --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-decelerate: cubic-bezier(0, 0, 0.2, 1);
@@ -177,8 +220,31 @@
   --duration-slow: 320ms;
 
   /* =========================================================
-   * 9. Breakpoints (Tailwind v4 default 유지 + 확장 시 여기에)
-   *    Tailwind v4 는 sm/md/lg/xl/2xl 을 기본 제공.
-   *    필요 시 --breakpoint-* 로 재정의.
+   * 11. Z-Index Scale
+   *    `--z-*` 는 Tailwind 자동 namespace 가 아니므로 utility 미생성.
+   *    사용 — style={{ zIndex: 'var(--z-modal)' }} 또는 className="z-[var(--z-modal)]"
+   * ========================================================= */
+  --z-base: 0;
+  --z-raised: 10;
+  --z-dropdown: 1000;
+  --z-sticky: 1100;
+  --z-modal-backdrop: 1200;
+  --z-modal: 1300;
+  --z-popover: 1400;
+  --z-tooltip: 1500;
+  --z-toast: 1600;
+
+  /* =========================================================
+   * 12. Container max-widths (Tailwind v4 max-w-*)
+   *    max-w-readable, max-w-content, max-w-app
+   * ========================================================= */
+  --container-readable: 65ch;   /* 본문 / 프로즈 카드 */
+  --container-content: 1280px;  /* TopNav 안쪽 메인 영역 */
+  --container-app: 1440px;      /* 앱 전체 최대 폭 */
+
+  /* =========================================================
+   * 13. Breakpoints
+   *    Tailwind v4 default 사용 — sm 640 / md 768 / lg 1024 / xl 1280 / 2xl 1536.
+   *    재정의 필요 시 --breakpoint-* 로 오버라이드.
    * ========================================================= */
 }
