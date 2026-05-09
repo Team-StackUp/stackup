@@ -1,0 +1,60 @@
+/**
+ * Global base styles.
+ *  - html/body 기본
+ *  - 접근성 기본 (focus-visible, prefers-reduced-motion)
+ *
+ * Google Fonts (Fira Sans Extra Condensed, Geist, Geist Mono, Inter) 는
+ * `index.html` 의 `<link>` 로 로드 (성능상 CSS @import url 보다 권장).
+ */
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    color: var(--color-fg);
+    background-color: var(--color-bg);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-synthesis: none;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100svh;
+  }
+
+  h1, h2, h3 {
+    font-family: var(--font-heading);
+    color: var(--color-fg-strong);
+    text-transform: uppercase;
+    margin: 0;
+  }
+
+  h4, h5, h6 {
+    font-family: var(--font-subheading);
+    color: var(--color-fg-strong);
+    margin: 0;
+  }
+
+  p {
+    margin: 0;
+  }
+
+  code, kbd, pre, samp {
+    font-family: var(--font-mono);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
