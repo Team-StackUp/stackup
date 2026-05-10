@@ -4,6 +4,8 @@ import com.stackup.stackup.common.entity.BaseSoftDeleteEntity;
 import com.stackup.stackup.user.domain.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -12,16 +14,20 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Getter
 @Entity
 @Table(
         name = "repositories",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uq_repositories_user_github_repo", columnNames = {"user_id", "github_repo_id"})
+        },
         indexes = {
                 @Index(name = "idx_repositories_user_id", columnList = "user_id")
         }
@@ -53,8 +59,9 @@ public class GithubRepository extends BaseSoftDeleteEntity {
     private String defaultBranch = "main";
 
     @Column(nullable = false, length = 20)
-    private String status = "PENDING";
+    @Enumerated(EnumType.STRING)
+    private RepositoryStatus status = RepositoryStatus.PENDING;
 
     @Column(name = "last_synced_at")
-    private LocalDateTime lastSyncedAt;
+    private Instant lastSyncedAt;
 }
