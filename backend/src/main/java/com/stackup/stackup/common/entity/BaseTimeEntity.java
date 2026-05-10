@@ -5,7 +5,7 @@ import jakarta.persistence.MappedSuperclass;
 import lombok.Getter;
 import org.hibernate.annotations.CreationTimestamp;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Getter
 @MappedSuperclass
@@ -13,5 +13,5 @@ public abstract class BaseTimeEntity {
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
-    protected LocalDateTime createdAt;
+    protected Instant createdAt;
 }
