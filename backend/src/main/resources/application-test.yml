@@ -1,0 +1,17 @@
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
+      - org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration
+      - org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+app:
+  security:
+    jwt-secret: test-jwt-secret
+    encryption-key: test-encryption-key
+  github:
+    client-id: test-github-client-id
+    client-secret: test-github-client-secret
