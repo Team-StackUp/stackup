@@ -39,6 +39,6 @@ public class User extends BaseSoftDeleteEntity {
     @Column(name = "avatar_url", length = 500)
     private String avatarUrl;
 
-    @Column(name = "github_access_token", nullable = false, length = 500)
-    private String githubAccessToken;
+    @Column(name = "encrypted_github_access_token", nullable = false, length = 1000)
+    private String encryptedGithubAccessToken;
 }

@@ -4,6 +4,8 @@ import com.stackup.stackup.common.entity.BaseTimeEntity;
 import com.stackup.stackup.user.domain.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -16,7 +18,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Getter
 @Entity
@@ -39,7 +41,8 @@ public class UserConsent extends BaseTimeEntity {
     private User user;
 
     @Column(name = "consent_type", nullable = false, length = 50)
-    private String consentType;
+    @Enumerated(EnumType.STRING)
+    private ConsentType consentType;
 
     @Column(name = "consent_version", nullable = false, length = 20)
     private String consentVersion;
@@ -48,10 +51,10 @@ public class UserConsent extends BaseTimeEntity {
     private boolean agreed = true;
 
     @Column(name = "agreed_at", nullable = false)
-    private LocalDateTime agreedAt;
+    private Instant agreedAt;
 
     @Column(name = "revoked_at")
-    private LocalDateTime revokedAt;
+    private Instant revokedAt;
 
     @Column(name = "ip_address", length = 45)
     private String ipAddress;
