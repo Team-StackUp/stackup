@@ -1,6 +1,7 @@
 package com.stackup.stackup.common.exception;
 
 import com.stackup.stackup.common.response.ApiErrorResponse;
+import com.stackup.stackup.common.trace.TraceContext;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import java.time.Instant;
@@ -8,7 +9,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import org.slf4j.MDC;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
@@ -74,7 +74,7 @@ public class GlobalExceptionHandler {
         ApiErrorResponse response = new ApiErrorResponse(
             errorCode.name(),
             message,
-            MDC.get("traceId"),
+            TraceContext.getTraceId(),
             Instant.now(),
             details == null ? Map.of() : details
         );
