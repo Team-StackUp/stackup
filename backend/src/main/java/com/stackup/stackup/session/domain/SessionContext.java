@@ -24,7 +24,7 @@ import lombok.NoArgsConstructor;
                 @UniqueConstraint(name = "idx_session_contexts_unique", columnNames = {"session_id", "document_id"})
         },
         indexes = {
-                @Index(name = "idx_session_contexts_session", columnList = "session_id")
+                @Index(name = "idx_session_contexts_document_id", columnList = "document_id")
         }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

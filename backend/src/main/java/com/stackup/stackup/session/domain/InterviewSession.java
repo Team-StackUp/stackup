@@ -4,6 +4,8 @@ import com.stackup.stackup.common.entity.BaseSoftDeleteEntity;
 import com.stackup.stackup.user.domain.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -16,7 +18,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Getter
 @Entity
@@ -45,13 +47,16 @@ public class InterviewSession extends BaseSoftDeleteEntity {
     private String memo;
 
     @Column(nullable = false, length = 20)
-    private String mode;
+    @Enumerated(EnumType.STRING)
+    private SessionMode mode;
 
     @Column(name = "interview_type", nullable = false, length = 30)
-    private String interviewType;
+    @Enumerated(EnumType.STRING)
+    private InterviewType interviewType;
 
     @Column(name = "job_category", nullable = false, length = 30)
-    private String jobCategory;
+    @Enumerated(EnumType.STRING)
+    private JobCategory jobCategory;
 
     @Column(name = "max_questions", nullable = false)
     private Integer maxQuestions = 10;
@@ -60,14 +65,15 @@ public class InterviewSession extends BaseSoftDeleteEntity {
     private Integer maxDurationMinutes = 60;
 
     @Column(nullable = false, length = 20)
-    private String status = "READY";
+    @Enumerated(EnumType.STRING)
+    private SessionStatus status = SessionStatus.READY;
 
     @Column(name = "total_question_count")
     private Integer totalQuestionCount = 0;
 
     @Column(name = "started_at")
-    private LocalDateTime startedAt;
+    private Instant startedAt;
 
     @Column(name = "ended_at")
-    private LocalDateTime endedAt;
+    private Instant endedAt;
 }
