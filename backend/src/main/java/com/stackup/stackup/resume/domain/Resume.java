@@ -4,6 +4,8 @@ import com.stackup.stackup.common.entity.BaseSoftDeleteEntity;
 import com.stackup.stackup.user.domain.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -42,11 +44,13 @@ public class Resume extends BaseSoftDeleteEntity {
     private String filePath;
 
     @Column(name = "file_type", nullable = false, length = 20)
-    private String fileType;
+    @Enumerated(EnumType.STRING)
+    private ResumeFileType fileType;
 
     @Column(name = "file_size")
     private Long fileSize;
 
     @Column(nullable = false, length = 20)
-    private String status = "PENDING";
+    @Enumerated(EnumType.STRING)
+    private ResumeStatus status = ResumeStatus.PENDING;
 }
