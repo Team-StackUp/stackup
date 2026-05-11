@@ -18,6 +18,8 @@ type Consumer struct {
 	Handler   Handler
 }
 
+const prefetchCount = 1
+
 // Run blocks, reconnecting on connection loss until ctx is cancelled.
 func (c *Consumer) Run(ctx context.Context) error {
 	for {
@@ -54,21 +56,28 @@ func (c *Consumer) runOnce(ctx context.Context) error {
 		return err
 	}
 
+	if err := ch.Qos(prefetchCount, 0, false); err != nil {
+		return err
+	}
+
 	deliveries, err := ch.Consume(c.QueueName, "", false, false, false, false, nil)
 	if err != nil {
 		return err
 	}
 	slog.Info("amqp.consumer.started", "queue", c.QueueName)
 
-	closeCh := conn.NotifyClose(make(chan *amqp.Error, 1))
+	connCloseCh := conn.NotifyClose(make(chan *amqp.Error, 1))
+	chCloseCh := ch.NotifyClose(make(chan *amqp.Error, 1))
 
 	for {
 		select {
 		case <-ctx.Done():
 			slog.Info("amqp.consumer.stopping")
 			return ctx.Err()
-		case err := <-closeCh:
-			return err
+		case err, ok := <-connCloseCh:
+			return normalizeCloseError(err, ok)
+		case err, ok := <-chCloseCh:
+			return normalizeCloseError(err, ok)
 		case d, ok := <-deliveries:
 			if !ok {
 				return amqp.ErrClosed
@@ -81,4 +90,11 @@ func (c *Consumer) runOnce(ctx context.Context) error {
 			_ = d.Ack(false)
 		}
 	}
+}
+
+func normalizeCloseError(err *amqp.Error, ok bool) error {
+	if !ok || err == nil {
+		return amqp.ErrClosed
+	}
+	return err
 }
