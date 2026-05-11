@@ -2,6 +2,7 @@ package messaging
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -18,7 +19,7 @@ type Consumer struct {
 	Handler   Handler
 }
 
-// qosPrefetchCount limits in-flight deliveries to preserve ordering and avoid overwhelming SSE dispatch.
+// qosPrefetchCount limits in-flight deliveries to preserve ordering and prevent consumer overload.
 const qosPrefetchCount = 1
 
 // Run blocks, reconnecting on connection loss until ctx is cancelled.
@@ -59,7 +60,7 @@ func (c *Consumer) runOnce(ctx context.Context) error {
 
 	// Prefetch size is 0 (count-based), and global=false applies per consumer.
 	if err := ch.Qos(qosPrefetchCount, 0, false); err != nil {
-		return err
+		return fmt.Errorf("amqp.qos.failed (prefetch=%d): %w", qosPrefetchCount, err)
 	}
 
 	deliveries, err := ch.Consume(c.QueueName, "", false, false, false, false, nil)
@@ -94,7 +95,8 @@ func (c *Consumer) runOnce(ctx context.Context) error {
 	}
 }
 
-// normalizeCloseError treats nil/closed notifications as ErrClosed to trigger reconnect.
+// normalizeCloseError converts nil or closed notifications to ErrClosed because the AMQP client may
+// send nil on graceful shutdown or close the channel on termination; both require reconnect.
 func normalizeCloseError(err *amqp.Error, ok bool) error {
 	if !ok || err == nil {
 		return amqp.ErrClosed
