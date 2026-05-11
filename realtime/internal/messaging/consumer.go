@@ -18,6 +18,7 @@ type Consumer struct {
 	Handler   Handler
 }
 
+// qosPrefetchCount limits in-flight deliveries to preserve ordering and avoid overwhelming SSE dispatch.
 const qosPrefetchCount = 1
 
 // Run blocks, reconnecting on connection loss until ctx is cancelled.
@@ -56,7 +57,6 @@ func (c *Consumer) runOnce(ctx context.Context) error {
 		return err
 	}
 
-	// Limit in-flight deliveries to 1 to preserve ordering and avoid overwhelming SSE dispatch.
 	// Prefetch size is 0 (count-based), and global=false applies per consumer.
 	if err := ch.Qos(qosPrefetchCount, 0, false); err != nil {
 		return err
