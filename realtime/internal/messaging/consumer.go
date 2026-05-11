@@ -60,7 +60,7 @@ func (c *Consumer) runOnce(ctx context.Context) error {
 
 	// Prefetch size is 0 (count-based), and global=false applies per consumer.
 	if err := ch.Qos(qosPrefetchCount, 0, false); err != nil {
-		return fmt.Errorf("amqp.qos.failed (prefetch=%d): %w", qosPrefetchCount, err)
+		return fmt.Errorf("set qos prefetch=%d: %w", qosPrefetchCount, err)
 	}
 
 	deliveries, err := ch.Consume(c.QueueName, "", false, false, false, false, nil)
@@ -97,6 +97,7 @@ func (c *Consumer) runOnce(ctx context.Context) error {
 
 // normalizeCloseError converts nil or closed notifications to ErrClosed because the AMQP client may
 // send nil on graceful shutdown or close the channel on termination; both require reconnect.
+// err is the notification error and ok indicates whether the notification channel is still open.
 func normalizeCloseError(err *amqp.Error, ok bool) error {
 	if !ok || err == nil {
 		return amqp.ErrClosed
