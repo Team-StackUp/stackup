@@ -15,9 +15,9 @@ def _build_lifespan(settings: Settings):
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         runtime = MessagingRuntime(settings)
-        await runtime.start()
         app.state.messaging = runtime
         try:
+            await runtime.start()
             yield
         finally:
             await runtime.stop()
