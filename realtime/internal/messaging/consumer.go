@@ -18,7 +18,7 @@ type Consumer struct {
 	Handler   Handler
 }
 
-const qosPrefetchCount = 1
+const prefetchCount = 1
 
 // Run blocks, reconnecting on connection loss until ctx is cancelled.
 func (c *Consumer) Run(ctx context.Context) error {
@@ -56,8 +56,8 @@ func (c *Consumer) runOnce(ctx context.Context) error {
 		return err
 	}
 
-	// prefetchCount=1 limits in-flight deliveries; prefetchSize=0 uses count; global=false applies per channel.
-	if err := ch.Qos(qosPrefetchCount, 0, false); err != nil {
+	// Limit in-flight deliveries to 1 (prefetch count), with no size limit (prefetch size 0), applied per consumer.
+	if err := ch.Qos(prefetchCount, 0, false); err != nil {
 		return err
 	}
 
