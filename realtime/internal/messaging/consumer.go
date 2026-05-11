@@ -18,7 +18,7 @@ type Consumer struct {
 	Handler   Handler
 }
 
-const prefetchCount = 1
+const qosPrefetchCount = 1
 
 // Run blocks, reconnecting on connection loss until ctx is cancelled.
 func (c *Consumer) Run(ctx context.Context) error {
@@ -56,8 +56,9 @@ func (c *Consumer) runOnce(ctx context.Context) error {
 		return err
 	}
 
-	// Limit in-flight deliveries to 1 (prefetch count), with no size limit (prefetch size 0), applied per consumer.
-	if err := ch.Qos(prefetchCount, 0, false); err != nil {
+	// Limit in-flight deliveries to 1 to preserve ordering and avoid overwhelming SSE dispatch.
+	// Prefetch size is 0 (count-based), and global=false applies per consumer.
+	if err := ch.Qos(qosPrefetchCount, 0, false); err != nil {
 		return err
 	}
 
@@ -93,6 +94,7 @@ func (c *Consumer) runOnce(ctx context.Context) error {
 	}
 }
 
+// normalizeCloseError treats nil/closed notifications as ErrClosed to trigger reconnect.
 func normalizeCloseError(err *amqp.Error, ok bool) error {
 	if !ok || err == nil {
 		return amqp.ErrClosed
