@@ -1,8 +1,6 @@
 package com.stackup.stackup.common.messaging;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 
@@ -12,12 +10,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageProperties;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import com.stackup.stackup.common.config.properties.RabbitMqProperties;
 import com.stackup.stackup.common.trace.TraceContext;
 
 @ExtendWith(MockitoExtension.class)
@@ -26,12 +24,12 @@ class RabbitMessagePublisherTest {
     @Mock
     private RabbitTemplate rabbitTemplate;
 
-    @InjectMocks
     private RabbitMessagePublisher rabbitMessagePublisher;
 
     @BeforeEach
     void setUp() {
         TraceContext.clear();
+        rabbitMessagePublisher = new RabbitMessagePublisher(rabbitMqProperties(), rabbitTemplate);
     }
 
     @Test
@@ -39,7 +37,7 @@ class RabbitMessagePublisherTest {
         TraceContext.setTraceId("trace-123");
 
         MessageEnvelope<Map<String, Object>> envelope = rabbitMessagePublisher.publishToAi(
-            RoutingKeys.ANALYZE_RESUME,
+            "analyze.resume",
             Map.of("resumeId", 1L),
             MessageContext.ofUser(99L)
         );
@@ -50,14 +48,14 @@ class RabbitMessagePublisherTest {
             ArgumentCaptor.forClass(org.springframework.amqp.core.MessagePostProcessor.class);
 
         verify(rabbitTemplate).convertAndSend(
-            eq(RoutingKeys.CORE_TO_AI_EXCHANGE),
-            eq(RoutingKeys.ANALYZE_RESUME),
+            eq("stackup.core-to-ai"),
+            eq("analyze.resume"),
             payloadCaptor.capture(),
             postProcessorCaptor.capture()
         );
 
         assertThat(payloadCaptor.getValue()).isEqualTo(envelope);
-        assertThat(envelope.messageType()).isEqualTo(RoutingKeys.ANALYZE_RESUME);
+        assertThat(envelope.messageType()).isEqualTo("analyze.resume");
         assertThat(envelope.version()).isEqualTo("v1");
         assertThat(envelope.traceId()).isEqualTo("trace-123");
         assertThat(envelope.publishedAt()).isNotNull();
@@ -73,5 +71,38 @@ class RabbitMessagePublisherTest {
         assertThat(message.getMessageProperties().getMessageId()).isEqualTo(envelope.messageId());
         assertThat(message.getMessageProperties().getCorrelationId()).isEqualTo(envelope.messageId());
         assertThat(message.getMessageProperties().getHeaders()).containsEntry("x-trace-id", "trace-123");
+    }
+
+    private RabbitMqProperties rabbitMqProperties() {
+        return new RabbitMqProperties(
+            "core-server",
+            "v1",
+            new RabbitMqProperties.Message("application/json", StandardCharsets.UTF_8.name(), "x-trace-id"),
+            new RabbitMqProperties.Template(true),
+            new RabbitMqProperties.Exchanges(
+                true,
+                false,
+                new RabbitMqProperties.Exchanges.Names("stackup.core-to-ai", "stackup.ai-to-core")
+            ),
+            new RabbitMqProperties.Queues(
+                true,
+                new RabbitMqProperties.Queues.Names(
+                    "ai.analyze.resume",
+                    "ai.analyze.repository",
+                    "ai.generate.questions",
+                    "ai.generate.followup",
+                    "core.callback.analysis",
+                    "core.callback.questions"
+                )
+            ),
+            new RabbitMqProperties.RoutingKeyProperties(
+                "analyze.resume",
+                "analyze.repository",
+                "generate.questions",
+                "generate.followup",
+                "callback.analysis",
+                "callback.questions"
+            )
+        );
     }
 }

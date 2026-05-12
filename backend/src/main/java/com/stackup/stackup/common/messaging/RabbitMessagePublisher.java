@@ -1,7 +1,7 @@
 package com.stackup.stackup.common.messaging;
 
+import com.stackup.stackup.common.config.properties.RabbitMqProperties;
 import com.stackup.stackup.common.trace.TraceContext;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.UUID;
 import org.springframework.amqp.core.MessagePostProcessor;
@@ -11,12 +11,11 @@ import org.springframework.stereotype.Component;
 @Component
 public class RabbitMessagePublisher {
 
-    private static final String VERSION = "v1";
-    private static final String PUBLISHER = "core-server";
-
+    private final RabbitMqProperties properties;
     private final RabbitTemplate rabbitTemplate;
 
-    public RabbitMessagePublisher(RabbitTemplate rabbitTemplate) {
+    public RabbitMessagePublisher(RabbitMqProperties properties, RabbitTemplate rabbitTemplate) {
+        this.properties = properties;
         this.rabbitTemplate = rabbitTemplate;
     }
 
@@ -24,16 +23,16 @@ public class RabbitMessagePublisher {
         MessageEnvelope<T> envelope = new MessageEnvelope<>(
             UUID.randomUUID().toString(),
             routingKey,
-            VERSION,
+            properties.version(),
             TraceContext.getTraceId(),
             Instant.now(),
-            PUBLISHER,
+            properties.publisher(),
             payload,
             context == null ? MessageContext.empty() : context
         );
 
         rabbitTemplate.convertAndSend(
-            RoutingKeys.CORE_TO_AI_EXCHANGE,
+            properties.exchanges().names().coreToAi(),
             routingKey,
             envelope,
             withEnvelopeHeaders(envelope)
@@ -43,11 +42,11 @@ public class RabbitMessagePublisher {
 
     private MessagePostProcessor withEnvelopeHeaders(MessageEnvelope<?> envelope) {
         return message -> {
-            message.getMessageProperties().setContentType("application/json");
-            message.getMessageProperties().setContentEncoding(StandardCharsets.UTF_8.name());
+            message.getMessageProperties().setContentType(properties.message().contentType());
+            message.getMessageProperties().setContentEncoding(properties.message().contentEncoding());
             message.getMessageProperties().setMessageId(envelope.messageId());
             message.getMessageProperties().setCorrelationId(envelope.messageId());
-            message.getMessageProperties().setHeader("x-trace-id", envelope.traceId());
+            message.getMessageProperties().setHeader(properties.message().traceIdHeader(), envelope.traceId());
             return message;
         };
     }

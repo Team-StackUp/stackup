@@ -48,6 +48,38 @@ app:
     bucket: ${S3_BUCKET:stackup}
     region: ${S3_REGION:us-east-1}
     path-style: ${S3_PATH_STYLE:true}
+  messaging:
+    rabbitmq:
+      publisher: core-server
+      version: v1
+      message:
+        content-type: application/json
+        content-encoding: UTF-8
+        trace-id-header: x-trace-id
+      template:
+        mandatory: true
+      exchanges:
+        durable: true
+        auto-delete: false
+        names:
+          core-to-ai: stackup.core-to-ai
+          ai-to-core: stackup.ai-to-core
+      queues:
+        durable: true
+        names:
+          ai-analyze-resume: ai.analyze.resume
+          ai-analyze-repository: ai.analyze.repository
+          ai-generate-questions: ai.generate.questions
+          ai-generate-followup: ai.generate.followup
+          core-callback-analysis: core.callback.analysis
+          core-callback-questions: core.callback.questions
+      routing-keys:
+        analyze-resume: analyze.resume
+        analyze-repository: analyze.repository
+        generate-questions: generate.questions
+        generate-followup: generate.followup
+        callback-analysis: callback.analysis
+        callback-questions: callback.questions
   sse:
     timeout: 30m
     keep-alive-interval: 30s

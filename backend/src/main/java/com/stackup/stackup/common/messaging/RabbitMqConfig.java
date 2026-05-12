@@ -1,5 +1,6 @@
 package com.stackup.stackup.common.messaging;
 
+import com.stackup.stackup.common.config.properties.RabbitMqProperties;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.Declarables;
 import org.springframework.amqp.core.Queue;
@@ -14,44 +15,58 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RabbitMqConfig {
 
+    private final RabbitMqProperties properties;
+
+    public RabbitMqConfig(RabbitMqProperties properties) {
+        this.properties = properties;
+    }
+
     @Bean
     public TopicExchange coreToAiExchange() {
-        return new TopicExchange(RoutingKeys.CORE_TO_AI_EXCHANGE, true, false);
+        return new TopicExchange(
+            properties.exchanges().names().coreToAi(),
+            properties.exchanges().durable(),
+            properties.exchanges().autoDelete()
+        );
     }
 
     @Bean
     public TopicExchange aiToCoreExchange() {
-        return new TopicExchange(RoutingKeys.AI_TO_CORE_EXCHANGE, true, false);
+        return new TopicExchange(
+            properties.exchanges().names().aiToCore(),
+            properties.exchanges().durable(),
+            properties.exchanges().autoDelete()
+        );
     }
 
     @Bean
     public Queue aiAnalyzeResumeQueue() {
-        return new Queue("ai.analyze.resume", true);
+        return new Queue(properties.queues().names().aiAnalyzeResume(), properties.queues().durable());
     }
 
     @Bean
     public Queue aiAnalyzeRepositoryQueue() {
-        return new Queue("ai.analyze.repository", true);
+        return new Queue(properties.queues().names().aiAnalyzeRepository(), properties.queues().durable());
     }
 
     @Bean
     public Queue aiGenerateQuestionsQueue() {
-        return new Queue("ai.generate.questions", true);
+        return new Queue(properties.queues().names().aiGenerateQuestions(), properties.queues().durable());
     }
 
     @Bean
     public Queue aiGenerateFollowupQueue() {
-        return new Queue("ai.generate.followup", true);
+        return new Queue(properties.queues().names().aiGenerateFollowup(), properties.queues().durable());
     }
 
     @Bean
     public Queue coreCallbackAnalysisQueue() {
-        return new Queue("core.callback.analysis", true);
+        return new Queue(properties.queues().names().coreCallbackAnalysis(), properties.queues().durable());
     }
 
     @Bean
     public Queue coreCallbackQuestionsQueue() {
-        return new Queue("core.callback.questions", true);
+        return new Queue(properties.queues().names().coreCallbackQuestions(), properties.queues().durable());
     }
 
     @Bean
@@ -74,12 +89,12 @@ public class RabbitMqConfig {
             aiGenerateFollowupQueue,
             coreCallbackAnalysisQueue,
             coreCallbackQuestionsQueue,
-            BindingBuilder.bind(aiAnalyzeResumeQueue).to(coreToAiExchange).with(RoutingKeys.ANALYZE_RESUME),
-            BindingBuilder.bind(aiAnalyzeRepositoryQueue).to(coreToAiExchange).with(RoutingKeys.ANALYZE_REPOSITORY),
-            BindingBuilder.bind(aiGenerateQuestionsQueue).to(coreToAiExchange).with(RoutingKeys.GENERATE_QUESTIONS),
-            BindingBuilder.bind(aiGenerateFollowupQueue).to(coreToAiExchange).with(RoutingKeys.GENERATE_FOLLOWUP),
-            BindingBuilder.bind(coreCallbackAnalysisQueue).to(aiToCoreExchange).with(RoutingKeys.CALLBACK_ANALYSIS),
-            BindingBuilder.bind(coreCallbackQuestionsQueue).to(aiToCoreExchange).with(RoutingKeys.CALLBACK_QUESTIONS)
+            BindingBuilder.bind(aiAnalyzeResumeQueue).to(coreToAiExchange).with(properties.routingKeys().analyzeResume()),
+            BindingBuilder.bind(aiAnalyzeRepositoryQueue).to(coreToAiExchange).with(properties.routingKeys().analyzeRepository()),
+            BindingBuilder.bind(aiGenerateQuestionsQueue).to(coreToAiExchange).with(properties.routingKeys().generateQuestions()),
+            BindingBuilder.bind(aiGenerateFollowupQueue).to(coreToAiExchange).with(properties.routingKeys().generateFollowup()),
+            BindingBuilder.bind(coreCallbackAnalysisQueue).to(aiToCoreExchange).with(properties.routingKeys().callbackAnalysis()),
+            BindingBuilder.bind(coreCallbackQuestionsQueue).to(aiToCoreExchange).with(properties.routingKeys().callbackQuestions())
         );
     }
 
@@ -92,7 +107,7 @@ public class RabbitMqConfig {
     public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory, MessageConverter messageConverter) {
         RabbitTemplate rabbitTemplate = new RabbitTemplate(connectionFactory);
         rabbitTemplate.setMessageConverter(messageConverter);
-        rabbitTemplate.setMandatory(true);
+        rabbitTemplate.setMandatory(properties.template().mandatory());
         return rabbitTemplate;
     }
 }
