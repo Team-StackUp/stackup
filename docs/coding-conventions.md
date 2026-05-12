@@ -21,6 +21,16 @@
 허용: `id`, `url`, `uri`, `api`, `db`, `pg`, `mq`, `ai`, `llm`, `rag`, `stt`, `tts`, `pdf`
 비권장: `usr`, `msg`, `cfg`, `tmp` → `user`, `message`, `config`, `temp` 사용
 
+### 1.4 타입 (TypeScript)
+
+프론트엔드 TypeScript 타입 규약은 분리 문서로 관리한다 → [**`frontend-types.md`**](./frontend-types.md).
+
+요점만:
+- PascalCase + 의미 있는 접미사 (`Dto` / `Request` / `Response` / `Result` / `Model` / `Props` / `State` / `Options` / `Id`).
+- `I` / `T` Hungarian prefix 금지.
+- 타입은 사용되는 레이어에 산다. `Dto → Entity → Model → Props` 단방향.
+- 전역 `types/` 폴더 금지. 슬라이스 내부에서 시작, 3곳 이상 중복 시 `shared` 승격.
+
 ---
 
 ## 2. 함수·메서드 설계
