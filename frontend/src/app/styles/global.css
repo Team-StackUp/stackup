@@ -3,8 +3,11 @@
  *  - html/body 기본
  *  - 접근성 기본 (focus-visible, prefers-reduced-motion)
  *
- * Google Fonts (Fira Sans Extra Condensed, Geist, Geist Mono, Inter) 는
- * `index.html` 의 `<link>` 로 로드 (성능상 CSS @import url 보다 권장).
+ * 폰트는 `index.html` 의 `<link>` 로 로드.
+ *  - Pretendard Variable (한·영 본문/서브헤딩)
+ *  - Bricolage Grotesque (디스플레이 헤딩)
+ *  - Caveat (스크립트 강조)
+ *  - Geist Mono (코드/모노)
  */
 
 @layer base {
@@ -26,8 +29,8 @@
   h1, h2, h3 {
     font-family: var(--font-heading);
     color: var(--color-fg-strong);
-    text-transform: uppercase;
     margin: 0;
+    letter-spacing: -0.01em;
   }
 
   h4, h5, h6 {
@@ -56,5 +59,57 @@
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
     }
+  }
+}
+
+@layer utilities {
+  /* Hero stagger animation */
+  @keyframes hero-rise {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes hero-pop {
+    from {
+      opacity: 0;
+      transform: translateY(10px) rotate(-3deg) scale(0.92);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) rotate(-2deg) scale(1);
+    }
+  }
+  @keyframes laptop-rise {
+    from {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes screen-glow {
+    0%, 100% { opacity: 0.85; }
+    50% { opacity: 1; }
+  }
+  @keyframes caret-blink {
+    0%, 49% { opacity: 1; }
+    50%, 100% { opacity: 0; }
+  }
+
+  .anim-hero-rise {
+    animation: hero-rise 0.8s var(--ease-decelerate) both;
+  }
+  .anim-hero-pop {
+    animation: hero-pop 0.9s var(--ease-decelerate) both;
+  }
+  .anim-laptop-rise {
+    animation: laptop-rise 0.9s var(--ease-decelerate) both;
   }
 }

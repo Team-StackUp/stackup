@@ -96,15 +96,17 @@
    *    font-heading, font-subheading, font-sans, font-mono
    * ========================================================= */
   --font-heading:
-    'Fira Sans Extra Condensed', 'Pretendard Variable', system-ui, sans-serif;
+    'Bricolage Grotesque', 'Pretendard Variable', system-ui, sans-serif;
   --font-display:
-    'Fira Sans Extra Condensed', 'Pretendard Variable', system-ui, sans-serif;
+    'Bricolage Grotesque', 'Pretendard Variable', system-ui, sans-serif;
   --font-subheading:
-    'Geist', 'Pretendard Variable', system-ui, sans-serif;
+    'Pretendard Variable', system-ui, sans-serif;
   --font-sans:
-    'Inter', 'Pretendard Variable', system-ui, sans-serif;
+    'Pretendard Variable', system-ui, sans-serif;
   --font-body:
-    'Inter', 'Pretendard Variable', system-ui, sans-serif;
+    'Pretendard Variable', system-ui, sans-serif;
+  --font-script:
+    'Caveat', 'Pretendard Variable', system-ui, sans-serif;
   --font-mono:
     'Geist Mono', ui-monospace, 'JetBrains Mono', Consolas, monospace;
 
