@@ -69,7 +69,7 @@ public class S3ObjectStorageClient implements ObjectStorageClient {
             s3Client.putObject(requestBuilder.build(), RequestBody.fromInputStream(content, size));
             return new StoredObject(properties.bucket(), key, size, contentType);
         } catch (SdkException e) {
-            throw new StorageException("Failed to upload object to S3", e);
+            throw new StorageException(StorageErrorType.UPLOAD_FAILED, "Failed to upload object to S3", e);
         }
     }
 
@@ -85,7 +85,7 @@ public class S3ObjectStorageClient implements ObjectStorageClient {
             );
             return response;
         } catch (SdkException e) {
-            throw new StorageException("Failed to download object from S3", e);
+            throw new StorageException(StorageErrorType.DOWNLOAD_FAILED, "Failed to download object from S3", e);
         }
     }
 
@@ -100,7 +100,7 @@ public class S3ObjectStorageClient implements ObjectStorageClient {
                     .build()
             );
         } catch (SdkException e) {
-            throw new StorageException("Failed to delete object from S3", e);
+            throw new StorageException(StorageErrorType.DELETE_FAILED, "Failed to delete object from S3", e);
         }
     }
 
@@ -120,7 +120,11 @@ public class S3ObjectStorageClient implements ObjectStorageClient {
             );
             return presignedRequest.url().toURI();
         } catch (SdkException | URISyntaxException e) {
-            throw new StorageException("Failed to create presigned URL for S3 object", e);
+            throw new StorageException(
+                StorageErrorType.PRESIGNED_URL_FAILED,
+                "Failed to create presigned URL for S3 object",
+                e
+            );
         }
     }
 
@@ -132,7 +136,7 @@ public class S3ObjectStorageClient implements ObjectStorageClient {
 
     private static void requireKey(String key) {
         if (!hasText(key)) {
-            throw new StorageException("Object key must not be blank");
+            throw new StorageException(StorageErrorType.INVALID_OBJECT_KEY, "Object key must not be blank");
         }
     }
 

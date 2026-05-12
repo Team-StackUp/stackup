@@ -1,6 +1,7 @@
 package com.stackup.stackup.common.exception;
 
 import com.stackup.stackup.common.response.ApiErrorResponse;
+import com.stackup.stackup.common.storage.StorageException;
 import com.stackup.stackup.common.trace.TraceContext;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
@@ -58,6 +59,15 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiErrorResponse> handleAccessDenied(AccessDeniedException exception) {
         return buildResponse(ApiErrorCode.ACCESS_DENIED, ApiErrorCode.ACCESS_DENIED.getDefaultMessage(), Map.of());
+    }
+
+    @ExceptionHandler(StorageException.class)
+    public ResponseEntity<ApiErrorResponse> handleStorageException(StorageException exception) {
+        return buildResponse(
+            ApiErrorCode.SYS_DEPENDENCY_DOWN,
+            ApiErrorCode.SYS_DEPENDENCY_DOWN.getDefaultMessage(),
+            Map.of("storageErrorType", exception.getType().name())
+        );
     }
 
     @ExceptionHandler(Exception.class)
