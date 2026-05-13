@@ -1,0 +1,18 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:stackup}
+    username: ${POSTGRES_USER:stackup}
+    password: ${POSTGRES_PASSWORD:stackup}
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:stackup}
+    password: ${RABBITMQ_PASSWORD:stackup}
+
+app:
+  security:
+    jwt-secret: ${JWT_SECRET:local-development-jwt-secret-must-be-replaced}
+    encryption-key: ${ENCRYPTION_KEY:local-development-encryption-key-must-be-replaced}
+  github:
+    client-id: ${GITHUB_OAUTH_CLIENT_ID:local-github-client-id}
+    client-secret: ${GITHUB_OAUTH_CLIENT_SECRET:local-github-client-secret}

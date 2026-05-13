@@ -1,12 +1,19 @@
 package com.stackup.stackup.document.domain;
 
 import com.stackup.stackup.common.entity.BaseSoftDeleteEntity;
+import com.stackup.stackup.github.domain.GithubRepository;
+import com.stackup.stackup.resume.domain.Resume;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -17,7 +24,8 @@ import lombok.NoArgsConstructor;
 @Table(
         name = "analyzed_documents",
         indexes = {
-                @Index(name = "idx_analyzed_docs_source", columnList = "source_type, source_id")
+                @Index(name = "idx_analyzed_documents_resume_id", columnList = "resume_id"),
+                @Index(name = "idx_analyzed_documents_repository_id", columnList = "repository_id")
         }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -27,11 +35,13 @@ public class AnalyzedDocument extends BaseSoftDeleteEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "source_type", nullable = false, length = 20)
-    private String sourceType;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "resume_id")
+    private Resume resume;
 
-    @Column(name = "source_id", nullable = false)
-    private Long sourceId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "repository_id")
+    private GithubRepository repository;
 
     @Column(name = "document_path", nullable = false, length = 1000)
     private String documentPath;
@@ -43,5 +53,6 @@ public class AnalyzedDocument extends BaseSoftDeleteEntity {
     private String techStack;
 
     @Column(nullable = false, length = 20)
-    private String status = "ACTIVE";
+    @Enumerated(EnumType.STRING)
+    private DocumentStatus status = DocumentStatus.ACTIVE;
 }

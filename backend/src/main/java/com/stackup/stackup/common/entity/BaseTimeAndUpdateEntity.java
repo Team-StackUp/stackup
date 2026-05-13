@@ -5,7 +5,7 @@ import jakarta.persistence.MappedSuperclass;
 import lombok.Getter;
 import org.hibernate.annotations.UpdateTimestamp;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Getter
 @MappedSuperclass
@@ -13,5 +13,5 @@ public abstract class BaseTimeAndUpdateEntity extends BaseTimeEntity {
 
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
-    protected LocalDateTime updatedAt;
+    protected Instant updatedAt;
 }
