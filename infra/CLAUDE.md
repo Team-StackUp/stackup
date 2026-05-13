@@ -36,9 +36,11 @@ docker-compose.yml         # 모든 인프라 서비스 + 헬스체크
 | `rabbitmq` | `rabbitmq:management` (커스텀 빌드) | 5672 / 15672 | Core ↔ AI 비동기 메시징 |
 | `minio` | `minio/minio` (커스텀 빌드) | 9000 / 9001 | S3 호환 객체 스토리지 |
 | `minio-init` | `minio/mc` | — | 부트스트랩: 버킷 생성 후 종료 |
+| `ai` | `./ai` 빌드 | 8000 | AI Server (FastAPI) |
+| `realtime` | `./realtime` 빌드 | 8081 | RealTime Server (Go) |
 
 > **Redis 미사용** — 휘발성 데이터(OAuth state, 멱등 키, 질문 풀 캐시)는 PostgreSQL의 short-lived 레코드 또는 Core 서버 인메모리로 처리. 본 의사결정 배경: 컴포넌트 단순화 (1개 줄임), 운영 부담 감소.
-> **AI 서버, Core 서버는 docker-compose 미포함** (현재는 호스트에서 직접 실행). 향후 추가 시 본 표에 등록.
+> **AI 서버**는 docker-compose 포함 (`stackup-ai`). **RealTime 서버**도 포함 (`stackup-realtime`). **Core 서버**는 현재 호스트에서 직접 실행.
 
 ---
 
@@ -99,6 +101,7 @@ docker exec -i stackup-postgres psql -U stackup stackup < backup.sql
 **Exchanges (topic, durable)**:
 - `stackup.core-to-ai` — Core → AI 작업 요청
 - `stackup.ai-to-core` — AI → Core 결과 회신
+- `stackup.realtime` — Core → RealTime 세션 알림
 
 **Queues (durable)**:
 | Queue | Bound to | Routing Key | Consumer |
@@ -109,6 +112,7 @@ docker exec -i stackup-postgres psql -U stackup stackup < backup.sql
 | `ai.generate.followup` | `stackup.core-to-ai` | `generate.followup` | AI Server |
 | `core.callback.analysis` | `stackup.ai-to-core` | `callback.analysis` | Core Server |
 | `core.callback.questions` | `stackup.ai-to-core` | `callback.questions` | Core Server |
+| `q.realtime.session.notify` | `stackup.realtime` | `realtime.session.*` | RealTime Server |
 
 > 추가 큐(피드백, 상태 알림, DLQ)는 정의 시점에 본 표 갱신.
 

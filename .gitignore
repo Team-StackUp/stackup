@@ -1,2 +1,6 @@
 .vscode
 .claude
+
+.worktrees/
+.env
+!.env.example

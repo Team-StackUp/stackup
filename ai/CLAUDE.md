@@ -290,12 +290,13 @@ docker run --env-file .env -p 8000:8000 stackup-ai
 
 ---
 
-## 16. 현재 상태 (2026-04 기준)
+## 16. 현재 상태 (2026-05 기준)
 
-- FastAPI 부트스트랩 + 헬스체크만 구현
-- RabbitMQ consumer 미구현 → US-09(이력서 분석) 작업 시 도입
-- LangChain 기본 import만 있음, 체인·프롬프트 정의 0
-- pgvector 연동 미구현
-- 음성 모듈은 Phase 2에서 본격 작성
+- FastAPI 부트스트랩 + 헬스체크
+- RabbitMQ consumer **echo만** 구현: `ai.analyze.resume` → `callback.analysis` 즉시 echo 응답 (멱등 LRU + structlog)
+- 비즈니스 로직 (PDF 파싱·LLM·임베딩·S3·pgvector) 미구현 — US-09 본 구현 PR에서 추가
+- `analyze.repository` / `generate.questions` / `generate.followup` consumer는 큐 정의만 존재, 코드 없음
+- LangChain import만 있음, 체인·프롬프트 정의 0
+- 음성 모듈은 Phase 2
 
 각 도입 시 본 문서 갱신.

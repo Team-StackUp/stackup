@@ -12,6 +12,7 @@
 |----------|------|
 | `stackup.core-to-ai` | Core → AI 작업 요청 |
 | `stackup.ai-to-core` | AI → Core 결과 회신 |
+| `stackup.realtime` | Core → RealTime 세션 알림 |
 
 ### Queues (durable)
 
@@ -23,6 +24,7 @@
 | `ai.generate.followup` | `stackup.core-to-ai` | `generate.followup` | AI Server |
 | `core.callback.analysis` | `stackup.ai-to-core` | `callback.analysis` | Core Server |
 | `core.callback.questions` | `stackup.ai-to-core` | `callback.questions` | Core Server |
+| `q.realtime.session.notify` | `stackup.realtime` | `realtime.session.*` | RealTime Server |
 
 ### 추가 예정 (정의 시점에 본 표 갱신)
 
@@ -30,7 +32,6 @@
 |------------|------|
 | `ai.generate.feedback` | 세션 종료 후 종합 피드백 생성 |
 | `core.callback.feedback` | 피드백 콜백 |
-| `core.status.notify` | AI 진행 상태 push (SSE 전달용) |
 | `q.dlq.*` | Dead Letter Queue (각 큐별) |
 
 ---
@@ -41,8 +42,8 @@
 {action}.{aggregate}
 ```
 
-`action` ∈ `analyze | generate | callback`
-`aggregate` ∈ `resume | repository | questions | followup | analysis | feedback`
+`action` ∈ `analyze | generate | callback | realtime`
+`aggregate` ∈ `resume | repository | questions | followup | analysis | feedback | session`
 
 새 routing key 추가 시 본 패턴 유지.
 
@@ -103,6 +104,7 @@
 | 질문 풀 생성 (US-18) | `generate.questions` | `callback.questions` | `core.callback.questions` |
 | 꼬리질문 생성 (US-19) | `generate.followup` | `callback.questions` | `core.callback.questions` |
 | 피드백 생성 (US-24) | `generate.feedback` *(예정)* | `callback.feedback` *(예정)* | `core.callback.feedback` *(예정)* |
+| 세션 알림 (RT2 SSE) | `realtime.session.notify` | (없음 — 단방향 push) | `q.realtime.session.notify` |
 
 > `callback.analysis` 큐는 resume/repo 두 use case가 공유. consumer는 `payload.targetType` 으로 분기한다.
 
@@ -265,6 +267,23 @@
   }
 }
 ```
+
+### 5.11 `realtime.session.notify`
+```json
+{
+  "messageType": "realtime.session.notify",
+  "payload": {
+    "eventType": "question.created",
+    "data": { /* 임의 JSON, RealTime이 그대로 SSE data 필드에 전달 */ }
+  },
+  "context": { "sessionId": 99, "userId": 123 }
+}
+```
+
+- 발행자: Core 서버 (AI callback 처리 후 또는 자체 상태 변화 시)
+- 소비자: RealTime 서버 (SSE 구독자에게 fan-out)
+- `context.sessionId` 필수 — 라우팅 키
+- `payload.eventType`은 SSE `event:` 필드로 매핑
 
 ---
 
