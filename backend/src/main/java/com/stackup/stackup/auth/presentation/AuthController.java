@@ -25,13 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/auth")
-public class AuthController {
-
-    private final AuthService authService;
-
-    public AuthController(AuthService authService) {
-        this.authService = authService;
-    }
+public record AuthController(AuthService authService) {
 
     @PostMapping("/github")
     public ResponseEntity<GithubLoginResponse> startGithubLogin(@RequestBody(required = false) GithubAuthRequest request) {

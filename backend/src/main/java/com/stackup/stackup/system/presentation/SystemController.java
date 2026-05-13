@@ -10,13 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/system")
-public class SystemController {
-
-    private final SystemHealthService systemHealthService;
-
-    public SystemController(SystemHealthService systemHealthService) {
-        this.systemHealthService = systemHealthService;
-    }
+public record SystemController(SystemHealthService systemHealthService) {
 
     @GetMapping("/live")
     public ResponseEntity<SystemLiveResponse> live() {
