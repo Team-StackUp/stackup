@@ -12,13 +12,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @RestController
 @RequestMapping("/api/stream")
-public class SseController {
-
-    private final SseEmitterRegistry registry;
-
-    public SseController(SseEmitterRegistry registry) {
-        this.registry = registry;
-    }
+public record SseController(SseEmitterRegistry registry) {
 
     @GetMapping(value = "/me", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamMe(@AuthenticationPrincipal UserPrincipal principal) {
