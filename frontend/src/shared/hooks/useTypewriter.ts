@@ -30,21 +30,30 @@ export function useTypewriter(
     }
 
     setTyped('')
-    let intervalId: number | undefined
-    const timeoutId = window.setTimeout(() => {
-      let i = 0
-      intervalId = window.setInterval(() => {
-        i += 1
-        setTyped(text.slice(0, i))
-        if (i >= text.length && intervalId !== undefined) {
-          window.clearInterval(intervalId)
-        }
-      }, stepMs)
-    }, startDelayMs)
+    let rafId = 0
+    let startTime: number | null = null
+
+    const tick = (now: number) => {
+      if (startTime === null) startTime = now
+      const elapsed = now - startTime - startDelayMs
+      if (elapsed < 0) {
+        rafId = window.requestAnimationFrame(tick)
+        return
+      }
+      const next = Math.min(
+        Math.floor(elapsed / stepMs) + 1,
+        text.length,
+      )
+      setTyped(text.slice(0, next))
+      if (next < text.length) {
+        rafId = window.requestAnimationFrame(tick)
+      }
+    }
+
+    rafId = window.requestAnimationFrame(tick)
 
     return () => {
-      window.clearTimeout(timeoutId)
-      if (intervalId !== undefined) window.clearInterval(intervalId)
+      window.cancelAnimationFrame(rafId)
     }
   }, [text, startDelayMs, stepMs, respectReducedMotion])
 
