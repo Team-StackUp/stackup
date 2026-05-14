@@ -8,13 +8,13 @@ import com.nimbusds.jose.crypto.MACVerifier;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.stackup.stackup.common.config.properties.SecurityProperties;
+import com.stackup.stackup.common.exception.ApiErrorCode;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.ParseException;
 import java.time.Instant;
 import java.util.Date;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -54,7 +54,7 @@ public class JwtTokenProvider {
 
             JWTClaimsSet claimsSet = signedJwt.getJWTClaimsSet();
             if (claimsSet.getExpirationTime() == null || claimsSet.getExpirationTime().before(new Date())) {
-                throw invalidToken();
+                throw expiredToken();
             }
             if (!ACCESS_TOKEN_TYPE.equals(claimsSet.getStringClaim(TOKEN_TYPE_CLAIM))) {
                 throw invalidToken();
@@ -87,8 +87,12 @@ public class JwtTokenProvider {
         }
     }
 
-    private BadCredentialsException invalidToken() {
-        return new BadCredentialsException("Invalid JWT token");
+    private JwtAuthenticationException invalidToken() {
+        return new JwtAuthenticationException(ApiErrorCode.AUTH_INVALID_TOKEN);
+    }
+
+    private JwtAuthenticationException expiredToken() {
+        return new JwtAuthenticationException(ApiErrorCode.AUTH_EXPIRED_TOKEN);
     }
 
     private static byte[] sha256(String value) {
