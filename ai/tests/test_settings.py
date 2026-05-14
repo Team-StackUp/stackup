@@ -20,7 +20,7 @@ def test_settings_defaults_for_messaging(monkeypatch: pytest.MonkeyPatch) -> Non
 
     s = Settings(_env_file=None)  # type: ignore[call-arg]
 
-    assert s.rabbitmq_url == "amqp://stackup:stackup@localhost:5672/"
+    assert s.rabbitmq_url == "amqp://stackup:stackup@localhost:38050/"
     assert s.ai_queue_resume == "ai.analyze.resume"
     assert s.ai_queue_prefetch == 10
     assert s.ai_callback_exchange == "stackup.ai-to-core"
