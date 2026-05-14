@@ -6,6 +6,7 @@ public record GithubCallbackResult(
     long expiresIn,
     AuthenticatedUserResult user,
     boolean isNewUser,
-    String refreshTokenRawForCookie
+    String refreshTokenRawForCookie,
+    long refreshTokenMaxAgeSeconds
 ) {
 }

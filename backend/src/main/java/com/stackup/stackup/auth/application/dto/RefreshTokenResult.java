@@ -4,6 +4,7 @@ public record RefreshTokenResult(
     String accessToken,
     String tokenType,
     long expiresIn,
-    String refreshTokenRawForCookie
+    String refreshTokenRawForCookie,
+    long refreshTokenMaxAgeSeconds
 ) {
 }

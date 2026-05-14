@@ -6,7 +6,9 @@ import com.stackup.stackup.auth.application.dto.GithubLoginResult;
 import com.stackup.stackup.auth.application.dto.GithubUserProfile;
 import com.stackup.stackup.auth.application.dto.GithubUserUpsertResult;
 import com.stackup.stackup.auth.application.dto.OAuthStateIssueResult;
+import com.stackup.stackup.auth.application.dto.RefreshTokenIssueResult;
 import com.stackup.stackup.auth.application.dto.RefreshTokenResult;
+import com.stackup.stackup.auth.application.dto.RefreshTokenRotationResult;
 import com.stackup.stackup.auth.application.dto.StreamTokenResult;
 import com.stackup.stackup.common.config.properties.SecurityProperties;
 import com.stackup.stackup.common.exception.ApiErrorCode;
@@ -16,7 +18,6 @@ import com.stackup.stackup.common.security.StreamTokenProvider;
 import com.stackup.stackup.github.infrastructure.GithubApiClient;
 import com.stackup.stackup.github.infrastructure.GithubTokenCipher;
 import com.stackup.stackup.github.infrastructure.dto.GithubUserResponse;
-import java.util.UUID;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Service;
 
@@ -24,13 +25,13 @@ import org.springframework.stereotype.Service;
 public class AuthService {
 
     private static final String TOKEN_TYPE_BEARER = "Bearer";
-    private static final long SKELETON_USER_ID = 1L;
 
     private final GithubOAuthClient githubOAuthClient;
     private final OAuthStateService oauthStateService;
     private final GithubApiClient githubApiClient;
     private final GithubTokenCipher githubTokenCipher;
     private final GithubUserService githubUserService;
+    private final RefreshTokenService refreshTokenService;
     private final JwtTokenProvider jwtTokenProvider;
     private final StreamTokenProvider streamTokenProvider;
     private final SecurityProperties securityProperties;
@@ -41,6 +42,7 @@ public class AuthService {
         GithubApiClient githubApiClient,
         GithubTokenCipher githubTokenCipher,
         GithubUserService githubUserService,
+        RefreshTokenService refreshTokenService,
         JwtTokenProvider jwtTokenProvider,
         StreamTokenProvider streamTokenProvider,
         SecurityProperties securityProperties
@@ -50,6 +52,7 @@ public class AuthService {
         this.githubApiClient = githubApiClient;
         this.githubTokenCipher = githubTokenCipher;
         this.githubUserService = githubUserService;
+        this.refreshTokenService = refreshTokenService;
         this.jwtTokenProvider = jwtTokenProvider;
         this.streamTokenProvider = streamTokenProvider;
         this.securityProperties = securityProperties;
@@ -83,6 +86,7 @@ public class AuthService {
             ),
             encryptedGithubAccessToken
         );
+        RefreshTokenIssueResult refreshToken = refreshTokenService.issue(upsertResult.user().id());
 
         return new GithubCallbackResult(
             jwtTokenProvider.createAccessToken(upsertResult.user().id()),
@@ -90,21 +94,24 @@ public class AuthService {
             securityProperties.accessTokenTtlSeconds(),
             upsertResult.user(),
             upsertResult.newUser(),
-            createRefreshTokenStub()
+            refreshToken.rawToken(),
+            refreshToken.maxAgeSeconds()
         );
     }
 
     public RefreshTokenResult refresh(String refreshToken) {
+        RefreshTokenRotationResult rotation = refreshTokenService.rotate(refreshToken);
         return new RefreshTokenResult(
-            jwtTokenProvider.createAccessToken(SKELETON_USER_ID),
+            jwtTokenProvider.createAccessToken(rotation.userId()),
             TOKEN_TYPE_BEARER,
             securityProperties.accessTokenTtlSeconds(),
-            createRefreshTokenStub()
+            rotation.refreshToken().rawToken(),
+            rotation.refreshToken().maxAgeSeconds()
         );
     }
 
     public void logout(String refreshToken) {
-        // Refresh token revocation is intentionally deferred to the auth implementation task.
+        refreshTokenService.revoke(refreshToken);
     }
 
     public StreamTokenResult createStreamToken(Long userId) {
@@ -114,7 +121,4 @@ public class AuthService {
         return new StreamTokenResult(streamTokenProvider.createStreamToken(userId));
     }
 
-    private String createRefreshTokenStub() {
-        return "refresh-token-stub-" + UUID.randomUUID();
-    }
 }

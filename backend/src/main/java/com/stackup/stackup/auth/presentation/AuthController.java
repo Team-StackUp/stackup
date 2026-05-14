@@ -15,6 +15,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.time.Duration;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.CookieValue;
@@ -29,6 +32,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/auth")
 @Tag(name = "Auth", description = "GitHub OAuth login and authentication token APIs")
 public record AuthController(AuthService authService) {
+
+    private static final String REFRESH_TOKEN_COOKIE_NAME = "refresh_token";
+    private static final String REFRESH_TOKEN_COOKIE_PATH = "/api/auth";
 
     @Operation(operationId = "startGithubLogin", summary = "Create GitHub OAuth authorization URL")
     @ApiResponses({
@@ -51,20 +57,24 @@ public record AuthController(AuthService authService) {
         @RequestParam(required = false) String state
     ) {
         GithubCallbackResult result = authService.completeGithubLogin(code, state);
-        // TODO: Set refresh_token HttpOnly cookie when refresh token persistence is implemented.
-        return ResponseEntity.ok(new GithubCallbackResponse(
-            result.accessToken(),
-            result.tokenType(),
-            result.expiresIn(),
-            new AuthUserResponse(
-                result.user().id(),
-                result.user().githubId(),
-                result.user().githubUsername(),
-                result.user().email(),
-                result.user().avatarUrl()
-            ),
-            result.isNewUser()
-        ));
+        return ResponseEntity.ok()
+            .header(HttpHeaders.SET_COOKIE, refreshTokenCookie(
+                result.refreshTokenRawForCookie(),
+                result.refreshTokenMaxAgeSeconds()
+            ).toString())
+            .body(new GithubCallbackResponse(
+                result.accessToken(),
+                result.tokenType(),
+                result.expiresIn(),
+                new AuthUserResponse(
+                    result.user().id(),
+                    result.user().githubId(),
+                    result.user().githubUsername(),
+                    result.user().email(),
+                    result.user().avatarUrl()
+                ),
+                result.isNewUser()
+            ));
     }
 
     @Operation(operationId = "refreshAccessToken", summary = "Refresh StackUp access token")
@@ -77,12 +87,16 @@ public record AuthController(AuthService authService) {
         @CookieValue(name = "refresh_token", required = false) String refreshToken
     ) {
         RefreshTokenResult result = authService.refresh(refreshToken);
-        // TODO: Rotate refresh_token HttpOnly cookie when refresh token persistence is implemented.
-        return ResponseEntity.ok(new RefreshTokenResponse(
-            result.accessToken(),
-            result.tokenType(),
-            result.expiresIn()
-        ));
+        return ResponseEntity.ok()
+            .header(HttpHeaders.SET_COOKIE, refreshTokenCookie(
+                result.refreshTokenRawForCookie(),
+                result.refreshTokenMaxAgeSeconds()
+            ).toString())
+            .body(new RefreshTokenResponse(
+                result.accessToken(),
+                result.tokenType(),
+                result.expiresIn()
+            ));
     }
 
     @Operation(operationId = "logout", summary = "Logout and revoke refresh token")
@@ -94,8 +108,9 @@ public record AuthController(AuthService authService) {
         @CookieValue(name = "refresh_token", required = false) String refreshToken
     ) {
         authService.logout(refreshToken);
-        // TODO: Expire refresh_token HttpOnly cookie when refresh token persistence is implemented.
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.noContent()
+            .header(HttpHeaders.SET_COOKIE, expiredRefreshTokenCookie().toString())
+            .build();
     }
 
     @Operation(operationId = "createStreamToken", summary = "Create SSE stream token")
@@ -110,5 +125,25 @@ public record AuthController(AuthService authService) {
         Long userId = principal == null ? null : principal.userId();
         StreamTokenResult result = authService.createStreamToken(userId);
         return ResponseEntity.ok(new StreamTokenResponse(result.streamToken()));
+    }
+
+    private ResponseCookie refreshTokenCookie(String refreshToken, long maxAgeSeconds) {
+        return ResponseCookie.from(REFRESH_TOKEN_COOKIE_NAME, refreshToken)
+            .httpOnly(true)
+            .secure(true)
+            .sameSite("Strict")
+            .path(REFRESH_TOKEN_COOKIE_PATH)
+            .maxAge(Duration.ofSeconds(maxAgeSeconds))
+            .build();
+    }
+
+    private ResponseCookie expiredRefreshTokenCookie() {
+        return ResponseCookie.from(REFRESH_TOKEN_COOKIE_NAME, "")
+            .httpOnly(true)
+            .secure(true)
+            .sameSite("Strict")
+            .path(REFRESH_TOKEN_COOKIE_PATH)
+            .maxAge(Duration.ZERO)
+            .build();
     }
 }
