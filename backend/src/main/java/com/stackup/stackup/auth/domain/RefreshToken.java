@@ -50,4 +50,23 @@ public class RefreshToken extends BaseTimeEntity {
 
     @Column(name = "is_revoked", nullable = false)
     private boolean revoked = false;
+
+    private RefreshToken(User user, String tokenHash, String deviceInfo, Instant expiresAt) {
+        this.user = user;
+        this.tokenHash = tokenHash;
+        this.deviceInfo = deviceInfo;
+        this.expiresAt = expiresAt;
+    }
+
+    public static RefreshToken issue(User user, String tokenHash, String deviceInfo, Instant expiresAt) {
+        return new RefreshToken(user, tokenHash, deviceInfo, expiresAt);
+    }
+
+    public boolean isExpired(Instant now) {
+        return !expiresAt.isAfter(now);
+    }
+
+    public void revoke() {
+        this.revoked = true;
+    }
 }
