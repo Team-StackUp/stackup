@@ -25,17 +25,15 @@
     "noUncheckedSideEffectImports": true,
 
     /* Path mapping */
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
-      "@/shared/*": ["src/shared/*"],
-      "@/entities/*": ["src/domain/*"],
-      "@/features/*": ["src/features/*"],
-      "@/pages/*": ["src/pages/*"],
-      "@/app/*": ["src/app/*"],
-    },
-    
-
+      "@/*": ["./src/*"],
+      "@/shared/*": ["./src/shared/*"],
+      "@/entities/*": ["./src/domain/*"],
+      "@/features/*": ["./src/features/*"],
+      "@/widgets/*": ["./src/widgets/*"],
+      "@/pages/*": ["./src/pages/*"],
+      "@/app/*": ["./src/app/*"]
+    }
 
   },
   "include": ["src"]

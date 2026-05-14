@@ -32,6 +32,7 @@
 ### 디자인·프론트엔드
 - [`design-system.md`](./design-system.md) — 토큰, 컬러, 타이포그래피, 컴포넌트 인벤토리
 - [`ui-patterns.md`](./ui-patterns.md) — 반복되는 UX 패턴, 상태 처리 (loading/empty/error)
+- [`frontend-types.md`](./frontend-types.md) — TypeScript 타입 네이밍·레이어별 흐름·정의 위치
 
 ### 보안·운영
 - [`security.md`](./security.md) — 인증·인가, 토큰 암호화, 개인정보 처리

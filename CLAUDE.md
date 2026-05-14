@@ -63,6 +63,7 @@ PostgreSQL+pgvector  ·  S3/MinIO
 | SSE 이벤트 스펙 | [`docs/event-stream.md`](./docs/event-stream.md) |
 | **디자인 시스템** | [`docs/design-system.md`](./docs/design-system.md) |
 | UI 패턴 (4-state, 폼, 토스트, 키보드) | [`docs/ui-patterns.md`](./docs/ui-patterns.md) |
+| **프론트엔드 타입 시스템** | [`docs/frontend-types.md`](./docs/frontend-types.md) |
 | 보안 (인증, 암호화, 개인정보) | [`docs/security.md`](./docs/security.md) |
 | 옵저버빌리티 (trace, 로그, AI 비용) | [`docs/observability.md`](./docs/observability.md) |
 | 환경 변수 카탈로그 | [`docs/environment.md`](./docs/environment.md) |
