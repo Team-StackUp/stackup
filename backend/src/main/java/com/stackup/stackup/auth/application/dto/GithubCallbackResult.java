@@ -2,8 +2,10 @@ package com.stackup.stackup.auth.application.dto;
 
 public record GithubCallbackResult(
     String accessToken,
-    String refreshToken,
-    long userId,
-    String githubUsername
+    String tokenType,
+    long expiresIn,
+    AuthenticatedUserResult user,
+    boolean isNewUser,
+    String refreshTokenRawForCookie
 ) {
 }
