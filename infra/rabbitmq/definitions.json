@@ -58,6 +58,13 @@
       "arguments": {}
     },
     {
+      "name": "ai.analyze.web",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
       "name": "ai.generate.questions",
       "vhost": "/",
       "durable": true,
@@ -107,6 +114,13 @@
       "destination": "ai.analyze.resume",
       "destination_type": "queue",
       "routing_key": "analyze.resume"
+    },
+    {
+      "source": "stackup.core-to-ai",
+      "vhost": "/",
+      "destination": "ai.analyze.web",
+      "destination_type": "queue",
+      "routing_key": "analyze.web"
     },
     {
       "source": "stackup.core-to-ai",
