@@ -13,10 +13,13 @@ dependencies = [
     "pydantic-settings>=2.13.1",
     "httpx>=0.28.1",
     "aio-pika>=9.6.2",
-"boto3>=1.42.77",
+    "boto3>=1.42.77",
+    "aiofiles>=24.1.0",
+    "pypdf>=5.1.0",
     "langchain>=1.2.13",
     "langchain-core>=1.2.22",
     "langchain-community>=0.4.1",
+    "langchain-openai>=0.3.0",
     "structlog>=25.5.0",
 ]
 
