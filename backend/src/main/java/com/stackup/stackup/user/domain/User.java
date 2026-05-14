@@ -27,7 +27,7 @@ public class User extends BaseSoftDeleteEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "github_id", nullable = false, unique = true)
+    @Column(name = "github_id", nullable = false)
     private Long githubId;
 
     @Column(name = "github_username", nullable = false, length = 100)
@@ -41,4 +41,40 @@ public class User extends BaseSoftDeleteEntity {
 
     @Column(name = "encrypted_github_access_token", nullable = false, length = 1000)
     private String encryptedGithubAccessToken;
+
+    private User(
+        Long githubId,
+        String githubUsername,
+        String email,
+        String avatarUrl,
+        String encryptedGithubAccessToken
+    ) {
+        this.githubId = githubId;
+        this.githubUsername = githubUsername;
+        this.email = email;
+        this.avatarUrl = avatarUrl;
+        this.encryptedGithubAccessToken = encryptedGithubAccessToken;
+    }
+
+    public static User createGithubUser(
+        Long githubId,
+        String githubUsername,
+        String email,
+        String avatarUrl,
+        String encryptedGithubAccessToken
+    ) {
+        return new User(githubId, githubUsername, email, avatarUrl, encryptedGithubAccessToken);
+    }
+
+    public void updateGithubProfile(
+        String githubUsername,
+        String email,
+        String avatarUrl,
+        String encryptedGithubAccessToken
+    ) {
+        this.githubUsername = githubUsername;
+        this.email = email;
+        this.avatarUrl = avatarUrl;
+        this.encryptedGithubAccessToken = encryptedGithubAccessToken;
+    }
 }
