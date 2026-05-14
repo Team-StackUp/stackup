@@ -40,7 +40,8 @@ app:
   github:
     client-id: ${GITHUB_OAUTH_CLIENT_ID:}
     client-secret: ${GITHUB_OAUTH_CLIENT_SECRET:}
-    redirect-uri: ${GITHUB_OAUTH_REDIRECT_URI:http://localhost:5173/auth/callback}
+    redirect-uri: ${GITHUB_OAUTH_REDIRECT_URI:}
+    scopes: read:user user:email repo
   s3:
     endpoint: ${S3_ENDPOINT:http://localhost:9000}
     access-key: ${S3_ACCESS_KEY:minioadmin}

@@ -12,6 +12,15 @@ public record GithubOAuthProperties(
 	@NotBlank String clientId,
 	@NotBlank String clientSecret,
 	@NotNull
-	URI redirectUri
+	URI redirectUri,
+	@NotBlank String scopes
 ) {
+
+	@Override
+	public String toString() {
+		return "GithubOAuthProperties[clientId=" + clientId
+				+ ", clientSecret=******"
+				+ ", redirectUri=" + redirectUri
+				+ ", scopes=" + scopes + "]";
+	}
 }

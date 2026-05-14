@@ -17,7 +17,7 @@ public class GithubOAuthClient {
         return UriComponentsBuilder.fromUriString("https://github.com/login/oauth/authorize")
             .queryParam("client_id", githubOAuthProperties.clientId())
             .queryParam("redirect_uri", githubOAuthProperties.redirectUri())
-            .queryParam("scope", "read:user user:email repo")
+            .queryParam("scope", githubOAuthProperties.scopes())
             .queryParam("state", state)
             .build()
             .toUriString();
