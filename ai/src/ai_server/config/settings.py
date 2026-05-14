@@ -20,6 +20,8 @@ class Settings(BaseSettings):
 
     # AI consumer (큐 이름, prefetch, 콜백 라우팅 등)
     ai_queue_resume: str = "ai.analyze.resume"
+    ai_queue_repository: str = "ai.analyze.repository"
+    ai_queue_web: str = "ai.analyze.web"
     ai_queue_prefetch: int = 10
     ai_callback_exchange: str = "stackup.ai-to-core"
     ai_callback_routing_analysis: str = "callback.analysis"
@@ -42,6 +44,29 @@ class Settings(BaseSettings):
     llm_pro_temperature: float = 0.2
 
     analyzed_resume_md_key_template: str = "analyzed/resume/{resume_id}/summary.md"
+    analyzed_repository_md_key_template: str = (
+        "analyzed/repository/{repository_id}/summary.md"
+    )
+    analyzed_web_resume_md_key_template: str = (
+        "analyzed/web-resume/{resume_id}/summary.md"
+    )
+
+    # Core 서버 internal API (사용자별 GitHub access_token 조회 등)
+    core_internal_base_url: str = "http://localhost:38010"
+    core_internal_api_key: str = ""
+    core_internal_timeout_sec: float = 10.0
+
+    # GitHub repo 분석용
+    github_api_base_url: str = "https://api.github.com"
+    # 사용자별 token은 Core에서 받음. 아래 token은 fallback (public repo 한정).
+    github_fallback_token: str = ""
+    repo_max_source_files: int = 8
+    repo_max_source_file_bytes: int = 50_000
+    repo_fetch_timeout_sec: float = 30.0
+
+    # 웹 이력서 fetch
+    web_fetch_timeout_sec: float = 20.0
+    web_max_html_bytes: int = 2_000_000  # 2MB 상한
 
 
 def get_settings() -> Settings:
