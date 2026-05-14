@@ -3,7 +3,9 @@ from pydantic import ValidationError
 
 from ai_server.model.messages.analyze import (
     AnalysisCallbackPayload,
+    RepositoryAnalyzeRequest,
     ResumeAnalyzeRequest,
+    WebResumeAnalyzeRequest,
 )
 
 
@@ -68,3 +70,45 @@ def test_callback_target_type_must_be_known() -> None:
             target_id=1,
             status="ANALYZED",
         )
+
+
+def test_repository_request_parses_with_default_branch() -> None:
+    req = RepositoryAnalyzeRequest.model_validate(
+        {"repositoryId": 5, "repoFullName": "user/repo"}
+    )
+    assert req.repository_id == 5
+    assert req.repo_full_name == "user/repo"
+    assert req.default_branch == "main"
+
+
+def test_repository_request_serializes_camel_case() -> None:
+    req = RepositoryAnalyzeRequest(
+        repository_id=5, repo_full_name="user/repo", default_branch="dev"
+    )
+    dumped = req.model_dump(by_alias=True)
+    assert dumped == {
+        "repositoryId": 5,
+        "repoFullName": "user/repo",
+        "defaultBranch": "dev",
+    }
+
+
+def test_web_resume_request_parses() -> None:
+    req = WebResumeAnalyzeRequest.model_validate(
+        {"resumeId": 9, "url": "https://example.com/me"}
+    )
+    assert req.resume_id == 9
+    assert req.url == "https://example.com/me"
+
+
+def test_callback_accepts_web_target_type() -> None:
+    cb = AnalysisCallbackPayload(
+        target_type="WEB",
+        target_id=9,
+        status="ANALYZED",
+        summary="ok",
+        document_path="analyzed/web-resume/9/summary.md",
+    )
+    dumped = cb.model_dump(by_alias=True)
+    assert dumped["targetType"] == "WEB"
+    assert dumped["documentPath"] == "analyzed/web-resume/9/summary.md"
