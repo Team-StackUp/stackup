@@ -1,5 +1,8 @@
 FROM minio/minio:latest
 
-EXPOSE 9000 9001
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
-CMD ["server", "/data", "--console-address", ":9001"]
+EXPOSE 38060 38061
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

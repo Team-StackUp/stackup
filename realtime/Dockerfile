@@ -11,6 +11,6 @@ RUN apk add --no-cache wget ca-certificates && \
     addgroup -S app && adduser -S app -G app
 WORKDIR /app
 COPY --from=builder /out/realtime /app/realtime
-EXPOSE 8081
+EXPOSE 38020
 USER app:app
 ENTRYPOINT ["/app/realtime"]

@@ -1,17 +1,21 @@
+name: stackup
+
 services:
   postgres:
     build: ./infra/postgres
     container_name: stackup-postgres
+    command: ["postgres", "-c", "port=38040"]
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_PORT:-38040}:38040"
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-stackup}
       POSTGRES_USER: ${POSTGRES_USER:-stackup}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-stackup}
+      PGPORT: "38040"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-stackup}"]
+      test: ["CMD-SHELL", "pg_isready -p 38040 -U ${POSTGRES_USER:-stackup}"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -20,15 +24,15 @@ services:
     build: ./infra/rabbitmq
     container_name: stackup-rabbitmq
     ports:
-      - "${RABBITMQ_PORT:-5672}:5672"
-      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+      - "${RABBITMQ_PORT:-38050}:38050"
+      - "${RABBITMQ_MANAGEMENT_PORT:-38051}:38051"
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-stackup}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-stackup}
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -37,15 +41,17 @@ services:
     build: ./infra/minio
     container_name: stackup-minio
     ports:
-      - "${MINIO_API_PORT:-9000}:9000"
-      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+      - "${MINIO_API_PORT:-38060}:38060"
+      - "${MINIO_CONSOLE_PORT:-38061}:38061"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
     volumes:
       - minio_data:/data
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test:
+        - "CMD-SHELL"
+        - "mc alias set hc http://localhost:38060 \"$$MINIO_ROOT_USER\" \"$$MINIO_ROOT_PASSWORD\" >/dev/null 2>&1 && mc ready hc"
       interval: 10s
       timeout: 5s
       retries: 5
@@ -68,20 +74,28 @@ services:
     build: ./ai
     container_name: stackup-ai
     ports:
-      - "${AI_PORT:-8000}:8000"
+      - "${AI_PORT:-38030}:38030"
     environment:
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-stackup}:${RABBITMQ_PASSWORD:-stackup}@rabbitmq:5672/
-      S3_ENDPOINT_URL: http://minio:9000
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-stackup}:${RABBITMQ_PASSWORD:-stackup}@rabbitmq:38050/
+      STORAGE_BACKEND: ${STORAGE_BACKEND:-s3}
+      STORAGE_LOCAL_ROOT: ${STORAGE_LOCAL_ROOT:-/var/lib/stackup-ai/storage}
+      S3_ENDPOINT_URL: http://minio:38060
       S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
       S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
       S3_BUCKET_NAME: ${MINIO_BUCKET:-stackup}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://factchat-cloud.mindlogic.ai/v1/gateway}
+      LLM_PRO_MODEL: ${LLM_PRO_MODEL:-gemini-3.1-pro-preview}
     depends_on:
       rabbitmq:
         condition: service_healthy
       minio:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:38030/health')"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -90,16 +104,16 @@ services:
     build: ./realtime
     container_name: stackup-realtime
     ports:
-      - "${REALTIME_PORT:-8081}:8081"
+      - "${REALTIME_PORT:-38020}:38020"
     environment:
-      REALTIME_LISTEN_ADDR: :8081
-      REALTIME_RABBITMQ_URL: amqp://${RABBITMQ_USER:-stackup}:${RABBITMQ_PASSWORD:-stackup}@rabbitmq:5672/
+      REALTIME_LISTEN_ADDR: :38020
+      REALTIME_RABBITMQ_URL: amqp://${RABBITMQ_USER:-stackup}:${RABBITMQ_PASSWORD:-stackup}@rabbitmq:38050/
       REALTIME_LOG_LEVEL: ${REALTIME_LOG_LEVEL:-info}
     depends_on:
       rabbitmq:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8081/health"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:38020/health"]
       interval: 10s
       timeout: 5s
       retries: 5
