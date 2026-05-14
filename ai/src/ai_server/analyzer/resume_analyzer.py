@@ -57,7 +57,7 @@ class ResumeAnalyzer:
         if not source.text.strip():
             raise ResumeAnalyzeError(
                 code="EMPTY_PDF_TEXT",
-                message="추출된 텍스트가 비어 있음 — 이미지 전용 PDF이거나 파일 손상 가능",
+                message="추출된 텍스트가 비어있음",
                 retriable=False,
             )
 
