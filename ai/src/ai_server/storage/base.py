@@ -3,8 +3,9 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 
-# 스토리지 키 전용 에러 
+# 스토리지 키 전용 에러
 class StorageKeyError(ValueError):
+    pass
 
 
 class ObjectStorage(ABC):

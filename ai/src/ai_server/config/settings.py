@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     s3_bucket_name: str = "stackup"
     s3_region: str = "us-east-1"
 
-    # 일단 충대 API 키 사용 
+    # 일단 충대 API 키 사용
     llm_api_key: str = ""
     llm_base_url: str = "https://factchat-cloud.mindlogic.ai/v1/gateway"
     llm_pro_model: str = "gemini-3.1-pro-preview"

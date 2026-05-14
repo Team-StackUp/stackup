@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 SourceType = Literal["PDF", "REPOSITORY", "WEB"]
 
 
-# 모든 Source Extractor가 공통으로 반환하는 결과 모델 
+# 모든 Source Extractor가 공통으로 반환하는 결과 모델
 class ExtractedSource(BaseModel):
     text: str
     source_type: SourceType
@@ -19,4 +19,4 @@ class ExtractedSource(BaseModel):
 class SourceExtractor(ABC):
 
     @abstractmethod
-    async def extract(self, locator: str) -> ExtractedSource:
+    async def extract(self, locator: str) -> ExtractedSource: ...

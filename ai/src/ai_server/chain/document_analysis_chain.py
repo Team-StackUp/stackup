@@ -24,7 +24,7 @@ class DocumentAnalyzer(Protocol):
     ) -> DocumentAnalysisResult: ...
 
 
-# 랭체인 파이프라인 호출을 감싼다 
+# 랭체인 파이프라인 호출을 감싼다
 class LlmDocumentAnalyzer:
 
     def __init__(self, chain: Runnable) -> None:
@@ -41,7 +41,7 @@ class LlmDocumentAnalyzer:
         return result
 
 
-# 프롬프트 -> LLM -> 파서 하나로 묶어서 처리함 
+# 프롬프트 -> LLM -> 파서 하나로 묶어서 처리함
 def build_document_analysis_chain(settings: Settings) -> Runnable:
     from langchain_openai import ChatOpenAI
 

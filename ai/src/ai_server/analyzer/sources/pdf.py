@@ -17,7 +17,7 @@ def _extract_pdf_text(data: bytes) -> str:
     return "\n\n".join(p for p in parts if p).strip()
 
 
-# PDF 를 읽어 페이지 텍스트를 이어붙인다. 
+# PDF 를 읽어 페이지 텍스트를 이어붙인다.
 class PdfSourceExtractor(SourceExtractor):
 
     def __init__(self, storage: ObjectStorage) -> None:

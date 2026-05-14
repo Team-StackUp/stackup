@@ -9,7 +9,7 @@ import aiofiles.os
 from ai_server.storage.base import ObjectStorage, StorageKeyError
 
 
-# local 일 때 사용되는 스토리지 시스템 
+# local 일 때 사용되는 스토리지 시스템
 class LocalFilesystemStorage(ObjectStorage):
 
     def __init__(self, root_dir: str) -> None:

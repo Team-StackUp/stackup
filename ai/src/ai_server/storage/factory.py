@@ -6,7 +6,7 @@ from ai_server.storage.local_fs import LocalFilesystemStorage
 from ai_server.storage.s3 import S3Storage
 
 
-# 설정에 명시된 스토리지를 생성함 
+# 설정에 명시된 스토리지를 생성함
 def build_storage(settings: Settings) -> ObjectStorage:
     backend = settings.storage_backend
     if backend == "local":
