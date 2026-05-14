@@ -61,7 +61,7 @@ func TestLoadDefaults(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 
-	if cfg.ListenAddr != ":8081" {
+	if cfg.ListenAddr != ":38020" {
 		t.Errorf("default ListenAddr = %q", cfg.ListenAddr)
 	}
 	if cfg.QueueName != "q.realtime.session.notify" {
