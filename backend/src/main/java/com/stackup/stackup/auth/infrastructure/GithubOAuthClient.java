@@ -13,12 +13,14 @@ public class GithubOAuthClient {
         this.githubOAuthProperties = githubOAuthProperties;
     }
 
-    public String buildAuthorizationUrl(String state) {
+    public String buildAuthorizationUrl(String state, String codeChallenge) {
         return UriComponentsBuilder.fromUriString("https://github.com/login/oauth/authorize")
             .queryParam("client_id", githubOAuthProperties.clientId())
             .queryParam("redirect_uri", githubOAuthProperties.redirectUri())
             .queryParam("scope", githubOAuthProperties.scopes())
             .queryParam("state", state)
+            .queryParam("code_challenge", codeChallenge)
+            .queryParam("code_challenge_method", "S256")
             .build()
             .toUriString();
     }

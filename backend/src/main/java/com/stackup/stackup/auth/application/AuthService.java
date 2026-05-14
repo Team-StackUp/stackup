@@ -4,9 +4,12 @@ import com.stackup.stackup.auth.infrastructure.GithubOAuthClient;
 import com.stackup.stackup.auth.application.dto.AuthenticatedUserResult;
 import com.stackup.stackup.auth.application.dto.GithubCallbackResult;
 import com.stackup.stackup.auth.application.dto.GithubLoginResult;
+import com.stackup.stackup.auth.application.dto.OAuthStateIssueResult;
 import com.stackup.stackup.auth.application.dto.RefreshTokenResult;
 import com.stackup.stackup.auth.application.dto.StreamTokenResult;
 import com.stackup.stackup.common.config.properties.SecurityProperties;
+import com.stackup.stackup.common.exception.ApiErrorCode;
+import com.stackup.stackup.common.exception.DomainException;
 import com.stackup.stackup.common.security.JwtTokenProvider;
 import com.stackup.stackup.common.security.StreamTokenProvider;
 import java.util.UUID;
@@ -22,28 +25,39 @@ public class AuthService {
     private static final String TOKEN_TYPE_BEARER = "Bearer";
 
     private final GithubOAuthClient githubOAuthClient;
+    private final OAuthStateService oauthStateService;
     private final JwtTokenProvider jwtTokenProvider;
     private final StreamTokenProvider streamTokenProvider;
     private final SecurityProperties securityProperties;
 
     public AuthService(
         GithubOAuthClient githubOAuthClient,
+        OAuthStateService oauthStateService,
         JwtTokenProvider jwtTokenProvider,
         StreamTokenProvider streamTokenProvider,
         SecurityProperties securityProperties
     ) {
         this.githubOAuthClient = githubOAuthClient;
+        this.oauthStateService = oauthStateService;
         this.jwtTokenProvider = jwtTokenProvider;
         this.streamTokenProvider = streamTokenProvider;
         this.securityProperties = securityProperties;
     }
 
     public GithubLoginResult startGithubLogin() {
-        String state = UUID.randomUUID().toString();
-        return new GithubLoginResult(githubOAuthClient.buildAuthorizationUrl(state), state);
+        OAuthStateIssueResult oauthState = oauthStateService.issueGithubStateWithPkce();
+        return new GithubLoginResult(
+            githubOAuthClient.buildAuthorizationUrl(oauthState.state(), oauthState.codeChallenge()),
+            oauthState.state()
+        );
     }
 
     public GithubCallbackResult completeGithubLogin(String code, String state) {
+        if (code == null || code.isBlank()) {
+            throw new DomainException(ApiErrorCode.AUTH_GITHUB_OAUTH_FAILED);
+        }
+        String codeVerifier = oauthStateService.consumeGithubCodeVerifier(state);
+        // TODO: Use codeVerifier for GitHub token exchange in the next OAuth implementation phase.
         return new GithubCallbackResult(
             jwtTokenProvider.createAccessToken(SKELETON_USER_ID),
             TOKEN_TYPE_BEARER,
