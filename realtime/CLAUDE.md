@@ -136,8 +136,8 @@ Heartbeat (proxy keepalive):
 
 | 변수 | 기본값 | 용도 |
 |------|--------|------|
-| `REALTIME_LISTEN_ADDR` | `:8081` | HTTP 리슨 주소 |
-| `REALTIME_RABBITMQ_URL` | `amqp://stackup:stackup@localhost:5672/` | AMQP 연결 |
+| `REALTIME_LISTEN_ADDR` | `:38020` | HTTP 리슨 주소 |
+| `REALTIME_RABBITMQ_URL` | `amqp://stackup:stackup@localhost:38050/` | AMQP 연결 |
 | `REALTIME_LOG_LEVEL` | `info` | slog 레벨 |
 | `REALTIME_QUEUE_NAME` | `q.realtime.session.notify` | 구독 큐 |
 | `REALTIME_SSE_PING_INTERVAL` | `30s` | SSE heartbeat 주기 |

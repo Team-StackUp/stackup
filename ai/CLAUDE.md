@@ -39,21 +39,22 @@ ai/
 │   └── ai_server/
 │       ├── __init__.py
 │       ├── main.py              # FastAPI 앱 팩토리
-│       ├── api/                 # FastAPI 라우터 (health, internal endpoints)
-│       │   └── health.py
+│       ├── api/                 # FastAPI 라우터 (health 등)
 │       ├── config/
 │       │   └── settings.py      # pydantic-settings (env)
-│       ├── chain/               # (계획) LangChain 체인 정의
-│       ├── rag/                 # (계획) 청킹·임베딩·검색
-│       ├── analyzer/            # (계획) 이력서·레포 분석
-│       ├── voice/               # (계획) STT/TTS, 음성 분석
-│       ├── messaging/           # (계획) RabbitMQ consumer/publisher
-│       ├── storage/             # (계획) S3 client
-│       └── model/               # (계획) Pydantic 모델 (메시지 envelope, 도메인)
+│       ├── analyzer/            # 이력서·레포·웹 분석 오케스트레이션
+│       │   ├── resume_analyzer.py
+│       │   └── sources/         # SourceExtractor 추상화 + 구현체 (PDF; repo/web 후속)
+│       ├── chain/               # LangChain 체인 + 프롬프트
+│       │   ├── document_analysis_chain.py
+│       │   └── prompts/
+│       ├── storage/             # ObjectStorage 추상화 (local fs / s3)
+│       ├── messaging/           # RabbitMQ consumer/publisher
+│       ├── model/               # Pydantic 모델 (envelope, 메시지 페이로드)
+│       ├── rag/                 # (계획) 청킹·임베딩·pgvector
+│       └── voice/               # (Phase 2) STT/TTS, 음성 분석
 └── tests/
 ```
-
-> 현재는 `api/`, `config/`만 존재. 기능 추가 시 위 골격대로 디렉토리 생성.
 
 ---
 
@@ -114,33 +115,44 @@ async def consume_resume_analyze(message: AbstractIncomingMessage) -> None:
 
 ## 6. LLM 사용 패턴
 
-### 6.1 모델 선택
-| 시점 | 모델 | 용도 |
-|------|------|------|
-| 세션 시작 | Pro (Gemini 3.1 Pro 기본) | 질문 풀 (품질) |
-| 세션 중 | Flash (Gemini 3.1 Flash) | 꼬리질문 (저지연 < 3s) |
+### 6.1 게이트웨이
+모든 LLM 호출은 **Mindlogic CNU AC Gateway** (OpenAI 호환) 단일 엔드포인트로 통과한다.
+- `LLM_BASE_URL` (default `https://factchat-cloud.mindlogic.ai/v1/gateway`)
+- `LLM_API_KEY` (학교 발급, secret/`.env`로만 주입)
+- 모델 카탈로그: Claude / GPT / Gemini / xAI / Perplexity / Solar / Gemma 등을 단일 키로 사용.
+- 게이트웨이 교체(자체 OpenAI 키, vLLM 등) 시 `LLM_BASE_URL` 한 줄만 변경.
+
+### 6.2 모델 선택
+| 시점 | 모델 (env override 가능) | 용도 |
+|------|--------------------------|------|
+| 세션 시작 | Pro (`gemini-3.1-pro-preview` 기본) | 질문 풀 (품질) |
+| 세션 중 | Flash (`gemini-3.1-flash-lite-preview` 후보) | 꼬리질문 (저지연 < 3s) |
 | 분석 (이력서/레포) | Pro | 마크다운 구조화 |
 
 설정은 `settings.py` + 환경변수로 모델명 주입 (코드에 하드코딩 금지).
 
-### 6.2 LangChain 사용
+### 6.3 LangChain 사용 (OpenAI 호환 클라이언트)
 ```python
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 
 prompt = ChatPromptTemplate.from_messages([
     ("system", "당신은 면접관입니다..."),
     ("human", "이력서: {resume}\n질문 후보: ..."),
 ])
-llm = ChatGoogleGenerativeAI(model=settings.llm_pro_model)
-chain = prompt | llm | StructuredOutputParser(schema=...)
+llm = ChatOpenAI(
+    model=settings.llm_pro_model,
+    base_url=settings.llm_base_url,
+    api_key=settings.llm_api_key,
+)
+chain = prompt | llm | PydanticOutputParser(pydantic_object=...)
 ```
 
 - 모든 프롬프트는 `chain/prompts/{name}.py` 단일 위치
 - 프롬프트 변경은 PR로 (커밋 메시지에 의도 명시)
 - 응답은 **반드시 schema validation** (Pydantic) — LLM 결과를 그대로 신뢰 X
 
-### 6.3 호출 로깅
+### 6.4 호출 로깅
 호출 시작/완료/실패를 Core 서버에 RabbitMQ로 보내 `ai_request_logs`에 기록 — 또는 자체 endpoint POST.
 필드: `request_type`, `model_name`, `input_tokens`, `output_tokens`, `latency_ms`, `status`.
 
@@ -293,10 +305,19 @@ docker run --env-file .env -p 8000:8000 stackup-ai
 ## 16. 현재 상태 (2026-05 기준)
 
 - FastAPI 부트스트랩 + 헬스체크
-- RabbitMQ consumer **echo만** 구현: `ai.analyze.resume` → `callback.analysis` 즉시 echo 응답 (멱등 LRU + structlog)
-- 비즈니스 로직 (PDF 파싱·LLM·임베딩·S3·pgvector) 미구현 — US-09 본 구현 PR에서 추가
-- `analyze.repository` / `generate.questions` / `generate.followup` consumer는 큐 정의만 존재, 코드 없음
-- LangChain import만 있음, 체인·프롬프트 정의 0
+- RabbitMQ consumer `ai.analyze.resume` 본 구현:
+  - PDF 텍스트 추출 (`analyzer/sources/pdf.py`, pypdf)
+  - LLM 분석 (`chain/document_analysis_chain.py`, Gemini Pro + Pydantic 출력 파서)
+  - 분석 MD를 스토리지에 저장
+  - `callback.analysis` 발행 (status `ANALYZED` / `FAILED`, retriable 플래그 포함)
+- **스토리지 추상화 도입** (`storage/`): `ObjectStorage` 인터페이스 + 구현체 두 개.
+  - `S3Storage` (기본) — boto3 + `asyncio.to_thread`. MinIO·AWS S3 모두 호환. `S3_ENDPOINT_URL`만 바꿔 swap.
+  - `LocalFilesystemStorage` (dev/test 전용) — aiofiles + traversal 방어.
+  - `STORAGE_BACKEND=s3|local` 환경변수 한 줄로 전환.
+- **소스 추출 추상화 도입** (`analyzer/sources/`): `SourceExtractor` 인터페이스 + `PdfSourceExtractor`.
+  GitHub repo / 웹 이력서 추출기는 동일 인터페이스로 후속 PR에서 추가 예정.
+- 임베딩·청킹·pgvector upsert는 미구현 → 후속 PR. `embedding_chunk_count`는 0으로 발행.
+- `analyze.repository` / `generate.questions` / `generate.followup` consumer는 큐 정의만, 코드 없음
 - 음성 모듈은 Phase 2
 
 각 도입 시 본 문서 갱신.
