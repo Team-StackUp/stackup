@@ -36,10 +36,10 @@ class RabbitMessagePublisherTest {
     void publishToAi_setsEnvelopeMetadataAndRabbitHeaders() {
         TraceContext.setTraceId("trace-123");
 
-        MessageEnvelope<Map<String, Object>> envelope = rabbitMessagePublisher.publishToAi(
+        MessageEnvelope envelope = rabbitMessagePublisher.publishToAi(
             "analyze.resume",
             Map.of("resumeId", 1L),
-            MessageContext.ofUser(99L)
+            Map.of("userId", 99L)
         );
 
         ArgumentCaptor<Object> payloadCaptor = ArgumentCaptor.forClass(Object.class);
@@ -60,7 +60,7 @@ class RabbitMessagePublisherTest {
         assertThat(envelope.traceId()).isEqualTo("trace-123");
         assertThat(envelope.publishedAt()).isNotNull();
         assertThat(envelope.publisher()).isEqualTo("core-server");
-        assertThat(envelope.context().userId()).isEqualTo(99L);
+        assertThat(envelope.context()).containsEntry("userId", 99L);
 
         Message message = postProcessorCaptor.getValue().postProcessMessage(
             new Message("{}".getBytes(StandardCharsets.UTF_8), new MessageProperties())
