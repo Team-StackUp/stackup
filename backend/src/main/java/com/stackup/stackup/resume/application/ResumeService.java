@@ -37,12 +37,41 @@ public class ResumeService {
         this.events = events;
     }
 
+    private static final long MAX_SIZE = 20L * 1024 * 1024;
+    private static final byte[] PDF_MAGIC = {'%', 'P', 'D', 'F', '-'};
+
     @Transactional
     public ResumeResult upload(Long userId, ResumeUploadCommand command) {
         MultipartFile file = command.file();
         if (file == null || file.isEmpty()) {
             throw new DomainException(ApiErrorCode.RESUME_EMPTY_FILE);
         }
-        throw new UnsupportedOperationException("not yet");
+        if (file.getSize() > MAX_SIZE) {
+            throw new DomainException(ApiErrorCode.RESUME_FILE_TOO_LARGE);
+        }
+        if (!isPdfContentType(file.getContentType()) || !hasPdfExtension(file.getOriginalFilename())) {
+            throw new DomainException(ApiErrorCode.RESUME_INVALID_FILE_TYPE);
+        }
+        if (!hasPdfMagicBytes(file)) {
+            throw new DomainException(ApiErrorCode.RESUME_INVALID_FILE_TYPE);
+        }
+        throw new UnsupportedOperationException("upload path not yet");
+    }
+
+    private static boolean isPdfContentType(String contentType) {
+        return contentType != null && contentType.equalsIgnoreCase("application/pdf");
+    }
+
+    private static boolean hasPdfExtension(String filename) {
+        return filename != null && filename.toLowerCase(java.util.Locale.ROOT).endsWith(".pdf");
+    }
+
+    private static boolean hasPdfMagicBytes(MultipartFile file) {
+        try (var in = file.getInputStream()) {
+            byte[] head = in.readNBytes(PDF_MAGIC.length);
+            return java.util.Arrays.equals(head, PDF_MAGIC);
+        } catch (java.io.IOException e) {
+            throw new DomainException(ApiErrorCode.RESUME_INVALID_FILE_TYPE, "Failed to read uploaded file", e);
+        }
     }
 }
