@@ -13,7 +13,7 @@ import static org.mockito.Mockito.when;
 import com.stackup.stackup.common.exception.ApiErrorCode;
 import com.stackup.stackup.common.exception.DomainException;
 import com.stackup.stackup.common.storage.ObjectStorageClient;
-import com.stackup.stackup.document.domain.AnalyzedDocumentRepository;
+import com.stackup.stackup.resume.domain.ResumeUsageChecker;
 import com.stackup.stackup.resume.application.dto.ResumeUploadCommand;
 import com.stackup.stackup.resume.domain.ResumeRepository;
 import com.stackup.stackup.user.domain.UserRepository;
@@ -27,7 +27,7 @@ class ResumeServiceTest {
 
     private ResumeRepository resumeRepository;
     private UserRepository userRepository;
-    private AnalyzedDocumentRepository documentRepository;
+    private ResumeUsageChecker resumeUsageChecker;
     private ObjectStorageClient storage;
     private ApplicationEventPublisher events;
     private ResumeService service;
@@ -36,10 +36,10 @@ class ResumeServiceTest {
     void setUp() {
         resumeRepository = Mockito.mock(ResumeRepository.class);
         userRepository = Mockito.mock(UserRepository.class);
-        documentRepository = Mockito.mock(AnalyzedDocumentRepository.class);
+        resumeUsageChecker = Mockito.mock(ResumeUsageChecker.class);
         storage = Mockito.mock(ObjectStorageClient.class);
         events = Mockito.mock(ApplicationEventPublisher.class);
-        service = new ResumeService(resumeRepository, userRepository, documentRepository, storage, events);
+        service = new ResumeService(resumeRepository, userRepository, resumeUsageChecker, storage, events);
     }
 
     @Test
@@ -183,7 +183,7 @@ class ResumeServiceTest {
         );
         org.springframework.test.util.ReflectionTestUtils.setField(r, "id", 1L);
         when(resumeRepository.findByIdAndUser_IdAndDeletedFalse(1L, 42L)).thenReturn(java.util.Optional.of(r));
-        when(documentRepository.existsActiveSessionContextForResume(1L)).thenReturn(true);
+        when(resumeUsageChecker.isInUse(1L)).thenReturn(true);
 
         assertThatThrownBy(() -> service.delete(42L, 1L))
             .isInstanceOf(DomainException.class)
@@ -198,7 +198,7 @@ class ResumeServiceTest {
         );
         org.springframework.test.util.ReflectionTestUtils.setField(r, "id", 1L);
         when(resumeRepository.findByIdAndUser_IdAndDeletedFalse(1L, 42L)).thenReturn(java.util.Optional.of(r));
-        when(documentRepository.existsActiveSessionContextForResume(1L)).thenReturn(false);
+        when(resumeUsageChecker.isInUse(1L)).thenReturn(false);
 
         service.delete(42L, 1L);
 

@@ -3,7 +3,7 @@ package com.stackup.stackup.resume.application;
 import com.stackup.stackup.common.exception.ApiErrorCode;
 import com.stackup.stackup.common.exception.DomainException;
 import com.stackup.stackup.common.storage.ObjectStorageClient;
-import com.stackup.stackup.document.domain.AnalyzedDocumentRepository;
+import com.stackup.stackup.resume.domain.ResumeUsageChecker;
 import com.stackup.stackup.resume.application.dto.ResumeResult;
 import com.stackup.stackup.resume.application.dto.ResumeUploadCommand;
 import com.stackup.stackup.resume.application.event.ResumeUploadedEvent;
@@ -25,20 +25,20 @@ public class ResumeService {
 
     private final ResumeRepository resumeRepository;
     private final UserRepository userRepository;
-    private final AnalyzedDocumentRepository documentRepository;
+    private final ResumeUsageChecker resumeUsageChecker;
     private final ObjectStorageClient storage;
     private final ApplicationEventPublisher events;
 
     public ResumeService(
         ResumeRepository resumeRepository,
         UserRepository userRepository,
-        AnalyzedDocumentRepository documentRepository,
+        ResumeUsageChecker resumeUsageChecker,
         ObjectStorageClient storage,
         ApplicationEventPublisher events
     ) {
         this.resumeRepository = resumeRepository;
         this.userRepository = userRepository;
-        this.documentRepository = documentRepository;
+        this.resumeUsageChecker = resumeUsageChecker;
         this.storage = storage;
         this.events = events;
     }
@@ -102,7 +102,7 @@ public class ResumeService {
     public void delete(Long userId, Long resumeId) {
         Resume resume = resumeRepository.findByIdAndUser_IdAndDeletedFalse(resumeId, userId)
             .orElseThrow(() -> new DomainException(ApiErrorCode.RESUME_NOT_FOUND));
-        if (documentRepository.existsActiveSessionContextForResume(resumeId)) {
+        if (resumeUsageChecker.isInUse(resumeId)) {
             throw new DomainException(ApiErrorCode.RESUME_IN_USE);
         }
         resume.softDelete();
