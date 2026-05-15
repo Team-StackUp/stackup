@@ -1,0 +1,97 @@
+name: STACK-UP deploy ana-server
+
+# dev 브랜치가 업데이트되면 AI서버와 실시간서버를 빌드하고 배포 
+# 상우 원격컴에서만 작동하니 클라우드로 옮기면 삭제해야 함 
+# 백엔드 코어랑 프론트는 아직 도커에 정의되지 않았으니.. 그때 이어서 해야 함 
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - "ai/**"
+      - "realtime/**"
+      - "docker-compose.yml"
+      - "infra/**"
+      - ".github/workflows/deploy-app.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-app-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    timeout-minutes: 20
+
+    env:
+      DEPLOY_DIR: /home/stackup/stackup
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Sync repo to deploy dir (preserve .env and data)
+        run: |
+          mkdir -p "$DEPLOY_DIR"
+          rsync -a --delete \
+            --exclude='.git' \
+            --exclude='.env' \
+            --exclude='var/' \
+            --exclude='**/__pycache__' \
+            --exclude='**/.venv' \
+            --exclude='**/node_modules' \
+            "$GITHUB_WORKSPACE/" "$DEPLOY_DIR/"
+
+      - name: Ensure .env exists and contains current LLM_API_KEY
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+        run: |
+          cd "$DEPLOY_DIR"
+          if [ ! -f .env ]; then
+            cp .env.example .env
+          fi
+          # Write LLM_API_KEY via a temp file to keep the secret off the
+          # process command line.
+          tmp=$(mktemp)
+          trap 'rm -f "$tmp"' EXIT
+          awk -v key="$LLM_API_KEY" '
+            BEGIN { written = 0 }
+            /^LLM_API_KEY=/ { print "LLM_API_KEY=" key; written = 1; next }
+            { print }
+            END { if (!written) print "LLM_API_KEY=" key }
+          ' .env > "$tmp"
+          mv "$tmp" .env
+          chmod 600 .env
+
+      - name: Build and restart app services
+        run: |
+          cd "$DEPLOY_DIR"
+          docker compose up -d --build ai realtime
+
+      - name: Wait for healthy
+        run: |
+          cd "$DEPLOY_DIR"
+          set +e
+          rc=0
+          for svc in ai realtime; do
+            container="stackup-$svc"
+            ok=0
+            for i in $(seq 1 36); do
+              h=$(docker inspect --format '{{ .State.Health.Status }}' "$container" 2>/dev/null || echo "missing")
+              echo "  [$i] $container: $h"
+              if [ "$h" = "healthy" ]; then ok=1; break; fi
+              sleep 5
+            done
+            if [ "$ok" -ne 1 ]; then
+              echo "::error::$container did not become healthy"
+              docker compose logs --tail=100 "$svc" || true
+              rc=1
+            fi
+          done
+          docker compose ps
+          exit $rc
+
+      - name: Prune dangling images (best-effort)
+        if: always()
+        run: docker image prune -f >/dev/null 2>&1 || true

@@ -7,8 +7,8 @@ import (
 )
 
 type Config struct {
-	ListenAddr             string        `env:"REALTIME_LISTEN_ADDR" envDefault:":8081"`
-	RabbitMQURL            string        `env:"REALTIME_RABBITMQ_URL" envDefault:"amqp://stackup:stackup@localhost:5672/"`
+	ListenAddr             string        `env:"REALTIME_LISTEN_ADDR" envDefault:":38020"`
+	RabbitMQURL            string        `env:"REALTIME_RABBITMQ_URL" envDefault:"amqp://stackup:stackup@localhost:38050/"`
 	LogLevel               string        `env:"REALTIME_LOG_LEVEL" envDefault:"info"`
 	QueueName              string        `env:"REALTIME_QUEUE_NAME" envDefault:"q.realtime.session.notify"`
 	SSEPingInterval        time.Duration `env:"REALTIME_SSE_PING_INTERVAL" envDefault:"30s"`
