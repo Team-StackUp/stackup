@@ -3,17 +3,24 @@ from __future__ import annotations
 import structlog
 from aio_pika.abc import AbstractRobustQueue
 
+from ai_server.analyzer.resume_analyzer import ResumeAnalyzer
+from ai_server.analyzer.sources.pdf import PdfSourceExtractor
+from ai_server.chain.document_analysis_chain import (
+    LlmDocumentAnalyzer,
+    build_document_analysis_chain,
+)
 from ai_server.config.settings import Settings
 from ai_server.messaging.connection import RabbitConnection
 from ai_server.messaging.consumers.resume_consumer import ResumeConsumer
 from ai_server.messaging.idempotency import LruIdempotencyStore
 from ai_server.messaging.publisher import CallbackPublisher
+from ai_server.storage.factory import build_storage
 
 log = structlog.get_logger(__name__)
 
 
+# FastAPI 서버가 켜져있는 동안 메세지를 보관함
 class MessagingRuntime:
-    """Holds long-lived messaging components for FastAPI lifespan."""
 
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
@@ -29,7 +36,18 @@ class MessagingRuntime:
         self._idempotency = LruIdempotencyStore(
             max_size=settings.ai_idempotency_lru_size,
         )
+
+        storage = build_storage(settings)
+        chain = build_document_analysis_chain(settings)
+        analyzer = ResumeAnalyzer(
+            extractor=PdfSourceExtractor(storage=storage),
+            chain=LlmDocumentAnalyzer(chain),
+            storage=storage,
+            analyzed_key_template=settings.analyzed_resume_md_key_template,
+        )
+
         self._resume_consumer = ResumeConsumer(
+            analyzer=analyzer,
             publisher=self._publisher,
             idempotency=self._idempotency,
             callback_routing_key=settings.ai_callback_routing_analysis,
