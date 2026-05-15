@@ -12,8 +12,8 @@ spring:
     locations: classpath:db/migration
   servlet:
     multipart:
-      max-file-size: 20MB
-      max-request-size: 20MB
+      max-file-size: ${app.resume.max-upload-size:20MB}
+      max-request-size: ${app.resume.max-upload-size:20MB}
 
 server:
   port: ${SERVER_PORT:38010}
@@ -35,6 +35,8 @@ springdoc:
     path: /api/swagger-ui.html
 
 app:
+  resume:
+    max-upload-size: 20MB
   security:
     jwt-secret: ${JWT_SECRET:}
     access-token-ttl-seconds: ${JWT_ACCESS_TTL_SECONDS:900}

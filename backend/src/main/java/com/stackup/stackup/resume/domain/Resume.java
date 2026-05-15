@@ -53,4 +53,22 @@ public class Resume extends BaseSoftDeleteEntity {
     @Column(nullable = false, length = 20)
     @Enumerated(EnumType.STRING)
     private ResumeStatus status = ResumeStatus.PENDING;
+
+    public static Resume create(
+        User user,
+        String originalFilename,
+        String filePath,
+        Long fileSize,
+        ResumeFileType fileType
+    ) {
+        Resume resume = new Resume();
+        resume.user = user;
+        resume.originalFilename = originalFilename;
+        resume.filePath = filePath;
+        resume.fileSize = fileSize;
+        resume.fileType = fileType;
+        resume.status = ResumeStatus.PENDING;
+        return resume;
+    }
+
 }

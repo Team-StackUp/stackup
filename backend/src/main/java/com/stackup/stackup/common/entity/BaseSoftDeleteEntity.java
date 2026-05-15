@@ -10,4 +10,8 @@ public abstract class BaseSoftDeleteEntity extends BaseTimeAndUpdateEntity {
 
     @Column(name = "is_deleted", nullable = false)
     protected boolean deleted = false;
+
+    public void softDelete() {
+        this.deleted = true;
+    }
 }

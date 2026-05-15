@@ -3,24 +3,22 @@ package com.stackup.stackup.common.messaging;
 import com.stackup.stackup.common.config.properties.RabbitMqProperties;
 import com.stackup.stackup.common.trace.TraceContext;
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 import org.springframework.amqp.core.MessagePostProcessor;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class RabbitMessagePublisher {
 
     private final RabbitMqProperties properties;
     private final RabbitTemplate rabbitTemplate;
 
-    public RabbitMessagePublisher(RabbitMqProperties properties, RabbitTemplate rabbitTemplate) {
-        this.properties = properties;
-        this.rabbitTemplate = rabbitTemplate;
-    }
-
-    public <T> MessageEnvelope<T> publishToAi(String routingKey, T payload, MessageContext context) {
-        MessageEnvelope<T> envelope = new MessageEnvelope<>(
+    public MessageEnvelope publishToAi(String routingKey, Object payload, Map<String, Object> context) {
+        MessageEnvelope envelope = new MessageEnvelope(
             UUID.randomUUID().toString(),
             routingKey,
             properties.version(),
@@ -28,7 +26,7 @@ public class RabbitMessagePublisher {
             Instant.now(),
             properties.publisher(),
             payload,
-            context == null ? MessageContext.empty() : context
+            context == null ? Map.of() : context
         );
 
         rabbitTemplate.convertAndSend(
@@ -40,7 +38,7 @@ public class RabbitMessagePublisher {
         return envelope;
     }
 
-    private MessagePostProcessor withEnvelopeHeaders(MessageEnvelope<?> envelope) {
+    private MessagePostProcessor withEnvelopeHeaders(MessageEnvelope envelope) {
         return message -> {
             message.getMessageProperties().setContentType(properties.message().contentType());
             message.getMessageProperties().setContentEncoding(properties.message().contentEncoding());
