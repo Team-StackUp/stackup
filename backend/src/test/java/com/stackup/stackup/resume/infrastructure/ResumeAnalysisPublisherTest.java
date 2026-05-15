@@ -24,7 +24,7 @@ class ResumeAnalysisPublisherTest {
 
         ResumeAnalysisPublisher publisher = new ResumeAnalysisPublisher(rabbitPublisher, props);
 
-        publisher.handle(new ResumeUploadedEvent(7L, 42L, "resumes/raw/42/abc.pdf", "trace-1"));
+        publisher.handle(new ResumeUploadedEvent(7L, 42L, "resumes/raw/42/abc.pdf"));
 
         ArgumentCaptor<String> routingKeyCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<Object> payloadCaptor = ArgumentCaptor.forClass(Object.class);

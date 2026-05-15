@@ -13,7 +13,6 @@ import com.stackup.stackup.resume.domain.ResumeRepository;
 import com.stackup.stackup.user.domain.User;
 import com.stackup.stackup.user.domain.UserRepository;
 import java.util.UUID;
-import org.slf4j.MDC;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -82,8 +81,7 @@ public class ResumeService {
             throw dbError;
         }
 
-        String traceId = MDC.get("traceId");
-        events.publishEvent(new ResumeUploadedEvent(resume.getId(), userId, key, traceId));
+        events.publishEvent(new ResumeUploadedEvent(resume.getId(), userId, key));
         return ResumeResult.from(resume);
     }
 
