@@ -204,4 +204,29 @@ class ResumeServiceTest {
 
         assertThat(r.isDeleted()).isTrue();
     }
+
+    @Test
+    void upload_accepts_file_exactly_at_20mb_boundary() {
+        byte[] pdf = new byte[20 * 1024 * 1024];
+        pdf[0]='%'; pdf[1]='P'; pdf[2]='D'; pdf[3]='F'; pdf[4]='-';
+        org.springframework.mock.web.MockMultipartFile file =
+            new org.springframework.mock.web.MockMultipartFile("file", "big.pdf", "application/pdf", pdf);
+
+        com.stackup.stackup.user.domain.User user = Mockito.mock(com.stackup.stackup.user.domain.User.class);
+        Mockito.when(user.getId()).thenReturn(42L);
+        Mockito.when(userRepository.getReferenceById(42L)).thenReturn(user);
+        Mockito.when(resumeRepository.save(any())).thenAnswer(inv -> {
+            com.stackup.stackup.resume.domain.Resume r = inv.getArgument(0);
+            org.springframework.test.util.ReflectionTestUtils.setField(r, "id", 99L);
+            org.springframework.test.util.ReflectionTestUtils.setField(r, "createdAt", java.time.Instant.now());
+            org.springframework.test.util.ReflectionTestUtils.setField(r, "updatedAt", java.time.Instant.now());
+            return r;
+        });
+
+        com.stackup.stackup.resume.application.dto.ResumeResult result =
+            service.upload(42L, new ResumeUploadCommand(file));
+
+        assertThat(result.id()).isEqualTo(99L);
+        assertThat(result.status()).isEqualTo(com.stackup.stackup.resume.domain.ResumeStatus.PENDING);
+    }
 }

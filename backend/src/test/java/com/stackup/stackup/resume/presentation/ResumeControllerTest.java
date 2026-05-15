@@ -10,6 +10,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.stackup.stackup.common.exception.ApiErrorCode;
+import com.stackup.stackup.common.exception.DomainException;
+import com.stackup.stackup.common.exception.GlobalExceptionHandler;
 import com.stackup.stackup.common.security.UserPrincipal;
 import com.stackup.stackup.resume.application.ResumeService;
 import com.stackup.stackup.resume.application.dto.ResumeResult;
@@ -46,6 +49,7 @@ class ResumeControllerTest {
     @BeforeEach
     void setUp() {
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
+            .setControllerAdvice(new GlobalExceptionHandler())
             .setCustomArgumentResolvers(
                 new AuthenticationPrincipalArgumentResolver(),
                 new PageableHandlerMethodArgumentResolver()
@@ -122,5 +126,27 @@ class ResumeControllerTest {
         mockMvc.perform(delete("/api/resumes/1"))
             .andExpect(status().isNoContent());
         org.mockito.Mockito.verify(resumeService).delete(42L, 1L);
+    }
+
+    @Test
+    void get_single_returns_404_when_not_owner_or_missing() throws Exception {
+        authenticateAs(42L);
+        org.mockito.Mockito.when(resumeService.get(42L, 999L))
+            .thenThrow(new DomainException(ApiErrorCode.RESUME_NOT_FOUND));
+
+        mockMvc.perform(get("/api/resumes/999"))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.code").value("RESUME_NOT_FOUND"));
+    }
+
+    @Test
+    void delete_returns_409_when_resume_in_use() throws Exception {
+        authenticateAs(42L);
+        org.mockito.Mockito.doThrow(new DomainException(ApiErrorCode.RESUME_IN_USE))
+            .when(resumeService).delete(42L, 1L);
+
+        mockMvc.perform(delete("/api/resumes/1"))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("RESUME_IN_USE"));
     }
 }
