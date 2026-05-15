@@ -1,88 +1,80 @@
 # StackUp Core Server
 
-StackUp Core Server는 프론트엔드, GitHub, AI 서버, PostgreSQL, RabbitMQ 사이에서 인증과 핵심 도메인 흐름을 담당하는 Spring Boot API 서버입니다.
+StackUp Core Server는 StackUp 서비스의 인증, 사용자, GitHub 연동, 분석 요청 중계를 담당하는 Spring Boot API 서버입니다.
 
-프론트엔드는 Core Server가 발급한 StackUp access token으로 API를 호출합니다. GitHub client secret과 GitHub access token은 프론트엔드에서 직접 다루지 않습니다.
+Core Server는 GitHub OAuth 로그인 흐름을 처리하고, GitHub access token을 암호화해서 보관합니다. GitHub access token은 Core Server 내부에서만 사용하며 프론트엔드나 AI 서버로 전달하지 않습니다.
 
-## Core Server 역할
+## 역할
 
-인증:
-
-- `POST /api/auth/github`
-  - GitHub 로그인 URL을 생성합니다.
-  - CSRF 방지용 `state`를 생성해 DB에 저장합니다.
-  - PKCE 검증용 `code_verifier`를 DB에 저장하고, `code_challenge`를 GitHub URL에 포함합니다.
-
-- `GET /api/auth/github/callback`
-  - 프론트가 전달한 `code`, `state`를 검증합니다.
-  - `state`로 저장된 `code_verifier`를 조회한 뒤 삭제합니다.
-  - GitHub에 `code + code_verifier`를 보내 GitHub access token으로 교환합니다.
-  - GitHub user/email API로 사용자 정보를 조회합니다.
-  - GitHub access token을 암호화해 DB에 저장합니다.
-  - StackUp access token과 refresh token을 발급합니다.
-
-- `POST /api/auth/refresh`
-  - HttpOnly cookie의 refresh token을 검증합니다.
-  - 기존 refresh token을 revoke하고 새 refresh token으로 rotation합니다.
-  - 새 StackUp access token을 응답합니다.
-
-- `DELETE /api/auth/logout`
-  - refresh token을 revoke합니다.
-  - refresh cookie를 만료시킵니다.
-
-- `GET /api/users/me`
-  - `Authorization: Bearer {accessToken}`으로 현재 사용자 프로필을 반환합니다.
-
-보안 경계:
-
-- access token은 프론트에 응답 body로 전달합니다.
-- refresh token은 HttpOnly cookie로만 전달합니다.
-- refresh token 원문은 DB에 저장하지 않고 SHA-256 hash만 저장합니다.
-- GitHub access token은 AES-GCM으로 암호화해 DB에 저장합니다.
-- GitHub client secret, GitHub access token, refresh token 원문은 로그와 응답에 남기지 않습니다.
+- GitHub OAuth 로그인 URL 생성
+- OAuth `state` 및 PKCE `code_verifier` 저장/검증
+- GitHub OAuth `code`를 GitHub access token으로 교환
+- GitHub 사용자 프로필/이메일 조회
+- StackUp access token 발급
+- refresh token 발급, 저장, 회전, 폐기
+- 현재 사용자 프로필 조회
+- AI 서버와 분석 요청/완료 callback 연동
 
 ## 인증 흐름
 
-1. 프론트가 로그인 시작 시 `POST /api/auth/github`를 호출합니다.
+1. 프론트엔드가 `POST /api/auth/github`를 호출합니다.
 2. Core Server가 `state`, `code_verifier`, `code_challenge`를 생성합니다.
-3. Core Server는 `state -> code_verifier`를 DB에 저장하고 GitHub authorization URL을 응답합니다.
-4. 프론트는 응답의 `authorizationUrl`로 브라우저를 이동시킵니다.
+3. Core Server가 `state -> code_verifier`를 DB에 저장하고 GitHub 로그인 URL을 응답합니다.
+4. 프론트엔드는 응답의 `authorizationUrl`로 브라우저를 이동시킵니다.
 5. 사용자가 GitHub에서 권한을 승인합니다.
 6. GitHub가 `GITHUB_OAUTH_REDIRECT_URI`로 `code`, `state`를 전달합니다.
-7. 프론트는 callback URL에서 `code`, `state`를 읽어 Core Server callback API로 전달합니다.
+7. 프론트엔드는 callback URL에서 `code`, `state`를 읽어 Core Server callback API로 전달합니다.
 8. Core Server는 `state`로 `code_verifier`를 조회하고 해당 state를 삭제합니다.
 9. Core Server는 GitHub token API에 `code`, `client_id`, `client_secret`, `redirect_uri`, `code_verifier`를 전달합니다.
-10. GitHub가 PKCE 검증 후 GitHub access token을 발급합니다.
+10. GitHub가 PKCE를 검증하고 GitHub access token을 발급합니다.
 11. Core Server는 GitHub access token으로 `/user`, `/user/emails`를 조회합니다.
 12. Core Server는 GitHub numeric id 기준으로 사용자를 생성하거나 갱신합니다.
 13. Core Server는 StackUp access token을 response body로 반환합니다.
-14. Core Server는 refresh token raw 값을 cookie로 내려주고, DB에는 refresh token hash만 저장합니다.
-15. 프론트는 이후 API 요청에 `Authorization: Bearer {accessToken}`을 붙입니다.
+14. Core Server는 refresh token raw 값을 HttpOnly cookie로 내려주고, DB에는 refresh token hash만 저장합니다.
+15. 프론트엔드는 이후 API 요청에 `Authorization: Bearer {accessToken}`을 붙입니다.
 
-## 환경변수 전달 방식
+## 배포 포트
 
-Spring Boot 설정은 [application.yml](src/main/resources/application.yml)에서 환경변수를 읽습니다.
+StackUp 서비스 포트는 아래 기준으로 고정합니다.
 
-예를 들어 [application.yml](src/main/resources/application.yml)에 아래처럼 정의되어 있습니다.
+| 대상 | 포트 |
+| --- | ---: |
+| Nginx | 38000 |
+| Vite Frontend | 38001 |
+| Core Backend | 38010 |
+| Realtime Server | 38020 |
+| AI Server | 38030 |
+| PostgreSQL | 38040 |
+| RabbitMQ AMQP | 38050 |
+| RabbitMQ Management | 38051 |
+| MinIO API | 38060 |
+| MinIO Console | 38061 |
+
+Core Server의 내부 실행 포트는 `SERVER_PORT=38010`으로 맞춥니다. root compose, Nginx upstream, Dockerfile `EXPOSE`, `SERVER_PORT`는 모두 이 값을 기준으로 맞춰야 합니다.
+
+요청 흐름 예시는 아래와 같습니다.
+
+```text
+브라우저
+  -> Nginx:38000
+  -> Core Backend:38010
+  -> Spring Boot server.port=38010
+```
+
+## 환경변수 주입 방식
+
+Spring Boot 설정은 [application.yml](src/main/resources/application.yml)의 `${...}` 표현식을 통해 환경변수에서 읽습니다.
+
+예를 들어:
 
 ```yaml
 server:
   port: ${SERVER_PORT:38010}
 ```
 
-컨테이너 또는 Java 프로세스 환경변수에 `SERVER_PORT=38010`이 들어가면 Spring Boot의 `server.port` 값이 `38010`이 됩니다. 값이 없으면 기본값 `38010`을 사용합니다.
+컨테이너 환경변수에 `SERVER_PORT=38010`이 들어가면 Spring Boot의 `server.port`가 `38010`이 됩니다. 값이 없으면 기본값 `38010`을 사용합니다.
 
-같은 방식으로 `JWT_SECRET`, `GITHUB_OAUTH_CLIENT_ID`, `POSTGRES_HOST` 같은 값도 [application.yml](src/main/resources/application.yml)의 `${...}` 표현식을 통해 환경변수에서 읽습니다.
-
-로컬에서는 backend 디렉토리에 `.env`를 만들 수 있습니다.
-
-```bash
-cp .env.example .env
-```
-
-단, Spring Boot 애플리케이션이 `.env` 파일을 자동으로 읽는 것은 아닙니다. `.env` 파일의 값이 실제로 적용되려면 Docker Compose의 `env_file`, `environment`, shell `export`, IntelliJ Run Configuration, systemd 환경변수 같은 방식으로 프로세스 환경변수에 주입되어야 합니다.
-
-서버 배포에서는 root `docker-compose.yml`에서 `env_file` 또는 `environment`로 값을 컨테이너에 전달하는 방식을 권장합니다. 실제 secret 값은 repository에 커밋하지 않습니다.
+`.env` 파일은 Spring Boot가 자동으로 읽지 않습니다. root `docker-compose.yml`에서 `env_file` 또는 `environment`로 컨테이너 환경변수에 주입해야 실제로 적용됩니다.
 
 root compose 예시:
 
@@ -100,22 +92,6 @@ services:
       - "38010:38010"
 ```
 
-위 설정의 의미:
-
-- `env_file`은 `./backend/.env`의 값을 컨테이너 환경변수로 넣습니다.
-- `environment`는 필요한 값을 직접 덮어씁니다.
-- `SERVER_PORT=38010`은 Spring Boot 내부 실행 포트가 됩니다.
-- `38010:38010`은 서버의 호스트 포트 `38010`을 컨테이너 내부 포트 `38010`으로 연결합니다.
-
-포트 역할:
-
-| 값 | 위치 | 의미 |
-| --- | --- | --- |
-| `SERVER_PORT=38010` | `.env`, compose `environment`, 서버 환경변수 | 컨테이너 내부 Spring Boot 실행 포트 |
-| `38010:38010` | root `docker-compose.yml`의 `ports` | 호스트 `38010` 요청을 컨테이너 `38010`으로 전달 |
-| `http://127.0.0.1:38010` | Nginx upstream | Nginx가 백엔드로 프록시할 주소 |
-| `GITHUB_OAUTH_REDIRECT_URI` | GitHub OAuth App + 백엔드 환경변수 | 브라우저가 접근하는 프론트 callback URL |
-
 ## 필수 환경변수
 
 인증:
@@ -129,11 +105,7 @@ JWT_ACCESS_TOKEN_TYPE=Bearer
 ENCRYPTION_KEY=replace-with-base64-encoded-32-byte-key
 ```
 
-`JWT_SECRET`:
-
-- StackUp JWT access token 서명에 사용합니다.
-- Base64 형식일 필요는 없습니다.
-- 충분히 긴 랜덤 문자열을 사용합니다.
+`JWT_SECRET`은 StackUp JWT access token 서명에 사용합니다. Base64 형식일 필요는 없고 충분히 긴 랜덤 문자열이면 됩니다.
 
 생성 예시:
 
@@ -141,10 +113,7 @@ ENCRYPTION_KEY=replace-with-base64-encoded-32-byte-key
 openssl rand -base64 64
 ```
 
-`ENCRYPTION_KEY`:
-
-- GitHub access token 암호화에 사용합니다.
-- 반드시 Base64 decode 결과가 32바이트여야 합니다.
+`ENCRYPTION_KEY`는 GitHub access token 암호화에 사용합니다. Base64 decode 결과가 정확히 32바이트여야 합니다.
 
 생성 예시:
 
@@ -171,47 +140,55 @@ REFRESH_TOKEN_COOKIE_SECURE=true
 REFRESH_TOKEN_COOKIE_HTTP_ONLY=true
 ```
 
-GitHub OAuth:
+GitHub OAuth/API:
 
 ```env
 GITHUB_OAUTH_CLIENT_ID=your-github-oauth-client-id
 GITHUB_OAUTH_CLIENT_SECRET=your-github-oauth-client-secret
-GITHUB_OAUTH_REDIRECT_URI=http://localhost:5173/auth/callback
-GITHUB_OAUTH_AUTHORIZATION_URL=https://github.com/login/oauth/authorize
-GITHUB_OAUTH_TOKEN_URL=https://github.com/login/oauth/access_token
+GITHUB_OAUTH_REDIRECT_URI=https://your-domain/auth/callback
+GITHUB_OAUTH_BASE_URL=https://github.com
 GITHUB_OAUTH_TOKEN_TYPE=bearer
 GITHUB_OAUTH_CODE_CHALLENGE_METHOD=S256
 GITHUB_API_BASE_URL=https://api.github.com
 GITHUB_API_VERSION=2022-11-28
+GITHUB_CONNECT_TIMEOUT=3s
+GITHUB_READ_TIMEOUT=5s
 ```
 
 `GITHUB_OAUTH_REDIRECT_URI`는 GitHub OAuth App의 `Authorization callback URL`과 정확히 같아야 합니다. `http`/`https`, domain, port, path 중 하나라도 다르면 GitHub OAuth가 실패합니다.
 
-로컬 프론트 테스트:
+GitHub OAuth/프로필 조회는 사용자 로그인 흐름을 직접 막는 동기 요청이므로 timeout을 짧게 가져갑니다.
+
+- `GITHUB_CONNECT_TIMEOUT=3s`: 연결 자체가 3초 이상 걸리면 네트워크 문제로 보고 빠르게 실패 처리
+- `GITHUB_READ_TIMEOUT=5s`: OAuth/프로필 조회는 응답이 작으므로 5초 이상 지연되면 실패 처리
+
+CORS:
 
 ```env
-GITHUB_OAUTH_REDIRECT_URI=http://localhost:5173/auth/callback
+CORS_ALLOWED_ORIGINS=https://your-domain
 ```
 
-배포 프론트 테스트:
+프론트엔드가 여러 origin에서 접근해야 하면 comma-separated 값으로 주입합니다.
 
 ```env
-GITHUB_OAUTH_REDIRECT_URI=https://www.udangtang.site/auth/callback
+CORS_ALLOWED_ORIGINS=https://your-domain,https://www.your-domain
 ```
 
 인프라:
 
 ```env
-POSTGRES_HOST=localhost
+POSTGRES_HOST=postgres
 POSTGRES_PORT=5432
 POSTGRES_DB=stackup
 POSTGRES_USER=stackup
 POSTGRES_PASSWORD=stackup
-RABBITMQ_HOST=localhost
+
+RABBITMQ_HOST=rabbitmq
 RABBITMQ_PORT=5672
 RABBITMQ_USER=stackup
 RABBITMQ_PASSWORD=stackup
-S3_ENDPOINT=http://localhost:9000
+
+S3_ENDPOINT=http://minio:9000
 S3_ACCESS_KEY=minioadmin
 S3_SECRET_KEY=minioadmin
 S3_BUCKET=stackup
@@ -219,66 +196,73 @@ S3_REGION=us-east-1
 S3_PATH_STYLE=true
 ```
 
+외부에 노출되는 host port는 root compose에서 `38040`, `38050`, `38051`, `38060`, `38061`로 매핑합니다. 컨테이너 내부 통신은 서비스명과 내부 포트를 기준으로 맞춥니다.
+
 ## Docker
 
-backend 디렉토리에는 Dockerfile만 둡니다. compose 구성은 repository root에서 관리합니다.
+backend 디렉터리에는 Dockerfile만 둡니다. compose 구성은 repository root에서 관리합니다.
 
 이미지 빌드:
 
 ```bash
-docker build -t stackup-backend ./backend
+docker build -t stackup-core-server ./backend
 ```
 
-Dockerfile은 이미지를 만드는 책임만 가집니다. 실제 DB 주소, GitHub OAuth secret, 배포별 환경값은 root compose 또는 서버 환경변수로 전달합니다.
+Dockerfile은 이미지를 만드는 책임만 가집니다. DB 주소, GitHub OAuth secret, 배포별 환경값은 root compose 또는 서버 환경변수로 전달합니다.
 
-포트 전달 예시:
+root compose 포트 예시:
 
 ```yaml
 services:
+  nginx:
+    ports:
+      - "38000:80"
+
+  frontend:
+    ports:
+      - "38001:38001"
+
   backend:
-    image: stackup-backend
+    image: stackup-core-server
     environment:
       SERVER_PORT: 38010
     ports:
       - "38010:38010"
+
+  realtime:
+    ports:
+      - "38020:38020"
+
+  ai:
+    ports:
+      - "38030:38030"
+
+  postgres:
+    ports:
+      - "38040:5432"
+
+  rabbitmq:
+    ports:
+      - "38050:5672"
+      - "38051:15672"
+
+  minio:
+    ports:
+      - "38060:9000"
+      - "38061:9001"
 ```
 
-위 예시에서 `SERVER_PORT`는 컨테이너 내부의 Spring Boot 포트로 전달됩니다. `ports`의 왼쪽 값인 `38010`은 호스트 포트이고, 오른쪽 값인 `38010`은 컨테이너 내부 포트입니다.
+Nginx reverse proxy를 사용할 때 `GITHUB_OAUTH_REDIRECT_URI`에는 내부 backend port를 넣지 않습니다. 브라우저가 실제 접근하는 프론트엔드 callback URL을 넣습니다.
 
-요청 흐름:
+## 보안 기준
 
-```text
-브라우저/외부 요청
-  -> https://www.udangtang.site/api
-  -> Nginx
-  -> http://127.0.0.1:38010
-  -> container:38010
-  -> Spring Boot server.port=38010
-```
-
-`38010`은 Core Server의 확정 포트입니다. root compose, Nginx upstream, `SERVER_PORT`, Dockerfile `EXPOSE`를 모두 같은 값으로 맞춥니다.
-
-Nginx reverse proxy를 사용할 때 `GITHUB_OAUTH_REDIRECT_URI`에는 내부 백엔드 API 포트를 넣지 않습니다. 브라우저가 실제 접근하는 프론트 callback URL을 넣습니다.
-
-## 로컬 실행
-
-로컬에서 backend만 실행하려면 `.env` 값을 현재 shell 환경변수로 올린 뒤 Spring Boot를 실행합니다.
-
-PowerShell 예시:
-
-```powershell
-Get-Content .env | ForEach-Object {
-  if ($_ -match '^\s*#|^\s*$') { return }
-  $pair = $_ -split '=', 2
-  if ($pair.Length -eq 2) {
-    Set-Item -Path "Env:$($pair[0].Trim())" -Value $pair[1].Trim()
-  }
-}
-
-.\gradlew.bat bootRun
-```
-
-IntelliJ에서는 Run Configuration의 Environment variables에 `.env.example`의 키를 실제 값으로 넣습니다.
+- GitHub client secret은 Core Server 환경변수로만 주입합니다.
+- GitHub access token은 AES-GCM으로 암호화해서 DB에 저장합니다.
+- GitHub access token은 Core Server 밖으로 전달하지 않습니다.
+- refresh token raw 값은 DB에 저장하지 않고 SHA-256 hash만 저장합니다.
+- refresh token raw 값은 HttpOnly cookie로만 전달합니다.
+- GitHub client secret, GitHub access token, refresh token raw 값은 로그에 남기지 않습니다.
+- AI 서버는 GitHub token을 직접 받지 않고, Core Server가 준비한 분석 입력 데이터 또는 S3 key를 사용합니다.
 
 ## 검증
 
@@ -288,16 +272,9 @@ IntelliJ에서는 Run Configuration의 Environment variables에 `.env.example`�
 ./gradlew.bat test
 ```
 
-로그인 URL 발급 확인:
+배포 후 헬스 체크와 OAuth URL 발급 API는 Nginx 경유 주소로 확인합니다.
 
 ```bash
-curl -X POST http://localhost:38010/api/auth/github
+curl https://your-domain/api/system/health
+curl -X POST https://your-domain/api/auth/github
 ```
-
-배포 환경에서 Nginx를 거친 API 확인:
-
-```bash
-curl -X POST https://www.udangtang.site/api/auth/github
-```
-
-응답의 `authorizationUrl`에 들어간 `redirect_uri`가 GitHub OAuth App callback URL과 같은지 확인합니다.

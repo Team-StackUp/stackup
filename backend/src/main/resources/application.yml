@@ -63,7 +63,7 @@ app:
     connect-timeout: ${GITHUB_CONNECT_TIMEOUT:3s}
     read-timeout: ${GITHUB_READ_TIMEOUT:5s}
   s3:
-    endpoint: ${S3_ENDPOINT:http://localhost:9000}
+    endpoint: ${S3_ENDPOINT:http://minio:9000}
     access-key: ${S3_ACCESS_KEY:minioadmin}
     secret-key: ${S3_SECRET_KEY:minioadmin}
     bucket: ${S3_BUCKET:stackup}
@@ -106,5 +106,4 @@ app:
     keep-alive-interval: 30s
     stream-token-ttl: 60s
   cors:
-    allowed-origins:
-      - http://localhost:5173
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:https://your-domain}
