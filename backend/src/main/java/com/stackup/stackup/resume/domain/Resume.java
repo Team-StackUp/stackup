@@ -71,7 +71,4 @@ public class Resume extends BaseSoftDeleteEntity {
         return resume;
     }
 
-    public void softDelete() {
-        markDeleted();
-    }
 }

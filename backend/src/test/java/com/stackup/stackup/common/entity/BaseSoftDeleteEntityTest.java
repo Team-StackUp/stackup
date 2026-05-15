@@ -12,11 +12,11 @@ class BaseSoftDeleteEntityTest {
     }
 
     @Test
-    void markDeleted_sets_deleted_true() {
+    void softDelete_sets_deleted_true() {
         Dummy dummy = new Dummy();
         assertThat(dummy.isDeleted()).isFalse();
 
-        dummy.markDeleted();
+        dummy.softDelete();
 
         assertThat(dummy.isDeleted()).isTrue();
     }
