@@ -13,7 +13,7 @@ class ResumeAnalyzeRequest(BaseModel):
 
     resume_id: int
     file_path: str
-    analyzed_document_id: ints
+    analyzed_document_id: int
 
 
 class RepositoryAnalyzeRequest(BaseModel):

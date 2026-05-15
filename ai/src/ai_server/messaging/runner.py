@@ -16,6 +16,8 @@ from ai_server.chain.document_analysis_chain import (
 from ai_server.config.settings import Settings
 from ai_server.core.client import HttpCoreClient
 from ai_server.messaging.connection import RabbitConnection
+from ai_server.rag.chunker import MarkdownChunker
+from ai_server.rag.embedder import build_embedding_provider
 from ai_server.messaging.consumers.repository_consumer import RepositoryConsumer
 from ai_server.messaging.consumers.resume_consumer import ResumeConsumer
 from ai_server.messaging.consumers.web_consumer import WebResumeConsumer
@@ -48,20 +50,35 @@ class MessagingRuntime:
         chain = build_document_analysis_chain(settings)
         chain_analyzer = LlmDocumentAnalyzer(chain)
 
-        # 이력서 PDF
-        resume_analyzer = ResumeAnalyzer(
-            extractor=PdfSourceExtractor(storage=storage),
-            chain=chain_analyzer,
-            storage=storage,
-            analyzed_key_template=settings.analyzed_resume_md_key_template,
+        chunker = MarkdownChunker(
+            chunk_size=settings.embedding_chunk_size,
+            chunk_overlap=settings.embedding_chunk_overlap,
+        )
+        embedder = build_embedding_provider(
+            provider=settings.embedding_provider,
+            dim=settings.embedding_dim,
+            model=settings.embedding_model,
+            gemini_api_key=settings.gemini_api_key,
         )
 
-        # 리포지토리
         core_client = HttpCoreClient(
             base_url=settings.core_internal_base_url,
             api_key=settings.core_internal_api_key,
             timeout_sec=settings.core_internal_timeout_sec,
         )
+
+        # 이력서 PDF
+        resume_analyzer = ResumeAnalyzer(
+            extractor=PdfSourceExtractor(storage=storage),
+            chain=chain_analyzer,
+            storage=storage,
+            chunker=chunker,
+            embedder=embedder,
+            core_client=core_client,
+            analyzed_key_template=settings.analyzed_resume_md_key_template,
+        )
+
+        # 리포지토리
         repo_analyzer = RepositoryAnalyzer(
             extractor=GitHubRepoSourceExtractor(
                 api_base_url=settings.github_api_base_url,
@@ -73,6 +90,8 @@ class MessagingRuntime:
             core_client=core_client,
             chain=chain_analyzer,
             storage=storage,
+            chunker=chunker,
+            embedder=embedder,
             analyzed_key_template=settings.analyzed_repository_md_key_template,
         )
 
@@ -84,6 +103,9 @@ class MessagingRuntime:
             ),
             chain=chain_analyzer,
             storage=storage,
+            chunker=chunker,
+            embedder=embedder,
+            core_client=core_client,
             analyzed_key_template=settings.analyzed_web_resume_md_key_template,
         )
 
@@ -145,6 +167,6 @@ class MessagingRuntime:
             try:
                 await queue.cancel(tag)
                 log.info("ai.consumer.stopped", consumer_tag=tag)
-            except Exception:  
+            except Exception:
                 log.exception("ai.consumer.cancel_failed", consumer_tag=tag)
         await self._connection.close()
