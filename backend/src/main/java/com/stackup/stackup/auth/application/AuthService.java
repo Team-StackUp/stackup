@@ -34,8 +34,6 @@ public record AuthService(
     SecurityProperties securityProperties
 ) {
 
-    private static final String TOKEN_TYPE_BEARER = "Bearer";
-
     public GithubLoginResult startGithubLogin() {
         OAuthStateIssueResult oauthState = oauthStateService.issueGithubStateWithPkce();
         return new GithubLoginResult(
@@ -68,7 +66,7 @@ public record AuthService(
 
         return new GithubCallbackResult(
             jwtTokenProvider.createAccessToken(upsertResult.user().id()),
-            TOKEN_TYPE_BEARER,
+            securityProperties.accessTokenType(),
             securityProperties.accessTokenTtlSeconds(),
             upsertResult.user(),
             upsertResult.newUser(),
@@ -81,7 +79,7 @@ public record AuthService(
         RefreshTokenRotationResult rotation = refreshTokenService.rotate(refreshToken);
         return new RefreshTokenResult(
             jwtTokenProvider.createAccessToken(rotation.userId()),
-            TOKEN_TYPE_BEARER,
+            securityProperties.accessTokenType(),
             securityProperties.accessTokenTtlSeconds(),
             rotation.refreshToken().rawToken(),
             rotation.refreshToken().maxAgeSeconds()

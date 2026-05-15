@@ -19,6 +19,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Base64;
@@ -108,7 +109,22 @@ class RefreshTokenServiceTest {
         return new RefreshTokenService(
             refreshTokenRepository,
             userRepository,
-            new SecurityProperties("jwt-secret", "encryption-key", 900, 1209600),
+            new SecurityProperties(
+                "jwt-secret",
+                "encryption-key",
+                900,
+                1209600,
+                "Bearer",
+                Duration.ofMinutes(5),
+                32,
+                32,
+                32,
+                "refresh_token",
+                "/api/auth",
+                "Strict",
+                true,
+                true
+            ),
             new SecureRandom(),
             Clock.fixed(NOW, ZoneOffset.UTC)
         );

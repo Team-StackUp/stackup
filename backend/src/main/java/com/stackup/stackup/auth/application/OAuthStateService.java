@@ -3,6 +3,7 @@ package com.stackup.stackup.auth.application;
 import com.stackup.stackup.auth.application.dto.OAuthStateIssueResult;
 import com.stackup.stackup.auth.domain.OAuthState;
 import com.stackup.stackup.auth.domain.OAuthStateRepository;
+import com.stackup.stackup.common.config.properties.SecurityProperties;
 import com.stackup.stackup.common.exception.ApiErrorCode;
 import com.stackup.stackup.common.exception.DomainException;
 import java.nio.charset.StandardCharsets;
@@ -10,7 +11,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,21 +20,24 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class OAuthStateService {
 
-    private static final Duration STATE_TTL = Duration.ofMinutes(5);
-    private static final int STATE_BYTES = 32;
-    private static final int CODE_VERIFIER_BYTES = 32;
-
     private final OAuthStateRepository oauthStateRepository;
+    private final SecurityProperties securityProperties;
     private final SecureRandom secureRandom;
     private final Clock clock;
 
     @Autowired
-    public OAuthStateService(OAuthStateRepository oauthStateRepository) {
-        this(oauthStateRepository, new SecureRandom(), Clock.systemUTC());
+    public OAuthStateService(OAuthStateRepository oauthStateRepository, SecurityProperties securityProperties) {
+        this(oauthStateRepository, securityProperties, new SecureRandom(), Clock.systemUTC());
     }
 
-    OAuthStateService(OAuthStateRepository oauthStateRepository, SecureRandom secureRandom, Clock clock) {
+    OAuthStateService(
+        OAuthStateRepository oauthStateRepository,
+        SecurityProperties securityProperties,
+        SecureRandom secureRandom,
+        Clock clock
+    ) {
         this.oauthStateRepository = oauthStateRepository;
+        this.securityProperties = securityProperties;
         this.secureRandom = secureRandom;
         this.clock = clock;
     }
@@ -44,11 +47,11 @@ public class OAuthStateService {
         Instant now = Instant.now(clock);
         oauthStateRepository.deleteByExpiresAtBefore(now);
 
-        String state = randomUrlSafeValue(STATE_BYTES);
-        String codeVerifier = randomUrlSafeValue(CODE_VERIFIER_BYTES);
+        String state = randomUrlSafeValue(securityProperties.oauthStateByteLength());
+        String codeVerifier = randomUrlSafeValue(securityProperties.pkceCodeVerifierByteLength());
         String codeChallenge = s256Challenge(codeVerifier);
 
-        oauthStateRepository.save(OAuthState.issueGithub(state, codeVerifier, now.plus(STATE_TTL)));
+        oauthStateRepository.save(OAuthState.issueGithub(state, codeVerifier, now.plus(securityProperties.oauthStateTtl())));
         return new OAuthStateIssueResult(state, codeChallenge);
     }
 

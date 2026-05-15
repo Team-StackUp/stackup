@@ -23,8 +23,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class RefreshTokenService {
 
-    private static final int REFRESH_TOKEN_BYTES = 32;
-
     private final RefreshTokenRepository refreshTokenRepository;
     private final UserRepository userRepository;
     private final SecurityProperties securityProperties;
@@ -103,7 +101,7 @@ public class RefreshTokenService {
     }
 
     private String generateRawToken() {
-        byte[] bytes = new byte[REFRESH_TOKEN_BYTES];
+        byte[] bytes = new byte[securityProperties.refreshTokenByteLength()];
         secureRandom.nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }

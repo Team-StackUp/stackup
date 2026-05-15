@@ -7,6 +7,7 @@ import com.stackup.stackup.common.config.properties.SecurityProperties;
 import com.stackup.stackup.common.exception.ApiErrorCode;
 import com.stackup.stackup.common.exception.DomainException;
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.util.Base64;
 import org.junit.jupiter.api.Test;
 
@@ -38,7 +39,17 @@ class GithubTokenCipherTest {
             "test-jwt-secret",
             encryptionKey,
             900,
-            1209600
+            1209600,
+            "Bearer",
+            Duration.ofMinutes(5),
+            32,
+            32,
+            32,
+            "refresh_token",
+            "/api/auth",
+            "Strict",
+            true,
+            true
         );
     }
 

@@ -1,5 +1,6 @@
 package com.stackup.stackup.github.infrastructure;
 
+import com.stackup.stackup.common.config.properties.GithubOAuthProperties;
 import com.stackup.stackup.common.exception.ApiErrorCode;
 import com.stackup.stackup.common.exception.DomainException;
 import com.stackup.stackup.github.infrastructure.dto.GithubEmailResponse;
@@ -15,16 +16,13 @@ import org.springframework.web.client.RestClientException;
 @Component
 public class GithubApiClient {
 
-    private static final String API_BASE_URL = "https://api.github.com";
-    private static final String GITHUB_API_VERSION = "2022-11-28";
-
     private final RestClient restClient;
 
-    public GithubApiClient() {
+    public GithubApiClient(GithubOAuthProperties githubOAuthProperties) {
         this.restClient = RestClient.builder()
-            .baseUrl(API_BASE_URL)
+            .baseUrl(githubOAuthProperties.apiBaseUrl())
             .defaultHeader(HttpHeaders.ACCEPT, "application/vnd.github+json")
-            .defaultHeader("X-GitHub-Api-Version", GITHUB_API_VERSION)
+            .defaultHeader("X-GitHub-Api-Version", githubOAuthProperties.apiVersion())
             .build();
     }
 

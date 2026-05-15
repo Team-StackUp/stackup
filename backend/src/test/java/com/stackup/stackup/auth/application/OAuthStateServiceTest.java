@@ -9,12 +9,14 @@ import static org.mockito.Mockito.when;
 import com.stackup.stackup.auth.application.dto.OAuthStateIssueResult;
 import com.stackup.stackup.auth.domain.OAuthState;
 import com.stackup.stackup.auth.domain.OAuthStateRepository;
+import com.stackup.stackup.common.config.properties.SecurityProperties;
 import com.stackup.stackup.common.exception.ApiErrorCode;
 import com.stackup.stackup.common.exception.DomainException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Base64;
@@ -37,6 +39,7 @@ class OAuthStateServiceTest {
     void issueGithubStateWithPkce_savesStateAndReturnsChallenge() throws Exception {
         OAuthStateService service = new OAuthStateService(
             oauthStateRepository,
+            securityProperties(),
             new SecureRandom(),
             Clock.fixed(NOW, ZoneOffset.UTC)
         );
@@ -62,6 +65,7 @@ class OAuthStateServiceTest {
 
         OAuthStateService service = new OAuthStateService(
             oauthStateRepository,
+            securityProperties(),
             new SecureRandom(),
             Clock.fixed(NOW, ZoneOffset.UTC)
         );
@@ -79,6 +83,7 @@ class OAuthStateServiceTest {
 
         OAuthStateService service = new OAuthStateService(
             oauthStateRepository,
+            securityProperties(),
             new SecureRandom(),
             Clock.fixed(NOW, ZoneOffset.UTC)
         );
@@ -94,6 +99,7 @@ class OAuthStateServiceTest {
     void consumeGithubCodeVerifier_rejectsMissingState() {
         OAuthStateService service = new OAuthStateService(
             oauthStateRepository,
+            securityProperties(),
             new SecureRandom(),
             Clock.fixed(NOW, ZoneOffset.UTC)
         );
@@ -108,5 +114,24 @@ class OAuthStateServiceTest {
         byte[] digest = MessageDigest.getInstance("SHA-256")
             .digest(value.getBytes(StandardCharsets.US_ASCII));
         return Base64.getUrlEncoder().withoutPadding().encodeToString(digest);
+    }
+
+    private static SecurityProperties securityProperties() {
+        return new SecurityProperties(
+            "jwt-secret",
+            "encryption-key",
+            900,
+            1209600,
+            "Bearer",
+            Duration.ofMinutes(5),
+            32,
+            32,
+            32,
+            "refresh_token",
+            "/api/auth",
+            "Strict",
+            true,
+            true
+        );
     }
 }

@@ -10,6 +10,7 @@ import com.stackup.stackup.auth.presentation.dto.GithubCallbackResponse;
 import com.stackup.stackup.auth.presentation.dto.GithubLoginResponse;
 import com.stackup.stackup.auth.presentation.dto.RefreshTokenResponse;
 import com.stackup.stackup.auth.presentation.dto.StreamTokenResponse;
+import com.stackup.stackup.common.config.properties.SecurityProperties;
 import com.stackup.stackup.common.security.UserPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -31,10 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/auth")
 @Tag(name = "Auth", description = "GitHub OAuth login and authentication token APIs")
-public record AuthController(AuthService authService) {
-
-    private static final String REFRESH_TOKEN_COOKIE_NAME = "refresh_token";
-    private static final String REFRESH_TOKEN_COOKIE_PATH = "/api/auth";
+public record AuthController(AuthService authService, SecurityProperties securityProperties) {
 
     @Operation(operationId = "startGithubLogin", summary = "Create GitHub OAuth authorization URL")
     @ApiResponses({
@@ -84,7 +82,7 @@ public record AuthController(AuthService authService) {
     })
     @PostMapping("/refresh")
     public ResponseEntity<RefreshTokenResponse> refresh(
-        @CookieValue(name = "refresh_token", required = false) String refreshToken
+        @CookieValue(name = "${app.security.refresh-token-cookie-name}", required = false) String refreshToken
     ) {
         RefreshTokenResult result = authService.refresh(refreshToken);
         return ResponseEntity.ok()
@@ -105,7 +103,7 @@ public record AuthController(AuthService authService) {
     })
     @DeleteMapping("/logout")
     public ResponseEntity<Void> logout(
-        @CookieValue(name = "refresh_token", required = false) String refreshToken
+        @CookieValue(name = "${app.security.refresh-token-cookie-name}", required = false) String refreshToken
     ) {
         authService.logout(refreshToken);
         return ResponseEntity.noContent()
@@ -128,21 +126,21 @@ public record AuthController(AuthService authService) {
     }
 
     private ResponseCookie refreshTokenCookie(String refreshToken, long maxAgeSeconds) {
-        return ResponseCookie.from(REFRESH_TOKEN_COOKIE_NAME, refreshToken)
-            .httpOnly(true)
-            .secure(true)
-            .sameSite("Strict")
-            .path(REFRESH_TOKEN_COOKIE_PATH)
+        return ResponseCookie.from(securityProperties.refreshTokenCookieName(), refreshToken)
+            .httpOnly(securityProperties.refreshTokenCookieHttpOnly())
+            .secure(securityProperties.refreshTokenCookieSecure())
+            .sameSite(securityProperties.refreshTokenCookieSameSite())
+            .path(securityProperties.refreshTokenCookiePath())
             .maxAge(Duration.ofSeconds(maxAgeSeconds))
             .build();
     }
 
     private ResponseCookie expiredRefreshTokenCookie() {
-        return ResponseCookie.from(REFRESH_TOKEN_COOKIE_NAME, "")
-            .httpOnly(true)
-            .secure(true)
-            .sameSite("Strict")
-            .path(REFRESH_TOKEN_COOKIE_PATH)
+        return ResponseCookie.from(securityProperties.refreshTokenCookieName(), "")
+            .httpOnly(securityProperties.refreshTokenCookieHttpOnly())
+            .secure(securityProperties.refreshTokenCookieSecure())
+            .sameSite(securityProperties.refreshTokenCookieSameSite())
+            .path(securityProperties.refreshTokenCookiePath())
             .maxAge(Duration.ZERO)
             .build();
     }

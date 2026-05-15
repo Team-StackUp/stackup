@@ -18,9 +18,6 @@ import org.springframework.web.util.UriComponentsBuilder;
 @Component
 public class GithubOAuthClient {
 
-    private static final String TOKEN_URL = "https://github.com/login/oauth/access_token";
-    private static final String BEARER_TOKEN_TYPE = "bearer";
-
     private final GithubOAuthProperties githubOAuthProperties;
     private final RestClient restClient;
 
@@ -30,13 +27,13 @@ public class GithubOAuthClient {
     }
 
     public String buildAuthorizationUrl(String state, String codeChallenge) {
-        return UriComponentsBuilder.fromUriString("https://github.com/login/oauth/authorize")
+        return UriComponentsBuilder.fromUri(githubOAuthProperties.authorizationUrl())
             .queryParam("client_id", githubOAuthProperties.clientId())
             .queryParam("redirect_uri", githubOAuthProperties.redirectUri())
             .queryParam("scope", githubOAuthProperties.scopes())
             .queryParam("state", state)
             .queryParam("code_challenge", codeChallenge)
-            .queryParam("code_challenge_method", "S256")
+            .queryParam("code_challenge_method", githubOAuthProperties.codeChallengeMethod())
             .build()
             .toUriString();
     }
@@ -51,7 +48,7 @@ public class GithubOAuthClient {
 
         try {
             GithubTokenResponse response = restClient.post()
-                .uri(TOKEN_URL)
+                .uri(githubOAuthProperties.tokenUrl())
                 .accept(MediaType.APPLICATION_JSON)
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .body(body)
@@ -69,7 +66,7 @@ public class GithubOAuthClient {
             || response.accessToken().isBlank()) {
             throw oauthFailed();
         }
-        if (response.tokenType() == null || !BEARER_TOKEN_TYPE.equalsIgnoreCase(response.tokenType())) {
+        if (response.tokenType() == null || !githubOAuthProperties.tokenType().equalsIgnoreCase(response.tokenType())) {
             throw oauthFailed();
         }
         if (!hasRequiredScopes(response.scope())) {
