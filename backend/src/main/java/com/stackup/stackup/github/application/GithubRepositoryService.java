@@ -55,4 +55,35 @@ public class GithubRepositoryService {
             .orElseThrow(() -> new DomainException(ApiErrorCode.REPO_NOT_FOUND));
         repo.softDelete();
     }
+
+    public com.stackup.stackup.github.application.dto.CandidateRepositoryListResult listCandidates(
+        Long userId, int page, int perPage
+    ) {
+        com.stackup.stackup.user.domain.User user = userRepository.findById(userId)
+            .orElseThrow(() -> new DomainException(ApiErrorCode.USER_NOT_FOUND));
+
+        String token = tokenCipher.decrypt(user.getEncryptedGithubAccessToken());
+        com.stackup.stackup.github.infrastructure.dto.GithubRepoListPage listPage =
+            githubApiClient.listUserRepositories(token, page, perPage);
+
+        java.util.Set<Long> githubIds = listPage.repos().stream()
+            .map(com.stackup.stackup.github.infrastructure.dto.GithubRepoResponse::id)
+            .collect(java.util.stream.Collectors.toSet());
+
+        java.util.Set<Long> registered = githubIds.isEmpty()
+            ? java.util.Set.of()
+            : new java.util.HashSet<>(repoRepository
+                .findGithubRepoIdsByUser_IdAndDeletedFalseAndGithubRepoIdIn(userId, githubIds));
+
+        java.util.List<com.stackup.stackup.github.application.dto.CandidateRepositoryResult> content =
+            listPage.repos().stream().map(r ->
+                new com.stackup.stackup.github.application.dto.CandidateRepositoryResult(
+                    r.id(), r.name(), r.fullName(), r.htmlUrl(), r.defaultBranch(),
+                    r.privateRepo(), r.description(), registered.contains(r.id())
+                )).toList();
+
+        return new com.stackup.stackup.github.application.dto.CandidateRepositoryListResult(
+            content, page, perPage, listPage.hasNext()
+        );
+    }
 }

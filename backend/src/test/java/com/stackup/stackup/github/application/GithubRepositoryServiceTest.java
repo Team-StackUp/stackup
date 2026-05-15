@@ -100,4 +100,44 @@ class GithubRepositoryServiceTest {
 
         assertThat(repo.isDeleted()).isTrue();
     }
+
+    @Test
+    void list_candidates_proxies_github_and_marks_already_registered() {
+        com.stackup.stackup.user.domain.User user = Mockito.mock(com.stackup.stackup.user.domain.User.class);
+        when(user.getEncryptedGithubAccessToken()).thenReturn("encrypted");
+        when(userRepository.findById(42L)).thenReturn(java.util.Optional.of(user));
+        when(tokenCipher.decrypt("encrypted")).thenReturn("plain-token");
+
+        var repoA = new com.stackup.stackup.github.infrastructure.dto.GithubRepoResponse(
+            1L, "a", "u/a", "https://x/a", "main", false, "d");
+        var repoB = new com.stackup.stackup.github.infrastructure.dto.GithubRepoResponse(
+            2L, "b", "u/b", "https://x/b", "main", true, "d");
+        var listPage = new com.stackup.stackup.github.infrastructure.dto.GithubRepoListPage(
+            java.util.List.of(repoA, repoB), true);
+        when(githubApiClient.listUserRepositories("plain-token", 1, 30)).thenReturn(listPage);
+
+        when(repoRepository.findGithubRepoIdsByUser_IdAndDeletedFalseAndGithubRepoIdIn(
+            eq(42L), eq(java.util.Set.of(1L, 2L))
+        )).thenReturn(java.util.List.of(2L));
+
+        var result = service.listCandidates(42L, 1, 30);
+
+        assertThat(result.content()).hasSize(2);
+        assertThat(result.content().get(0).githubRepoId()).isEqualTo(1L);
+        assertThat(result.content().get(0).alreadyRegistered()).isFalse();
+        assertThat(result.content().get(1).githubRepoId()).isEqualTo(2L);
+        assertThat(result.content().get(1).alreadyRegistered()).isTrue();
+        assertThat(result.page()).isEqualTo(1);
+        assertThat(result.perPage()).isEqualTo(30);
+        assertThat(result.hasNext()).isTrue();
+    }
+
+    @Test
+    void list_candidates_throws_when_user_not_found() {
+        when(userRepository.findById(99L)).thenReturn(java.util.Optional.empty());
+
+        assertThatThrownBy(() -> service.listCandidates(99L, 1, 30))
+            .isInstanceOf(DomainException.class)
+            .hasFieldOrPropertyWithValue("errorCode", ApiErrorCode.USER_NOT_FOUND);
+    }
 }
