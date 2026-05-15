@@ -7,6 +7,3 @@ CREATE TABLE oauth_states (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT chk_oauth_states_provider CHECK (provider IN ('GITHUB'))
 );
-
-CREATE INDEX idx_oauth_states_state ON oauth_states (state);
-CREATE INDEX idx_oauth_states_expires_at ON oauth_states (expires_at);

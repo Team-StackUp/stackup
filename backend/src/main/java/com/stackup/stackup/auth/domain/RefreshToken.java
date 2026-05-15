@@ -8,7 +8,6 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -20,14 +19,7 @@ import java.time.Instant;
 
 @Getter
 @Entity
-@Table(
-        name = "refresh_tokens",
-        indexes = {
-                @Index(name = "idx_refresh_tokens_user", columnList = "user_id"),
-                @Index(name = "idx_refresh_tokens_hash", columnList = "token_hash"),
-                @Index(name = "idx_refresh_tokens_expires", columnList = "expires_at")
-        }
-)
+@Table(name = "refresh_tokens")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class RefreshToken extends BaseTimeEntity {
 

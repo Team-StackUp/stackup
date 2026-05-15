@@ -8,7 +8,6 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import lombok.AccessLevel;
@@ -17,13 +16,7 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @Entity
-@Table(
-    name = "oauth_states",
-    indexes = {
-        @Index(name = "idx_oauth_states_state", columnList = "state"),
-        @Index(name = "idx_oauth_states_expires_at", columnList = "expires_at")
-    }
-)
+@Table(name = "oauth_states")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class OAuthState extends BaseTimeEntity {
 
