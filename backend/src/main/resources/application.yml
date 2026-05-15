@@ -36,12 +36,28 @@ app:
     jwt-secret: ${JWT_SECRET:}
     access-token-ttl-seconds: ${JWT_ACCESS_TTL_SECONDS:900}
     refresh-token-ttl-seconds: ${JWT_REFRESH_TTL_SECONDS:1209600}
+    access-token-type: ${JWT_ACCESS_TOKEN_TYPE:Bearer}
     encryption-key: ${ENCRYPTION_KEY:}
+    oauth-state-ttl: ${OAUTH_STATE_TTL:5m}
+    oauth-state-byte-length: ${OAUTH_STATE_BYTE_LENGTH:32}
+    pkce-code-verifier-byte-length: ${PKCE_CODE_VERIFIER_BYTE_LENGTH:32}
+    refresh-token-byte-length: ${REFRESH_TOKEN_BYTE_LENGTH:32}
+    refresh-token-cookie-name: ${REFRESH_TOKEN_COOKIE_NAME:refresh_token}
+    refresh-token-cookie-path: ${REFRESH_TOKEN_COOKIE_PATH:/api/auth}
+    refresh-token-cookie-same-site: ${REFRESH_TOKEN_COOKIE_SAME_SITE:Strict}
+    refresh-token-cookie-secure: ${REFRESH_TOKEN_COOKIE_SECURE:true}
+    refresh-token-cookie-http-only: ${REFRESH_TOKEN_COOKIE_HTTP_ONLY:true}
   github:
     client-id: ${GITHUB_OAUTH_CLIENT_ID:}
     client-secret: ${GITHUB_OAUTH_CLIENT_SECRET:}
     redirect-uri: ${GITHUB_OAUTH_REDIRECT_URI:}
     scopes: read:user user:email repo
+    authorization-url: ${GITHUB_OAUTH_AUTHORIZATION_URL:https://github.com/login/oauth/authorize}
+    token-url: ${GITHUB_OAUTH_TOKEN_URL:https://github.com/login/oauth/access_token}
+    token-type: ${GITHUB_OAUTH_TOKEN_TYPE:bearer}
+    code-challenge-method: ${GITHUB_OAUTH_CODE_CHALLENGE_METHOD:S256}
+    api-base-url: ${GITHUB_API_BASE_URL:https://api.github.com}
+    api-version: ${GITHUB_API_VERSION:2022-11-28}
   s3:
     endpoint: ${S3_ENDPOINT:http://localhost:9000}
     access-key: ${S3_ACCESS_KEY:minioadmin}

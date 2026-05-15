@@ -13,7 +13,13 @@ public record GithubOAuthProperties(
 	@NotBlank String clientSecret,
 	@NotNull
 	URI redirectUri,
-	@NotBlank String scopes
+	@NotBlank String scopes,
+	@NotNull URI authorizationUrl,
+	@NotNull URI tokenUrl,
+	@NotBlank String tokenType,
+	@NotBlank String codeChallengeMethod,
+	@NotBlank String apiBaseUrl,
+	@NotBlank String apiVersion
 ) {
 
 	@Override
@@ -21,6 +27,12 @@ public record GithubOAuthProperties(
 		return "GithubOAuthProperties[clientId=" + clientId
 				+ ", clientSecret=******"
 				+ ", redirectUri=" + redirectUri
-				+ ", scopes=" + scopes + "]";
+				+ ", scopes=" + scopes
+				+ ", authorizationUrl=" + authorizationUrl
+				+ ", tokenUrl=" + tokenUrl
+				+ ", tokenType=" + tokenType
+				+ ", codeChallengeMethod=" + codeChallengeMethod
+				+ ", apiBaseUrl=" + apiBaseUrl
+				+ ", apiVersion=" + apiVersion + "]";
 	}
 }
