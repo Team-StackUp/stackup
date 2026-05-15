@@ -4,12 +4,18 @@ from dataclasses import dataclass
 
 import structlog
 
+from ai_server.analyzer._embedding_step import (
+    EmbeddingStepError,
+    chunk_embed_and_upsert,
+)
 from ai_server.analyzer.sources.github_repo import (
     GitHubRepoSourceExtractor,
     RepositoryFetchError,
 )
 from ai_server.chain.document_analysis_chain import DocumentAnalyzer
 from ai_server.core.client import CoreClient, CoreTokenError
+from ai_server.rag.chunker import MarkdownChunker
+from ai_server.rag.embedder import EmbeddingProvider
 from ai_server.storage.base import ObjectStorage
 
 log = structlog.get_logger(__name__)
@@ -28,10 +34,10 @@ class RepositoryAnalysisResult:
     summary: str
     tech_stack: list[str]
     document_path: str
+    embedding_chunk_count: int
 
 
-# 코어서버에서 토큰 받아오고 레포 가져온다
-# 이후 LLM 분석하고 마크다운 저장 
+# Core에서 사용자별 GitHub token 수령 → 레포 fetch → LLM 분석 → 마크다운 저장 → 청킹·임베딩
 class RepositoryAnalyzer:
     def __init__(
         self,
@@ -40,12 +46,16 @@ class RepositoryAnalyzer:
         core_client: CoreClient,
         chain: DocumentAnalyzer,
         storage: ObjectStorage,
+        chunker: MarkdownChunker,
+        embedder: EmbeddingProvider,
         analyzed_key_template: str,
     ) -> None:
         self._extractor = extractor
         self._core_client = core_client
         self._chain = chain
         self._storage = storage
+        self._chunker = chunker
+        self._embedder = embedder
         self._analyzed_key_template = analyzed_key_template
 
     async def analyze(
@@ -55,6 +65,7 @@ class RepositoryAnalyzer:
         repo_full_name: str,
         default_branch: str = "main",
         user_id: int | None,
+        analyzed_document_id: int,
     ) -> RepositoryAnalysisResult:
         if user_id is None:
             raise RepositoryAnalyzeError(
@@ -72,9 +83,7 @@ class RepositoryAnalyzer:
             access_token = await self._core_client.fetch_github_token(user_id)
         except CoreTokenError as err:
             raise RepositoryAnalyzeError(
-                code=err.code,
-                message=err.message,
-                retriable=err.retriable,
+                code=err.code, message=err.message, retriable=err.retriable
             ) from err
 
         log.info(
@@ -90,9 +99,7 @@ class RepositoryAnalyzer:
             )
         except RepositoryFetchError as err:
             raise RepositoryAnalyzeError(
-                code=err.code,
-                message=err.message,
-                retriable=err.retriable,
+                code=err.code, message=err.message, retriable=err.retriable
             ) from err
 
         if not source.text.strip():
@@ -121,8 +128,23 @@ class RepositoryAnalyzer:
             md_chars=len(analysis.markdown),
         )
 
+        try:
+            chunk_count = await chunk_embed_and_upsert(
+                document_id=analyzed_document_id,
+                markdown=analysis.markdown,
+                chunker=self._chunker,
+                embedder=self._embedder,
+                core_client=self._core_client,
+                log_prefix="repository",
+            )
+        except EmbeddingStepError as err:
+            raise RepositoryAnalyzeError(
+                code=err.code, message=err.message, retriable=err.retriable
+            ) from err
+
         return RepositoryAnalysisResult(
             summary=analysis.summary,
             tech_stack=list(analysis.tech_stack),
             document_path=out_key,
+            embedding_chunk_count=chunk_count,
         )
