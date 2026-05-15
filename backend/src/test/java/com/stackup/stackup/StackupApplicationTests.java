@@ -3,6 +3,7 @@ package com.stackup.stackup;
 import com.stackup.stackup.auth.domain.OAuthStateRepository;
 import com.stackup.stackup.auth.domain.RefreshTokenRepository;
 import com.stackup.stackup.document.domain.AnalyzedDocumentRepository;
+import com.stackup.stackup.github.domain.GithubRepositoryRepository;
 import com.stackup.stackup.resume.domain.ResumeRepository;
 import com.stackup.stackup.user.domain.UserRepository;
 import org.junit.jupiter.api.Test;
@@ -26,6 +27,9 @@ class StackupApplicationTests {
 
 	@MockitoBean
 	private AnalyzedDocumentRepository analyzedDocumentRepository;
+
+	@MockitoBean
+	private GithubRepositoryRepository githubRepositoryRepository;
 
 	@Test
 	void contextLoads() {
