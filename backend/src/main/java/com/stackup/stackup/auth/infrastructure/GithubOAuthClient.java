@@ -7,11 +7,9 @@ import com.stackup.stackup.common.exception.DomainException;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
-import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -19,15 +17,19 @@ import org.springframework.web.util.UriComponentsBuilder;
 public class GithubOAuthClient {
 
     private final GithubOAuthProperties githubOAuthProperties;
-    private final RestClient restClient;
+    private final GithubOAuthHttpClient githubOAuthHttpClient;
 
-    public GithubOAuthClient(GithubOAuthProperties githubOAuthProperties) {
+    public GithubOAuthClient(
+        GithubOAuthProperties githubOAuthProperties,
+        GithubOAuthHttpClient githubOAuthHttpClient
+    ) {
         this.githubOAuthProperties = githubOAuthProperties;
-        this.restClient = RestClient.builder().build();
+        this.githubOAuthHttpClient = githubOAuthHttpClient;
     }
 
     public String buildAuthorizationUrl(String state, String codeChallenge) {
-        return UriComponentsBuilder.fromUri(githubOAuthProperties.authorizationUrl())
+        return UriComponentsBuilder.fromUri(githubOAuthProperties.oauthBaseUrl())
+            .path("/login/oauth/authorize")
             .queryParam("client_id", githubOAuthProperties.clientId())
             .queryParam("redirect_uri", githubOAuthProperties.redirectUri())
             .queryParam("scope", githubOAuthProperties.scopes())
@@ -47,14 +49,7 @@ public class GithubOAuthClient {
         body.add("code_verifier", codeVerifier);
 
         try {
-            GithubTokenResponse response = restClient.post()
-                .uri(githubOAuthProperties.tokenUrl())
-                .accept(MediaType.APPLICATION_JSON)
-                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .body(body)
-                .retrieve()
-                .body(GithubTokenResponse.class);
-
+            GithubTokenResponse response = githubOAuthHttpClient.exchangeCode(body);
             return validateTokenResponse(response);
         } catch (RestClientException exception) {
             throw oauthFailed(exception);

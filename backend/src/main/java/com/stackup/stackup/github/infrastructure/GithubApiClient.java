@@ -1,39 +1,26 @@
 package com.stackup.stackup.github.infrastructure;
 
-import com.stackup.stackup.common.config.properties.GithubOAuthProperties;
 import com.stackup.stackup.common.exception.ApiErrorCode;
 import com.stackup.stackup.common.exception.DomainException;
 import com.stackup.stackup.github.infrastructure.dto.GithubEmailResponse;
 import com.stackup.stackup.github.infrastructure.dto.GithubUserResponse;
 import java.util.Arrays;
 import java.util.Optional;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 @Component
 public class GithubApiClient {
 
-    private final RestClient restClient;
+    private final GithubApiHttpClient githubApiHttpClient;
 
-    public GithubApiClient(GithubOAuthProperties githubOAuthProperties) {
-        this.restClient = RestClient.builder()
-            .baseUrl(githubOAuthProperties.apiBaseUrl())
-            .defaultHeader(HttpHeaders.ACCEPT, "application/vnd.github+json")
-            .defaultHeader("X-GitHub-Api-Version", githubOAuthProperties.apiVersion())
-            .build();
+    public GithubApiClient(GithubApiHttpClient githubApiHttpClient) {
+        this.githubApiHttpClient = githubApiHttpClient;
     }
 
     public GithubUserResponse getUser(String githubAccessToken) {
         try {
-            GithubUserResponse response = restClient.get()
-                .uri("/user")
-                .headers(headers -> headers.setBearerAuth(githubAccessToken))
-                .accept(MediaType.APPLICATION_JSON)
-                .retrieve()
-                .body(GithubUserResponse.class);
+            GithubUserResponse response = githubApiHttpClient.getUser(bearer(githubAccessToken));
 
             if (response == null || response.id() == null || response.login() == null || response.login().isBlank()) {
                 throw oauthFailed();
@@ -46,12 +33,7 @@ public class GithubApiClient {
 
     public Optional<String> getPrimaryVerifiedEmail(String githubAccessToken) {
         try {
-            GithubEmailResponse[] response = restClient.get()
-                .uri("/user/emails")
-                .headers(headers -> headers.setBearerAuth(githubAccessToken))
-                .accept(MediaType.APPLICATION_JSON)
-                .retrieve()
-                .body(GithubEmailResponse[].class);
+            GithubEmailResponse[] response = githubApiHttpClient.getUserEmails(bearer(githubAccessToken));
 
             if (response == null) {
                 return Optional.empty();
@@ -66,6 +48,10 @@ public class GithubApiClient {
         } catch (RestClientException exception) {
             throw oauthFailed(exception);
         }
+    }
+
+    private String bearer(String accessToken) {
+        return "Bearer " + accessToken;
     }
 
     private DomainException oauthFailed() {
