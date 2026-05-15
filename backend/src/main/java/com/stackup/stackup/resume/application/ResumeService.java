@@ -98,6 +98,16 @@ public class ResumeService {
             .orElseThrow(() -> new DomainException(ApiErrorCode.RESUME_NOT_FOUND));
     }
 
+    @Transactional
+    public void delete(Long userId, Long resumeId) {
+        Resume resume = resumeRepository.findByIdAndUser_IdAndDeletedFalse(resumeId, userId)
+            .orElseThrow(() -> new DomainException(ApiErrorCode.RESUME_NOT_FOUND));
+        if (documentRepository.existsActiveSessionContextForResume(resumeId)) {
+            throw new DomainException(ApiErrorCode.RESUME_IN_USE);
+        }
+        resume.softDelete();
+    }
+
     private void safeDelete(String key) {
         try {
             storage.delete(key);

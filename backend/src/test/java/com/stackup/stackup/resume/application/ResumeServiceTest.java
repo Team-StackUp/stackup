@@ -165,4 +165,43 @@ class ResumeServiceTest {
 
         assertThat(result.id()).isEqualTo(1L);
     }
+
+    @Test
+    void delete_throws_resume_not_found_for_unknown() {
+        when(resumeRepository.findByIdAndUser_IdAndDeletedFalse(1L, 42L)).thenReturn(java.util.Optional.empty());
+
+        assertThatThrownBy(() -> service.delete(42L, 1L))
+            .isInstanceOf(DomainException.class)
+            .hasFieldOrPropertyWithValue("errorCode", ApiErrorCode.RESUME_NOT_FOUND);
+    }
+
+    @Test
+    void delete_throws_resume_in_use_when_active_session_references_it() {
+        com.stackup.stackup.resume.domain.Resume r = com.stackup.stackup.resume.domain.Resume.create(
+            Mockito.mock(com.stackup.stackup.user.domain.User.class),
+            "r.pdf", "k", 1L, com.stackup.stackup.resume.domain.ResumeFileType.PDF
+        );
+        org.springframework.test.util.ReflectionTestUtils.setField(r, "id", 1L);
+        when(resumeRepository.findByIdAndUser_IdAndDeletedFalse(1L, 42L)).thenReturn(java.util.Optional.of(r));
+        when(documentRepository.existsActiveSessionContextForResume(1L)).thenReturn(true);
+
+        assertThatThrownBy(() -> service.delete(42L, 1L))
+            .isInstanceOf(DomainException.class)
+            .hasFieldOrPropertyWithValue("errorCode", ApiErrorCode.RESUME_IN_USE);
+    }
+
+    @Test
+    void delete_marks_resume_deleted_when_no_active_session() {
+        com.stackup.stackup.resume.domain.Resume r = com.stackup.stackup.resume.domain.Resume.create(
+            Mockito.mock(com.stackup.stackup.user.domain.User.class),
+            "r.pdf", "k", 1L, com.stackup.stackup.resume.domain.ResumeFileType.PDF
+        );
+        org.springframework.test.util.ReflectionTestUtils.setField(r, "id", 1L);
+        when(resumeRepository.findByIdAndUser_IdAndDeletedFalse(1L, 42L)).thenReturn(java.util.Optional.of(r));
+        when(documentRepository.existsActiveSessionContextForResume(1L)).thenReturn(false);
+
+        service.delete(42L, 1L);
+
+        assertThat(r.isDeleted()).isTrue();
+    }
 }
