@@ -28,6 +28,7 @@ def _request_envelope(message_id: str = "req-1", resume_id: int = 42) -> bytes:
             "payload": {
                 "resumeId": resume_id,
                 "filePath": "resumes/raw/123/abc.pdf",
+                "analyzedDocumentId": 77,
             },
             "context": {"userId": 123},
         }
@@ -80,6 +81,7 @@ async def test_happy_path_publishes_analyzed_callback() -> None:
             summary="요약",
             tech_stack=["Python", "FastAPI"],
             document_path="analyzed/resume/42/summary.md",
+            embedding_chunk_count=4,
         )
     )
     consumer, publisher = _make_consumer(analyzer)
@@ -87,7 +89,7 @@ async def test_happy_path_publishes_analyzed_callback() -> None:
     await consumer.handle(_incoming_message(_request_envelope()))
 
     analyzer.analyze.assert_awaited_once_with(
-        resume_id=42, file_path="resumes/raw/123/abc.pdf"
+        resume_id=42, file_path="resumes/raw/123/abc.pdf", analyzed_document_id=77
     )
     payload = _captured_payload(publisher)
     assert payload.status == "ANALYZED"
@@ -96,7 +98,7 @@ async def test_happy_path_publishes_analyzed_callback() -> None:
     assert payload.summary == "요약"
     assert payload.tech_stack == ["Python", "FastAPI"]
     assert payload.document_path == "analyzed/resume/42/summary.md"
-    assert payload.embedding_chunk_count == 0
+    assert payload.embedding_chunk_count == 4
 
 
 @pytest.mark.asyncio
@@ -141,7 +143,10 @@ async def test_idempotent_message_skips_analyzer_and_publish() -> None:
     analyzer = AsyncMock()
     analyzer.analyze = AsyncMock(
         return_value=ResumeAnalysisResult(
-            summary="요약", tech_stack=[], document_path="analyzed/resume/42/summary.md"
+            summary="요약",
+            tech_stack=[],
+            document_path="analyzed/resume/42/summary.md",
+            embedding_chunk_count=0,
         )
     )
     idem = LruIdempotencyStore(max_size=16)
