@@ -13,6 +13,7 @@ class ResumeAnalyzeRequest(BaseModel):
 
     resume_id: int
     file_path: str
+    analyzed_document_id: ints
 
 
 class RepositoryAnalyzeRequest(BaseModel):
@@ -21,6 +22,7 @@ class RepositoryAnalyzeRequest(BaseModel):
     repository_id: int
     repo_full_name: str
     default_branch: str = "main"
+    analyzed_document_id: int
 
 
 class WebResumeAnalyzeRequest(BaseModel):
@@ -28,6 +30,7 @@ class WebResumeAnalyzeRequest(BaseModel):
 
     resume_id: int
     url: str
+    analyzed_document_id: int
 
 
 class AnalysisCallbackPayload(BaseModel):

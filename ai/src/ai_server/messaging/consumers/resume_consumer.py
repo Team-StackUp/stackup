@@ -86,6 +86,7 @@ class ResumeConsumer:
             result = await self._analyzer.analyze(
                 resume_id=req.resume_id,
                 file_path=req.file_path,
+                analyzed_document_id=req.analyzed_document_id,
             )
         except ResumeAnalyzeError as err:
             log.warning(
@@ -125,5 +126,5 @@ class ResumeConsumer:
             summary=result.summary,
             tech_stack=result.tech_stack,
             document_path=result.document_path,
-            embedding_chunk_count=0,
+            embedding_chunk_count=result.embedding_chunk_count,
         )

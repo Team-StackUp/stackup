@@ -90,6 +90,7 @@ class WebResumeConsumer:
             result = await self._analyzer.analyze(
                 resume_id=req.resume_id,
                 url=req.url,
+                analyzed_document_id=req.analyzed_document_id,
             )
         except WebResumeAnalyzeError as err:
             log.warning(
@@ -129,5 +130,5 @@ class WebResumeConsumer:
             summary=result.summary,
             tech_stack=result.tech_stack,
             document_path=result.document_path,
-            embedding_chunk_count=0,
+            embedding_chunk_count=result.embedding_chunk_count,
         )

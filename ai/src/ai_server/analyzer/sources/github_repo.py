@@ -11,7 +11,7 @@ from ai_server.analyzer.sources.base import ExtractedSource, SourceExtractor
 log = structlog.get_logger(__name__)
 
 
-# 프로젝트 설정 파일을 먼저 읽는다 
+# 프로젝트 설정 파일을 먼저 읽는다
 _PRIORITY_FILES: tuple[str, ...] = (
     "package.json",
     "pyproject.toml",
@@ -68,7 +68,7 @@ class _RepoConfig:
     timeout_sec: float
 
 
-# 리드미, 주요 소스를 읽는다 
+# 리드미, 주요 소스를 읽는다
 class GitHubRepoSourceExtractor(SourceExtractor):
     def __init__(
         self,
@@ -87,7 +87,7 @@ class GitHubRepoSourceExtractor(SourceExtractor):
             max_file_bytes=max_file_bytes,
             timeout_sec=timeout_sec,
         )
-        self._client = client  
+        self._client = client
 
     async def extract(
         self,
