@@ -5,24 +5,19 @@ import com.stackup.stackup.common.messaging.RabbitMessagePublisher;
 import com.stackup.stackup.resume.application.event.ResumeUploadedEvent;
 import com.stackup.stackup.resume.infrastructure.dto.AnalyzeResumePayload;
 import java.util.Map;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
+@Slf4j
 @Component
+@RequiredArgsConstructor
 public class ResumeAnalysisPublisher {
-
-    private static final Logger log = LoggerFactory.getLogger(ResumeAnalysisPublisher.class);
 
     private final RabbitMessagePublisher rabbitPublisher;
     private final RabbitMqProperties properties;
-
-    public ResumeAnalysisPublisher(RabbitMessagePublisher rabbitPublisher, RabbitMqProperties properties) {
-        this.rabbitPublisher = rabbitPublisher;
-        this.properties = properties;
-    }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handle(ResumeUploadedEvent event) {
