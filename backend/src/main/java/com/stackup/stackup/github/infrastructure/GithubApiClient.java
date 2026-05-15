@@ -76,6 +76,34 @@ public class GithubApiClient {
         }
     }
 
+    public GithubRepoResponse getRepository(String accessToken, long githubRepoId) {
+        try {
+            GithubRepoResponse body = restClient.get()
+                .uri("/repositories/{id}", githubRepoId)
+                .headers(h -> h.setBearerAuth(accessToken))
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .body(GithubRepoResponse.class);
+
+            if (body == null || body.id() == null) {
+                throw new DomainException(ApiErrorCode.REPO_GITHUB_API_FAILED);
+            }
+            return body;
+        } catch (org.springframework.web.client.HttpClientErrorException.NotFound e) {
+            throw new DomainException(ApiErrorCode.REPO_PRIVATE_NO_ACCESS);
+        } catch (org.springframework.web.client.HttpClientErrorException.Forbidden e) {
+            String remaining = e.getResponseHeaders() == null ? null
+                : e.getResponseHeaders().getFirst("X-RateLimit-Remaining");
+            throw "0".equals(remaining)
+                ? new DomainException(ApiErrorCode.SYS_RATE_LIMITED)
+                : new DomainException(ApiErrorCode.REPO_PRIVATE_NO_ACCESS);
+        } catch (DomainException e) {
+            throw e;
+        } catch (RestClientException exception) {
+            throw githubApiFailed(exception);
+        }
+    }
+
     public GithubRepoListPage listUserRepositories(String accessToken, int page, int perPage) {
         try {
             ResponseEntity<GithubRepoResponse[]> response = restClient.get()

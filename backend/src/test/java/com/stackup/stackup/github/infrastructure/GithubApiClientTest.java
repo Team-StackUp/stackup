@@ -67,4 +67,45 @@ class GithubApiClientTest {
 
         assertThat(page.hasNext()).isFalse();
     }
+
+    @Test
+    void get_repository_returns_metadata_on_success() {
+        String body = """
+            {"id":1296269,"name":"Hello-World","full_name":"octocat/Hello-World",
+             "html_url":"https://github.com/octocat/Hello-World",
+             "default_branch":"main","private":false,"description":"d"}""";
+        server.expect(requestTo("https://api.github.com/repositories/1296269"))
+              .andExpect(method(HttpMethod.GET))
+              .andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
+
+        var resp = client.getRepository("tok", 1296269L);
+
+        assertThat(resp.id()).isEqualTo(1296269L);
+        assertThat(resp.fullName()).isEqualTo("octocat/Hello-World");
+    }
+
+    @Test
+    void get_repository_translates_404_to_repo_private_no_access() {
+        server.expect(requestTo("https://api.github.com/repositories/999"))
+              .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators
+                  .withResourceNotFound());
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> client.getRepository("tok", 999L))
+            .isInstanceOf(com.stackup.stackup.common.exception.DomainException.class)
+            .hasFieldOrPropertyWithValue("errorCode", com.stackup.stackup.common.exception.ApiErrorCode.REPO_PRIVATE_NO_ACCESS);
+    }
+
+    @Test
+    void get_repository_translates_403_with_zero_remaining_to_sys_rate_limited() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("X-RateLimit-Remaining", "0");
+        server.expect(requestTo("https://api.github.com/repositories/2"))
+              .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators
+                  .withStatus(org.springframework.http.HttpStatus.FORBIDDEN)
+                  .headers(headers));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> client.getRepository("tok", 2L))
+            .isInstanceOf(com.stackup.stackup.common.exception.DomainException.class)
+            .hasFieldOrPropertyWithValue("errorCode", com.stackup.stackup.common.exception.ApiErrorCode.SYS_RATE_LIMITED);
+    }
 }
