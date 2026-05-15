@@ -6,8 +6,14 @@ import com.stackup.stackup.common.storage.ObjectStorageClient;
 import com.stackup.stackup.document.domain.AnalyzedDocumentRepository;
 import com.stackup.stackup.resume.application.dto.ResumeResult;
 import com.stackup.stackup.resume.application.dto.ResumeUploadCommand;
+import com.stackup.stackup.resume.application.event.ResumeUploadedEvent;
+import com.stackup.stackup.resume.domain.Resume;
+import com.stackup.stackup.resume.domain.ResumeFileType;
 import com.stackup.stackup.resume.domain.ResumeRepository;
+import com.stackup.stackup.user.domain.User;
 import com.stackup.stackup.user.domain.UserRepository;
+import java.util.UUID;
+import org.slf4j.MDC;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,7 +61,37 @@ public class ResumeService {
         if (!hasPdfMagicBytes(file)) {
             throw new DomainException(ApiErrorCode.RESUME_INVALID_FILE_TYPE);
         }
-        throw new UnsupportedOperationException("upload path not yet");
+
+        String key = "resumes/raw/" + userId + "/" + UUID.randomUUID() + ".pdf";
+        long size = file.getSize();
+
+        try (var in = file.getInputStream()) {
+            storage.put(key, in, size, "application/pdf");
+        } catch (java.io.IOException e) {
+            throw new DomainException(ApiErrorCode.SYS_INTERNAL_ERROR, "Failed to read uploaded file", e);
+        }
+
+        Resume resume;
+        try {
+            User user = userRepository.getReferenceById(userId);
+            resume = resumeRepository.save(Resume.create(
+                user, file.getOriginalFilename(), key, size, ResumeFileType.PDF
+            ));
+        } catch (RuntimeException dbError) {
+            safeDelete(key);
+            throw dbError;
+        }
+
+        String traceId = MDC.get("traceId");
+        events.publishEvent(new ResumeUploadedEvent(resume.getId(), userId, key, traceId));
+        return ResumeResult.from(resume);
+    }
+
+    private void safeDelete(String key) {
+        try {
+            storage.delete(key);
+        } catch (RuntimeException ignored) {
+        }
     }
 
     private static boolean isPdfContentType(String contentType) {
