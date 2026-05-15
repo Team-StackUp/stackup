@@ -49,7 +49,7 @@ public class ResumeController {
     }
 
     @GetMapping
-    @Operation(summary = "내 이력서 목록")
+    @Operation(summary = "내 이력서 목록", description = "페이지 기본값: size=20, sort=createdAt DESC")
     public PageResponse<ResumeResponse> list(
         @AuthenticationPrincipal UserPrincipal principal,
         @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
