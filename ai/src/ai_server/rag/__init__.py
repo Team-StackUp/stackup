@@ -2,6 +2,7 @@ from ai_server.rag.chunker import Chunk, MarkdownChunker
 from ai_server.rag.embedder import (
     EmbeddingError,
     EmbeddingProvider,
+    GeminiEmbeddingProvider,
     MockEmbeddingProvider,
     build_embedding_provider,
 )
@@ -12,5 +13,6 @@ __all__ = [
     "EmbeddingError",
     "EmbeddingProvider",
     "MockEmbeddingProvider",
+    "GeminiEmbeddingProvider",
     "build_embedding_provider",
 ]

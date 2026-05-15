@@ -11,7 +11,7 @@ class Chunk:
     text: str
 
 
-# md를 잘라냄. size와 overlap은 설정에서 가져다 씀 
+# md를 잘라냄. size와 overlap은 설정에서 가져다 씀
 class MarkdownChunker:
     def __init__(self, *, chunk_size: int, chunk_overlap: int) -> None:
         if chunk_size <= 0:

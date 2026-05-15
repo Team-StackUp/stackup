@@ -24,10 +24,7 @@ class EmbeddingProvider(Protocol):
     async def embed(self, texts: list[str]) -> list[list[float]]: ...
 
 
-# 결정 지연용 mock. 입력 텍스트의 SHA-256을 dim 길이로 펼쳐서 [-1, 1] vector 생성.
-# 같은 입력은 항상 같은 vector → roundtrip·중복 테스트에 안전.
-# 실제 임베딩 모델로 교체될 때까지 pgvector 컬럼 차원만 맞으면 e2e가 돈다.
-# 
+# 우선 mock 구현체
 class MockEmbeddingProvider:
     def __init__(self, *, dim: int = 1536, model: str = "mock") -> None:
         if dim <= 0:
@@ -56,15 +53,63 @@ class MockEmbeddingProvider:
         return [v * scale - 1.0 for v in ints]
 
 
-# 우선 mock 만 지원함. 다른 구현체는 추후 고려
+# Gemini Embedding 을 사용합니다. 
+# 이건 충대키로 안되니 키 발급 필요함 
+class GeminiEmbeddingProvider:
+    def __init__(self, *, api_key: str, model: str, dim: int) -> None:
+        if not api_key:
+            raise ValueError("GEMINI_API_KEY 누락 — provider=gemini 사용 불가")
+        if dim <= 0:
+            raise ValueError(f"dim must be > 0, got {dim}")
+        from google import genai
+
+        self._client = genai.Client(api_key=api_key)
+        self._model = model
+        self._dim = dim
+
+    @property
+    def dim(self) -> int:
+        return self._dim
+
+    @property
+    def model(self) -> str:
+        return self._model
+
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        if not texts:
+            return []
+        from google.genai import types as genai_types
+
+        try:
+            resp = await self._client.aio.models.embed_content(
+                model=self._model,
+                contents=texts,
+                config=genai_types.EmbedContentConfig(
+                    task_type="RETRIEVAL_DOCUMENT",
+                    output_dimensionality=self._dim,
+                ),
+            )
+        except Exception as exc:
+            raise EmbeddingError(
+                code="GEMINI_FAILED",
+                message=f"Gemini embedding 호출 실패: {exc}",
+                retriable=True,
+            ) from exc
+
+        return [list(e.values) for e in resp.embeddings]
+
+
 def build_embedding_provider(
     *,
     provider: str,
     dim: int,
     model: str,
+    gemini_api_key: str = "",
 ) -> EmbeddingProvider:
     if provider == "mock":
         return MockEmbeddingProvider(dim=dim, model=model)
+    if provider == "gemini":
+        return GeminiEmbeddingProvider(api_key=gemini_api_key, model=model, dim=dim)
     if provider == "openai":
         raise NotImplementedError("openai embedding provider 미구현 — 후속 PR에서 추가")
     if provider == "ollama":
