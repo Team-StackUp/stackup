@@ -13,7 +13,6 @@ import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Base64;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,12 +24,7 @@ public class OAuthStateService {
     private final SecureRandom secureRandom;
     private final Clock clock;
 
-    @Autowired
-    public OAuthStateService(OAuthStateRepository oauthStateRepository, SecurityProperties securityProperties) {
-        this(oauthStateRepository, securityProperties, new SecureRandom(), Clock.systemUTC());
-    }
-
-    OAuthStateService(
+    public OAuthStateService(
         OAuthStateRepository oauthStateRepository,
         SecurityProperties securityProperties,
         SecureRandom secureRandom,
