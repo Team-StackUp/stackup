@@ -22,41 +22,19 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Service;
 
 @Service
-public class AuthService {
+public record AuthService(
+    GithubOAuthClient githubOAuthClient,
+    OAuthStateService oauthStateService,
+    GithubApiClient githubApiClient,
+    GithubTokenCipher githubTokenCipher,
+    GithubUserService githubUserService,
+    RefreshTokenService refreshTokenService,
+    JwtTokenProvider jwtTokenProvider,
+    StreamTokenProvider streamTokenProvider,
+    SecurityProperties securityProperties
+) {
 
     private static final String TOKEN_TYPE_BEARER = "Bearer";
-
-    private final GithubOAuthClient githubOAuthClient;
-    private final OAuthStateService oauthStateService;
-    private final GithubApiClient githubApiClient;
-    private final GithubTokenCipher githubTokenCipher;
-    private final GithubUserService githubUserService;
-    private final RefreshTokenService refreshTokenService;
-    private final JwtTokenProvider jwtTokenProvider;
-    private final StreamTokenProvider streamTokenProvider;
-    private final SecurityProperties securityProperties;
-
-    public AuthService(
-        GithubOAuthClient githubOAuthClient,
-        OAuthStateService oauthStateService,
-        GithubApiClient githubApiClient,
-        GithubTokenCipher githubTokenCipher,
-        GithubUserService githubUserService,
-        RefreshTokenService refreshTokenService,
-        JwtTokenProvider jwtTokenProvider,
-        StreamTokenProvider streamTokenProvider,
-        SecurityProperties securityProperties
-    ) {
-        this.githubOAuthClient = githubOAuthClient;
-        this.oauthStateService = oauthStateService;
-        this.githubApiClient = githubApiClient;
-        this.githubTokenCipher = githubTokenCipher;
-        this.githubUserService = githubUserService;
-        this.refreshTokenService = refreshTokenService;
-        this.jwtTokenProvider = jwtTokenProvider;
-        this.streamTokenProvider = streamTokenProvider;
-        this.securityProperties = securityProperties;
-    }
 
     public GithubLoginResult startGithubLogin() {
         OAuthStateIssueResult oauthState = oauthStateService.issueGithubStateWithPkce();

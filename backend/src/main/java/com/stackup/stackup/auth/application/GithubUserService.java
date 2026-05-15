@@ -9,13 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-public class GithubUserService {
-
-    private final UserRepository userRepository;
-
-    public GithubUserService(UserRepository userRepository) {
-        this.userRepository = userRepository;
-    }
+public record GithubUserService(UserRepository userRepository) {
 
     @Transactional
     public GithubUserUpsertResult upsertGithubUser(

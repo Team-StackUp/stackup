@@ -24,20 +24,12 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
-public class SecurityConfig {
+public record SecurityConfig(
+    JwtAuthenticationFilter jwtAuthenticationFilter,
+    CorsProperties corsProperties
+) {
 
     private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
-
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
-    private final CorsProperties corsProperties;
-
-    public SecurityConfig(
-        JwtAuthenticationFilter jwtAuthenticationFilter,
-        CorsProperties corsProperties
-    ) {
-        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
-        this.corsProperties = corsProperties;
-    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
