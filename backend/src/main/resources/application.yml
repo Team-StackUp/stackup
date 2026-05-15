@@ -60,6 +60,8 @@ app:
     code-challenge-method: ${GITHUB_OAUTH_CODE_CHALLENGE_METHOD:S256}
     api-base-url: ${GITHUB_API_BASE_URL:https://api.github.com}
     api-version: ${GITHUB_API_VERSION:2022-11-28}
+    connect-timeout: ${GITHUB_CONNECT_TIMEOUT:3s}
+    read-timeout: ${GITHUB_READ_TIMEOUT:5s}
   s3:
     endpoint: ${S3_ENDPOINT:http://localhost:9000}
     access-key: ${S3_ACCESS_KEY:minioadmin}
