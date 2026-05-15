@@ -4,7 +4,10 @@ import com.stackup.stackup.common.config.properties.CorsProperties;
 import com.stackup.stackup.common.exception.ApiErrorCode;
 import com.stackup.stackup.common.trace.TraceContext;
 import jakarta.servlet.http.HttpServletResponse;
+import java.time.Instant;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
@@ -14,6 +17,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -21,6 +25,8 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
 public class SecurityConfig {
+
+    private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final CorsProperties corsProperties;
@@ -39,7 +45,10 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .exceptionHandling(exception -> exception.authenticationEntryPoint(authenticationEntryPoint()))
+            .exceptionHandling(exception -> exception
+                .authenticationEntryPoint(authenticationEntryPoint())
+                .accessDeniedHandler(accessDeniedHandler())
+            )
             .authorizeHttpRequests(authorize -> authorize
                 .requestMatchers(
                     "/api/auth/github",
@@ -78,18 +87,43 @@ public class SecurityConfig {
     @Bean
     public AuthenticationEntryPoint authenticationEntryPoint() {
         return (request, response, authException) -> {
-            ApiErrorCode errorCode = ApiErrorCode.AUTH_INVALID_TOKEN;
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            response.getWriter().write("""
-                {"code":"%s","message":"%s","traceId":"%s","timestamp":"%s","details":{}}
-                """.formatted(
-                escape(errorCode.name()),
-                escape(errorCode.getDefaultMessage()),
-                escape(TraceContext.getTraceId()),
-                escape(java.time.Instant.now().toString())
+            ApiErrorCode errorCode = resolveAuthenticationErrorCode(request.getAttribute(
+                JwtAuthenticationFilter.AUTH_ERROR_CODE_ATTRIBUTE
             ));
+            log.warn("Authentication failed. code={}, traceId={}, uri={}",
+                errorCode.name(), TraceContext.getTraceId(), request.getRequestURI());
+            writeErrorResponse(response, errorCode);
         };
+    }
+
+    @Bean
+    public AccessDeniedHandler accessDeniedHandler() {
+        return (request, response, accessDeniedException) -> {
+            ApiErrorCode errorCode = ApiErrorCode.ACCESS_DENIED;
+            log.warn("Access denied. code={}, traceId={}, uri={}",
+                errorCode.name(), TraceContext.getTraceId(), request.getRequestURI());
+            writeErrorResponse(response, errorCode);
+        };
+    }
+
+    private ApiErrorCode resolveAuthenticationErrorCode(Object errorCodeAttribute) {
+        if (errorCodeAttribute instanceof ApiErrorCode errorCode) {
+            return errorCode;
+        }
+        return ApiErrorCode.AUTH_INVALID_TOKEN;
+    }
+
+    private void writeErrorResponse(HttpServletResponse response, ApiErrorCode errorCode) throws java.io.IOException {
+        response.setStatus(errorCode.getStatus().value());
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.getWriter().write("""
+            {"code":"%s","message":"%s","traceId":"%s","timestamp":"%s","details":{}}
+            """.formatted(
+            escape(errorCode.name()),
+            escape(errorCode.getDefaultMessage()),
+            escape(TraceContext.getTraceId()),
+            escape(Instant.now().toString())
+        ));
     }
 
     private static String escape(String value) {

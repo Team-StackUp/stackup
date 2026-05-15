@@ -15,3 +15,5 @@ app:
   github:
     client-id: test-github-client-id
     client-secret: test-github-client-secret
+    redirect-uri: http://localhost:5173/auth/callback
+    scopes: read:user user:email repo

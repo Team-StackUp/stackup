@@ -2,11 +2,19 @@ package com.stackup.stackup.common.storage;
 
 public class StorageException extends RuntimeException {
 
-    public StorageException(String message) {
+    private final StorageErrorType type;
+
+    public StorageException(StorageErrorType type, String message) {
         super(message);
+        this.type = type;
     }
 
-    public StorageException(String message, Throwable cause) {
+    public StorageException(StorageErrorType type, String message, Throwable cause) {
         super(message, cause);
+        this.type = type;
+    }
+
+    public StorageErrorType getType() {
+        return type;
     }
 }

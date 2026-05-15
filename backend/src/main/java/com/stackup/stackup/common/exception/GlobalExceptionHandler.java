@@ -1,6 +1,7 @@
 package com.stackup.stackup.common.exception;
 
 import com.stackup.stackup.common.response.ApiErrorResponse;
+import com.stackup.stackup.common.storage.StorageException;
 import com.stackup.stackup.common.trace.TraceContext;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
@@ -9,6 +10,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
@@ -20,9 +23,13 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     @ExceptionHandler(DomainException.class)
     public ResponseEntity<ApiErrorResponse> handleDomainException(DomainException exception) {
         ApiErrorCode errorCode = exception.getErrorCode();
+        log.warn("Domain exception. code={}, traceId={}, details={}",
+            errorCode.name(), TraceContext.getTraceId(), exception.getDetails());
         return buildResponse(errorCode, resolveMessage(exception, errorCode), exception.getDetails());
     }
 
@@ -51,19 +58,33 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ApiErrorResponse> handleAuthentication(AuthenticationException exception) {
+        ApiErrorCode errorCode = ApiErrorCode.AUTH_INVALID_TOKEN;
+        log.warn("Authentication exception. code={}, traceId={}", errorCode.name(), TraceContext.getTraceId());
         return buildResponse(ApiErrorCode.AUTH_INVALID_TOKEN, ApiErrorCode.AUTH_INVALID_TOKEN.getDefaultMessage(),
             Map.of());
     }
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiErrorResponse> handleAccessDenied(AccessDeniedException exception) {
-        return buildResponse(ApiErrorCode.ACCESS_DENIED, ApiErrorCode.ACCESS_DENIED.getDefaultMessage(), Map.of());
+        ApiErrorCode errorCode = ApiErrorCode.ACCESS_DENIED;
+        log.warn("Access denied exception. code={}, traceId={}", errorCode.name(), TraceContext.getTraceId());
+        return buildResponse(errorCode, errorCode.getDefaultMessage(), Map.of());
+    }
+
+    @ExceptionHandler(StorageException.class)
+    public ResponseEntity<ApiErrorResponse> handleStorageException(StorageException exception) {
+        return buildResponse(
+            ApiErrorCode.SYS_DEPENDENCY_DOWN,
+            ApiErrorCode.SYS_DEPENDENCY_DOWN.getDefaultMessage(),
+            Map.of("storageErrorType", exception.getType().name())
+        );
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorResponse> handleException(Exception exception) {
-        return buildResponse(ApiErrorCode.SYS_INTERNAL_ERROR, ApiErrorCode.SYS_INTERNAL_ERROR.getDefaultMessage(),
-            Map.of());
+        ApiErrorCode errorCode = ApiErrorCode.SYS_INTERNAL_ERROR;
+        log.error("Unhandled exception. code={}, traceId={}", errorCode.name(), TraceContext.getTraceId(), exception);
+        return buildResponse(errorCode, errorCode.getDefaultMessage(), Map.of());
     }
 
     private ResponseEntity<ApiErrorResponse> buildResponse(

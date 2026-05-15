@@ -16,3 +16,5 @@ app:
   github:
     client-id: ${GITHUB_OAUTH_CLIENT_ID:local-github-client-id}
     client-secret: ${GITHUB_OAUTH_CLIENT_SECRET:local-github-client-secret}
+    redirect-uri: ${GITHUB_OAUTH_REDIRECT_URI:http://localhost:5173/auth/callback}
+    scopes: read:user user:email repo

@@ -37,6 +37,7 @@ public enum ApiErrorCode {
 
     SYS_RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "요청이 너무 많습니다."),
     SYS_DEPENDENCY_DOWN(HttpStatus.SERVICE_UNAVAILABLE, "필수 외부 의존성이 응답하지 않습니다."),
+    SYS_NOT_IMPLEMENTED(HttpStatus.NOT_IMPLEMENTED, "아직 구현되지 않은 기능입니다."),
     SYS_INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다.");
 
     private final HttpStatus status;

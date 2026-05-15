@@ -6,7 +6,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -14,12 +13,7 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @Entity
-@Table(
-        name = "users",
-        indexes = {
-                @Index(name = "idx_users_github_id", columnList = "github_id")
-        }
-)
+@Table(name = "users")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User extends BaseSoftDeleteEntity {
 
@@ -27,7 +21,7 @@ public class User extends BaseSoftDeleteEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "github_id", nullable = false, unique = true)
+    @Column(name = "github_id", nullable = false)
     private Long githubId;
 
     @Column(name = "github_username", nullable = false, length = 100)
@@ -41,4 +35,40 @@ public class User extends BaseSoftDeleteEntity {
 
     @Column(name = "encrypted_github_access_token", nullable = false, length = 1000)
     private String encryptedGithubAccessToken;
+
+    private User(
+        Long githubId,
+        String githubUsername,
+        String email,
+        String avatarUrl,
+        String encryptedGithubAccessToken
+    ) {
+        this.githubId = githubId;
+        this.githubUsername = githubUsername;
+        this.email = email;
+        this.avatarUrl = avatarUrl;
+        this.encryptedGithubAccessToken = encryptedGithubAccessToken;
+    }
+
+    public static User createGithubUser(
+        Long githubId,
+        String githubUsername,
+        String email,
+        String avatarUrl,
+        String encryptedGithubAccessToken
+    ) {
+        return new User(githubId, githubUsername, email, avatarUrl, encryptedGithubAccessToken);
+    }
+
+    public void updateGithubProfile(
+        String githubUsername,
+        String email,
+        String avatarUrl,
+        String encryptedGithubAccessToken
+    ) {
+        this.githubUsername = githubUsername;
+        this.email = email;
+        this.avatarUrl = avatarUrl;
+        this.encryptedGithubAccessToken = encryptedGithubAccessToken;
+    }
 }
