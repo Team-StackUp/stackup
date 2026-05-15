@@ -56,6 +56,38 @@ public class GithubRepositoryService {
         repo.softDelete();
     }
 
+    @Transactional
+    public com.stackup.stackup.github.application.dto.GithubRepositoryResult register(
+        Long userId,
+        com.stackup.stackup.github.application.dto.RegisterRepositoryCommand command
+    ) {
+        com.stackup.stackup.user.domain.User user = userRepository.findById(userId)
+            .orElseThrow(() -> new DomainException(ApiErrorCode.USER_NOT_FOUND));
+
+        String plainToken = tokenCipher.decrypt(user.getEncryptedGithubAccessToken());
+        var meta = githubApiClient.getRepository(plainToken, command.githubRepoId());
+
+        GithubRepository repo = repoRepository.findByUser_IdAndGithubRepoId(userId, command.githubRepoId())
+            .map(existing -> {
+                if (!existing.isDeleted()) {
+                    throw new DomainException(ApiErrorCode.REPO_ALREADY_REGISTERED);
+                }
+                existing.resurrect(meta.name(), meta.fullName(), meta.htmlUrl(), meta.defaultBranch());
+                return existing;
+            })
+            .orElseGet(() -> repoRepository.save(GithubRepository.create(
+                userRepository.getReferenceById(userId),
+                meta.id(), meta.name(), meta.fullName(), meta.htmlUrl(), meta.defaultBranch()
+            )));
+
+        String sealedToken = tokenCipher.encrypt(plainToken);
+        events.publishEvent(new com.stackup.stackup.github.application.event.RepositoryRegisteredEvent(
+            repo.getId(), userId, repo.getRepoFullName(), repo.getDefaultBranch(), sealedToken
+        ));
+
+        return com.stackup.stackup.github.application.dto.GithubRepositoryResult.from(repo);
+    }
+
     public com.stackup.stackup.github.application.dto.CandidateRepositoryListResult listCandidates(
         Long userId, int page, int perPage
     ) {
