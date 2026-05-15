@@ -15,6 +15,9 @@ spring:
       max-file-size: 20MB
       max-request-size: 20MB
 
+server:
+  port: ${SERVER_PORT:38010}
+
 management:
   endpoints:
     web:

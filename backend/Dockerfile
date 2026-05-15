@@ -10,5 +10,5 @@ FROM eclipse-temurin:21-jre-jammy
 WORKDIR /app
 COPY --from=build /home/gradle/src/build/libs/stackup-0.0.1-SNAPSHOT.jar app.jar
 
-EXPOSE 40000
-ENTRYPOINT ["java", "-Dserver.port=40000", "-jar", "app.jar"]
+EXPOSE 38010
+ENTRYPOINT ["java", "-jar", "app.jar"]
