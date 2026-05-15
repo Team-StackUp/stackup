@@ -14,8 +14,7 @@ public record GithubOAuthProperties(
 	@NotNull
 	URI redirectUri,
 	@NotBlank String scopes,
-	@NotNull URI authorizationUrl,
-	@NotNull URI tokenUrl,
+	@NotNull URI oauthBaseUrl,
 	@NotBlank String tokenType,
 	@NotBlank String codeChallengeMethod,
 	@NotBlank String apiBaseUrl,
@@ -28,8 +27,7 @@ public record GithubOAuthProperties(
 				+ ", clientSecret=******"
 				+ ", redirectUri=" + redirectUri
 				+ ", scopes=" + scopes
-				+ ", authorizationUrl=" + authorizationUrl
-				+ ", tokenUrl=" + tokenUrl
+				+ ", oauthBaseUrl=" + oauthBaseUrl
 				+ ", tokenType=" + tokenType
 				+ ", codeChallengeMethod=" + codeChallengeMethod
 				+ ", apiBaseUrl=" + apiBaseUrl

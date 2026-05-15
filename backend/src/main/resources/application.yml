@@ -55,8 +55,7 @@ app:
     client-secret: ${GITHUB_OAUTH_CLIENT_SECRET:}
     redirect-uri: ${GITHUB_OAUTH_REDIRECT_URI:}
     scopes: read:user user:email repo
-    authorization-url: ${GITHUB_OAUTH_AUTHORIZATION_URL:https://github.com/login/oauth/authorize}
-    token-url: ${GITHUB_OAUTH_TOKEN_URL:https://github.com/login/oauth/access_token}
+    oauth-base-url: ${GITHUB_OAUTH_BASE_URL:https://github.com}
     token-type: ${GITHUB_OAUTH_TOKEN_TYPE:bearer}
     code-challenge-method: ${GITHUB_OAUTH_CODE_CHALLENGE_METHOD:S256}
     api-base-url: ${GITHUB_API_BASE_URL:https://api.github.com}
