@@ -64,4 +64,33 @@ public class GithubRepository extends BaseSoftDeleteEntity {
 
     @Column(name = "last_synced_at")
     private Instant lastSyncedAt;
+
+    public static GithubRepository create(
+        User user,
+        Long githubRepoId,
+        String repoName,
+        String repoFullName,
+        String repoUrl,
+        String defaultBranch
+    ) {
+        GithubRepository repo = new GithubRepository();
+        repo.user = user;
+        repo.githubRepoId = githubRepoId;
+        repo.repoName = repoName;
+        repo.repoFullName = repoFullName;
+        repo.repoUrl = repoUrl;
+        repo.defaultBranch = defaultBranch == null ? "main" : defaultBranch;
+        repo.status = RepositoryStatus.PENDING;
+        return repo;
+    }
+
+    public void resurrect(String repoName, String repoFullName, String repoUrl, String defaultBranch) {
+        this.deleted = false;
+        this.repoName = repoName;
+        this.repoFullName = repoFullName;
+        this.repoUrl = repoUrl;
+        this.defaultBranch = defaultBranch == null ? "main" : defaultBranch;
+        this.status = RepositoryStatus.PENDING;
+        this.lastSyncedAt = null;
+    }
 }
