@@ -124,4 +124,45 @@ class ResumeServiceTest {
         assertThat(eventCaptor.getValue().resumeId()).isEqualTo(7L);
         assertThat(eventCaptor.getValue().userId()).isEqualTo(42L);
     }
+
+    @Test
+    void list_returns_page_of_user_resumes() {
+        var pageable = org.springframework.data.domain.PageRequest.of(0, 20);
+        com.stackup.stackup.resume.domain.Resume r = com.stackup.stackup.resume.domain.Resume.create(
+            Mockito.mock(com.stackup.stackup.user.domain.User.class),
+            "r.pdf", "k", 1L, com.stackup.stackup.resume.domain.ResumeFileType.PDF
+        );
+        org.springframework.test.util.ReflectionTestUtils.setField(r, "id", 1L);
+        var page = new org.springframework.data.domain.PageImpl<>(java.util.List.of(r), pageable, 1);
+
+        when(resumeRepository.findByUser_IdAndDeletedFalse(eq(42L), eq(pageable))).thenReturn(page);
+
+        var result = service.list(42L, pageable);
+
+        assertThat(result.getTotalElements()).isEqualTo(1);
+        assertThat(result.getContent().get(0).id()).isEqualTo(1L);
+    }
+
+    @Test
+    void get_throws_when_not_found_or_other_user() {
+        when(resumeRepository.findByIdAndUser_IdAndDeletedFalse(1L, 42L)).thenReturn(java.util.Optional.empty());
+
+        assertThatThrownBy(() -> service.get(42L, 1L))
+            .isInstanceOf(DomainException.class)
+            .hasFieldOrPropertyWithValue("errorCode", ApiErrorCode.RESUME_NOT_FOUND);
+    }
+
+    @Test
+    void get_returns_resume_when_owner() {
+        com.stackup.stackup.resume.domain.Resume r = com.stackup.stackup.resume.domain.Resume.create(
+            Mockito.mock(com.stackup.stackup.user.domain.User.class),
+            "r.pdf", "k", 1L, com.stackup.stackup.resume.domain.ResumeFileType.PDF
+        );
+        org.springframework.test.util.ReflectionTestUtils.setField(r, "id", 1L);
+        when(resumeRepository.findByIdAndUser_IdAndDeletedFalse(1L, 42L)).thenReturn(java.util.Optional.of(r));
+
+        var result = service.get(42L, 1L);
+
+        assertThat(result.id()).isEqualTo(1L);
+    }
 }

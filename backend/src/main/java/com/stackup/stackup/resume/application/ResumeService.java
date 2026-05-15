@@ -87,6 +87,17 @@ public class ResumeService {
         return ResumeResult.from(resume);
     }
 
+    public org.springframework.data.domain.Page<ResumeResult> list(Long userId, org.springframework.data.domain.Pageable pageable) {
+        return resumeRepository.findByUser_IdAndDeletedFalse(userId, pageable)
+            .map(ResumeResult::from);
+    }
+
+    public ResumeResult get(Long userId, Long resumeId) {
+        return resumeRepository.findByIdAndUser_IdAndDeletedFalse(resumeId, userId)
+            .map(ResumeResult::from)
+            .orElseThrow(() -> new DomainException(ApiErrorCode.RESUME_NOT_FOUND));
+    }
+
     private void safeDelete(String key) {
         try {
             storage.delete(key);
