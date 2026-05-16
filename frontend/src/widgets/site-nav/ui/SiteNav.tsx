@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { useAuth, useLogout } from '@/features/auth'
 
 const items = [
   { href: '#services', label: 'Services' },
@@ -8,6 +10,8 @@ const items = [
 
 export function SiteNav() {
   const [scrolled, setScrolled] = useState(false)
+  const { status, user } = useAuth()
+  const { logout, loggingOut } = useLogout()
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8)
@@ -46,19 +50,55 @@ export function SiteNav() {
           ))}
         </nav>
 
-        <div className="flex items-center">
-          <a
-            href="#cta"
-            className="inline-flex items-center gap-2 pl-5 pr-2 py-2 rounded-pill bg-[#e6dfd4] text-sage-900 text-button hover:bg-[#dcd4c6] transition-colors duration-fast"
-          >
-            Get Started
-            <span
-              aria-hidden
-              className="inline-flex items-center justify-center w-6 h-6 rounded-pill bg-sage-900 text-white text-[11px]"
-            >
-              →
-            </span>
-          </a>
+        <div className="flex items-center gap-2">
+          {status === 'authenticated' ? (
+            <>
+              <Link
+                to="/workspace"
+                className="hidden sm:inline-flex items-center gap-2 px-3 py-2 text-button text-fg-strong/80 hover:text-fg-strong transition-colors duration-fast"
+              >
+                {user?.avatarUrl ? (
+                  <img
+                    src={user.avatarUrl}
+                    alt=""
+                    aria-hidden
+                    className="w-6 h-6 rounded-full"
+                  />
+                ) : null}
+                <span>{user?.githubUsername ?? 'Workspace'}</span>
+              </Link>
+              <button
+                type="button"
+                onClick={logout}
+                disabled={loggingOut}
+                aria-busy={loggingOut}
+                className="inline-flex items-center gap-2 pl-5 pr-5 py-2 rounded-pill bg-[#e6dfd4] text-sage-900 text-button hover:bg-[#dcd4c6] transition-colors duration-fast disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {loggingOut ? '로그아웃 중…' : 'Logout'}
+              </button>
+            </>
+          ) : (
+            <>
+              <Link
+                to="/login"
+                className="hidden sm:inline-flex items-center px-3 py-2 text-button text-fg-strong/80 hover:text-fg-strong transition-colors duration-fast"
+              >
+                Login
+              </Link>
+              <Link
+                to="/login"
+                className="inline-flex items-center gap-2 pl-5 pr-2 py-2 rounded-pill bg-[#e6dfd4] text-sage-900 text-button hover:bg-[#dcd4c6] transition-colors duration-fast"
+              >
+                Get Started
+                <span
+                  aria-hidden
+                  className="inline-flex items-center justify-center w-6 h-6 rounded-pill bg-sage-900 text-white text-[11px]"
+                >
+                  →
+                </span>
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </header>
