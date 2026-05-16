@@ -1,11 +1,7 @@
 import { createContext } from 'react'
 import type { AuthUser, LoginResponse } from './types'
 
-export type AuthStatus =
-  | 'idle'
-  | 'loading'
-  | 'authenticated'
-  | 'unauthenticated'
+export type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated'
 
 export type AuthContextValue = {
   status: AuthStatus
