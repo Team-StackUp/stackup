@@ -1,6 +1,5 @@
 package com.stackup.stackup.github.infrastructure;
 
-import com.stackup.stackup.common.config.properties.GithubOAuthProperties;
 import com.stackup.stackup.common.exception.ApiErrorCode;
 import com.stackup.stackup.common.exception.DomainException;
 import com.stackup.stackup.github.infrastructure.dto.GithubEmailResponse;
@@ -10,42 +9,29 @@ import com.stackup.stackup.github.infrastructure.dto.GithubUserResponse;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestClient;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 
 @Component
+@RequiredArgsConstructor
 public class GithubApiClient {
 
-    private final RestClient restClient;
+    private static final String BEARER_PREFIX = "Bearer ";
+    private static final String SORT_UPDATED = "updated";
+    private static final String AFFILIATION = "owner,collaborator,organization_member";
+    private static final String RATE_LIMIT_REMAINING_HEADER = "X-RateLimit-Remaining";
+    private static final String LINK_HEADER = "Link";
 
-    @Autowired
-    public GithubApiClient(GithubOAuthProperties githubOAuthProperties) {
-        this(githubOAuthProperties, RestClient.builder());
-    }
-
-    public GithubApiClient(GithubOAuthProperties githubOAuthProperties, RestClient.Builder builder) {
-        this.restClient = builder
-            .baseUrl(githubOAuthProperties.apiBaseUrl())
-            .defaultHeader(HttpHeaders.ACCEPT, "application/vnd.github+json")
-            .defaultHeader("X-GitHub-Api-Version", githubOAuthProperties.apiVersion())
-            .build();
-    }
+    private final GithubApi githubApi;
 
     public GithubUserResponse getUser(String githubAccessToken) {
         try {
-            GithubUserResponse response = restClient.get()
-                .uri("/user")
-                .headers(headers -> headers.setBearerAuth(githubAccessToken))
-                .accept(MediaType.APPLICATION_JSON)
-                .retrieve()
-                .body(GithubUserResponse.class);
-
-            if (response == null || response.id() == null || response.login() == null || response.login().isBlank()) {
+            GithubUserResponse response = githubApi.getUser(bearer(githubAccessToken));
+            if (response == null || response.id() == null
+                || response.login() == null || response.login().isBlank()) {
                 throw oauthFailed();
             }
             return response;
@@ -56,17 +42,10 @@ public class GithubApiClient {
 
     public Optional<String> getPrimaryVerifiedEmail(String githubAccessToken) {
         try {
-            GithubEmailResponse[] response = restClient.get()
-                .uri("/user/emails")
-                .headers(headers -> headers.setBearerAuth(githubAccessToken))
-                .accept(MediaType.APPLICATION_JSON)
-                .retrieve()
-                .body(GithubEmailResponse[].class);
-
+            GithubEmailResponse[] response = githubApi.getEmails(bearer(githubAccessToken));
             if (response == null) {
                 return Optional.empty();
             }
-
             return Arrays.stream(response)
                 .filter(GithubEmailResponse::primary)
                 .filter(GithubEmailResponse::verified)
@@ -80,22 +59,16 @@ public class GithubApiClient {
 
     public GithubRepoResponse getRepository(String accessToken, long githubRepoId) {
         try {
-            GithubRepoResponse body = restClient.get()
-                .uri("/repositories/{id}", githubRepoId)
-                .headers(h -> h.setBearerAuth(accessToken))
-                .accept(MediaType.APPLICATION_JSON)
-                .retrieve()
-                .body(GithubRepoResponse.class);
-
+            GithubRepoResponse body = githubApi.getRepository(bearer(accessToken), githubRepoId);
             if (body == null || body.id() == null) {
                 throw new DomainException(ApiErrorCode.REPO_GITHUB_API_FAILED);
             }
             return body;
-        } catch (org.springframework.web.client.HttpClientErrorException.NotFound e) {
+        } catch (HttpClientErrorException.NotFound e) {
             throw new DomainException(ApiErrorCode.REPO_PRIVATE_NO_ACCESS);
-        } catch (org.springframework.web.client.HttpClientErrorException.Forbidden e) {
+        } catch (HttpClientErrorException.Forbidden e) {
             String remaining = e.getResponseHeaders() == null ? null
-                : e.getResponseHeaders().getFirst("X-RateLimit-Remaining");
+                : e.getResponseHeaders().getFirst(RATE_LIMIT_REMAINING_HEADER);
             throw "0".equals(remaining)
                 ? new DomainException(ApiErrorCode.SYS_RATE_LIMITED)
                 : new DomainException(ApiErrorCode.REPO_PRIVATE_NO_ACCESS);
@@ -108,25 +81,20 @@ public class GithubApiClient {
 
     public GithubRepoListPage listUserRepositories(String accessToken, int page, int perPage) {
         try {
-            ResponseEntity<GithubRepoResponse[]> response = restClient.get()
-                .uri(uriBuilder -> uriBuilder.path("/user/repos")
-                    .queryParam("per_page", perPage)
-                    .queryParam("page", page)
-                    .queryParam("sort", "updated")
-                    .queryParam("affiliation", "owner,collaborator,organization_member")
-                    .build())
-                .headers(h -> h.setBearerAuth(accessToken))
-                .accept(MediaType.APPLICATION_JSON)
-                .retrieve()
-                .toEntity(GithubRepoResponse[].class);
-
+            ResponseEntity<GithubRepoResponse[]> response = githubApi.listUserRepos(
+                bearer(accessToken), perPage, page, SORT_UPDATED, AFFILIATION
+            );
             GithubRepoResponse[] body = response.getBody();
             List<GithubRepoResponse> repos = body == null ? List.of() : Arrays.asList(body);
-            boolean hasNext = parseLinkHasNext(response.getHeaders().getFirst("Link"));
+            boolean hasNext = parseLinkHasNext(response.getHeaders().getFirst(LINK_HEADER));
             return new GithubRepoListPage(repos, hasNext);
         } catch (RestClientException exception) {
             throw githubApiFailed(exception);
         }
+    }
+
+    private static String bearer(String token) {
+        return BEARER_PREFIX + token;
     }
 
     private static boolean parseLinkHasNext(String linkHeader) {

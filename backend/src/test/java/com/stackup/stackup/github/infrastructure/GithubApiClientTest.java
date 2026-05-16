@@ -1,18 +1,24 @@
 package com.stackup.stackup.github.infrastructure;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withResourceNotFound;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 import com.stackup.stackup.common.config.properties.GithubOAuthProperties;
+import com.stackup.stackup.common.exception.ApiErrorCode;
+import com.stackup.stackup.common.exception.DomainException;
 import com.stackup.stackup.github.infrastructure.dto.GithubRepoListPage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
@@ -30,7 +36,9 @@ class GithubApiClientTest {
 
         RestClient.Builder builder = RestClient.builder();
         server = MockRestServiceServer.bindTo(builder).build();
-        client = new GithubApiClient(props, builder);
+
+        GithubApi api = new GithubInfrastructureConfig().githubApi(props, builder);
+        client = new GithubApiClient(api);
     }
 
     @Test
@@ -43,7 +51,7 @@ class GithubApiClientTest {
             [{"id":1,"name":"hello","full_name":"o/hello","html_url":"https://github.com/o/hello",
               "default_branch":"main","private":false,"description":"d"}]""";
 
-        server.expect(requestTo("https://api.github.com/user/repos?per_page=30&page=1&sort=updated&affiliation=owner,collaborator,organization_member"))
+        server.expect(requestTo("https://api.github.com/user/repos?per_page=30&page=1&sort=updated&affiliation=owner%2Ccollaborator%2Corganization_member"))
               .andExpect(method(HttpMethod.GET))
               .andRespond(withSuccess(body, MediaType.APPLICATION_JSON).headers(headers));
 
@@ -60,7 +68,7 @@ class GithubApiClientTest {
     void list_user_repositories_hasNext_false_when_link_has_no_next() {
         HttpHeaders headers = new HttpHeaders();
         headers.add("Link", "<https://api.github.com/user/repos?page=1>; rel=\"prev\"");
-        server.expect(requestTo("https://api.github.com/user/repos?per_page=30&page=2&sort=updated&affiliation=owner,collaborator,organization_member"))
+        server.expect(requestTo("https://api.github.com/user/repos?per_page=30&page=2&sort=updated&affiliation=owner%2Ccollaborator%2Corganization_member"))
               .andRespond(withSuccess("[]", MediaType.APPLICATION_JSON).headers(headers));
 
         GithubRepoListPage page = client.listUserRepositories("tok", 2, 30);
@@ -87,12 +95,11 @@ class GithubApiClientTest {
     @Test
     void get_repository_translates_404_to_repo_private_no_access() {
         server.expect(requestTo("https://api.github.com/repositories/999"))
-              .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators
-                  .withResourceNotFound());
+              .andRespond(withResourceNotFound());
 
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> client.getRepository("tok", 999L))
-            .isInstanceOf(com.stackup.stackup.common.exception.DomainException.class)
-            .hasFieldOrPropertyWithValue("errorCode", com.stackup.stackup.common.exception.ApiErrorCode.REPO_PRIVATE_NO_ACCESS);
+        assertThatThrownBy(() -> client.getRepository("tok", 999L))
+            .isInstanceOf(DomainException.class)
+            .hasFieldOrPropertyWithValue("errorCode", ApiErrorCode.REPO_PRIVATE_NO_ACCESS);
     }
 
     @Test
@@ -100,12 +107,10 @@ class GithubApiClientTest {
         HttpHeaders headers = new HttpHeaders();
         headers.add("X-RateLimit-Remaining", "0");
         server.expect(requestTo("https://api.github.com/repositories/2"))
-              .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators
-                  .withStatus(org.springframework.http.HttpStatus.FORBIDDEN)
-                  .headers(headers));
+              .andRespond(withStatus(HttpStatus.FORBIDDEN).headers(headers));
 
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> client.getRepository("tok", 2L))
-            .isInstanceOf(com.stackup.stackup.common.exception.DomainException.class)
-            .hasFieldOrPropertyWithValue("errorCode", com.stackup.stackup.common.exception.ApiErrorCode.SYS_RATE_LIMITED);
+        assertThatThrownBy(() -> client.getRepository("tok", 2L))
+            .isInstanceOf(DomainException.class)
+            .hasFieldOrPropertyWithValue("errorCode", ApiErrorCode.SYS_RATE_LIMITED);
     }
 }

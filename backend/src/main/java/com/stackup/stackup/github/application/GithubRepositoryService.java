@@ -2,12 +2,25 @@ package com.stackup.stackup.github.application;
 
 import com.stackup.stackup.common.exception.ApiErrorCode;
 import com.stackup.stackup.common.exception.DomainException;
+import com.stackup.stackup.github.application.dto.CandidateRepositoryListResult;
+import com.stackup.stackup.github.application.dto.CandidateRepositoryResult;
 import com.stackup.stackup.github.application.dto.GithubRepositoryResult;
+import com.stackup.stackup.github.application.dto.RegisterRepositoryCommand;
+import com.stackup.stackup.github.application.event.RepositoryRegisteredEvent;
 import com.stackup.stackup.github.domain.GithubRepository;
 import com.stackup.stackup.github.domain.GithubRepositoryRepository;
 import com.stackup.stackup.github.infrastructure.GithubApiClient;
 import com.stackup.stackup.github.infrastructure.GithubTokenCipher;
+import com.stackup.stackup.github.infrastructure.dto.GithubRepoListPage;
+import com.stackup.stackup.github.infrastructure.dto.GithubRepoResponse;
+import com.stackup.stackup.user.domain.User;
 import com.stackup.stackup.user.domain.UserRepository;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -16,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional(readOnly = true)
+@RequiredArgsConstructor
 public class GithubRepositoryService {
 
     private final GithubRepositoryRepository repoRepository;
@@ -24,19 +38,6 @@ public class GithubRepositoryService {
     private final GithubTokenCipher tokenCipher;
     private final ApplicationEventPublisher events;
 
-    public GithubRepositoryService(
-        GithubRepositoryRepository repoRepository,
-        UserRepository userRepository,
-        GithubApiClient githubApiClient,
-        GithubTokenCipher tokenCipher,
-        ApplicationEventPublisher events
-    ) {
-        this.repoRepository = repoRepository;
-        this.userRepository = userRepository;
-        this.githubApiClient = githubApiClient;
-        this.tokenCipher = tokenCipher;
-        this.events = events;
-    }
 
     public Page<GithubRepositoryResult> list(Long userId, Pageable pageable) {
         return repoRepository.findByUser_IdAndDeletedFalse(userId, pageable)
@@ -57,15 +58,12 @@ public class GithubRepositoryService {
     }
 
     @Transactional
-    public com.stackup.stackup.github.application.dto.GithubRepositoryResult register(
-        Long userId,
-        com.stackup.stackup.github.application.dto.RegisterRepositoryCommand command
-    ) {
-        com.stackup.stackup.user.domain.User user = userRepository.findById(userId)
+    public GithubRepositoryResult register(Long userId, RegisterRepositoryCommand command) {
+        User user = userRepository.findById(userId)
             .orElseThrow(() -> new DomainException(ApiErrorCode.USER_NOT_FOUND));
 
         String plainToken = tokenCipher.decrypt(user.getEncryptedGithubAccessToken());
-        var meta = githubApiClient.getRepository(plainToken, command.githubRepoId());
+        GithubRepoResponse meta = githubApiClient.getRepository(plainToken, command.githubRepoId());
 
         GithubRepository repo = repoRepository.findByUser_IdAndGithubRepoId(userId, command.githubRepoId())
             .map(existing -> {
@@ -76,46 +74,41 @@ public class GithubRepositoryService {
                 return existing;
             })
             .orElseGet(() -> repoRepository.save(GithubRepository.create(
-                userRepository.getReferenceById(userId),
+                user,
                 meta.id(), meta.name(), meta.fullName(), meta.htmlUrl(), meta.defaultBranch()
             )));
 
         String sealedToken = tokenCipher.encrypt(plainToken);
-        events.publishEvent(new com.stackup.stackup.github.application.event.RepositoryRegisteredEvent(
+        events.publishEvent(new RepositoryRegisteredEvent(
             repo.getId(), userId, repo.getRepoFullName(), repo.getDefaultBranch(), sealedToken
         ));
 
-        return com.stackup.stackup.github.application.dto.GithubRepositoryResult.from(repo);
+        return GithubRepositoryResult.from(repo);
     }
 
-    public com.stackup.stackup.github.application.dto.CandidateRepositoryListResult listCandidates(
-        Long userId, int page, int perPage
-    ) {
-        com.stackup.stackup.user.domain.User user = userRepository.findById(userId)
+    public CandidateRepositoryListResult listCandidates(Long userId, int page, int perPage) {
+        User user = userRepository.findById(userId)
             .orElseThrow(() -> new DomainException(ApiErrorCode.USER_NOT_FOUND));
 
         String token = tokenCipher.decrypt(user.getEncryptedGithubAccessToken());
-        com.stackup.stackup.github.infrastructure.dto.GithubRepoListPage listPage =
-            githubApiClient.listUserRepositories(token, page, perPage);
+        GithubRepoListPage listPage = githubApiClient.listUserRepositories(token, page, perPage);
 
-        java.util.Set<Long> githubIds = listPage.repos().stream()
-            .map(com.stackup.stackup.github.infrastructure.dto.GithubRepoResponse::id)
-            .collect(java.util.stream.Collectors.toSet());
+        Set<Long> githubIds = listPage.repos().stream()
+            .map(GithubRepoResponse::id)
+            .collect(Collectors.toSet());
 
-        java.util.Set<Long> registered = githubIds.isEmpty()
-            ? java.util.Set.of()
-            : new java.util.HashSet<>(repoRepository
+        Set<Long> registered = githubIds.isEmpty()
+            ? Set.of()
+            : new HashSet<>(repoRepository
                 .findGithubRepoIdsByUser_IdAndDeletedFalseAndGithubRepoIdIn(userId, githubIds));
 
-        java.util.List<com.stackup.stackup.github.application.dto.CandidateRepositoryResult> content =
-            listPage.repos().stream().map(r ->
-                new com.stackup.stackup.github.application.dto.CandidateRepositoryResult(
-                    r.id(), r.name(), r.fullName(), r.htmlUrl(), r.defaultBranch(),
-                    r.privateRepo(), r.description(), registered.contains(r.id())
-                )).toList();
+        List<CandidateRepositoryResult> content = listPage.repos().stream()
+            .map(r -> new CandidateRepositoryResult(
+                r.id(), r.name(), r.fullName(), r.htmlUrl(), r.defaultBranch(),
+                r.privateRepo(), r.description(), registered.contains(r.id())
+            ))
+            .toList();
 
-        return new com.stackup.stackup.github.application.dto.CandidateRepositoryListResult(
-            content, page, perPage, listPage.hasNext()
-        );
+        return new CandidateRepositoryListResult(content, page, perPage, listPage.hasNext());
     }
 }

@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 
 import com.stackup.stackup.common.config.properties.RabbitMqProperties;
 import com.stackup.stackup.common.messaging.RabbitMessagePublisher;
+import com.stackup.stackup.common.retry.RetryingExecutor;
 import com.stackup.stackup.github.application.event.RepositoryRegisteredEvent;
 import com.stackup.stackup.github.infrastructure.dto.AnalyzeRepositoryPayload;
 import java.util.Map;
@@ -22,7 +23,7 @@ class RepositoryAnalysisPublisherTest {
         RabbitMqProperties props = Mockito.mock(RabbitMqProperties.class, Mockito.RETURNS_DEEP_STUBS);
         when(props.routingKeys().analyzeRepository()).thenReturn("analyze.repository");
 
-        RepositoryAnalysisPublisher publisher = new RepositoryAnalysisPublisher(rabbit, props);
+        RepositoryAnalysisPublisher publisher = new RepositoryAnalysisPublisher(rabbit, props, new RetryingExecutor());
 
         publisher.handle(new RepositoryRegisteredEvent(7L, 42L, "u/r", "main", "sealed"));
 

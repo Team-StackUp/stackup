@@ -146,7 +146,6 @@ class GithubRepositoryServiceTest {
         com.stackup.stackup.user.domain.User user = Mockito.mock(com.stackup.stackup.user.domain.User.class);
         when(user.getEncryptedGithubAccessToken()).thenReturn("enc");
         when(userRepository.findById(42L)).thenReturn(java.util.Optional.of(user));
-        when(userRepository.getReferenceById(42L)).thenReturn(user);
         when(tokenCipher.decrypt("enc")).thenReturn("plain");
         when(tokenCipher.encrypt("plain")).thenReturn("sealed");
         when(githubApiClient.getRepository("plain", 1296269L)).thenReturn(
