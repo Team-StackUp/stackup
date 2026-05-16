@@ -11,7 +11,7 @@ export function RequireAuth({ children, fallback }: RequireAuthProps) {
   const { status } = useAuth()
   const location = useLocation()
 
-  if (status === 'loading' || status === 'idle') {
+  if (status === 'loading') {
     return fallback ?? null
   }
 
