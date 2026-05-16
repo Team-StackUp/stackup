@@ -88,11 +88,13 @@ ai/
 
 본 서버는 RabbitMQ **consumer**로 작동.
 
-| Queue | Bind |
-|-------|------|
-| `q.ai.resume` | `ai.request.resume.*` |
-| `q.ai.repo` | `ai.request.repo.*` |
-| `q.ai.session` | `ai.request.session.*` |
+| Queue | Routing key | 상태 |
+|-------|-------------|------|
+| `ai.analyze.resume` | `analyze.resume` | 본 구현 (PDF → MD) |
+| `ai.analyze.repository` | `analyze.repository` | 본 구현 (GitHub README + tree + 소스 sampling) |
+| `ai.analyze.web` | `analyze.web` | 본 구현 (URL → trafilatura) |
+| `ai.generate.questions` | `generate.questions` | 큐만, 코드 미구현 |
+| `ai.generate.followup` | `generate.followup` | 큐만, 코드 미구현 |
 
 콜백 발행: `ai.callback.{type}` 익스체인지.
 상세 envelope/스키마/재시도: [`/docs/messaging.md`](../docs/messaging.md).
