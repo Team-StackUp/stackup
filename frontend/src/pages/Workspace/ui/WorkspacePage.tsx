@@ -1,3 +1,4 @@
+import { ResumeList, UploadResumeButton } from '@/features/resume'
 import { SiteNav } from '@/widgets/site-nav'
 import { SiteFooter } from '@/widgets/site-footer'
 import { WorkspaceProfileCard } from '@/widgets/workspace-profile-card'
@@ -14,8 +15,9 @@ export default function WorkspacePage() {
         <WorkspaceSection
           title="내 이력서"
           description="PDF 이력서를 업로드하면 AI가 분석해 면접 질문 풀에 반영합니다."
+          action={<UploadResumeButton />}
         >
-          <EmptyResumeSlot />
+          <ResumeList />
         </WorkspaceSection>
 
         <WorkspaceSection
@@ -26,17 +28,6 @@ export default function WorkspacePage() {
         </WorkspaceSection>
       </main>
       <SiteFooter />
-    </div>
-  )
-}
-
-function EmptyResumeSlot() {
-  return (
-    <div className="rounded-xl border border-dashed border-border-strong bg-surface p-10 text-center">
-      <p className="text-body text-fg-muted">아직 등록된 이력서가 없습니다.</p>
-      <p className="text-caption text-fg-subtle mt-2">
-        다음 단계에서 PDF 업로드가 가능해집니다.
-      </p>
     </div>
   )
 }
