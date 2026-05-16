@@ -1,51 +1,53 @@
-import { useAuth, useLogout } from '@/features/auth'
+import { SiteNav } from '@/widgets/site-nav'
+import { SiteFooter } from '@/widgets/site-footer'
+import { WorkspaceProfileCard } from '@/widgets/workspace-profile-card'
+import { WorkspaceSection } from '@/widgets/workspace-section'
 
+//이 컴포넌트는 아직 초기 프로토타입 입니다.
 export default function WorkspacePage() {
-  const { user } = useAuth()
-  const { logout, loggingOut } = useLogout()
-
   return (
-    <main style={{ padding: '2rem' }}>
-      <h1>Workspace</h1>
-      <p>이력서·레포 관리 화면이 들어갈 자리입니다.</p>
+    <div className="min-h-svh bg-bg text-fg flex flex-col">
+      <SiteNav />
+      <main className="flex-1 mx-auto w-full max-w-content px-6 lg:px-12 py-10 space-y-10">
+        <WorkspaceProfileCard />
 
-      {user ? (
-        <section
-          style={{
-            margin: '1rem 0',
-            padding: '1rem',
-            border: '1px solid #ddd',
-            borderRadius: 8,
-            display: 'inline-flex',
-            gap: 12,
-            alignItems: 'center',
-          }}
+        <WorkspaceSection
+          title="내 이력서"
+          description="PDF 이력서를 업로드하면 AI가 분석해 면접 질문 풀에 반영합니다."
         >
-          {user.avatarUrl ? (
-            <img
-              src={user.avatarUrl}
-              alt={user.githubUsername}
-              width={40}
-              height={40}
-              style={{ borderRadius: '50%' }}
-            />
-          ) : null}
-          <div style={{ textAlign: 'left' }}>
-            <div>
-              <strong>@{user.githubUsername}</strong>
-            </div>
-            <div style={{ color: '#666', fontSize: 14 }}>
-              {user.email ?? 'email 없음'}
-            </div>
-          </div>
-        </section>
-      ) : null}
+          <EmptyResumeSlot />
+        </WorkspaceSection>
 
-      <div>
-        <button type="button" onClick={logout} disabled={loggingOut}>
-          {loggingOut ? '로그아웃 중…' : '로그아웃'}
-        </button>
-      </div>
-    </main>
+        <WorkspaceSection
+          title="내 GitHub 레포지토리"
+          description="등록한 레포를 기반으로 코드 맥락에 맞는 질문이 생성됩니다."
+        >
+          <EmptyRepoSlot />
+        </WorkspaceSection>
+      </main>
+      <SiteFooter />
+    </div>
+  )
+}
+
+function EmptyResumeSlot() {
+  return (
+    <div className="rounded-xl border border-dashed border-border-strong bg-surface p-10 text-center">
+      <p className="text-body text-fg-muted">아직 등록된 이력서가 없습니다.</p>
+      <p className="text-caption text-fg-subtle mt-2">
+        다음 단계에서 PDF 업로드가 가능해집니다.
+      </p>
+    </div>
+  )
+}
+
+function EmptyRepoSlot() {
+  return (
+    <div className="rounded-xl border border-dashed border-border-strong bg-surface p-10 text-center">
+      <p className="text-body text-fg-muted">아직 등록된 레포지토리가 없습니다.</p>
+      <p className="text-caption text-fg-subtle mt-2">
+        다음 단계에서 GitHub 레포 가져오기가 가능해집니다.
+      </p>
+    </div>
   )
 }
