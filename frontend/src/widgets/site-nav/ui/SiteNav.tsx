@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useAuth } from '@/features/auth'
+import { useAuth, useLogout } from '@/features/auth'
 
 const items = [
   { href: '#services', label: 'Services' },
@@ -10,8 +10,8 @@ const items = [
 
 export function SiteNav() {
   const [scrolled, setScrolled] = useState(false)
-  const { status, user, logout } = useAuth()
-  const [loggingOut, setLoggingOut] = useState(false)
+  const { status, user } = useAuth()
+  const { logout, loggingOut } = useLogout()
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8)
@@ -19,16 +19,6 @@ export function SiteNav() {
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
-
-  const handleLogout = async () => {
-    if (loggingOut) return
-    setLoggingOut(true)
-    try {
-      await logout()
-    } finally {
-      setLoggingOut(false)
-    }
-  }
 
   return (
     <header
@@ -79,7 +69,7 @@ export function SiteNav() {
               </Link>
               <button
                 type="button"
-                onClick={handleLogout}
+                onClick={logout}
                 disabled={loggingOut}
                 aria-busy={loggingOut}
                 className="inline-flex items-center gap-2 pl-5 pr-5 py-2 rounded-pill bg-[#e6dfd4] text-sage-900 text-button hover:bg-[#dcd4c6] transition-colors duration-fast disabled:opacity-60 disabled:cursor-not-allowed"

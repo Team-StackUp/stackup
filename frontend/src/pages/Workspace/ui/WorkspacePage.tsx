@@ -1,19 +1,8 @@
-import { useState } from 'react'
-import { useAuth } from '@/features/auth'
+import { useAuth, useLogout } from '@/features/auth'
 
 export default function WorkspacePage() {
-  const { user, logout } = useAuth()
-  const [loggingOut, setLoggingOut] = useState(false)
-
-  const handleLogout = async () => {
-    if (loggingOut) return
-    setLoggingOut(true)
-    try {
-      await logout()
-    } finally {
-      setLoggingOut(false)
-    }
-  }
+  const { user } = useAuth()
+  const { logout, loggingOut } = useLogout()
 
   return (
     <main style={{ padding: '2rem' }}>
@@ -53,7 +42,7 @@ export default function WorkspacePage() {
       ) : null}
 
       <div>
-        <button type="button" onClick={handleLogout} disabled={loggingOut}>
+        <button type="button" onClick={logout} disabled={loggingOut}>
           {loggingOut ? '로그아웃 중…' : '로그아웃'}
         </button>
       </div>
