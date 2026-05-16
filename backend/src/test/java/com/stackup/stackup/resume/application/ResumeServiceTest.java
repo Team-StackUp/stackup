@@ -10,6 +10,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.stackup.stackup.common.config.properties.ResumeProperties;
 import com.stackup.stackup.common.exception.ApiErrorCode;
 import com.stackup.stackup.common.exception.DomainException;
 import com.stackup.stackup.common.storage.ObjectStorageClient;
@@ -22,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.util.unit.DataSize;
 
 class ResumeServiceTest {
 
@@ -30,6 +32,7 @@ class ResumeServiceTest {
     private ResumeUsageChecker resumeUsageChecker;
     private ObjectStorageClient storage;
     private ApplicationEventPublisher events;
+    private ResumeProperties resumeProperties;
     private ResumeService service;
 
     @BeforeEach
@@ -39,7 +42,8 @@ class ResumeServiceTest {
         resumeUsageChecker = Mockito.mock(ResumeUsageChecker.class);
         storage = Mockito.mock(ObjectStorageClient.class);
         events = Mockito.mock(ApplicationEventPublisher.class);
-        service = new ResumeService(resumeRepository, userRepository, resumeUsageChecker, storage, events);
+        resumeProperties = new ResumeProperties(DataSize.ofMegabytes(20));
+        service = new ResumeService(resumeRepository, userRepository, resumeUsageChecker, storage, events, resumeProperties);
     }
 
     @Test

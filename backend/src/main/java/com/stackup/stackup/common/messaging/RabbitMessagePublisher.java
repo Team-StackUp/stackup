@@ -5,20 +5,17 @@ import com.stackup.stackup.common.trace.TraceContext;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 import org.springframework.amqp.core.MessagePostProcessor;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class RabbitMessagePublisher {
 
     private final RabbitMqProperties properties;
     private final RabbitTemplate rabbitTemplate;
-
-    public RabbitMessagePublisher(RabbitMqProperties properties, RabbitTemplate rabbitTemplate) {
-        this.properties = properties;
-        this.rabbitTemplate = rabbitTemplate;
-    }
 
     public MessageEnvelope publishToAi(String routingKey, Object payload, Map<String, Object> context) {
         MessageEnvelope envelope = new MessageEnvelope(
