@@ -78,7 +78,7 @@ features/{X}  →  pages/*, app/*        ✗
 |---------|------|---------|
 | `auth` | GitHub OAuth, 토큰 관리, 로그아웃, 동의 | US-01, US-02, US-03, US-04 |
 | `resume` | 이력서 업로드, 목록, 삭제 | US-05, US-06 |
-| `repo` (계획) | GitHub 레포 가져오기/등록/삭제 | US-07, US-08 |
+| `repo` | GitHub 레포 가져오기/등록/삭제 | US-07, US-08 |
 | `analysis` (계획) | 분석 상태 표시, 재분석 | US-11, US-12 |
 | `interview` | 세션 생성·진행·종료, 메시지, 음성 | US-13~22 |
 | `feedback` | 피드백 리포트, 점수, 키워드 | US-24, US-25 |
