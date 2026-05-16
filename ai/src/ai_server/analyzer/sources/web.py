@@ -19,7 +19,7 @@ class WebFetchError(Exception):
         self.retriable = retriable
 
 
-# 라이브러리로 본문 추출 
+# 라이브러리로 본문 추출
 class WebSourceExtractor(SourceExtractor):
     def __init__(
         self,

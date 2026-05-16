@@ -29,6 +29,7 @@ def _request_envelope(message_id: str = "req-1", repository_id: int = 7) -> byte
                 "repositoryId": repository_id,
                 "repoFullName": "user/repo",
                 "defaultBranch": "main",
+                "analyzedDocumentId": 88,
             },
             "context": {"userId": 1},
         }
@@ -77,6 +78,7 @@ async def test_happy_path_publishes_analyzed_callback() -> None:
             summary="요약",
             tech_stack=["Go"],
             document_path="analyzed/repository/7/summary.md",
+            embedding_chunk_count=3,
         )
     )
     consumer, publisher = _make_consumer(analyzer)
@@ -87,6 +89,7 @@ async def test_happy_path_publishes_analyzed_callback() -> None:
         repo_full_name="user/repo",
         default_branch="main",
         user_id=1,
+        analyzed_document_id=88,
     )
     payload = _captured_payload(publisher)
     assert payload.status == "ANALYZED"
@@ -95,7 +98,7 @@ async def test_happy_path_publishes_analyzed_callback() -> None:
     assert payload.summary == "요약"
     assert payload.tech_stack == ["Go"]
     assert payload.document_path == "analyzed/repository/7/summary.md"
-    assert payload.embedding_chunk_count == 0
+    assert payload.embedding_chunk_count == 3
 
 
 @pytest.mark.asyncio
@@ -137,6 +140,7 @@ async def test_idempotent_duplicate_skipped() -> None:
             summary="x",
             tech_stack=[],
             document_path="analyzed/repository/7/summary.md",
+            embedding_chunk_count=0,
         )
     )
     consumer, publisher = _make_consumer(analyzer)

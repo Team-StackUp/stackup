@@ -98,6 +98,7 @@ class RepositoryConsumer:
                 repo_full_name=req.repo_full_name,
                 default_branch=req.default_branch,
                 user_id=user_id,
+                analyzed_document_id=req.analyzed_document_id,
             )
         except RepositoryAnalyzeError as err:
             log.warning(
@@ -137,5 +138,5 @@ class RepositoryConsumer:
             summary=result.summary,
             tech_stack=result.tech_stack,
             document_path=result.document_path,
-            embedding_chunk_count=0,
+            embedding_chunk_count=result.embedding_chunk_count,
         )

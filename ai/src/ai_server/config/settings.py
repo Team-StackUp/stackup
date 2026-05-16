@@ -68,6 +68,16 @@ class Settings(BaseSettings):
     web_fetch_timeout_sec: float = 20.0
     web_max_html_bytes: int = 2_000_000  # 2MB 상한
 
+    # 임베딩 관련
+    embedding_provider: Literal["mock", "gemini", "openai", "ollama"] = "mock"
+    embedding_model: str = "gemini-embedding-001"
+    embedding_dim: int = 1536
+    embedding_chunk_size: int = 1000
+    embedding_chunk_overlap: int = 200
+    embedding_batch_size: int = 32 
+
+    gemini_api_key: str = ""
+
 
 def get_settings() -> Settings:
     return Settings()

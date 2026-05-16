@@ -96,6 +96,7 @@ class S3Storage(ObjectStorage):
             return True
         except ClientError as exc:
             code = exc.response.get("Error", {}).get("Code", "")
+
             if code in ("404", "NoSuchKey", "NotFound"):
                 return False
             raise

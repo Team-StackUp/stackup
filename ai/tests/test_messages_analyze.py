@@ -11,10 +11,15 @@ from ai_server.model.messages.analyze import (
 
 def test_resume_request_parses() -> None:
     req = ResumeAnalyzeRequest.model_validate(
-        {"resumeId": 42, "filePath": "resumes/raw/123/abc.pdf"}
+        {
+            "resumeId": 42,
+            "filePath": "resumes/raw/123/abc.pdf",
+            "analyzedDocumentId": 77,
+        }
     )
     assert req.resume_id == 42
     assert req.file_path == "resumes/raw/123/abc.pdf"
+    assert req.analyzed_document_id == 77
 
 
 def test_resume_request_requires_fields() -> None:
@@ -23,9 +28,13 @@ def test_resume_request_requires_fields() -> None:
 
 
 def test_resume_request_serializes_camel_case() -> None:
-    req = ResumeAnalyzeRequest(resume_id=7, file_path="r/7.pdf")
+    req = ResumeAnalyzeRequest(resume_id=7, file_path="r/7.pdf", analyzed_document_id=1)
     dumped = req.model_dump(by_alias=True)
-    assert dumped == {"resumeId": 7, "filePath": "r/7.pdf"}
+    assert dumped == {
+        "resumeId": 7,
+        "filePath": "r/7.pdf",
+        "analyzedDocumentId": 1,
+    }
 
 
 def test_callback_success_serializes_camel_case() -> None:
@@ -74,31 +83,45 @@ def test_callback_target_type_must_be_known() -> None:
 
 def test_repository_request_parses_with_default_branch() -> None:
     req = RepositoryAnalyzeRequest.model_validate(
-        {"repositoryId": 5, "repoFullName": "user/repo"}
+        {
+            "repositoryId": 5,
+            "repoFullName": "user/repo",
+            "analyzedDocumentId": 88,
+        }
     )
     assert req.repository_id == 5
     assert req.repo_full_name == "user/repo"
     assert req.default_branch == "main"
+    assert req.analyzed_document_id == 88
 
 
 def test_repository_request_serializes_camel_case() -> None:
     req = RepositoryAnalyzeRequest(
-        repository_id=5, repo_full_name="user/repo", default_branch="dev"
+        repository_id=5,
+        repo_full_name="user/repo",
+        default_branch="dev",
+        analyzed_document_id=1,
     )
     dumped = req.model_dump(by_alias=True)
     assert dumped == {
         "repositoryId": 5,
         "repoFullName": "user/repo",
         "defaultBranch": "dev",
+        "analyzedDocumentId": 1,
     }
 
 
 def test_web_resume_request_parses() -> None:
     req = WebResumeAnalyzeRequest.model_validate(
-        {"resumeId": 9, "url": "https://example.com/me"}
+        {
+            "resumeId": 9,
+            "url": "https://example.com/me",
+            "analyzedDocumentId": 12,
+        }
     )
     assert req.resume_id == 9
     assert req.url == "https://example.com/me"
+    assert req.analyzed_document_id == 12
 
 
 def test_callback_accepts_web_target_type() -> None:

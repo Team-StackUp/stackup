@@ -43,25 +43,32 @@ jobs:
             --exclude='**/node_modules' \
             "$GITHUB_WORKSPACE/" "$DEPLOY_DIR/"
 
-      - name: Ensure .env exists and contains current LLM_API_KEY
+      - name: Ensure .env exists and contains current secrets
         env:
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           cd "$DEPLOY_DIR"
           if [ ! -f .env ]; then
             cp .env.example .env
           fi
-          # Write LLM_API_KEY via a temp file to keep the secret off the
-          # process command line.
-          tmp=$(mktemp)
-          trap 'rm -f "$tmp"' EXIT
-          awk -v key="$LLM_API_KEY" '
-            BEGIN { written = 0 }
-            /^LLM_API_KEY=/ { print "LLM_API_KEY=" key; written = 1; next }
-            { print }
-            END { if (!written) print "LLM_API_KEY=" key }
-          ' .env > "$tmp"
-          mv "$tmp" .env
+          # 비밀 값은 임시 파일을 거쳐서 .env에 주입 — 명령줄 노출 회피.
+          # 키마다 같은 awk 블록을 한 번씩 적용.
+          inject_secret() {
+            local name="$1"
+            local value="$2"
+            local tmp
+            tmp=$(mktemp)
+            awk -v k="$name" -v v="$value" '
+              BEGIN { written = 0 }
+              $0 ~ "^" k "=" { print k "=" v; written = 1; next }
+              { print }
+              END { if (!written) print k "=" v }
+            ' .env > "$tmp"
+            mv "$tmp" .env
+          }
+          inject_secret LLM_API_KEY "$LLM_API_KEY"
+          inject_secret GEMINI_API_KEY "$GEMINI_API_KEY"
           chmod 600 .env
 
       - name: Build and restart app services

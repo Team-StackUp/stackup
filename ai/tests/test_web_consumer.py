@@ -25,7 +25,11 @@ def _request_envelope(message_id: str = "req-1", resume_id: int = 11) -> bytes:
             "traceId": "trace-w",
             "publishedAt": datetime(2026, 5, 14, tzinfo=timezone.utc),
             "publisher": "core-server",
-            "payload": {"resumeId": resume_id, "url": "https://example.com/me"},
+            "payload": {
+                "resumeId": resume_id,
+                "url": "https://example.com/me",
+                "analyzedDocumentId": 99,
+            },
             "context": {"userId": 1},
         }
     )
@@ -69,13 +73,14 @@ async def test_happy_path_publishes_analyzed_callback() -> None:
             summary="요약",
             tech_stack=["React"],
             document_path="analyzed/web-resume/11/summary.md",
+            embedding_chunk_count=2,
         )
     )
     consumer, publisher = _make_consumer(analyzer)
     await consumer.handle(_incoming_message(_request_envelope()))
 
     analyzer.analyze.assert_awaited_once_with(
-        resume_id=11, url="https://example.com/me"
+        resume_id=11, url="https://example.com/me", analyzed_document_id=99
     )
     payload = _captured_payload(publisher)
     assert payload.status == "ANALYZED"

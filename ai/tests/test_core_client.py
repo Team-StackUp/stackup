@@ -3,7 +3,12 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 
-from ai_server.core.client import CoreTokenError, HttpCoreClient
+from ai_server.core.client import (
+    CoreEmbeddingUpsertError,
+    CoreTokenError,
+    EmbeddingChunkPayload,
+    HttpCoreClient,
+)
 
 
 def _make_client(
@@ -120,3 +125,119 @@ async def test_invalid_json_translates_to_bad_response() -> None:
 def test_constructor_requires_base_url() -> None:
     with pytest.raises(ValueError):
         HttpCoreClient(base_url="", api_key="x")
+
+
+# ----------- upsert_embeddings -----------
+
+
+def _make_put_client(
+    *,
+    status: int = 200,
+    json_body: dict | None = None,
+    raise_exc: Exception | None = None,
+) -> MagicMock:
+    client = MagicMock()
+    resp = MagicMock(spec=httpx.Response)
+    resp.status_code = status
+    resp.text = ""
+    resp.json = (
+        MagicMock(return_value=json_body)
+        if json_body is not None
+        else MagicMock(side_effect=ValueError("no json"))
+    )
+    if raise_exc is not None:
+        client.put = AsyncMock(side_effect=raise_exc)
+    else:
+        client.put = AsyncMock(return_value=resp)
+    return client
+
+
+def _payloads(n: int = 2, dim: int = 4) -> list[EmbeddingChunkPayload]:
+    return [
+        EmbeddingChunkPayload(
+            chunk_index=i, chunk_text=f"chunk {i}", embedding=[0.1] * dim
+        )
+        for i in range(n)
+    ]
+
+
+@pytest.mark.asyncio
+async def test_upsert_embeddings_happy_path_returns_count() -> None:
+    client = _make_put_client(status=200, json_body={"upserted": 2})
+    core = HttpCoreClient(base_url="http://core:38010", api_key="k", client=client)
+    n = await core.upsert_embeddings(
+        document_id=88,
+        model="mock",
+        dim=4,
+        chunks=_payloads(2, 4),
+    )
+    assert n == 2
+    client.put.assert_awaited_once()
+    args, kwargs = client.put.call_args
+    assert args[0] == "/api/internal/documents/88/embeddings"
+    body = kwargs["json"]
+    assert body["dim"] == 4
+    assert body["model"] == "mock"
+    assert len(body["chunks"]) == 2
+    assert body["chunks"][0] == {
+        "chunkIndex": 0,
+        "chunkText": "chunk 0",
+        "embedding": [0.1, 0.1, 0.1, 0.1],
+    }
+
+
+@pytest.mark.asyncio
+async def test_upsert_embeddings_falls_back_to_len_when_no_upserted_field() -> None:
+    client = _make_put_client(status=200, json_body={})
+    core = HttpCoreClient(base_url="http://core:38010", api_key="k", client=client)
+    n = await core.upsert_embeddings(
+        document_id=1, model="m", dim=4, chunks=_payloads(3, 4)
+    )
+    assert n == 3  # 응답에 카운트 없으면 보낸 만큼 적용 가정
+
+
+@pytest.mark.asyncio
+async def test_upsert_embeddings_404_translates_to_document_not_found() -> None:
+    client = _make_put_client(status=404)
+    core = HttpCoreClient(base_url="http://core:38010", api_key="k", client=client)
+    with pytest.raises(CoreEmbeddingUpsertError) as exc_info:
+        await core.upsert_embeddings(
+            document_id=99, model="m", dim=4, chunks=_payloads()
+        )
+    assert exc_info.value.code == "DOCUMENT_NOT_FOUND"
+    assert exc_info.value.retriable is False
+
+
+@pytest.mark.asyncio
+async def test_upsert_embeddings_5xx_retriable() -> None:
+    client = _make_put_client(status=503)
+    core = HttpCoreClient(base_url="http://core:38010", api_key="k", client=client)
+    with pytest.raises(CoreEmbeddingUpsertError) as exc_info:
+        await core.upsert_embeddings(
+            document_id=1, model="m", dim=4, chunks=_payloads()
+        )
+    assert exc_info.value.code == "CORE_UNAVAILABLE"
+    assert exc_info.value.retriable is True
+
+
+@pytest.mark.asyncio
+async def test_upsert_embeddings_401_non_retriable_auth() -> None:
+    client = _make_put_client(status=401)
+    core = HttpCoreClient(base_url="http://core:38010", api_key="k", client=client)
+    with pytest.raises(CoreEmbeddingUpsertError) as exc_info:
+        await core.upsert_embeddings(
+            document_id=1, model="m", dim=4, chunks=_payloads()
+        )
+    assert exc_info.value.code == "CORE_AUTH_FAILED"
+
+
+@pytest.mark.asyncio
+async def test_upsert_embeddings_httpx_error_retriable() -> None:
+    client = _make_put_client(raise_exc=httpx.ConnectError("dns fail"))
+    core = HttpCoreClient(base_url="http://core:38010", api_key="k", client=client)
+    with pytest.raises(CoreEmbeddingUpsertError) as exc_info:
+        await core.upsert_embeddings(
+            document_id=1, model="m", dim=4, chunks=_payloads()
+        )
+    assert exc_info.value.code == "CORE_UNAVAILABLE"
+    assert exc_info.value.retriable is True

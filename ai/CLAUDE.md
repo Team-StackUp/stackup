@@ -164,11 +164,14 @@ chain = prompt | llm | PydanticOutputParser(pydantic_object=...)
 
 ## 7. RAG 파이프라인
 
-### 7.1 인제스트
-1. 마크다운 입력
-2. 청킹 (LangChain `RecursiveCharacterTextSplitter`, chunk_size=1000, overlap=200)
-3. 임베딩 생성 (Gemini `text-embedding-004` 또는 OpenAI `text-embedding-3-small`)
-4. Core API 호출 → pgvector INSERT
+### 7.1 인제스트 (본 구현)
+1. 마크다운 입력 (`analyzer/_embedding_step.chunk_embed_and_upsert`)
+2. 청킹 — `rag/chunker.MarkdownChunker` (`RecursiveCharacterTextSplitter`, 기본 1000/200)
+3. 임베딩 생성 — `rag/embedder.EmbeddingProvider`. 현재 구현체:
+   - `MockEmbeddingProvider` (default) — 차원 결정 보류, e2e 흐름 검증용
+   - `openai` / `ollama` 구현체는 후속 PR
+4. Core API 호출 — `CoreClient.upsert_embeddings(document_id, model, dim, chunks)` →
+   `PUT /api/internal/documents/{id}/embeddings` (idempotent upsert)
 
 ### 7.2 검색
 1. 쿼리 텍스트 → 임베딩
