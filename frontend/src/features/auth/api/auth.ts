@@ -21,7 +21,6 @@ export async function completeGithubLogin(
     '/api/auth/github/callback',
     {
       params: { code, state },
-      withCredentials: true,
     },
   )
   return response.data
@@ -33,7 +32,5 @@ export async function fetchCurrentUser(): Promise<AuthUser> {
 }
 
 export async function logout(): Promise<void> {
-  await apiClient.delete('/api/auth/logout', {
-    withCredentials: true,
-  })
+  await apiClient.delete('/api/auth/logout')
 }
