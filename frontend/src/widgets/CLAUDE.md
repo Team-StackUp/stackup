@@ -75,7 +75,7 @@ widgets/{X}  →  pages/*, app/*                    ✗
 |---|---|---|
 | `site-*` | 사이트 전역 (여러 페이지 재사용) | `site-nav`, `site-footer` |
 | `home-*` | 홈페이지 전용 | `home-hero`, `home-services`, `home-faq` |
-| `workspace-*` (예정) | 워크스페이스 페이지 전용 | `workspace-sidebar` |
+| `workspace-*` | 워크스페이스 페이지 전용 | `workspace-profile-card`, `workspace-section` |
 | `interview-*` (예정) | 면접 페이지 전용 | `interview-control`, `interview-transcript` |
 
 > prefix 가 페이지 종속을 명시적으로 표현. 한 페이지에서만 쓰이는 widget 도 정상.
@@ -93,6 +93,8 @@ widgets/{X}  →  pages/*, app/*                    ✗
 | `home-quote` | 다크 그린 quote · 팀 크레딧 | `/` |
 | `home-faq` | FAQ 아코디언 (`<details>` 기반) | `/` |
 | `home-cta` | 풀-블리드 CTA 배너 | `/` |
+| `workspace-profile-card` | `useAuth().user` 기반 프로필 카드 (avatar + 핸들 + email + 연결 상태) | `/workspace` |
+| `workspace-section` | 타이틀·설명·우측 액션·children 슬롯 컨테이너 (도메인 무관) | `/workspace` |
 
 ---
 
