@@ -74,8 +74,7 @@ function CandidateCard({
   onClearError: () => void
 }) {
   const register = useRegisterRepoMutation()
-  const disabled =
-    candidate.alreadyRegistered || candidate.private || register.isPending
+  const disabled = candidate.alreadyRegistered || register.isPending
 
   const handleClick = () => {
     onClearError()
