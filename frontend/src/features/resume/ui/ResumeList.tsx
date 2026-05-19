@@ -51,6 +51,7 @@ export function ResumeList() {
 function ResumeCard({ resume }: { resume: ResumeResponse }) {
   const remove = useDeleteResumeMutation()
   const handleDelete = () => {
+    // TODO: shared/ui/ConfirmDialog 도입 시 교체 (docs/ui-patterns.md §4)
     const ok = window.confirm(
       `'${resume.originalFilename}' 이력서를 삭제하시겠습니까?`,
     )

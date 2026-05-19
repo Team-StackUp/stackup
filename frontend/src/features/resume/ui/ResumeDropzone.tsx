@@ -1,38 +1,20 @@
-import { useEffect, useRef, useState } from 'react'
-import { isApiError } from '@/shared/api'
-import { useUploadResumeMutation } from '@/features/resume/model/useResumes'
-import {
-  RESUME_ACCEPT_EXTENSION,
-  RESUME_ACCEPT_MIME,
-  validateResumeFile,
-} from '@/features/resume/lib/file-validation'
+import { useEffect, useState } from 'react'
+import { useResumeUpload } from '@/features/resume/model/useResumeUpload'
 
 const FAKE_PROGRESS_DURATION_MS = 1_500
 
 export function ResumeDropzone() {
-  const inputRef = useRef<HTMLInputElement>(null)
+  const {
+    inputRef,
+    accept,
+    error,
+    isPending,
+    openPicker,
+    onInputChange,
+    handleFile,
+  } = useResumeUpload()
   const [dragOver, setDragOver] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const upload = useUploadResumeMutation()
-  const progress = useFakeProgress(upload.isPending)
-
-  const openPicker = () => inputRef.current?.click()
-
-  const handleFile = (file: File) => {
-    setError(null)
-    const invalid = validateResumeFile(file)
-    if (invalid) {
-      setError(invalid.message)
-      return
-    }
-    upload.mutate(file, {
-      onError: (err) => {
-        setError(
-          isApiError(err) ? err.message : '업로드 중 오류가 발생했습니다.',
-        )
-      },
-    })
-  }
+  const progress = useFakeProgress(isPending)
 
   const onDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
@@ -41,18 +23,12 @@ export function ResumeDropzone() {
     if (file) handleFile(file)
   }
 
-  const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) handleFile(file)
-    e.target.value = ''
-  }
-
   return (
     <div
       role="button"
       tabIndex={0}
       aria-label="PDF 이력서 업로드"
-      aria-busy={upload.isPending}
+      aria-busy={isPending}
       onClick={openPicker}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -71,15 +47,15 @@ export function ResumeDropzone() {
         dragOver
           ? 'border-primary bg-surface'
           : 'border-border-strong bg-surface hover:border-primary/60',
-        upload.isPending ? 'pointer-events-none' : '',
+        isPending ? 'pointer-events-none' : '',
       ].join(' ')}
     >
       <input
         ref={inputRef}
         type="file"
-        accept={`${RESUME_ACCEPT_MIME},${RESUME_ACCEPT_EXTENSION}`}
+        accept={accept}
         className="sr-only"
-        onChange={onChange}
+        onChange={onInputChange}
       />
       <p className="text-body text-fg-strong font-semibold">
         PDF 이력서를 드래그하거나 클릭해서 업로드
@@ -95,7 +71,7 @@ export function ResumeDropzone() {
           {error}
         </p>
       ) : null}
-      {upload.isPending ? (
+      {isPending ? (
         <div className="mt-6">
           <div className="h-1.5 w-full rounded-pill bg-sage-100 overflow-hidden">
             <div
