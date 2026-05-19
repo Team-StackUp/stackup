@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 
 import com.stackup.stackup.common.config.properties.RabbitMqProperties;
 import com.stackup.stackup.common.messaging.RabbitMessagePublisher;
+import com.stackup.stackup.common.retry.RetryingExecutor;
 import com.stackup.stackup.resume.application.event.ResumeUploadedEvent;
 import com.stackup.stackup.resume.infrastructure.dto.AnalyzeResumePayload;
 import java.util.Map;
@@ -22,7 +23,7 @@ class ResumeAnalysisPublisherTest {
         RabbitMqProperties props = Mockito.mock(RabbitMqProperties.class, Mockito.RETURNS_DEEP_STUBS);
         Mockito.when(props.routingKeys().analyzeResume()).thenReturn("analyze.resume");
 
-        ResumeAnalysisPublisher publisher = new ResumeAnalysisPublisher(rabbitPublisher, props);
+        ResumeAnalysisPublisher publisher = new ResumeAnalysisPublisher(rabbitPublisher, props, new RetryingExecutor());
 
         publisher.handle(new ResumeUploadedEvent(7L, 42L, "resumes/raw/42/abc.pdf"));
 
