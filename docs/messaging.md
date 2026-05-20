@@ -20,6 +20,7 @@
 |-------|----------|-------------|----------|
 | `ai.analyze.repository` | `stackup.core-to-ai` | `analyze.repository` | AI Server |
 | `ai.analyze.resume` | `stackup.core-to-ai` | `analyze.resume` | AI Server |
+| `ai.analyze.web` | `stackup.core-to-ai` | `analyze.web` | AI Server |
 | `ai.generate.questions` | `stackup.core-to-ai` | `generate.questions` | AI Server |
 | `ai.generate.followup` | `stackup.core-to-ai` | `generate.followup` | AI Server |
 | `core.callback.analysis` | `stackup.ai-to-core` | `callback.analysis` | Core Server |
@@ -43,7 +44,7 @@
 ```
 
 `action` ∈ `analyze | generate | callback | realtime`
-`aggregate` ∈ `resume | repository | questions | followup | analysis | feedback | session`
+`aggregate` ∈ `resume | repository | web | questions | followup | analysis | feedback | session`
 
 새 routing key 추가 시 본 패턴 유지.
 
@@ -99,14 +100,15 @@
 
 | Use Case | Request RK | Callback RK | Callback Queue |
 |----------|------------|-------------|-----------------|
-| 이력서 분석 (US-09) | `analyze.resume` | `callback.analysis` | `core.callback.analysis` |
+| 이력서(PDF) 분석 (US-09) | `analyze.resume` | `callback.analysis` | `core.callback.analysis` |
+| 웹 이력서(URL) 분석 (US-09) | `analyze.web` | `callback.analysis` | `core.callback.analysis` |
 | 레포 분석 (US-10) | `analyze.repository` | `callback.analysis` | `core.callback.analysis` |
 | 질문 풀 생성 (US-18) | `generate.questions` | `callback.questions` | `core.callback.questions` |
 | 꼬리질문 생성 (US-19) | `generate.followup` | `callback.questions` | `core.callback.questions` |
 | 피드백 생성 (US-24) | `generate.feedback` *(예정)* | `callback.feedback` *(예정)* | `core.callback.feedback` *(예정)* |
 | 세션 알림 (RT2 SSE) | `realtime.session.notify` | (없음 — 단방향 push) | `q.realtime.session.notify` |
 
-> `callback.analysis` 큐는 resume/repo 두 use case가 공유. consumer는 `payload.targetType` 으로 분기한다.
+> `callback.analysis` 큐는 resume/web/repo 세 use case가 공유. consumer는 `payload.targetType` 으로 분기한다.
 
 ---
 
@@ -118,11 +120,18 @@
   "messageType": "analyze.resume",
   "payload": {
     "resumeId": 42,
-    "s3Key": "resumes/raw/123/abc.pdf"
+    "filePath": "resumes/raw/123/abc.pdf",
+    "analyzedDocumentId": 101
   },
   "context": { "userId": 123 }
 }
 ```
+
+| 필드 | 설명 |
+|------|------|
+| `resumeId` | `resumes.id` |
+| `filePath` | 객체 스토리지 키 (Core가 업로드 시 저장) |
+| `analyzedDocumentId` | Core가 publish 직전 `analyzed_documents`에 PROCESSING row를 미리 생성하고 그 id를 전달 — AI는 embedding upsert 시 이 id를 사용 |
 
 ### 5.2 `analyze.repository`
 ```json
@@ -130,33 +139,48 @@
   "messageType": "analyze.repository",
   "payload": {
     "repositoryId": 7,
-    "githubFullName": "octocat/hello-world",
+    "repoFullName": "octocat/hello-world",
     "defaultBranch": "main",
-    "githubAccessTokenEncrypted": "..."
+    "analyzedDocumentId": 102
   },
   "context": { "userId": 123 }
 }
 ```
 
-> `githubAccessTokenEncrypted`는 Core가 Cipher로 한 번 더 sealing해서 보냄. AI Server는 같은 키로 복호화 (또는 GitHub access token 위임을 위한 별도 short-lived token 발급 검토).
+> 구 스펙(`githubAccessTokenEncrypted` envelope 동봉)은 폐기. AI Server는 분석 시점에 Core 내부 API `GET /api/internal/users/{userId}/github-token` 으로 평문 토큰을 짧게 위임받아 사용. envelope에는 비밀이 절대 포함되지 않는다.
 
-### 5.3 `callback.analysis` (성공)
+### 5.3 `analyze.web`
+```json
+{
+  "messageType": "analyze.web",
+  "payload": {
+    "resumeId": 42,
+    "url": "https://example.com/me",
+    "analyzedDocumentId": 103
+  },
+  "context": { "userId": 123 }
+}
+```
+
+> 웹 이력서(URL)는 AI Server가 trafilatura로 본문을 추출 → 동일 분석 체인으로 처리. resume 도메인을 재사용하므로 callback의 `targetType` 은 `WEB`.
+
+### 5.4 `callback.analysis` (성공)
 ```json
 {
   "messageType": "callback.analysis",
   "payload": {
     "targetType": "RESUME",
     "targetId": 42,
+    "status": "ANALYZED",
     "summary": "Java/Spring 3년차, 결제 시스템 개발...",
     "techStack": ["Java", "Spring Boot", "PostgreSQL"],
-    "documentS3Key": "analyzed/resume/42/summary.md",
-    "embeddingChunkCount": 18,
-    "status": "ANALYZED"
+    "documentPath": "analyzed/resume/42/summary.md",
+    "embeddingChunkCount": 18
   }
 }
 ```
 
-### 5.4 `callback.analysis` (실패)
+### 5.5 `callback.analysis` (실패)
 ```json
 {
   "messageType": "callback.analysis",
@@ -171,9 +195,10 @@
 }
 ```
 
-→ `targetType` ∈ `RESUME | REPOSITORY`
+→ `targetType` ∈ `RESUME | REPOSITORY | WEB`
+→ `documentPath` 는 객체 스토리지 키 (bucket 제외). Core는 같은 storage 추상화로 fetch.
 
-### 5.5 `generate.questions`
+### 5.6 `generate.questions`
 ```json
 {
   "messageType": "generate.questions",
@@ -188,7 +213,7 @@
 }
 ```
 
-### 5.6 `callback.questions` (질문 풀)
+### 5.7 `callback.questions` (질문 풀)
 ```json
 {
   "messageType": "callback.questions",
@@ -203,7 +228,7 @@
 }
 ```
 
-### 5.7 `generate.followup`
+### 5.8 `generate.followup`
 ```json
 {
   "messageType": "generate.followup",
@@ -217,7 +242,7 @@
 }
 ```
 
-### 5.8 `callback.questions` (꼬리질문)
+### 5.9 `callback.questions` (꼬리질문)
 ```json
 {
   "messageType": "callback.questions",
@@ -242,7 +267,7 @@
 
 > `callback.questions` 큐는 두 종류(`POOL`, `FOLLOWUP`)를 받으므로 consumer는 `payload.kind`로 분기.
 
-### 5.9 `generate.feedback` *(예정)*
+### 5.10 `generate.feedback` *(예정)*
 ```json
 {
   "messageType": "generate.feedback",
@@ -250,7 +275,7 @@
 }
 ```
 
-### 5.10 `callback.feedback` *(예정)*
+### 5.11 `callback.feedback` *(예정)*
 ```json
 {
   "messageType": "callback.feedback",
@@ -268,7 +293,7 @@
 }
 ```
 
-### 5.11 `realtime.session.notify`
+### 5.12 `realtime.session.notify`
 ```json
 {
   "messageType": "realtime.session.notify",
@@ -350,8 +375,21 @@ docker exec stackup-rabbitmq rabbitmqadmin \
   -u stackup -p stackup \
   publish exchange=stackup.core-to-ai \
   routing_key=analyze.resume \
-  payload='{"messageId":"smoke-1","messageType":"analyze.resume","version":"v1","traceId":"local-test","publishedAt":"2026-04-27T15:00:00Z","publisher":"manual","payload":{"resumeId":1,"s3Key":"resumes/raw/1/test.pdf"},"context":{"userId":1}}'
+  payload='{"messageId":"smoke-1","messageType":"analyze.resume","version":"v1","traceId":"local-test","publishedAt":"2026-04-27T15:00:00Z","publisher":"manual","payload":{"resumeId":1,"filePath":"resumes/raw/1/test.pdf","analyzedDocumentId":1},"context":{"userId":1}}'
 ```
+
+---
+
+## 10. AI ↔ Core 내부 API (RabbitMQ 외)
+
+분석 파이프라인 일부는 동기적 데이터 위임이 필요해 Core가 내부 전용 REST endpoint를 노출한다. 모두 `X-Internal-API-Key` 헤더 검증.
+
+| Method | Path | 호출자 | 용도 |
+|--------|------|--------|------|
+| `GET`  | `/api/internal/users/{userId}/github-token` | AI | 사용자별 GitHub access token을 분석 시점에 짧게 위임 (envelope에 비밀 미동봉) |
+| `PUT`  | `/api/internal/documents/{documentId}/embeddings` | AI | 청크 + 임베딩을 `document_embeddings`에 idempotent upsert |
+
+요청·응답 스키마 및 인증 규약은 [`/docs/api-conventions.md §10`](./api-conventions.md) 참조.
 
 큐 상태 확인:
 ```bash
