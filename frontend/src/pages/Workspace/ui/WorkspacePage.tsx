@@ -1,3 +1,4 @@
+import { RepositoryPanel } from '@/features/repo'
 import { ResumeList, UploadResumeButton } from '@/features/resume'
 import { SiteNav } from '@/widgets/site-nav'
 import { SiteFooter } from '@/widgets/site-footer'
@@ -24,21 +25,10 @@ export default function WorkspacePage() {
           title="내 GitHub 레포지토리"
           description="등록한 레포를 기반으로 코드 맥락에 맞는 질문이 생성됩니다."
         >
-          <EmptyRepoSlot />
+          <RepositoryPanel />
         </WorkspaceSection>
       </main>
       <SiteFooter />
-    </div>
-  )
-}
-
-function EmptyRepoSlot() {
-  return (
-    <div className="rounded-xl border border-dashed border-border-strong bg-surface p-10 text-center">
-      <p className="text-body text-fg-muted">아직 등록된 레포지토리가 없습니다.</p>
-      <p className="text-caption text-fg-subtle mt-2">
-        다음 단계에서 GitHub 레포 가져오기가 가능해집니다.
-      </p>
     </div>
   )
 }
