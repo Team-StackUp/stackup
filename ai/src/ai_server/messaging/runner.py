@@ -3,17 +3,33 @@ from __future__ import annotations
 import structlog
 from aio_pika.abc import AbstractRobustQueue
 
+from ai_server.analyzer.repository_analyzer import RepositoryAnalyzer
+from ai_server.analyzer.resume_analyzer import ResumeAnalyzer
+from ai_server.analyzer.sources.github_repo import GitHubRepoSourceExtractor
+from ai_server.analyzer.sources.pdf import PdfSourceExtractor
+from ai_server.analyzer.sources.web import WebSourceExtractor
+from ai_server.analyzer.web_resume_analyzer import WebResumeAnalyzer
+from ai_server.chain.document_analysis_chain import (
+    LlmDocumentAnalyzer,
+    build_document_analysis_chain,
+)
 from ai_server.config.settings import Settings
+from ai_server.core.client import HttpCoreClient
 from ai_server.messaging.connection import RabbitConnection
+from ai_server.rag.chunker import MarkdownChunker
+from ai_server.rag.embedder import build_embedding_provider
+from ai_server.messaging.consumers.repository_consumer import RepositoryConsumer
 from ai_server.messaging.consumers.resume_consumer import ResumeConsumer
+from ai_server.messaging.consumers.web_consumer import WebResumeConsumer
 from ai_server.messaging.idempotency import LruIdempotencyStore
 from ai_server.messaging.publisher import CallbackPublisher
+from ai_server.storage.factory import build_storage
 
 log = structlog.get_logger(__name__)
 
 
+# FastAPI 서버가 켜져있는 동안 메세지를 보관함
 class MessagingRuntime:
-    """Holds long-lived messaging components for FastAPI lifespan."""
 
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
@@ -29,34 +45,128 @@ class MessagingRuntime:
         self._idempotency = LruIdempotencyStore(
             max_size=settings.ai_idempotency_lru_size,
         )
+
+        storage = build_storage(settings)
+        chain = build_document_analysis_chain(settings)
+        chain_analyzer = LlmDocumentAnalyzer(chain)
+
+        chunker = MarkdownChunker(
+            chunk_size=settings.embedding_chunk_size,
+            chunk_overlap=settings.embedding_chunk_overlap,
+        )
+        embedder = build_embedding_provider(
+            provider=settings.embedding_provider,
+            dim=settings.embedding_dim,
+            model=settings.embedding_model,
+            gemini_api_key=settings.gemini_api_key,
+        )
+
+        core_client = HttpCoreClient(
+            base_url=settings.core_internal_base_url,
+            api_key=settings.core_internal_api_key,
+            timeout_sec=settings.core_internal_timeout_sec,
+        )
+
+        # 이력서 PDF
+        resume_analyzer = ResumeAnalyzer(
+            extractor=PdfSourceExtractor(storage=storage),
+            chain=chain_analyzer,
+            storage=storage,
+            chunker=chunker,
+            embedder=embedder,
+            core_client=core_client,
+            analyzed_key_template=settings.analyzed_resume_md_key_template,
+        )
+
+        # 리포지토리
+        repo_analyzer = RepositoryAnalyzer(
+            extractor=GitHubRepoSourceExtractor(
+                api_base_url=settings.github_api_base_url,
+                fallback_token=settings.github_fallback_token,
+                max_files=settings.repo_max_source_files,
+                max_file_bytes=settings.repo_max_source_file_bytes,
+                timeout_sec=settings.repo_fetch_timeout_sec,
+            ),
+            core_client=core_client,
+            chain=chain_analyzer,
+            storage=storage,
+            chunker=chunker,
+            embedder=embedder,
+            analyzed_key_template=settings.analyzed_repository_md_key_template,
+        )
+
+        # 웹 이력서
+        web_analyzer = WebResumeAnalyzer(
+            extractor=WebSourceExtractor(
+                timeout_sec=settings.web_fetch_timeout_sec,
+                max_html_bytes=settings.web_max_html_bytes,
+            ),
+            chain=chain_analyzer,
+            storage=storage,
+            chunker=chunker,
+            embedder=embedder,
+            core_client=core_client,
+            analyzed_key_template=settings.analyzed_web_resume_md_key_template,
+        )
+
         self._resume_consumer = ResumeConsumer(
+            analyzer=resume_analyzer,
             publisher=self._publisher,
             idempotency=self._idempotency,
             callback_routing_key=settings.ai_callback_routing_analysis,
         )
-        self._resume_queue: AbstractRobustQueue | None = None
-        self._consumer_tag: str | None = None
+        self._repository_consumer = RepositoryConsumer(
+            analyzer=repo_analyzer,
+            publisher=self._publisher,
+            idempotency=self._idempotency,
+            callback_routing_key=settings.ai_callback_routing_analysis,
+        )
+        self._web_consumer = WebResumeConsumer(
+            analyzer=web_analyzer,
+            publisher=self._publisher,
+            idempotency=self._idempotency,
+            callback_routing_key=settings.ai_callback_routing_analysis,
+        )
+
+        self._consumers: list[tuple[AbstractRobustQueue, str]] = []
 
     async def start(self) -> None:
         await self._connection.open()
         await self._publisher.open()
 
         channel = self._connection.channel
-        queue = await channel.declare_queue(
-            self._settings.ai_queue_resume,
-            durable=True,
-            passive=True,  # 정의 파일이 이미 선언함
+
+        await self._start_consumer(
+            channel,
+            queue_name=self._settings.ai_queue_resume,
+            handler=self._resume_consumer.handle,
         )
-        self._resume_queue = queue
-        self._consumer_tag = await queue.consume(self._resume_consumer.handle)
-        log.info(
-            "ai.consumer.started",
-            queue=self._settings.ai_queue_resume,
-            consumer_tag=self._consumer_tag,
+        await self._start_consumer(
+            channel,
+            queue_name=self._settings.ai_queue_repository,
+            handler=self._repository_consumer.handle,
+        )
+        await self._start_consumer(
+            channel,
+            queue_name=self._settings.ai_queue_web,
+            handler=self._web_consumer.handle,
         )
 
+    async def _start_consumer(self, channel, *, queue_name, handler) -> None:
+        queue = await channel.declare_queue(
+            queue_name,
+            durable=True,
+            passive=True,
+        )
+        tag = await queue.consume(handler)
+        self._consumers.append((queue, tag))
+        log.info("ai.consumer.started", queue=queue_name, consumer_tag=tag)
+
     async def stop(self) -> None:
-        if self._resume_queue is not None and self._consumer_tag is not None:
-            await self._resume_queue.cancel(self._consumer_tag)
-            log.info("ai.consumer.stopped", consumer_tag=self._consumer_tag)
+        for queue, tag in self._consumers:
+            try:
+                await queue.cancel(tag)
+                log.info("ai.consumer.stopped", consumer_tag=tag)
+            except Exception:
+                log.exception("ai.consumer.cancel_failed", consumer_tag=tag)
         await self._connection.close()

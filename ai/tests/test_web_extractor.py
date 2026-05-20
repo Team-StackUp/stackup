@@ -1,0 +1,117 @@
+from unittest.mock import AsyncMock, MagicMock
+
+import httpx
+import pytest
+
+from ai_server.analyzer.sources.web import WebFetchError, WebSourceExtractor
+
+
+def _make_client(
+    *,
+    status: int = 200,
+    content_type: str = "text/html; charset=utf-8",
+    body: (
+        str | bytes
+    ) = "<html><body><h1>주요 내용</h1><p>본문 텍스트입니다.</p></body></html>",
+    final_url: str = "https://example.com/r",
+    raise_exc: Exception | None = None,
+) -> MagicMock:
+    client = MagicMock()
+    resp = MagicMock(spec=httpx.Response)
+    resp.status_code = status
+    resp.headers = {"content-type": content_type}
+    resp.text = body if isinstance(body, str) else body.decode("utf-8", errors="ignore")
+    resp.content = body.encode("utf-8") if isinstance(body, str) else body
+    resp.url = final_url
+    if raise_exc is not None:
+        client.get = AsyncMock(side_effect=raise_exc)
+    else:
+        client.get = AsyncMock(return_value=resp)
+    return client
+
+
+@pytest.mark.asyncio
+async def test_extract_returns_main_body_text() -> None:
+    html = (
+        "<html><head><title>이력서</title></head>"
+        "<body><nav>nav</nav><article><h1>김OO</h1>"
+        "<p>백엔드 개발자. Spring Boot 3년차.</p></article>"
+        "<footer>foot</footer></body></html>"
+    )
+    client = _make_client(body=html)
+    extractor = WebSourceExtractor(client=client)
+    result = await extractor.extract("https://example.com/r")
+
+    assert result.source_type == "WEB"
+    assert "백엔드 개발자" in result.text
+    assert "김OO" in result.text
+    assert result.metadata["final_url"] == "https://example.com/r"
+    assert result.metadata["text_chars"] > 0
+
+
+@pytest.mark.asyncio
+async def test_rejects_non_http_locator() -> None:
+    extractor = WebSourceExtractor(client=_make_client())
+    with pytest.raises(WebFetchError) as exc_info:
+        await extractor.extract("ftp://example.com/x")
+    assert exc_info.value.code == "INVALID_WEB_URL"
+    assert exc_info.value.retriable is False
+
+
+@pytest.mark.asyncio
+async def test_raises_on_http_error_status() -> None:
+    client = _make_client(status=503)
+    extractor = WebSourceExtractor(client=client)
+    with pytest.raises(WebFetchError) as exc_info:
+        await extractor.extract("https://example.com/r")
+    assert exc_info.value.code == "WEB_HTTP_STATUS"
+    assert exc_info.value.retriable is True  # 5xx → retriable
+
+
+@pytest.mark.asyncio
+async def test_raises_on_4xx_as_non_retriable() -> None:
+    client = _make_client(status=404)
+    extractor = WebSourceExtractor(client=client)
+    with pytest.raises(WebFetchError) as exc_info:
+        await extractor.extract("https://example.com/r")
+    assert exc_info.value.code == "WEB_HTTP_STATUS"
+    assert exc_info.value.retriable is False
+
+
+@pytest.mark.asyncio
+async def test_rejects_non_html_content_type() -> None:
+    client = _make_client(content_type="application/pdf")
+    extractor = WebSourceExtractor(client=client)
+    with pytest.raises(WebFetchError) as exc_info:
+        await extractor.extract("https://example.com/r")
+    assert exc_info.value.code == "WEB_NOT_HTML"
+
+
+@pytest.mark.asyncio
+async def test_rejects_oversized_html() -> None:
+    big = b"<html>" + b"a" * 1024 + b"</html>"
+    client = _make_client(body=big)
+    extractor = WebSourceExtractor(client=client, max_html_bytes=512)
+    with pytest.raises(WebFetchError) as exc_info:
+        await extractor.extract("https://example.com/r")
+    assert exc_info.value.code == "WEB_HTML_TOO_LARGE"
+
+
+@pytest.mark.asyncio
+async def test_raises_on_empty_body() -> None:
+    client = _make_client(body="<html><body></body></html>")
+    extractor = WebSourceExtractor(client=client)
+    with pytest.raises(WebFetchError) as exc_info:
+        await extractor.extract("https://example.com/r")
+    assert exc_info.value.code == "EMPTY_WEB_BODY"
+    assert exc_info.value.retriable is False
+
+
+@pytest.mark.asyncio
+async def test_raises_on_httpx_error_as_retriable() -> None:
+    client = _make_client(raise_exc=httpx.ConnectError("dns fail"))
+    extractor = WebSourceExtractor(client=client)
+    with pytest.raises(WebFetchError) as exc_info:
+        await extractor.extract("https://example.com/r")
+    assert exc_info.value.code == "WEB_FETCH_FAILED"
+    assert exc_info.value.retriable is True
