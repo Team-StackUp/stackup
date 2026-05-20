@@ -43,7 +43,8 @@ public record RabbitMqProperties(
 
 		public record Names(
 			@NotBlank String coreToAi,
-			@NotBlank String aiToCore
+			@NotBlank String aiToCore,
+			@NotBlank String realtime
 		) {
 		}
 	}
@@ -71,7 +72,8 @@ public record RabbitMqProperties(
 		@NotBlank String generateQuestions,
 		@NotBlank String generateFollowup,
 		@NotBlank String callbackAnalysis,
-		@NotBlank String callbackQuestions
+		@NotBlank String callbackQuestions,
+		@NotBlank String realtimeSessionNotify
 	) {
 	}
 }

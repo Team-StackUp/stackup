@@ -40,6 +40,15 @@ public class RabbitMqConfig {
     }
 
     @Bean
+    public TopicExchange realtimeExchange() {
+        return new TopicExchange(
+            properties.exchanges().names().realtime(),
+            properties.exchanges().durable(),
+            properties.exchanges().autoDelete()
+        );
+    }
+
+    @Bean
     public Queue aiAnalyzeResumeQueue() {
         return new Queue(properties.queues().names().aiAnalyzeResume(), properties.queues().durable());
     }
@@ -73,6 +82,7 @@ public class RabbitMqConfig {
     public Declarables rabbitDeclarables(
         TopicExchange coreToAiExchange,
         TopicExchange aiToCoreExchange,
+        TopicExchange realtimeExchange,
         Queue aiAnalyzeResumeQueue,
         Queue aiAnalyzeRepositoryQueue,
         Queue aiGenerateQuestionsQueue,
@@ -83,6 +93,7 @@ public class RabbitMqConfig {
         return new Declarables(
             coreToAiExchange,
             aiToCoreExchange,
+            realtimeExchange,
             aiAnalyzeResumeQueue,
             aiAnalyzeRepositoryQueue,
             aiGenerateQuestionsQueue,
@@ -95,6 +106,8 @@ public class RabbitMqConfig {
             BindingBuilder.bind(aiGenerateFollowupQueue).to(coreToAiExchange).with(properties.routingKeys().generateFollowup()),
             BindingBuilder.bind(coreCallbackAnalysisQueue).to(aiToCoreExchange).with(properties.routingKeys().callbackAnalysis()),
             BindingBuilder.bind(coreCallbackQuestionsQueue).to(aiToCoreExchange).with(properties.routingKeys().callbackQuestions())
+            // 주의: q.realtime.session.notify 큐 + binding 은 RealTime 서버가 자체 declare
+            // (또는 infra/rabbitmq/definitions.json). Core 는 exchange 만 declare.
         );
     }
 

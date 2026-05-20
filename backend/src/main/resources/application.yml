@@ -86,6 +86,7 @@ app:
         names:
           core-to-ai: stackup.core-to-ai
           ai-to-core: stackup.ai-to-core
+          realtime: stackup.realtime
       queues:
         durable: true
         names:
@@ -102,6 +103,7 @@ app:
         generate-followup: generate.followup
         callback-analysis: callback.analysis
         callback-questions: callback.questions
+        realtime-session-notify: realtime.session.notify
   sse:
     timeout: 30m
     keep-alive-interval: 30s
