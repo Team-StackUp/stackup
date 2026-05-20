@@ -43,7 +43,7 @@ public class AnalyzedDocument extends BaseSoftDeleteEntity {
     @JoinColumn(name = "repository_id")
     private GithubRepository repository;
 
-    @Column(name = "document_path", nullable = false, length = 1000)
+    @Column(name = "document_path", length = 1000)
     private String documentPath;
 
     @Column(length = 2000)
@@ -55,4 +55,52 @@ public class AnalyzedDocument extends BaseSoftDeleteEntity {
     @Column(nullable = false, length = 20)
     @Enumerated(EnumType.STRING)
     private DocumentStatus status = DocumentStatus.ACTIVE;
+
+    @Column(name = "analysis_status", nullable = false, length = 20)
+    @Enumerated(EnumType.STRING)
+    private AnalysisStatus analysisStatus = AnalysisStatus.PROCESSING;
+
+    @Column(name = "error_code", length = 50)
+    private String errorCode;
+
+    @Column(name = "error_message", length = 1000)
+    private String errorMessage;
+
+    @Column(name = "embedding_chunk_count", nullable = false)
+    private int embeddingChunkCount = 0;
+
+    private AnalyzedDocument(Resume resume, GithubRepository repository) {
+        this.resume = resume;
+        this.repository = repository;
+    }
+
+    public static AnalyzedDocument forResume(Resume resume) {
+        if (resume == null) {
+            throw new IllegalArgumentException("resume must not be null");
+        }
+        return new AnalyzedDocument(resume, null);
+    }
+
+    public static AnalyzedDocument forRepository(GithubRepository repository) {
+        if (repository == null) {
+            throw new IllegalArgumentException("repository must not be null");
+        }
+        return new AnalyzedDocument(null, repository);
+    }
+
+    public void markAnalyzed(String documentPath, String summary, String techStackJson, int embeddingChunkCount) {
+        this.analysisStatus = AnalysisStatus.ANALYZED;
+        this.documentPath = documentPath;
+        this.summary = summary;
+        this.techStack = techStackJson;
+        this.embeddingChunkCount = embeddingChunkCount;
+        this.errorCode = null;
+        this.errorMessage = null;
+    }
+
+    public void markFailed(String errorCode, String errorMessage) {
+        this.analysisStatus = AnalysisStatus.FAILED;
+        this.errorCode = errorCode;
+        this.errorMessage = errorMessage;
+    }
 }

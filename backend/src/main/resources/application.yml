@@ -50,6 +50,7 @@ app:
     refresh-token-cookie-same-site: ${REFRESH_TOKEN_COOKIE_SAME_SITE:Strict}
     refresh-token-cookie-secure: ${REFRESH_TOKEN_COOKIE_SECURE:true}
     refresh-token-cookie-http-only: ${REFRESH_TOKEN_COOKIE_HTTP_ONLY:true}
+    internal-api-key: ${CORE_INTERNAL_API_KEY:}
   github:
     client-id: ${GITHUB_OAUTH_CLIENT_ID:}
     client-secret: ${GITHUB_OAUTH_CLIENT_SECRET:}

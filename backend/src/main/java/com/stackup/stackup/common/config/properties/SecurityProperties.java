@@ -23,6 +23,7 @@ public record SecurityProperties(
 	@NotBlank String refreshTokenCookiePath,
 	@NotBlank String refreshTokenCookieSameSite,
 	boolean refreshTokenCookieSecure,
-	boolean refreshTokenCookieHttpOnly
+	boolean refreshTokenCookieHttpOnly,
+	String internalApiKey
 ) {
 }

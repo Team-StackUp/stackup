@@ -131,7 +131,8 @@ class OAuthStateServiceTest {
             "/api/auth",
             "Strict",
             true,
-            true
+            true,
+            "test-internal-api-key"
         );
     }
 }
