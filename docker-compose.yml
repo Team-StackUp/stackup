@@ -87,6 +87,16 @@ services:
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_BASE_URL: ${LLM_BASE_URL:-https://factchat-cloud.mindlogic.ai/v1/gateway}
       LLM_PRO_MODEL: ${LLM_PRO_MODEL:-gemini-3.1-pro-preview}
+      # AI → Core 내부 API
+      CORE_INTERNAL_BASE_URL: ${CORE_INTERNAL_BASE_URL:-http://host.docker.internal:38010}
+      CORE_INTERNAL_API_KEY: ${CORE_INTERNAL_API_KEY:-local-development-internal-api-key}
+      # 임베딩
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-mock}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-gemini-embedding-001}
+      EMBEDDING_DIM: ${EMBEDDING_DIM:-1536}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       rabbitmq:
         condition: service_healthy
