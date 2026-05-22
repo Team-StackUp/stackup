@@ -14,6 +14,7 @@ import com.stackup.stackup.resume.domain.ResumeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -73,6 +74,7 @@ public class AnalysisRequestService {
         return new AnalysisHandle(doc.getId(), null, repo.getId());
     }
 
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onResumeAnalysisRequested(ResumeAnalysisRequestedEvent event) {
         publisher.publishToAi(
@@ -82,6 +84,7 @@ public class AnalysisRequestService {
         );
     }
 
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onRepositoryAnalysisRequested(RepositoryAnalysisRequestedEvent event) {
         publisher.publishToAi(
