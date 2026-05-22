@@ -18,11 +18,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
-// 이력서 리포 분석 트리거 
-// CRUD 및 상태관리 수행 
+// 이력서 리포 분석 트리거
+// CRUD 및 상태관리 수행
+// 클래스 레벨 @Transactional 은 두지 않음 — @TransactionalEventListener 메서드와 충돌 (Spring 7 제약).
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class AnalysisRequestService {
 
     private final ResumeRepository resumeRepository;
