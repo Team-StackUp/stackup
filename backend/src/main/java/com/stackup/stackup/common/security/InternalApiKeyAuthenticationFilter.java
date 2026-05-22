@@ -14,11 +14,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-/**
- * /api/internal/* 경로는 X-Internal-API-Key 헤더로 인증한다.
- * 유효 시 INTERNAL 권한을 가진 Authentication 을 SecurityContext 에 주입.
- * 그 외 경로에서는 아무것도 하지 않고 통과 (JWT 필터가 이어서 처리).
- */
+// 유효한 경우 INTERNAL 권한을 가진 인증객체를 SecurityContext에 주입함
+// 그거 아니면 패스 - jwt가 알아서한다
 @Component
 public class InternalApiKeyAuthenticationFilter extends OncePerRequestFilter {
 

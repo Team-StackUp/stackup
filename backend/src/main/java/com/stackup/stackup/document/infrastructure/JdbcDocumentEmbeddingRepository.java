@@ -7,10 +7,8 @@ import javax.sql.DataSource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
-/**
- * pgvector 의존이 strong-typed JPA 매핑보다 native query 가 단순해서 JdbcTemplate 사용.
- * AI 서버가 같은 documentId·chunkIndex 로 재호출 시 idempotent upsert.
- */
+
+// 네이티브 쿼리가 더 쉬워서 JPA 대신 씀 
 @Repository
 public class JdbcDocumentEmbeddingRepository implements DocumentEmbeddingRepository {
 

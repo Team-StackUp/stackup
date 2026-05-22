@@ -8,10 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 
-/**
- * stackup.ai-to-core / callback.analysis 큐 consumer.
- * 메시지 라우팅·역직렬화만 담당하고 실제 도메인 갱신은 application 서비스에 위임.
- */
+// 도메인 갱신은 application 서비스가 처리 
 @Component
 @RequiredArgsConstructor
 public class AnalysisCallbackHandler {

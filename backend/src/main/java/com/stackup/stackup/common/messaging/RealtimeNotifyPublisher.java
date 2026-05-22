@@ -8,13 +8,8 @@ import org.springframework.amqp.core.MessagePostProcessor;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
 
-/**
- * Core → RealTime 알림 발행자.
- * stackup.realtime exchange / routing key realtime.session.notify 로 publish.
- *
- * RealTime 서버는 q.realtime.session.notify 큐 consumer 로 envelope.context.sessionId 가
- * 가리키는 SSE 구독자에게 fan-out 한다 (docs/messaging.md §5.12).
- */
+// Core -> 실시간 서버 알림 
+// 실시간 서버는 SSE로 구독한 컴포넌트에게 알려줌
 @Component
 public class RealtimeNotifyPublisher {
 

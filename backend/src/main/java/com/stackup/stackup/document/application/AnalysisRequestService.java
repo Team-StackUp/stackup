@@ -18,15 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
-/**
- * Resume / GithubRepository 분석을 트리거한다.
- * - AnalyzedDocument 를 PROCESSING 상태로 미리 생성
- * - 소스 도메인 status 를 ANALYZING 으로 전환
- * - DB commit 이후 core-to-ai exchange 로 analyze.{resume|repository} 발행
- *
- * commit 이후 발행을 위해 도메인 이벤트 + {@code @TransactionalEventListener(AFTER_COMMIT)} 패턴.
- * (메시지는 발행됐는데 DB 가 롤백되는 케이스를 방지)
- */
+// 이력서 리포 분석 트리거 
+// CRUD 및 상태관리 수행 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
