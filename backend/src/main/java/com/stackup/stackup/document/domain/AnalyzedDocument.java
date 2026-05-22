@@ -18,6 +18,8 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Getter
 @Entity
@@ -50,6 +52,7 @@ public class AnalyzedDocument extends BaseSoftDeleteEntity {
     private String summary;
 
     @Column(name = "tech_stack", columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
     private String techStack;
 
     @Column(nullable = false, length = 20)
