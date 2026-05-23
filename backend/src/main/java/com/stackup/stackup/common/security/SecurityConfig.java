@@ -29,13 +29,16 @@ public class SecurityConfig {
     private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final InternalApiKeyAuthenticationFilter internalApiKeyAuthenticationFilter;
     private final CorsProperties corsProperties;
 
     public SecurityConfig(
         JwtAuthenticationFilter jwtAuthenticationFilter,
+        InternalApiKeyAuthenticationFilter internalApiKeyAuthenticationFilter,
         CorsProperties corsProperties
     ) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.internalApiKeyAuthenticationFilter = internalApiKeyAuthenticationFilter;
         this.corsProperties = corsProperties;
     }
 
@@ -63,9 +66,11 @@ public class SecurityConfig {
                     "/api/swagger-ui.html",
                     "/actuator/**"
                 ).permitAll()
+                .requestMatchers("/api/internal/**").hasAuthority(InternalApiKeyAuthenticationFilter.AUTHORITY)
                 .requestMatchers("/api/**").authenticated()
                 .anyRequest().permitAll()
             )
+            .addFilterBefore(internalApiKeyAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .build();
     }

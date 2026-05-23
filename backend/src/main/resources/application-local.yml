@@ -13,6 +13,7 @@ app:
   security:
     jwt-secret: ${JWT_SECRET:local-development-jwt-secret-must-be-replaced}
     encryption-key: ${ENCRYPTION_KEY:local-development-encryption-key-must-be-replaced}
+    internal-api-key: ${CORE_INTERNAL_API_KEY:local-development-internal-api-key}
   github:
     client-id: ${GITHUB_OAUTH_CLIENT_ID:local-github-client-id}
     client-secret: ${GITHUB_OAUTH_CLIENT_SECRET:local-github-client-secret}

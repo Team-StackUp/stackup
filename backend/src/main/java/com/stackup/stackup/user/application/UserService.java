@@ -8,8 +8,15 @@ import com.stackup.stackup.user.domain.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+// record 는 final → Spring AOP CGLIB 프록시 실패. class 로 전환.
 @Service
-public record UserService(UserRepository userRepository) {
+public class UserService {
+
+    private final UserRepository userRepository;
+
+    public UserService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
 
     @Transactional(readOnly = true)
     public UserProfileResult getCurrentUser(Long userId) {

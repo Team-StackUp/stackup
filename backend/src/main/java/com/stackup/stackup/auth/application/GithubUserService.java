@@ -8,8 +8,16 @@ import com.stackup.stackup.user.domain.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+// record 는 implicit final 이라 Spring AOP(@Transactional) CGLIB 프록시 생성 실패.
+// 일반 class + 생성자 주입으로 전환.
 @Service
-public record GithubUserService(UserRepository userRepository) {
+public class GithubUserService {
+
+    private final UserRepository userRepository;
+
+    public GithubUserService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
 
     @Transactional
     public GithubUserUpsertResult upsertGithubUser(

@@ -108,6 +108,7 @@ docker exec -i stackup-postgres psql -U stackup stackup < backup.sql
 |-------|----------|-------------|----------|
 | `ai.analyze.repository` | `stackup.core-to-ai` | `analyze.repository` | AI Server |
 | `ai.analyze.resume` | `stackup.core-to-ai` | `analyze.resume` | AI Server |
+| `ai.analyze.web` | `stackup.core-to-ai` | `analyze.web` | AI Server |
 | `ai.generate.questions` | `stackup.core-to-ai` | `generate.questions` | AI Server |
 | `ai.generate.followup` | `stackup.core-to-ai` | `generate.followup` | AI Server |
 | `core.callback.analysis` | `stackup.ai-to-core` | `callback.analysis` | Core Server |

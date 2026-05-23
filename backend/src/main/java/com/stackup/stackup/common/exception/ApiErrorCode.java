@@ -26,6 +26,8 @@ public enum ApiErrorCode {
     DOC_NOT_ANALYZED(HttpStatus.UNPROCESSABLE_CONTENT, "아직 분석되지 않은 문서입니다."),
     DOC_ANALYSIS_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "문서 분석에 실패했습니다."),
     DOC_NOT_FOUND(HttpStatus.NOT_FOUND, "분석 문서를 찾을 수 없습니다."),
+    INTERNAL_AUTH_FAILED(HttpStatus.UNAUTHORIZED, "내부 API 인증에 실패했습니다."),
+    EMBEDDING_BAD_REQUEST(HttpStatus.BAD_REQUEST, "임베딩 요청 페이로드가 올바르지 않습니다."),
 
     SESSION_INVALID_STATE(HttpStatus.UNPROCESSABLE_CONTENT, "세션 상태가 올바르지 않습니다."),
     SESSION_MAX_REACHED(HttpStatus.UNPROCESSABLE_CONTENT, "세션 제한에 도달했습니다."),

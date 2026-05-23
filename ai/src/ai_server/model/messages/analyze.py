@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from ai_server.model._config import camel_config
 
-TargetType = Literal["RESUME", "REPOSITORY"]
+TargetType = Literal["RESUME", "REPOSITORY", "WEB"]
 AnalysisStatus = Literal["ANALYZED", "FAILED"]
 
 
@@ -12,7 +12,25 @@ class ResumeAnalyzeRequest(BaseModel):
     model_config = camel_config()
 
     resume_id: int
-    s3_key: str
+    file_path: str
+    analyzed_document_id: int
+
+
+class RepositoryAnalyzeRequest(BaseModel):
+    model_config = camel_config()
+
+    repository_id: int
+    repo_full_name: str
+    default_branch: str = "main"
+    analyzed_document_id: int
+
+
+class WebResumeAnalyzeRequest(BaseModel):
+    model_config = camel_config()
+
+    resume_id: int
+    url: str
+    analyzed_document_id: int
 
 
 class AnalysisCallbackPayload(BaseModel):
@@ -23,7 +41,7 @@ class AnalysisCallbackPayload(BaseModel):
     status: AnalysisStatus
     summary: str | None = None
     tech_stack: list[str] = []
-    document_s3_key: str | None = None
+    document_path: str | None = None
     embedding_chunk_count: int = 0
     error_code: str | None = None
     error_message: str | None = None

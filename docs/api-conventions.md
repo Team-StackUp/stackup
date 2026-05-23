@@ -91,6 +91,17 @@ GET    /api/system/health          헬스체크 (PG/MQ/S3/AI 상태)
 GET    /api/system/version         버전 정보
 ```
 
+### 2.6 내부 API (서비스 간 호출 전용)
+
+`/api/internal/*` prefix. **외부에서 호출 금지** — Spring Security에서 외부 패킷을 차단하고 `X-Internal-API-Key` 헤더로 검증. AI Server와 RealTime Server만 호출자.
+
+```
+GET  /api/internal/users/{userId}/github-token         AI → Core
+PUT  /api/internal/documents/{documentId}/embeddings   AI → Core
+```
+
+자세한 요청·응답 스키마와 인증 규약은 §10 내부 API 부록 참조.
+
 ---
 
 ## 3. 요청 규약
@@ -301,3 +312,76 @@ HTTP/1.1 202 Accepted
 2. SSE 끊기면 `statusUrl` 폴링 fallback (5초 간격)
 
 상세: [`event-stream.md`](./event-stream.md)
+
+---
+
+## 10. 내부 API 부록 (서비스 간 호출)
+
+`/api/internal/*` endpoint는 다음 규약을 따른다.
+
+### 10.1 인증
+- 모든 요청에 `X-Internal-API-Key: {key}` 헤더 필수
+- 키는 환경변수 `CORE_INTERNAL_API_KEY` (Core/AI/RealTime 동일 값)
+- JWT 사용자 인증 불필요. 단 호출자가 신뢰 영역 안에 있어야 함 (Docker 내부망, K8s ClusterIP 등)
+- 키 누락/불일치 → `401 Unauthorized`, body: `{ "code": "INTERNAL_AUTH_FAILED" }`
+
+### 10.2 `GET /api/internal/users/{userId}/github-token`
+
+분석 시점에 사용자 GitHub access token을 짧게 위임. AES-256으로 저장된 평문 token을 복호화해 반환 (메모리/로그/응답 body에만 노출, DB·이벤트엔벨로프에는 절대 동봉하지 않음).
+
+**Path parameter**
+| 이름 | 타입 | 설명 |
+|------|------|------|
+| `userId` | long | `users.id` |
+
+**Response 200**
+```json
+{ "accessToken": "ghp_xxx..." }
+```
+
+**Response 404** — 사용자 없음 또는 token 누락 (`USER_NOT_FOUND`)
+**Response 401/403** — 인증 실패 (`INTERNAL_AUTH_FAILED`)
+**Response 5xx** — Core 일시 장애 (호출자는 retriable로 간주)
+
+### 10.3 `PUT /api/internal/documents/{documentId}/embeddings`
+
+`analyzed_documents` 한 건에 대한 chunk + embedding을 `document_embeddings` 테이블에 idempotent upsert. AI가 분석 결과를 callback 발행 직전에 호출한다.
+
+**Path parameter**
+| 이름 | 타입 | 설명 |
+|------|------|------|
+| `documentId` | long | `analyzed_documents.id` (Core가 publish 직전 미리 생성) |
+
+**Request body**
+```json
+{
+  "model": "gemini-embedding-001",
+  "dim": 1536,
+  "chunks": [
+    { "chunkIndex": 0, "chunkText": "...", "embedding": [0.012, -0.003, ...] },
+    { "chunkIndex": 1, "chunkText": "...", "embedding": [...] }
+  ]
+}
+```
+
+| 필드 | 타입 | 비고 |
+|------|------|------|
+| `model` | string | 임베딩 모델 ID (감사용) |
+| `dim` | int | 임베딩 차원. DB 컬럼 차원과 일치해야 함 (불일치 → 400) |
+| `chunks[].chunkIndex` | int | 0-base, 같은 document 내 unique |
+| `chunks[].chunkText` | string | 원문 청크 (≤ N KB, 컬럼 길이 제한) |
+| `chunks[].embedding` | float[] | 길이 == `dim` |
+
+**Response 200**
+```json
+{ "upserted": 18 }
+```
+
+**Response 400** — `dim` 불일치, payload 검증 실패 (`EMBEDDING_BAD_REQUEST`)
+**Response 404** — `analyzed_documents.id` 없음 (`DOCUMENT_NOT_FOUND`)
+**Response 401/403** — `INTERNAL_AUTH_FAILED`
+**Response 5xx** — Core 일시 장애 (retriable)
+
+**Idempotency**
+- 같은 `(documentId, chunkIndex)` 조합 재호출 시 row를 덮어씀 (INSERT ... ON CONFLICT UPDATE)
+- 부분 재시도 시 누락 청크가 발생하지 않도록 AI는 전체 청크를 한 번에 보내는 것을 권장

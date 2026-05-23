@@ -3,6 +3,7 @@ from __future__ import annotations
 import structlog
 from aio_pika.abc import AbstractIncomingMessage
 
+from ai_server.analyzer.resume_analyzer import ResumeAnalyzeError, ResumeAnalyzer
 from ai_server.messaging.idempotency import LruIdempotencyStore
 from ai_server.messaging.publisher import CallbackPublisher
 from ai_server.model.envelope import Envelope
@@ -14,29 +15,16 @@ from ai_server.model.messages.analyze import (
 log = structlog.get_logger(__name__)
 
 
-def build_echo_callback(
-    envelope: Envelope[ResumeAnalyzeRequest],
-) -> AnalysisCallbackPayload:
-    rid = envelope.payload.resume_id
-    return AnalysisCallbackPayload(
-        target_type="RESUME",
-        target_id=rid,
-        status="ANALYZED",
-        summary="[ECHO] not yet analyzed",
-        tech_stack=[],
-        document_s3_key=f"echo/resume/{rid}/echo.md",
-        embedding_chunk_count=0,
-    )
-
-
 class ResumeConsumer:
     def __init__(
         self,
         *,
+        analyzer: ResumeAnalyzer,
         publisher: CallbackPublisher,
         idempotency: LruIdempotencyStore,
         callback_routing_key: str,
     ) -> None:
+        self._analyzer = analyzer
         self._publisher = publisher
         self._idempotency = idempotency
         self._callback_routing_key = callback_routing_key
@@ -63,24 +51,80 @@ class ResumeConsumer:
                 )
                 return
 
+            req = envelope.payload
             log.info(
-                "resume.echo.start",
+                "resume.analyze.start",
                 message_id=envelope.message_id,
-                resume_id=envelope.payload.resume_id,
+                resume_id=req.resume_id,
                 trace_id=envelope.trace_id,
             )
-            callback = build_echo_callback(envelope)
+
+            payload = await self._run_and_build_payload(req, envelope.trace_id)
+
             await self._publisher.publish(
                 routing_key=self._callback_routing_key,
                 message_type="callback.analysis",
-                payload=callback,
+                payload=payload,
                 trace_id=envelope.trace_id,
                 correlation_id=envelope.message_id,
                 context=envelope.context,
             )
             log.info(
-                "resume.echo.done",
+                "resume.analyze.done",
                 message_id=envelope.message_id,
-                resume_id=envelope.payload.resume_id,
+                resume_id=req.resume_id,
+                status=payload.status,
                 trace_id=envelope.trace_id,
             )
+
+    async def _run_and_build_payload(
+        self,
+        req: ResumeAnalyzeRequest,
+        trace_id: str,
+    ) -> AnalysisCallbackPayload:
+        try:
+            result = await self._analyzer.analyze(
+                resume_id=req.resume_id,
+                file_path=req.file_path,
+                analyzed_document_id=req.analyzed_document_id,
+            )
+        except ResumeAnalyzeError as err:
+            log.warning(
+                "resume.analyze.domain_failed",
+                resume_id=req.resume_id,
+                code=err.code,
+                retriable=err.retriable,
+                trace_id=trace_id,
+            )
+            return AnalysisCallbackPayload(
+                target_type="RESUME",
+                target_id=req.resume_id,
+                status="FAILED",
+                error_code=err.code,
+                error_message=err.message,
+                retriable=err.retriable,
+            )
+        except Exception as exc:
+            log.exception(
+                "resume.analyze.unexpected_failed",
+                resume_id=req.resume_id,
+                trace_id=trace_id,
+            )
+            return AnalysisCallbackPayload(
+                target_type="RESUME",
+                target_id=req.resume_id,
+                status="FAILED",
+                error_code="UNEXPECTED",
+                error_message=str(exc),
+                retriable=True,
+            )
+
+        return AnalysisCallbackPayload(
+            target_type="RESUME",
+            target_id=req.resume_id,
+            status="ANALYZED",
+            summary=result.summary,
+            tech_stack=result.tech_stack,
+            document_path=result.document_path,
+            embedding_chunk_count=result.embedding_chunk_count,
+        )

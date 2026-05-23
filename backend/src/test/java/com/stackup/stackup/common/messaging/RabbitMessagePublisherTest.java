@@ -82,7 +82,7 @@ class RabbitMessagePublisherTest {
             new RabbitMqProperties.Exchanges(
                 true,
                 false,
-                new RabbitMqProperties.Exchanges.Names("stackup.core-to-ai", "stackup.ai-to-core")
+                new RabbitMqProperties.Exchanges.Names("stackup.core-to-ai", "stackup.ai-to-core", "stackup.realtime")
             ),
             new RabbitMqProperties.Queues(
                 true,
@@ -101,7 +101,8 @@ class RabbitMessagePublisherTest {
                 "generate.questions",
                 "generate.followup",
                 "callback.analysis",
-                "callback.questions"
+                "callback.questions",
+                "realtime.session.notify"
             )
         );
     }

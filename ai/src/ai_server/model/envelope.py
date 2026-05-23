@@ -13,6 +13,8 @@ class MessageContext(BaseModel):
 
     user_id: int | None = None
     session_id: int | None = None
+    document_id: int | None = None
+    repository_id: int | None = None
 
 
 class Envelope(BaseModel, Generic[PayloadT]):

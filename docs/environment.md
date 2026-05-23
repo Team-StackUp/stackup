@@ -92,18 +92,55 @@ AI_SERVER_BASE_URL=http://ai:8000
 AI_SERVER_PORT=8000
 AI_LOG_LEVEL=INFO
 
-# ===== LLM =====
+# ===== LLM (Mindlogic CNU AC Gateway 단일 경로) =====
+LLM_API_KEY=                      # 학교 발급 키
+LLM_BASE_URL=https://factchat-cloud.mindlogic.ai/v1/gateway
+LLM_PRO_MODEL=gemini-3.1-pro-preview
+LLM_PRO_TEMPERATURE=0.2
+
+# (외부 직접 호출용, fallback)
 GEMINI_API_KEY=
 OPENAI_API_KEY=                   # Whisper STT에도 사용
-LLM_DEFAULT_PROVIDER=gemini       # gemini | openai
-LLM_PRO_MODEL=gemini-3.1-pro
-LLM_FLASH_MODEL=gemini-3.1-flash
+
+# ===== Object Storage =====
+STORAGE_BACKEND=s3                # s3 | local
+STORAGE_LOCAL_ROOT=./var/storage  # backend=local일 때만
+S3_ENDPOINT_URL=http://localhost:38060
+S3_ACCESS_KEY=minioadmin
+S3_SECRET_KEY=minioadmin
+S3_BUCKET_NAME=stackup
+S3_REGION=us-east-1
+
+# ===== Core 내부 API (github-token, embeddings upsert) =====
+CORE_INTERNAL_BASE_URL=http://localhost:38010
+CORE_INTERNAL_API_KEY=
+CORE_INTERNAL_TIMEOUT_SEC=10
+
+# ===== GitHub Repo 분석 =====
+GITHUB_API_BASE_URL=https://api.github.com
+GITHUB_FALLBACK_TOKEN=            # 사용자별 토큰 미발급 시 public 한정 호출 (옵션)
+REPO_MAX_SOURCE_FILES=8
+REPO_MAX_SOURCE_FILE_BYTES=50000
+REPO_FETCH_TIMEOUT_SEC=30
+
+# ===== Web 이력서 fetch =====
+WEB_FETCH_TIMEOUT_SEC=20
+WEB_MAX_HTML_BYTES=2000000
 
 # ===== Embedding =====
-EMBEDDING_MODEL=text-embedding-004
-EMBEDDING_DIM=768                 # 모델별 차원수 (DB 스키마와 일치 필수)
+EMBEDDING_PROVIDER=gemini         # mock | gemini | openai | ollama (개발/테스트는 mock 권장)
+EMBEDDING_MODEL=gemini-embedding-001
+EMBEDDING_DIM=1536                # DB 컬럼 차원과 일치 필수
+EMBEDDING_CHUNK_SIZE=1000
+EMBEDDING_CHUNK_OVERLAP=200
+EMBEDDING_BATCH_SIZE=32
 
-# ===== STT/TTS =====
+# ===== Markdown 산출물 키 템플릿 =====
+ANALYZED_RESUME_MD_KEY_TEMPLATE=analyzed/resume/{resume_id}/summary.md
+ANALYZED_REPOSITORY_MD_KEY_TEMPLATE=analyzed/repository/{repository_id}/summary.md
+ANALYZED_WEB_RESUME_MD_KEY_TEMPLATE=analyzed/web-resume/{resume_id}/summary.md
+
+# ===== STT/TTS (Phase 2) =====
 STT_PROVIDER=whisper-api          # whisper-api | whisper-self-hosted
 WHISPER_MODEL=whisper-1           # OpenAI Whisper API 모델
 TTS_PROVIDER=                     # 결정 시 추가
@@ -148,7 +185,9 @@ VITE_SENTRY_DSN=                    # 옵션
 | 변수 | 기본값 | 용도 |
 |------|--------|------|
 | `RABBITMQ_URL` | `amqp://stackup:stackup@localhost:5672/` | AMQP 연결 |
-| `AI_QUEUE_RESUME` | `ai.analyze.resume` | 이력서 분석 큐 |
+| `AI_QUEUE_RESUME` | `ai.analyze.resume` | 이력서(PDF) 분석 큐 |
+| `AI_QUEUE_REPOSITORY` | `ai.analyze.repository` | 레포 분석 큐 |
+| `AI_QUEUE_WEB` | `ai.analyze.web` | 웹 이력서(URL) 분석 큐 |
 | `AI_QUEUE_PREFETCH` | `10` | consumer prefetch |
 | `AI_CALLBACK_EXCHANGE` | `stackup.ai-to-core` | 콜백 발행 exchange |
 | `AI_CALLBACK_ROUTING_ANALYSIS` | `callback.analysis` | 콜백 routing key |

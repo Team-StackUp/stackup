@@ -53,4 +53,16 @@ public class Resume extends BaseSoftDeleteEntity {
     @Column(nullable = false, length = 20)
     @Enumerated(EnumType.STRING)
     private ResumeStatus status = ResumeStatus.PENDING;
+
+    public void markAnalyzing() {
+        this.status = ResumeStatus.ANALYZING;
+    }
+
+    public void markAnalyzed() {
+        this.status = ResumeStatus.ANALYZED;
+    }
+
+    public void markFailed() {
+        this.status = ResumeStatus.FAILED;
+    }
 }

@@ -123,7 +123,8 @@ class RefreshTokenServiceTest {
                 "/api/auth",
                 "Strict",
                 true,
-                true
+                true,
+                "test-internal-api-key"
             ),
             new SecureRandom(),
             Clock.fixed(NOW, ZoneOffset.UTC)

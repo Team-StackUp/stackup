@@ -64,4 +64,17 @@ public class GithubRepository extends BaseSoftDeleteEntity {
 
     @Column(name = "last_synced_at")
     private Instant lastSyncedAt;
+
+    public void markAnalyzing() {
+        this.status = RepositoryStatus.ANALYZING;
+    }
+
+    public void markAnalyzed() {
+        this.status = RepositoryStatus.ANALYZED;
+        this.lastSyncedAt = Instant.now();
+    }
+
+    public void markFailed() {
+        this.status = RepositoryStatus.FAILED;
+    }
 }
