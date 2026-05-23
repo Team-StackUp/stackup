@@ -15,9 +15,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-// /api/stream/** 경로에 한해 ?token=<STREAM_JWT> query parameter 로 인증을 처리한다.
-// 브라우저 EventSource 가 Authorization 헤더를 못 보내므로 stream-token 흐름을 받치는 전용 필터.
-// 검증된 토큰은 STREAM scope 만 인정 — 일반 access token 으로는 동작하지 않음.
+// 인증 처리 전용 
 @Component
 public class StreamTokenAuthenticationFilter extends OncePerRequestFilter {
 
