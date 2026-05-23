@@ -2,6 +2,9 @@ package com.stackup.stackup.common.config.properties;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
+import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
@@ -19,7 +22,11 @@ public record RabbitMqProperties(
 	@NotNull
 	Queues queues,
 	@NotNull
-	RoutingKeyProperties routingKeys
+	RoutingKeyProperties routingKeys,
+	@NotNull
+	DeadLetter deadLetter,
+	@NotNull
+	Retry retry
 ) {
 
 	public record Message(
@@ -74,6 +81,20 @@ public record RabbitMqProperties(
 		@NotBlank String callbackAnalysis,
 		@NotBlank String callbackQuestions,
 		@NotBlank String realtimeSessionNotify
+	) {
+	}
+
+	public record DeadLetter(
+		@NotBlank String exchange,
+		@NotBlank String routingKeyPrefix
+	) {
+	}
+
+	public record Retry(
+		@PositiveOrZero int maxRetries,
+		@NotNull Duration initialInterval,
+		@Positive double multiplier,
+		@NotNull Duration maxInterval
 	) {
 	}
 }

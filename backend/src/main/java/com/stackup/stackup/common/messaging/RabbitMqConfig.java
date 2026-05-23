@@ -1,12 +1,20 @@
 package com.stackup.stackup.common.messaging;
 
 import com.stackup.stackup.common.config.properties.RabbitMqProperties;
+import java.util.Map;
+import org.springframework.amqp.core.AcknowledgeMode;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.Declarables;
+import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.core.TopicExchange;
+import org.springframework.amqp.rabbit.config.RetryInterceptorBuilder;
+import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.aopalliance.intercept.MethodInterceptor;
+import org.springframework.amqp.rabbit.retry.RejectAndDontRequeueRecoverer;
 import org.springframework.amqp.support.converter.JacksonJsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
@@ -14,6 +22,8 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class RabbitMqConfig {
+
+    static final String LISTENER_CONTAINER_FACTORY = "rabbitListenerContainerFactory";
 
     private final RabbitMqProperties properties;
 
@@ -49,33 +59,42 @@ public class RabbitMqConfig {
     }
 
     @Bean
+    public DirectExchange deadLetterExchange() {
+        return new DirectExchange(
+            properties.deadLetter().exchange(),
+            properties.exchanges().durable(),
+            properties.exchanges().autoDelete()
+        );
+    }
+
+    @Bean
     public Queue aiAnalyzeResumeQueue() {
-        return new Queue(properties.queues().names().aiAnalyzeResume(), properties.queues().durable());
+        return workQueue(properties.queues().names().aiAnalyzeResume());
     }
 
     @Bean
     public Queue aiAnalyzeRepositoryQueue() {
-        return new Queue(properties.queues().names().aiAnalyzeRepository(), properties.queues().durable());
+        return workQueue(properties.queues().names().aiAnalyzeRepository());
     }
 
     @Bean
     public Queue aiGenerateQuestionsQueue() {
-        return new Queue(properties.queues().names().aiGenerateQuestions(), properties.queues().durable());
+        return workQueue(properties.queues().names().aiGenerateQuestions());
     }
 
     @Bean
     public Queue aiGenerateFollowupQueue() {
-        return new Queue(properties.queues().names().aiGenerateFollowup(), properties.queues().durable());
+        return workQueue(properties.queues().names().aiGenerateFollowup());
     }
 
     @Bean
     public Queue coreCallbackAnalysisQueue() {
-        return new Queue(properties.queues().names().coreCallbackAnalysis(), properties.queues().durable());
+        return workQueue(properties.queues().names().coreCallbackAnalysis());
     }
 
     @Bean
     public Queue coreCallbackQuestionsQueue() {
-        return new Queue(properties.queues().names().coreCallbackQuestions(), properties.queues().durable());
+        return workQueue(properties.queues().names().coreCallbackQuestions());
     }
 
     @Bean
@@ -83,6 +102,7 @@ public class RabbitMqConfig {
         TopicExchange coreToAiExchange,
         TopicExchange aiToCoreExchange,
         TopicExchange realtimeExchange,
+        DirectExchange deadLetterExchange,
         Queue aiAnalyzeResumeQueue,
         Queue aiAnalyzeRepositoryQueue,
         Queue aiGenerateQuestionsQueue,
@@ -90,24 +110,44 @@ public class RabbitMqConfig {
         Queue coreCallbackAnalysisQueue,
         Queue coreCallbackQuestionsQueue
     ) {
+        Queue dlqAiAnalyzeResume = dlq(properties.queues().names().aiAnalyzeResume());
+        Queue dlqAiAnalyzeRepository = dlq(properties.queues().names().aiAnalyzeRepository());
+        Queue dlqAiGenerateQuestions = dlq(properties.queues().names().aiGenerateQuestions());
+        Queue dlqAiGenerateFollowup = dlq(properties.queues().names().aiGenerateFollowup());
+        Queue dlqCoreCallbackAnalysis = dlq(properties.queues().names().coreCallbackAnalysis());
+        Queue dlqCoreCallbackQuestions = dlq(properties.queues().names().coreCallbackQuestions());
+
         return new Declarables(
             coreToAiExchange,
             aiToCoreExchange,
             realtimeExchange,
+            deadLetterExchange,
             aiAnalyzeResumeQueue,
             aiAnalyzeRepositoryQueue,
             aiGenerateQuestionsQueue,
             aiGenerateFollowupQueue,
             coreCallbackAnalysisQueue,
             coreCallbackQuestionsQueue,
+            dlqAiAnalyzeResume,
+            dlqAiAnalyzeRepository,
+            dlqAiGenerateQuestions,
+            dlqAiGenerateFollowup,
+            dlqCoreCallbackAnalysis,
+            dlqCoreCallbackQuestions,
             BindingBuilder.bind(aiAnalyzeResumeQueue).to(coreToAiExchange).with(properties.routingKeys().analyzeResume()),
             BindingBuilder.bind(aiAnalyzeRepositoryQueue).to(coreToAiExchange).with(properties.routingKeys().analyzeRepository()),
             BindingBuilder.bind(aiGenerateQuestionsQueue).to(coreToAiExchange).with(properties.routingKeys().generateQuestions()),
             BindingBuilder.bind(aiGenerateFollowupQueue).to(coreToAiExchange).with(properties.routingKeys().generateFollowup()),
             BindingBuilder.bind(coreCallbackAnalysisQueue).to(aiToCoreExchange).with(properties.routingKeys().callbackAnalysis()),
-            BindingBuilder.bind(coreCallbackQuestionsQueue).to(aiToCoreExchange).with(properties.routingKeys().callbackQuestions())
-            // 주의: q.realtime.session.notify 큐 + binding 은 RealTime 서버가 자체 declare
-            // (또는 infra/rabbitmq/definitions.json). Core 는 exchange 만 declare.
+            BindingBuilder.bind(coreCallbackQuestionsQueue).to(aiToCoreExchange).with(properties.routingKeys().callbackQuestions()),
+            BindingBuilder.bind(dlqAiAnalyzeResume).to(deadLetterExchange).with(dlqAiAnalyzeResume.getName()),
+            BindingBuilder.bind(dlqAiAnalyzeRepository).to(deadLetterExchange).with(dlqAiAnalyzeRepository.getName()),
+            BindingBuilder.bind(dlqAiGenerateQuestions).to(deadLetterExchange).with(dlqAiGenerateQuestions.getName()),
+            BindingBuilder.bind(dlqAiGenerateFollowup).to(deadLetterExchange).with(dlqAiGenerateFollowup.getName()),
+            BindingBuilder.bind(dlqCoreCallbackAnalysis).to(deadLetterExchange).with(dlqCoreCallbackAnalysis.getName()),
+            BindingBuilder.bind(dlqCoreCallbackQuestions).to(deadLetterExchange).with(dlqCoreCallbackQuestions.getName())
+            // 주의: q.realtime.session.notify 큐 + binding (+ DLQ) 은 RealTime 서버 측에서
+            // infra/rabbitmq/definitions.json 으로 import 되므로 Core 는 exchange 만 declare.
         );
     }
 
@@ -122,5 +162,53 @@ public class RabbitMqConfig {
         rabbitTemplate.setMessageConverter(messageConverter);
         rabbitTemplate.setMandatory(properties.template().mandatory());
         return rabbitTemplate;
+    }
+
+    @Bean(name = LISTENER_CONTAINER_FACTORY)
+    public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(
+        ConnectionFactory connectionFactory,
+        MessageConverter messageConverter
+    ) {
+        SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
+        factory.setConnectionFactory(connectionFactory);
+        factory.setMessageConverter(messageConverter);
+        factory.setAcknowledgeMode(AcknowledgeMode.AUTO);
+        factory.setDefaultRequeueRejected(false);
+        factory.setAdviceChain(retryInterceptor());
+        return factory;
+    }
+
+    private MethodInterceptor retryInterceptor() {
+        RabbitMqProperties.Retry retry = properties.retry();
+        return RetryInterceptorBuilder.stateless()
+            .maxRetries(retry.maxRetries())
+            .backOffOptions(
+                retry.initialInterval().toMillis(),
+                retry.multiplier(),
+                retry.maxInterval().toMillis()
+            )
+            .recoverer(new RejectAndDontRequeueRecoverer())
+            .build();
+    }
+
+    private Queue workQueue(String name) {
+        return QueueBuilder.durable(name)
+            .withArguments(deadLetterArguments(name))
+            .build();
+    }
+
+    private Queue dlq(String workQueueName) {
+        return QueueBuilder.durable(dlqName(workQueueName)).build();
+    }
+
+    private Map<String, Object> deadLetterArguments(String workQueueName) {
+        return Map.of(
+            "x-dead-letter-exchange", properties.deadLetter().exchange(),
+            "x-dead-letter-routing-key", dlqName(workQueueName)
+        );
+    }
+
+    private String dlqName(String workQueueName) {
+        return properties.deadLetter().routingKeyPrefix() + workQueueName;
     }
 }

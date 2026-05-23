@@ -104,6 +104,14 @@ app:
         callback-analysis: callback.analysis
         callback-questions: callback.questions
         realtime-session-notify: realtime.session.notify
+      dead-letter:
+        exchange: stackup.dlx
+        routing-key-prefix: dlq.
+      retry:
+        max-retries: 3
+        initial-interval: 1s
+        multiplier: 2.0
+        max-interval: 10s
   sse:
     timeout: 30m
     keep-alive-interval: 30s

@@ -6,13 +6,14 @@
 
 ## 1. 토폴로지 (현재 정의 기준)
 
-### Exchanges (모두 topic, durable)
+### Exchanges (durable)
 
-| Exchange | 방향 |
-|----------|------|
-| `stackup.core-to-ai` | Core → AI 작업 요청 |
-| `stackup.ai-to-core` | AI → Core 결과 회신 |
-| `stackup.realtime` | Core → RealTime 세션 알림 |
+| Exchange | Type | 방향 |
+|----------|------|------|
+| `stackup.core-to-ai` | topic | Core → AI 작업 요청 |
+| `stackup.ai-to-core` | topic | AI → Core 결과 회신 |
+| `stackup.realtime` | topic | Core → RealTime 세션 알림 |
+| `stackup.dlx` | direct | 처리 실패 메시지 격리 (Dead Letter Exchange) |
 
 ### Queues (durable)
 
@@ -27,13 +28,28 @@
 | `core.callback.questions` | `stackup.ai-to-core` | `callback.questions` | Core Server |
 | `q.realtime.session.notify` | `stackup.realtime` | `realtime.session.*` | RealTime Server |
 
+### Dead Letter Queues (durable)
+
+각 work queue 는 `x-dead-letter-exchange=stackup.dlx` + `x-dead-letter-routing-key=dlq.<queue>` 인자를 가진다.
+재시도 한도 초과 또는 `requeue=false` reject 시 DLX 로 라우팅되어 짝이 되는 DLQ 로 격리된다.
+
+| DLQ | Bound to | Routing Key | 격리 대상 |
+|-----|----------|-------------|-----------|
+| `dlq.ai.analyze.resume` | `stackup.dlx` | `dlq.ai.analyze.resume` | `ai.analyze.resume` 처리 실패 |
+| `dlq.ai.analyze.repository` | `stackup.dlx` | `dlq.ai.analyze.repository` | `ai.analyze.repository` 처리 실패 |
+| `dlq.ai.analyze.web` | `stackup.dlx` | `dlq.ai.analyze.web` | `ai.analyze.web` 처리 실패 |
+| `dlq.ai.generate.questions` | `stackup.dlx` | `dlq.ai.generate.questions` | `ai.generate.questions` 처리 실패 |
+| `dlq.ai.generate.followup` | `stackup.dlx` | `dlq.ai.generate.followup` | `ai.generate.followup` 처리 실패 |
+| `dlq.core.callback.analysis` | `stackup.dlx` | `dlq.core.callback.analysis` | `core.callback.analysis` 처리 실패 |
+| `dlq.core.callback.questions` | `stackup.dlx` | `dlq.core.callback.questions` | `core.callback.questions` 처리 실패 |
+| `dlq.q.realtime.session.notify` | `stackup.dlx` | `dlq.q.realtime.session.notify` | `q.realtime.session.notify` 처리 실패 |
+
 ### 추가 예정 (정의 시점에 본 표 갱신)
 
 | 후보 Queue | 용도 |
 |------------|------|
 | `ai.generate.feedback` | 세션 종료 후 종합 피드백 생성 |
 | `core.callback.feedback` | 피드백 콜백 |
-| `q.dlq.*` | Dead Letter Queue (각 큐별) |
 
 ---
 
@@ -316,19 +332,32 @@
 
 | 시나리오 | 정책 |
 |----------|------|
-| Consumer 일시 오류 (네트워크, LLM 일시 장애) | NACK + requeue, 최대 3회 |
-| 재시도 횟수 초과 | DLQ 이동 + 실패 callback 발행 (`status: FAILED`, `retriable: false`) |
-| 메시지 파싱 실패 (스키마 위반) | 즉시 DLQ (재시도 무의미) |
-| 멱등 충돌 (이미 처리된 messageId) | ACK + 처리 skip |
+| Consumer 일시 오류 (네트워크, LLM 일시 장애) | in-process 재시도, 최대 3회 + exponential backoff |
+| 재시도 횟수 초과 | reject(requeue=false) → DLX → DLQ (`dlq.<work-queue>`) |
+| 메시지 파싱 실패 (스키마 위반) | 즉시 reject(requeue=false) → DLQ (재시도 무의미) |
+| 멱등 충돌 (이미 처리된 messageId) | ACK + 처리 skip (`processed_messages`) |
+| 영구 분석 실패 (PDF 손상 등) | ACK + 실패 callback 발행 (`status: FAILED`, `retriable: false`) — DLQ 미사용 |
 
-### Quorum Queue 권장 설정 (도입 시)
+### Core (Spring AMQP)
+- `RabbitMqConfig#rabbitListenerContainerFactory` 가 stateless retry interceptor (`RetryInterceptorBuilder.stateless()`) 를 attach.
+
+### AI Server (aio-pika)
+- 컨슈머는 `async with message.process(requeue=False)` 패턴.
+- 도메인 예외 (`ResumeAnalyzeError` 등) 는 catch 하여 실패 callback 발행 (재시도 무의미).
+- 그 외 예외는 re-raise → nack(requeue=false) → DLX 로 routing.
+- 일시 장애의 in-process 재시도는 미구현 (Phase 2 — 아래 Quorum Queue 도입과 함께).
+
+### RealTime Server (amqp091-go)
+- `_ = d.Nack(false, false)` (drop, requeue 없음) → DLX 로 routing.
+
+### Quorum Queue 권장 설정 (Phase 2 검토)
 ```
 x-queue-type: quorum
 x-delivery-limit: 3
-x-dead-letter-exchange: stackup.dlx
 ```
+`x-delivery-limit` 은 quorum queue 에서만 동작. 도입 시 컨슈머 단의 in-process 재시도 인터셉터를 제거하고 브로커-레벨 재시도로 일원화.
 
-> 현재 `definitions.json`은 기본 큐 (classic) — Phase 2에 quorum + DLX 도입.
+> 현재 `definitions.json`은 classic queue + DLX. Phase 2 에 quorum 전환 검토.
 
 ### 멱등 처리
 - Consumer는 `messageId`를 PostgreSQL `processed_messages` 테이블 (`UNIQUE(message_id)`)에 INSERT 시도
