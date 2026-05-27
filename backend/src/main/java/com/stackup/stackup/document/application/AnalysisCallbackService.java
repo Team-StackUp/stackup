@@ -105,6 +105,21 @@ public class AnalysisCallbackService {
     private void publishSse(AnalyzedDocument doc, AnalysisCallbackPayload payload) {
         SseEventType type = doc.getRepository() != null ? SseEventType.REPO_STATE : SseEventType.DOC_STATE;
         sseEventPublisher.publishToDocument(doc.getId(), type, payload);
+        // 프론트가 documentId 를 모르고도 /api/stream/me 로 분석 진행을 받을 수 있게 user 채널에도 push.
+        Long userId = resolveOwnerUserId(doc);
+        if (userId != null) {
+            sseEventPublisher.publishToUser(userId, type, payload);
+        }
+    }
+
+    private Long resolveOwnerUserId(AnalyzedDocument doc) {
+        if (doc.getResume() != null && doc.getResume().getUser() != null) {
+            return doc.getResume().getUser().getId();
+        }
+        if (doc.getRepository() != null && doc.getRepository().getUser() != null) {
+            return doc.getRepository().getUser().getId();
+        }
+        return null;
     }
 
     private boolean isProcessed(String messageId) {
