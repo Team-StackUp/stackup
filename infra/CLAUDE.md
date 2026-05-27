@@ -98,24 +98,30 @@ docker exec -i stackup-postgres psql -U stackup stackup < backup.sql
 
 ### 5.1 토폴로지 (실제 `definitions.json` 기준)
 
-**Exchanges (topic, durable)**:
-- `stackup.core-to-ai` — Core → AI 작업 요청
-- `stackup.ai-to-core` — AI → Core 결과 회신
-- `stackup.realtime` — Core → RealTime 세션 알림
+**Exchanges (durable)**:
+- `stackup.core-to-ai` (topic) — Core → AI 작업 요청
+- `stackup.ai-to-core` (topic) — AI → Core 결과 회신
+- `stackup.realtime` (topic) — Core → RealTime 세션 알림
+- `stackup.dlx` (direct) — 처리 실패 메시지 격리 (Dead Letter Exchange)
 
-**Queues (durable)**:
-| Queue | Bound to | Routing Key | Consumer |
-|-------|----------|-------------|----------|
-| `ai.analyze.repository` | `stackup.core-to-ai` | `analyze.repository` | AI Server |
-| `ai.analyze.resume` | `stackup.core-to-ai` | `analyze.resume` | AI Server |
-| `ai.analyze.web` | `stackup.core-to-ai` | `analyze.web` | AI Server |
-| `ai.generate.questions` | `stackup.core-to-ai` | `generate.questions` | AI Server |
-| `ai.generate.followup` | `stackup.core-to-ai` | `generate.followup` | AI Server |
-| `core.callback.analysis` | `stackup.ai-to-core` | `callback.analysis` | Core Server |
-| `core.callback.questions` | `stackup.ai-to-core` | `callback.questions` | Core Server |
-| `q.realtime.session.notify` | `stackup.realtime` | `realtime.session.*` | RealTime Server |
+**Work Queues (durable)** — 모두 `x-dead-letter-exchange=stackup.dlx` 설정:
 
-> 추가 큐(피드백, 상태 알림, DLQ)는 정의 시점에 본 표 갱신.
+| Queue | Bound to | Routing Key | DLQ Routing Key | Consumer |
+|-------|----------|-------------|-----------------|----------|
+| `ai.analyze.repository` | `stackup.core-to-ai` | `analyze.repository` | `dlq.ai.analyze.repository` | AI Server |
+| `ai.analyze.resume` | `stackup.core-to-ai` | `analyze.resume` | `dlq.ai.analyze.resume` | AI Server |
+| `ai.analyze.web` | `stackup.core-to-ai` | `analyze.web` | `dlq.ai.analyze.web` | AI Server |
+| `ai.generate.questions` | `stackup.core-to-ai` | `generate.questions` | `dlq.ai.generate.questions` | AI Server |
+| `ai.generate.followup` | `stackup.core-to-ai` | `generate.followup` | `dlq.ai.generate.followup` | AI Server |
+| `core.callback.analysis` | `stackup.ai-to-core` | `callback.analysis` | `dlq.core.callback.analysis` | Core Server |
+| `core.callback.questions` | `stackup.ai-to-core` | `callback.questions` | `dlq.core.callback.questions` | Core Server |
+| `q.realtime.session.notify` | `stackup.realtime` | `realtime.session.*` | `dlq.q.realtime.session.notify` | RealTime Server |
+
+**Dead Letter Queues (durable)** — `stackup.dlx` 에 1:1 바인딩.
+재시도 한도 초과·요청 reject 시 메시지가 격리되며, 운영자는 management UI 또는 `rabbitmqctl` 로 조회·shovel.
+
+> 재시도 정책 상세: [`/docs/messaging.md §6`](../docs/messaging.md).
+> 추가 큐(피드백 등)는 정의 시점에 본 표 갱신.
 
 ### 5.2 관리 콘솔
 - URL: http://localhost:15672

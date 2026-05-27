@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -103,7 +104,9 @@ class RabbitMessagePublisherTest {
                 "callback.analysis",
                 "callback.questions",
                 "realtime.session.notify"
-            )
+            ),
+            new RabbitMqProperties.DeadLetter("stackup.dlx", "dlq."),
+            new RabbitMqProperties.Retry(3, Duration.ofSeconds(1), 2.0, Duration.ofSeconds(10))
         );
     }
 }

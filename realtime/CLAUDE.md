@@ -98,11 +98,13 @@ config는 cmd, internal/* 모두에서 import 가능
 
 ## 7. RabbitMQ 토폴로지
 
-| Queue | Bind | Consumer |
-|-------|------|----------|
-| `q.realtime.session.notify` | `stackup.realtime` exchange, routing key `realtime.session.*` | RealTime |
+| Queue | Bind | Consumer | DLQ |
+|-------|------|----------|-----|
+| `q.realtime.session.notify` | `stackup.realtime` exchange, routing key `realtime.session.*` | RealTime | `dlq.q.realtime.session.notify` (via `stackup.dlx`) |
 
 발행자: Core 서버. envelope 스키마는 [`/docs/messaging.md §5`](../docs/messaging.md).
+
+`q.realtime.session.notify` 는 `x-dead-letter-exchange=stackup.dlx` 인자를 가지므로 본 컨슈머가 `Nack(false, false)` 로 reject 한 메시지는 자동으로 DLQ 로 격리된다. 큐 자체는 `infra/rabbitmq/definitions.json` 가 import 시점에 declare 하며, Go 측은 `QueueDeclarePassive` 로 메타데이터만 확인한다.
 
 ---
 
@@ -206,7 +208,7 @@ docker build -t stackup-realtime ./realtime
 - AMQP `q.realtime.session.notify` consumer 활성, dispatcher → SSE fan-out 동작
 - WebSocket 미구현
 - JWT 인증 미구현 (TODO 주석)
-- DLQ 없음 (parse 에러 시 drop)
+- DLQ 활성 — handler 실패 메시지는 `dlq.q.realtime.session.notify` 로 격리
 - Prometheus 노출 미구현
 
 각 도입 시 본 문서 갱신.
