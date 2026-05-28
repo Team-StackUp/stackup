@@ -62,6 +62,24 @@ jobs:
           fi
           chmod 600 .env
 
+          # .env.example 에 추가됐는데 .env 에 없는 키는 default 와 함께 append.
+          # 이 단계가 없으면 docker-compose 의 ${VAR:-} 가 빈 문자열을 주입해 Spring 의
+          # @NotBlank 검증을 깨뜨림 (예: JWT_SECRET, ENCRYPTION_KEY 누락 → backend exit 1).
+          appended=$(mktemp)
+          awk -F= '
+            NR==FNR && /^[A-Z_]+=/ { existing[$1] = 1; next }
+            /^[A-Z_]+=/ && !($1 in existing) { print }
+          ' .env .env.example > "$appended"
+          if [ -s "$appended" ]; then
+            echo "  sync new keys from .env.example:"
+            cut -d= -f1 "$appended" | sed 's/^/    + /'
+            echo "" >> .env
+            echo "# ---- synced from .env.example by deploy-app.yml ----" >> .env
+            cat "$appended" >> .env
+            chmod 600 .env
+          fi
+          rm -f "$appended"
+
           # 같은 키를 .env 에 upsert. 값이 비어있으면 skip (기존 값 유지).
           upsert_env() {
             local key="$1"
