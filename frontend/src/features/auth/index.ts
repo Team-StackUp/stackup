@@ -9,6 +9,7 @@ export {
   completeGithubLogin,
   fetchCurrentUser,
   logout,
+  createStreamToken,
 } from './api/auth'
 export type {
   AuthUser,
