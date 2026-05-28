@@ -34,3 +34,11 @@ export async function fetchCurrentUser(): Promise<AuthUser> {
 export async function logout(): Promise<void> {
   await apiClient.delete('/api/auth/logout')
 }
+
+export async function createStreamToken(): Promise<string> {
+  const response = await apiClient.post<{ streamToken: string }>(
+    '/api/auth/stream-token',
+    {},
+  )
+  return response.data.streamToken
+}
