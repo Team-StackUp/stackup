@@ -11,6 +11,7 @@ import com.stackup.stackup.session.domain.InterviewMessage;
 import com.stackup.stackup.session.domain.InterviewMessageRepository;
 import com.stackup.stackup.session.domain.InterviewSession;
 import com.stackup.stackup.session.domain.InterviewSessionRepository;
+import com.stackup.stackup.session.domain.SessionStatus;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -63,6 +64,11 @@ public class SessionCallbackService {
             log.warn("session not found. id={}", p.sessionId());
             return;
         }
+        if (session.getStatus() != SessionStatus.READY) {
+            log.warn("session not READY, drop FIRST. id={}, status={}",
+                session.getId(), session.getStatus());
+            return;
+        }
         if (p.question() == null || p.question().isBlank()) {
             log.warn("first question is blank. sessionId={}", p.sessionId());
             sse.publishToSession(session.getId(), SseEventType.ERROR,
@@ -86,13 +92,73 @@ public class SessionCallbackService {
     }
 
     private void applyFollowup(QuestionsCallbackPayload p) {
-        // Task G1 에서 구현
-        throw new UnsupportedOperationException("followup is implemented in Task G1");
+        InterviewSession session = sessionRepo.findByIdAndIsDeletedFalse(p.sessionId()).orElse(null);
+        if (session == null) {
+            log.warn("session not found. id={}", p.sessionId());
+            return;
+        }
+        if (session.getStatus() != SessionStatus.IN_PROGRESS) {
+            log.warn("session not in progress, drop followup. id={}, status={}",
+                session.getId(), session.getStatus());
+            return;
+        }
+        if (p.parentMessageId() == null) {
+            log.warn("followup missing parentMessageId. sessionId={}", session.getId());
+            return;
+        }
+        if (p.question() == null || p.question().isBlank()) {
+            log.warn("followup question blank. sessionId={}", session.getId());
+            return;
+        }
+
+        InterviewMessage parent = messageRepo.findById(p.parentMessageId()).orElse(null);
+        if (parent == null) {
+            log.warn("followup parent not found. id={}", p.parentMessageId());
+            return;
+        }
+        if (!parent.getSession().getId().equals(session.getId())) {
+            log.warn("followup parent belongs to different session. parentId={}, parent.sessionId={}, expected.sessionId={}",
+                parent.getId(), parent.getSession().getId(), session.getId());
+            return;
+        }
+
+        int nextSeq = messageRepo.findMaxSequenceBySessionId(session.getId()) + 1;
+        InterviewMessage q = messageRepo.save(
+            InterviewMessage.interviewer(session, nextSeq, p.question(), parent));
+        session.incrementQuestionCount();
+
+        sse.publishToSession(session.getId(), SseEventType.SESSION_MESSAGE,
+            MessageResult.from(q));
+
+        if (session.isMaxReached()) {
+            session.end();
+            sse.publishToSession(session.getId(), SseEventType.SESSION_STATE,
+                Map.of("sessionId", session.getId(), "state", session.getStatus().name(),
+                       "totalQuestionCount", session.getTotalQuestionCount(),
+                       "endedAt", session.getEndedAt()));
+        } else {
+            sse.publishToSession(session.getId(), SseEventType.SESSION_STATE,
+                Map.of("sessionId", session.getId(), "state", session.getStatus().name(),
+                       "totalQuestionCount", session.getTotalQuestionCount()));
+        }
     }
 
     private void applyEnd(QuestionsCallbackPayload p) {
-        // Task G1 에서 구현
-        throw new UnsupportedOperationException("end is implemented in Task G1");
+        InterviewSession session = sessionRepo.findByIdAndIsDeletedFalse(p.sessionId()).orElse(null);
+        if (session == null) {
+            log.warn("session not found. id={}", p.sessionId());
+            return;
+        }
+        if (session.getStatus() != SessionStatus.IN_PROGRESS) {
+            log.warn("session not in progress, drop END. id={}, status={}",
+                session.getId(), session.getStatus());
+            return;
+        }
+        session.end();
+        sse.publishToSession(session.getId(), SseEventType.SESSION_STATE,
+            Map.of("sessionId", session.getId(), "state", session.getStatus().name(),
+                   "totalQuestionCount", session.getTotalQuestionCount(),
+                   "endedAt", session.getEndedAt()));
     }
 
     private boolean isProcessed(String messageId) {

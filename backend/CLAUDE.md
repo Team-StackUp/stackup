@@ -87,7 +87,7 @@ com.stackup.stackup.{domain}/
 | `github` | GitHub API 연동, 레포 목록/등록/메타 동기화 | US-07, US-08 |
 | `resume` | 이력서 업로드(S3)·메타 저장·목록·삭제 | US-05, US-06 |
 | `document` | 분석 문서(이력서/레포 공통) 메타 + S3 경로 | US-09~12 |
-| `session` | 면접 세션·메시지·피드백 (가장 큰 도메인) | US-13~20, US-24~27 |
+| `session` | 면접 세션·메시지·콜백. Sprint 2 에서 application/presentation/infrastructure 도입 (create/submitAnswer/end + callback.questions FIRST/FOLLOWUP/END + SSE push). 피드백은 Sprint 3. | US-13~20 |
 | `log.activity` | 사용자 행동 로그 | US-31 |
 | `log.ai` | AI 요청/응답 로깅 | US-30 |
 | `common` | BaseEntity, 글로벌 예외 핸들러, util | — |
@@ -359,5 +359,10 @@ docker compose up -d
 - Flyway 미도입 → 첫 entity 작성 PR에서 도입
 - **Spring AI 미사용** — LLM·임베딩 호출은 모두 AI 서버 위임. Core는 RabbitMQ 발행만 담당.
 - **Redis 미사용** — 휘발성 데이터는 DB short-lived 레코드 또는 인메모리로.
+- (2026-05) session 도메인 Phase A·B·C·D·E·F·G·H 완료 — 도메인 메서드 + 메시지 DTO +
+  SessionService.create/submitAnswer/end + SessionController + callback.questions
+  (FIRST/FOLLOWUP/END) 컨슈머 + SSE SESSION_MESSAGE/STATE push + 답변 멱등 (Idempotency-Key).
+  풀 미사용, 매 턴 LLM 호출. DB 마이그레이션 없음. golden path Testcontainer IT 추가
+  (Docker 필요).
 
 각 도입 시 본 문서 §1, 관련 도메인 `CLAUDE.md` 갱신.
