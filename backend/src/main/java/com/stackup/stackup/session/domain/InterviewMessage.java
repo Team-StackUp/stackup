@@ -62,27 +62,32 @@ public class InterviewMessage extends BaseTimeEntity {
     @Enumerated(EnumType.STRING)
     private MessageStatus status = MessageStatus.CREATED;
 
+    @Column(name = "idempotency_key", length = 64)
+    private String idempotencyKey;
+
     private InterviewMessage(InterviewSession session, Integer sequenceNumber, MessageRole role,
-                             String content, InterviewMessage parentMessage) {
+                             String content, InterviewMessage parentMessage,
+                             String idempotencyKey) {
         this.session = session;
         this.sequenceNumber = sequenceNumber;
         this.role = role;
         this.content = content;
         this.parentMessage = parentMessage;
+        this.idempotencyKey = idempotencyKey;
     }
 
     public static InterviewMessage interviewer(InterviewSession session, int seq, String content) {
-        return new InterviewMessage(session, seq, MessageRole.INTERVIEWER, content, null);
+        return new InterviewMessage(session, seq, MessageRole.INTERVIEWER, content, null, null);
     }
 
     public static InterviewMessage followup(InterviewSession session, int seq, String content,
                                             InterviewMessage parent) {
-        return new InterviewMessage(session, seq, MessageRole.INTERVIEWER, content, parent);
+        return new InterviewMessage(session, seq, MessageRole.INTERVIEWER, content, parent, null);
     }
 
     public static InterviewMessage interviewee(InterviewSession session, int seq, String content,
-                                               InterviewMessage parent) {
-        return new InterviewMessage(session, seq, MessageRole.INTERVIEWEE, content, parent);
+                                               InterviewMessage parent, String idempotencyKey) {
+        return new InterviewMessage(session, seq, MessageRole.INTERVIEWEE, content, parent, idempotencyKey);
     }
 
     public void markStatus(MessageStatus newStatus) {

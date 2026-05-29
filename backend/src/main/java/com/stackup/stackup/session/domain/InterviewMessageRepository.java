@@ -11,4 +11,6 @@ public interface InterviewMessageRepository extends JpaRepository<InterviewMessa
     Optional<InterviewMessage> findFirstBySession_IdOrderBySequenceNumberDesc(Long sessionId);
 
     long countBySession_Id(Long sessionId);
+
+    Optional<InterviewMessage> findBySession_IdAndIdempotencyKey(Long sessionId, String idempotencyKey);
 }

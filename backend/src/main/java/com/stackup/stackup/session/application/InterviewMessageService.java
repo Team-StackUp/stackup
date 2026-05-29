@@ -34,8 +34,17 @@ public class InterviewMessageService {
     }
 
     @Transactional
-    public MessageResult submitAnswer(Long userId, Long sessionId, String content) {
+    public MessageResult submitAnswer(Long userId, Long sessionId, String content, String idempotencyKey) {
         InterviewSession session = ownedSession(userId, sessionId);
+
+        // SPRINT2_PLAN decision #4: SSE 재연결 자동 재시도 중복 차단
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            var existing = messageRepository.findBySession_IdAndIdempotencyKey(sessionId, idempotencyKey);
+            if (existing.isPresent()) {
+                return MessageResult.of(existing.get());
+            }
+        }
+
         if (session.getStatus() != SessionStatus.IN_PROGRESS) {
             throw new DomainException(ApiErrorCode.SESSION_INVALID_STATE);
         }
@@ -48,7 +57,8 @@ public class InterviewMessageService {
         }
         int nextSeq = latest.getSequenceNumber() + 1;
         InterviewMessage answer = messageRepository.save(
-            InterviewMessage.interviewee(session, nextSeq, content, latest)
+            InterviewMessage.interviewee(session, nextSeq, content, latest,
+                idempotencyKey != null && !idempotencyKey.isBlank() ? idempotencyKey : null)
         );
 
         events.publishEvent(new AnswerSubmittedEvent(
