@@ -41,4 +41,11 @@ public class SessionContext extends BaseTimeEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "document_id", nullable = false)
     private AnalyzedDocument document;
+
+    public static SessionContext of(InterviewSession session, AnalyzedDocument doc) {
+        SessionContext c = new SessionContext();
+        c.session = session;
+        c.document = doc;
+        return c;
+    }
 }

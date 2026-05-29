@@ -119,7 +119,7 @@
 | 이력서(PDF) 분석 (US-09) | `analyze.resume` | `callback.analysis` | `core.callback.analysis` |
 | 웹 이력서(URL) 분석 (US-09) | `analyze.web` | `callback.analysis` | `core.callback.analysis` |
 | 레포 분석 (US-10) | `analyze.repository` | `callback.analysis` | `core.callback.analysis` |
-| 질문 풀 생성 (US-18) | `generate.questions` | `callback.questions` | `core.callback.questions` |
+| 첫 질문 생성 (US-18) | `generate.questions` | `callback.questions` | `core.callback.questions` |
 | 꼬리질문 생성 (US-19) | `generate.followup` | `callback.questions` | `core.callback.questions` |
 | 피드백 생성 (US-24) | `generate.feedback` *(예정)* | `callback.feedback` *(예정)* | `core.callback.feedback` *(예정)* |
 | 세션 알림 (RT2 SSE) | `realtime.session.notify` | (없음 — 단방향 push) | `q.realtime.session.notify` |
@@ -229,17 +229,15 @@
 }
 ```
 
-### 5.7 `callback.questions` (질문 풀)
+### 5.7 `callback.questions` (첫 질문)
 ```json
 {
   "messageType": "callback.questions",
   "payload": {
     "sessionId": 99,
-    "kind": "POOL",
-    "questions": [
-      { "category": "PROJECT_DEEP_DIVE", "question": "..." },
-      { "category": "CS_FUNDAMENTAL", "question": "..." }
-    ]
+    "kind": "FIRST",
+    "category": "PROJECT_DEEP_DIVE",
+    "question": "왜 그 아키텍처를 선택했나요?"
   }
 }
 ```
@@ -266,22 +264,26 @@
     "sessionId": 99,
     "kind": "FOLLOWUP",
     "parentMessageId": 502,
-    "followupQuestion": "...",
+    "category": "CS_FUNDAMENTAL",
+    "question": "왜 그것이 더 좋은가요?",
     "answerEvaluation": {
       "specificity": 3.5,
       "logic": 4.0,
       "structure": "PARTIAL_STAR"
     },
-    "voiceAnalysis": {
-      "speakingRateWpm": 142.0,
-      "fillerWordCounts": { "음": 5, "어": 3 },
-      "silenceDurationSec": 8.2
-    }
+    "voiceAnalysis": null
   }
 }
 ```
 
-> `callback.questions` 큐는 두 종류(`POOL`, `FOLLOWUP`)를 받으므로 consumer는 `payload.kind`로 분기.
+조기 종료 신호:
+```json
+{ "messageType": "callback.questions",
+  "payload": { "sessionId": 99, "kind": "END",
+               "answerEvaluation": { "specificity": 4.1 } } }
+```
+
+> `callback.questions` 큐는 세 종류(`FIRST`, `FOLLOWUP`, `END`)를 받으므로 consumer는 `payload.kind`로 분기.
 
 ### 5.10 `generate.feedback` *(예정)*
 ```json

@@ -1,0 +1,106 @@
+# Integration-test profile — used by @ActiveProfiles("it") tests with Testcontainers.
+# DataSource / JPA / Flyway ARE enabled (contrast with the "test" profile in
+# src/main/resources/application-test.yml which disables them for unit tests).
+# Connection coordinates (DB, RabbitMQ) are overridden at runtime by @DynamicPropertySource.
+
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate          # rely on Flyway to create the schema
+    properties:
+      hibernate:
+        format_sql: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+app:
+  security:
+    jwt-secret: it-jwt-secret-at-least-32-chars-long
+    encryption-key: it-encryption-key-32-chars-long!
+    access-token-ttl-seconds: 900
+    refresh-token-ttl-seconds: 1209600
+    access-token-type: Bearer
+    oauth-state-ttl: 5m
+    oauth-state-byte-length: 32
+    pkce-code-verifier-byte-length: 32
+    refresh-token-byte-length: 32
+    refresh-token-cookie-name: refresh_token
+    refresh-token-cookie-path: /api/auth
+    refresh-token-cookie-same-site: Strict
+    refresh-token-cookie-secure: false
+    refresh-token-cookie-http-only: true
+    internal-api-key: it-internal-api-key
+
+  github:
+    client-id: it-github-client-id
+    client-secret: it-github-client-secret
+    redirect-uri: http://localhost:5173/auth/callback
+    scopes: read:user user:email repo
+    oauth-base-url: https://github.com
+    token-type: bearer
+    code-challenge-method: S256
+    api-base-url: https://api.github.com
+    api-version: 2022-11-28
+    connect-timeout: 3s
+    read-timeout: 5s
+
+  s3:
+    endpoint: http://localhost:9000   # unused in tests; S3ObjectStorageClient is not called
+    access-key: minioadmin
+    secret-key: minioadmin
+    bucket: stackup
+    region: us-east-1
+    path-style: true
+
+  messaging:
+    rabbitmq:
+      publisher: core-server
+      version: v1
+      message:
+        content-type: application/json
+        content-encoding: UTF-8
+        trace-id-header: x-trace-id
+      template:
+        mandatory: false            # mandatory=false avoids ReturnCallback issues in tests
+      exchanges:
+        durable: true
+        auto-delete: false
+        names:
+          core-to-ai: stackup.core-to-ai
+          ai-to-core: stackup.ai-to-core
+          realtime: stackup.realtime
+      queues:
+        durable: true
+        names:
+          ai-analyze-resume: ai.analyze.resume
+          ai-analyze-repository: ai.analyze.repository
+          ai-generate-questions: ai.generate.questions
+          ai-generate-followup: ai.generate.followup
+          core-callback-analysis: core.callback.analysis
+          core-callback-questions: core.callback.questions
+      routing-keys:
+        analyze-resume: analyze.resume
+        analyze-repository: analyze.repository
+        generate-questions: generate.questions
+        generate-followup: generate.followup
+        callback-analysis: callback.analysis
+        callback-questions: callback.questions
+        realtime-session-notify: realtime.session.notify
+      dead-letter:
+        exchange: stackup.dlx
+        routing-key-prefix: dlq.
+      retry:
+        max-retries: 3
+        initial-interval: 1s
+        multiplier: 2.0
+        max-interval: 10s
+
+  sse:
+    timeout: 30m
+    keep-alive-interval: 30s
+    stream-token-ttl: 60s
+
+  cors:
+    allowed-origins:
+      - http://localhost:5173

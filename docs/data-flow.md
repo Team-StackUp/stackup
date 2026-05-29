@@ -56,16 +56,15 @@
         → session_contexts INSERT (선택된 analyzed_documents 연결)
   → [Core] RabbitMQ publish: stackup.core-to-ai / generate.questions
   → [AI] RAG 검색 (pgvector 유사도, Core API 경유) → 컨텍스트 추출
-  → [AI] Gemini 3.1 Pro → 질문 풀 생성 (10~15개)
-  → [AI] RabbitMQ publish: stackup.ai-to-core / callback.questions (kind=POOL)
-  → [Core] 질문 풀을 interview_sessions row 또는 별도 테이블에 저장
-        (Redis 미사용 — 세션 단위 데이터이므로 PG로 충분)
+  → [AI] Gemini 3.1 Pro → 첫 질문 1개 생성 (RAG 컨텍스트 기반)
+  → [AI] RabbitMQ publish: stackup.ai-to-core / callback.questions (kind=FIRST)
+  → [Core] interview_messages INSERT (첫 INTERVIEWER 메시지) + session.markInProgress() + SSE push
 ```
 
 ### 3.2 질문-답변 사이클 (반복)
 
 ```
-[Core/RealTime] SSE → 첫 질문 push
+[Core] SSE → 첫 질문 push (kind=FIRST 콜백 처리 후)
   → [Frontend] 표시 + 마이크 활성화
   → [사용자] 음성 답변 (Phase 2) 또는 텍스트
   → [Frontend] (음성 모드) WebRTC stream → RealTime
@@ -76,18 +75,26 @@
   → [Core] RabbitMQ publish: stackup.core-to-ai / generate.followup
   → [AI] 답변 평가 + 꼬리질문 생성 (Gemini 3.1 Flash + RAG)
         → 답변이 음성이면 음성 분석도 병행
-  → [AI] RabbitMQ publish: stackup.ai-to-core / callback.questions (kind=FOLLOWUP)
-  → [Core] interview_messages INSERT (role=INTERVIEWER, 꼬리질문)
-        → message_voice_analyses INSERT (음성 모드일 경우)
-  → [Core] SSE → 다음 질문 push
+  → [AI] RabbitMQ publish: stackup.ai-to-core / callback.questions (kind=FOLLOWUP 또는 kind=END)
+  → [Core] kind=FOLLOWUP: interview_messages INSERT (role=INTERVIEWER, 꼬리질문)
+                         + message_voice_analyses INSERT (음성 모드일 경우)
+                         + max 도달 시 자동 종료 + SSE push
+           kind=END: AI 조기 종료 신호 → session.end() + SSE STATE push
+  → [Core] SSE SESSION_MESSAGE → 다음 질문 push
 ```
 
 ### 3.3 세션 종료
 
+세션은 다음 세 경로로 종료된다:
+
+1. **최대 질문 수 도달** — FOLLOWUP 콜백 처리 시 Core 카운터가 maxQuestions 도달을 감지 → 자동으로 `session.end()` 호출 + SSE SESSION_STATE push
+2. **AI `kind=END` 조기 종료 신호** — AI가 답변 품질 등을 판단해 FOLLOWUP 대신 END 신호 전송 → Core `session.end()` + SSE SESSION_STATE push
+3. **사용자 수동 종료** — `POST /api/sessions/{id}/end` 호출 → 즉시 COMPLETED 또는 CANCELLED 처리
+
 ```
-[사용자] 종료 버튼  OR  최대 질문/시간 도달
+(공통 종료 이후)
   → [Core] interview_sessions.status = COMPLETED, ended_at = now()
-  → [Core] RabbitMQ publish: stackup.core-to-ai / generate.feedback (예정)
+  → [Core] RabbitMQ publish: stackup.core-to-ai / generate.feedback (예정 — Sprint 3)
   → [AI] 전체 메시지 + 음성 분석 → 종합 평가 (Gemini 3.1 Pro)
   → [AI] S3 PUT: feedback/{session_id}/report.md
   → [AI] RabbitMQ publish: stackup.ai-to-core / callback.feedback (예정)
