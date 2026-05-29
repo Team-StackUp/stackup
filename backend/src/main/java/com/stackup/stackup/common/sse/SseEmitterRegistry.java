@@ -93,10 +93,15 @@ public class SseEmitterRegistry {
         }
         for (SseEmitter emitter : emitters) {
             try {
-                emitter.send(SseEmitter.event()
-                    .id(event.id())
+                // SseEventBuilder.id(null) 호출 시 Spring 내부에서 String.indexOf(int) NPE.
+                // keep-alive 이벤트는 id 가 null 일 수 있으므로 명시적 분기.
+                SseEmitter.SseEventBuilder builder = SseEmitter.event()
                     .name(event.type().name())
-                    .data(event, MediaType.APPLICATION_JSON));
+                    .data(event, MediaType.APPLICATION_JSON);
+                if (event.id() != null) {
+                    builder = builder.id(event.id());
+                }
+                emitter.send(builder);
             } catch (IOException | IllegalStateException ex) {
                 remove(emitter);
             }
