@@ -144,6 +144,12 @@ public class InterviewSession extends BaseSoftDeleteEntity {
         totalQuestionCount++;
     }
 
+    public boolean isMaxReached() {
+        return totalQuestionCount != null
+                && maxQuestions != null
+                && totalQuestionCount >= maxQuestions;
+    }
+
     public void updateTitleAndMemo(String title, String memo) {
         if (title != null && !title.isBlank()) {
             this.title = title;

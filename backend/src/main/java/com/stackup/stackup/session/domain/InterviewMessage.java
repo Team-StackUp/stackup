@@ -67,27 +67,40 @@ public class InterviewMessage extends BaseTimeEntity {
 
     private InterviewMessage(InterviewSession session, Integer sequenceNumber, MessageRole role,
                              String content, InterviewMessage parentMessage,
-                             String idempotencyKey) {
+                             MessageStatus initialStatus, String idempotencyKey) {
+        if (session == null) {
+            throw new IllegalArgumentException("session must not be null");
+        }
+        if (content == null || content.isBlank()) {
+            throw new IllegalArgumentException("content must not be null or blank");
+        }
+        if (sequenceNumber == null || sequenceNumber < 1) {
+            throw new IllegalArgumentException("sequence must be >= 1");
+        }
         this.session = session;
         this.sequenceNumber = sequenceNumber;
         this.role = role;
         this.content = content;
         this.parentMessage = parentMessage;
+        this.status = initialStatus;
         this.idempotencyKey = idempotencyKey;
     }
 
     public static InterviewMessage interviewer(InterviewSession session, int seq, String content) {
-        return new InterviewMessage(session, seq, MessageRole.INTERVIEWER, content, null, null);
+        return new InterviewMessage(session, seq, MessageRole.INTERVIEWER, content, null,
+            MessageStatus.CREATED, null);
     }
 
     public static InterviewMessage followup(InterviewSession session, int seq, String content,
                                             InterviewMessage parent) {
-        return new InterviewMessage(session, seq, MessageRole.INTERVIEWER, content, parent, null);
+        return new InterviewMessage(session, seq, MessageRole.INTERVIEWER, content, parent,
+            MessageStatus.CREATED, null);
     }
 
     public static InterviewMessage interviewee(InterviewSession session, int seq, String content,
                                                InterviewMessage parent, String idempotencyKey) {
-        return new InterviewMessage(session, seq, MessageRole.INTERVIEWEE, content, parent, idempotencyKey);
+        return new InterviewMessage(session, seq, MessageRole.INTERVIEWEE, content, parent,
+            MessageStatus.COMPLETED, idempotencyKey);
     }
 
     public void markStatus(MessageStatus newStatus) {
