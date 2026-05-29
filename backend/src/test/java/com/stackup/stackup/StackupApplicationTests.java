@@ -6,6 +6,7 @@ import com.stackup.stackup.common.messaging.domain.ProcessedMessageRepository;
 import com.stackup.stackup.document.domain.AnalyzedDocumentRepository;
 import com.stackup.stackup.document.domain.DocumentEmbeddingRepository;
 import com.stackup.stackup.github.domain.GithubRepositoryRepository;
+import com.stackup.stackup.log.ai.domain.AiRequestLogRepository;
 import com.stackup.stackup.resume.domain.ResumeRepository;
 import com.stackup.stackup.session.domain.InterviewMessageRepository;
 import com.stackup.stackup.session.domain.InterviewSessionRepository;
@@ -62,6 +63,9 @@ class StackupApplicationTests {
 
 	@MockitoBean
 	private MessageVoiceAnalysisRepository messageVoiceAnalysisRepository;
+
+	@MockitoBean
+	private AiRequestLogRepository aiRequestLogRepository;
 
 	@Test
 	void contextLoads() {

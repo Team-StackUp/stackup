@@ -94,9 +94,52 @@ public class QuestionsCallbackService {
     }
 
     private void applyFollowup(InterviewSession session, QuestionsCallbackPayload payload) {
-        // B5 진행 시 활성화. 지금은 envelope 만 로깅 (메시지/답변 시퀀스가 들어와야 의미 있음)
-        log.info("callback.questions FOLLOWUP received. sessionId={}, parent={}, willStoreInB5",
-            session.getId(), payload.parentMessageId());
+        if (payload.followupQuestion() == null || payload.followupQuestion().isBlank()) {
+            log.warn("callback.questions FOLLOWUP empty question. sessionId={}", session.getId());
+            return;
+        }
+        InterviewMessage parent = payload.parentMessageId() == null
+            ? null
+            : messageRepository.findById(payload.parentMessageId()).orElse(null);
+
+        long currentMsgs = messageRepository.countBySession_Id(session.getId());
+        int nextSeq = (int) currentMsgs + 1;
+
+        InterviewMessage message = messageRepository.save(
+            InterviewMessage.followup(session, nextSeq, payload.followupQuestion(), parent)
+        );
+        session.incrementQuestionCount();
+
+        sseEventPublisher.publishToSession(session.getId(), SseEventType.SESSION_MESSAGE, message.getId());
+        sseEventPublisher.publishToUser(
+            session.getUser().getId(),
+            SseEventType.SESSION_MESSAGE,
+            new SessionMessageNotice(session.getId(), message.getId(), "FOLLOWUP_READY")
+        );
+
+        // maxQuestions 도달 시 자동 종료 (plan §A-4)
+        Integer max = session.getMaxQuestions();
+        if (max != null && session.getTotalQuestionCount() != null
+            && session.getTotalQuestionCount() >= max) {
+            try {
+                session.end();
+                sseEventPublisher.publishToSession(session.getId(), SseEventType.SESSION_STATE,
+                    new SessionStateNotice(session.getId(), session.getStatus().name(), "MAX_QUESTIONS_REACHED"));
+                sseEventPublisher.publishToUser(session.getUser().getId(), SseEventType.SESSION_STATE,
+                    new SessionStateNotice(session.getId(), session.getStatus().name(), "MAX_QUESTIONS_REACHED"));
+                log.info("session auto-completed on max questions. sessionId={}, max={}",
+                    session.getId(), max);
+            } catch (IllegalStateException e) {
+                log.warn("auto-end skipped — session not IN_PROGRESS. sessionId={}, status={}",
+                    session.getId(), session.getStatus());
+            }
+        }
+
+        log.info("callback.questions FOLLOWUP processed. sessionId={}, msg={}, totalQ={}",
+            session.getId(), message.getId(), session.getTotalQuestionCount());
+    }
+
+    public record SessionStateNotice(Long sessionId, String status, String reason) {
     }
 
     private boolean isProcessed(String messageId) {

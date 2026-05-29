@@ -45,6 +45,20 @@ class CoreClient(Protocol):
         chunks: list[EmbeddingChunkPayload],
     ) -> int: ...
 
+    async def record_ai_log(
+        self,
+        *,
+        request_type: str,
+        model_name: str | None,
+        input_tokens: int | None,
+        output_tokens: int | None,
+        latency_ms: int | None,
+        status: str,
+        user_id: int | None = None,
+        session_id: int | None = None,
+        error_message: str | None = None,
+    ) -> None: ...
+
 
 class HttpCoreClient:
     def __init__(
@@ -219,3 +233,38 @@ class HttpCoreClient:
         if not isinstance(count, int):
             return len(body["chunks"])
         return count
+
+    async def record_ai_log(
+        self,
+        *,
+        request_type: str,
+        model_name: str | None,
+        input_tokens: int | None,
+        output_tokens: int | None,
+        latency_ms: int | None,
+        status: str,
+        user_id: int | None = None,
+        session_id: int | None = None,
+        error_message: str | None = None,
+    ) -> None:
+        """`ai_request_logs` 에 fire-and-forget INSERT. 실패해도 raise 하지 않음 — 관측용."""
+        path = "/api/internal/ai-logs"
+        body = {
+            "userId": user_id,
+            "sessionId": session_id,
+            "requestType": request_type,
+            "modelName": model_name,
+            "inputTokens": input_tokens,
+            "outputTokens": output_tokens,
+            "latencyMs": latency_ms,
+            "status": status,
+            "errorMessage": error_message,
+        }
+        try:
+            if self._client is not None:
+                await self._client.post(path, json=body)
+                return
+            async with self._build_client() as client:
+                await client.post(path, json=body)
+        except Exception as exc:
+            log.warn("core.ai_log.failed", error=str(exc), request_type=request_type)
