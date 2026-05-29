@@ -22,9 +22,12 @@ class Settings(BaseSettings):
     ai_queue_resume: str = "ai.analyze.resume"
     ai_queue_repository: str = "ai.analyze.repository"
     ai_queue_web: str = "ai.analyze.web"
+    ai_queue_questions: str = "ai.generate.questions"
+    ai_queue_followup: str = "ai.generate.followup"
     ai_queue_prefetch: int = 10
     ai_callback_exchange: str = "stackup.ai-to-core"
     ai_callback_routing_analysis: str = "callback.analysis"
+    ai_callback_routing_questions: str = "callback.questions"
     ai_publisher_name: str = "ai-server"
     ai_idempotency_lru_size: int = 1024
 

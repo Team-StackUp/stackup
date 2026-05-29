@@ -7,6 +7,7 @@ import com.stackup.stackup.document.domain.AnalyzedDocument;
 import com.stackup.stackup.document.domain.AnalyzedDocumentRepository;
 import com.stackup.stackup.session.application.dto.SessionCreateCommand;
 import com.stackup.stackup.session.application.dto.SessionResult;
+import com.stackup.stackup.session.application.event.SessionCreatedEvent;
 import com.stackup.stackup.session.domain.InterviewSession;
 import com.stackup.stackup.session.domain.InterviewSessionRepository;
 import com.stackup.stackup.session.domain.SessionContext;
@@ -17,6 +18,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +33,7 @@ public class SessionService {
     private final SessionContextRepository contextRepository;
     private final AnalyzedDocumentRepository documentRepository;
     private final UserRepository userRepository;
+    private final ApplicationEventPublisher events;
 
     @Transactional
     public SessionResult create(Long userId, SessionCreateCommand command) {
@@ -47,6 +50,16 @@ public class SessionService {
         ));
 
         List<Long> linkedIds = linkContexts(session, userId, command.contextDocumentIds());
+
+        // 세션 생성 commit 후 AI 질문 풀 생성 트리거 (US-18). 인프라스트럭처가 listener 에서 발행.
+        events.publishEvent(new SessionCreatedEvent(
+            userId,
+            session.getId(),
+            session.getInterviewType(),
+            session.getJobCategory(),
+            session.getMaxQuestions(),
+            linkedIds
+        ));
         return SessionResult.of(session, linkedIds);
     }
 

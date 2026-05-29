@@ -13,11 +13,16 @@ from ai_server.chain.document_analysis_chain import (
     LlmDocumentAnalyzer,
     build_document_analysis_chain,
 )
+from ai_server.chain.question_generation_chain import (
+    LlmQuestionGenerator,
+    build_question_generation_chain,
+)
 from ai_server.config.settings import Settings
 from ai_server.core.client import HttpCoreClient
 from ai_server.messaging.connection import RabbitConnection
 from ai_server.rag.chunker import MarkdownChunker
 from ai_server.rag.embedder import build_embedding_provider
+from ai_server.messaging.consumers.questions_consumer import QuestionsConsumer
 from ai_server.messaging.consumers.repository_consumer import RepositoryConsumer
 from ai_server.messaging.consumers.resume_consumer import ResumeConsumer
 from ai_server.messaging.consumers.web_consumer import WebResumeConsumer
@@ -128,6 +133,17 @@ class MessagingRuntime:
             callback_routing_key=settings.ai_callback_routing_analysis,
         )
 
+        # 질문 풀 생성 (US-18)
+        question_generator = LlmQuestionGenerator(
+            build_question_generation_chain(settings)
+        )
+        self._questions_consumer = QuestionsConsumer(
+            generator=question_generator,
+            publisher=self._publisher,
+            idempotency=self._idempotency,
+            callback_routing_key=settings.ai_callback_routing_questions,
+        )
+
         self._consumers: list[tuple[AbstractRobustQueue, str]] = []
 
     async def start(self) -> None:
@@ -150,6 +166,11 @@ class MessagingRuntime:
             channel,
             queue_name=self._settings.ai_queue_web,
             handler=self._web_consumer.handle,
+        )
+        await self._start_consumer(
+            channel,
+            queue_name=self._settings.ai_queue_questions,
+            handler=self._questions_consumer.handle,
         )
 
     async def _start_consumer(self, channel, *, queue_name, handler) -> None:
