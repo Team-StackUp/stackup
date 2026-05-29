@@ -83,6 +83,17 @@ public class GithubRepositoryService {
         repositoryRepository.delete(repo);
     }
 
+    // US-08: GitHub 메타 재동기화. 등록된 레포의 default_branch / name / url 등을 최신화.
+    // 분석 재트리거는 별도 endpoint (/reanalyze) — 본 메서드는 메타만.
+    @Transactional
+    public GithubRepositoryResult sync(Long userId, Long repositoryId) {
+        GithubRepository repo = loadOwned(userId, repositoryId);
+        String accessToken = tokenService.fetchPlainAccessToken(userId);
+        GithubRepoResponse meta = githubApiClient.getRepository(accessToken, repo.getRepoFullName());
+        repo.updateMetadata(meta.name(), meta.fullName(), meta.htmlUrl(), meta.defaultBranch());
+        return GithubRepositoryResult.of(repo);
+    }
+
     public List<CandidateRepositoryResult> listCandidates(Long userId, int page, int perPage) {
         int actualPerPage = (perPage <= 0) ? CANDIDATE_DEFAULT_PER_PAGE : Math.min(perPage, CANDIDATE_MAX_PER_PAGE);
         int actualPage = Math.max(page, 1);

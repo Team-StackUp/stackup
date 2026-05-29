@@ -101,6 +101,26 @@ public class GithubRepositoryController {
         return RegisteredRepositoryResponse.from(service.get(principal.userId(), repositoryId));
     }
 
+    @Operation(
+        operationId = "syncRepository",
+        summary = "GitHub 메타 재동기화 (US-08)",
+        description = "GitHub API 로 default_branch/name/url 등을 다시 fetch 해 DB 갱신. last_synced_at 갱신. 분석은 재트리거하지 않음."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "메타 갱신 완료"),
+        @ApiResponse(responseCode = "401", description = "인증 실패"),
+        @ApiResponse(responseCode = "404", description = "등록된 레포 또는 GitHub 상 레포 없음"),
+        @ApiResponse(responseCode = "403", description = "비공개 레포 접근 불가"),
+        @ApiResponse(responseCode = "502", description = "GitHub API 호출 실패")
+    })
+    @PostMapping("/{repositoryId}/sync")
+    public RegisteredRepositoryResponse sync(
+        @AuthenticationPrincipal UserPrincipal principal,
+        @PathVariable Long repositoryId
+    ) {
+        return RegisteredRepositoryResponse.from(service.sync(principal.userId(), repositoryId));
+    }
+
     @Operation(operationId = "deleteRepository", summary = "등록 레포 soft delete")
     @ApiResponses({
         @ApiResponse(responseCode = "204", description = "삭제 완료"),

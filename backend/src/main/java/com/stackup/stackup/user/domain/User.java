@@ -71,4 +71,8 @@ public class User extends BaseSoftDeleteEntity {
         this.avatarUrl = avatarUrl;
         this.encryptedGithubAccessToken = encryptedGithubAccessToken;
     }
+
+    public void markDeleted() {
+        this.deleted = true;
+    }
 }

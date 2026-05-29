@@ -58,4 +58,35 @@ public class UserConsent extends BaseTimeEntity {
 
     @Column(name = "ip_address", length = 45)
     private String ipAddress;
+
+    private UserConsent(User user, ConsentType consentType, String consentVersion, String ipAddress) {
+        this.user = user;
+        this.consentType = consentType;
+        this.consentVersion = consentVersion;
+        this.agreed = true;
+        this.agreedAt = Instant.now();
+        this.ipAddress = ipAddress;
+    }
+
+    public static UserConsent agree(User user, ConsentType consentType, String consentVersion, String ipAddress) {
+        if (user == null) {
+            throw new IllegalArgumentException("user must not be null");
+        }
+        if (consentType == null) {
+            throw new IllegalArgumentException("consentType must not be null");
+        }
+        if (consentVersion == null || consentVersion.isBlank()) {
+            throw new IllegalArgumentException("consentVersion must not be blank");
+        }
+        return new UserConsent(user, consentType, consentVersion, ipAddress);
+    }
+
+    public void revoke() {
+        this.agreed = false;
+        this.revokedAt = Instant.now();
+    }
+
+    public boolean isActive() {
+        return agreed && revokedAt == null;
+    }
 }
