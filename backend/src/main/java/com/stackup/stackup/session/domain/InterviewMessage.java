@@ -61,4 +61,50 @@ public class InterviewMessage extends BaseTimeEntity {
     @Column(nullable = false, length = 20)
     @Enumerated(EnumType.STRING)
     private MessageStatus status = MessageStatus.CREATED;
+
+    public static InterviewMessage interviewer(
+            InterviewSession session, int sequence, String content, InterviewMessage parent
+    ) {
+        if (session == null) {
+            throw new IllegalArgumentException("session must not be null");
+        }
+        if (content == null || content.isBlank()) {
+            throw new IllegalArgumentException("content must not be null or blank");
+        }
+        if (sequence < 1) {
+            throw new IllegalArgumentException("sequence must be >= 1");
+        }
+
+        InterviewMessage m = new InterviewMessage();
+        m.session = session;
+        m.sequenceNumber = sequence;
+        m.role = MessageRole.INTERVIEWER;
+        m.content = content;
+        m.parentMessage = parent;
+        m.status = MessageStatus.CREATED;
+        return m;
+    }
+
+    public static InterviewMessage interviewee(
+            InterviewSession session, int sequence, String content, InterviewMessage parent
+    ) {
+        if (session == null) {
+            throw new IllegalArgumentException("session must not be null");
+        }
+        if (content == null || content.isBlank()) {
+            throw new IllegalArgumentException("content must not be null or blank");
+        }
+        if (sequence < 1) {
+            throw new IllegalArgumentException("sequence must be >= 1");
+        }
+
+        InterviewMessage m = new InterviewMessage();
+        m.session = session;
+        m.sequenceNumber = sequence;
+        m.role = MessageRole.INTERVIEWEE;
+        m.content = content;
+        m.parentMessage = parent;
+        m.status = MessageStatus.COMPLETED; // 답변은 작성 시점에 완료
+        return m;
+    }
 }
