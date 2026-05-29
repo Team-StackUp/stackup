@@ -41,4 +41,19 @@ public class SessionContext extends BaseTimeEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "document_id", nullable = false)
     private AnalyzedDocument document;
+
+    private SessionContext(InterviewSession session, AnalyzedDocument document) {
+        this.session = session;
+        this.document = document;
+    }
+
+    public static SessionContext link(InterviewSession session, AnalyzedDocument document) {
+        if (session == null) {
+            throw new IllegalArgumentException("session must not be null");
+        }
+        if (document == null) {
+            throw new IllegalArgumentException("document must not be null");
+        }
+        return new SessionContext(session, document);
+    }
 }

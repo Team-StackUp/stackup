@@ -11,6 +11,10 @@ public interface InterviewSessionRepository extends JpaRepository<InterviewSessi
 
     Optional<InterviewSession> findByIdAndUser_Id(Long id, Long userId);
 
+    Optional<InterviewSession> findByIdAndUser_IdAndDeletedFalse(Long id, Long userId);
+
+    List<InterviewSession> findByUser_IdAndDeletedFalseOrderByIdDesc(Long userId);
+
     long countByUser_Id(Long userId);
 
     long countByUser_IdAndStatus(Long userId, SessionStatus status);
