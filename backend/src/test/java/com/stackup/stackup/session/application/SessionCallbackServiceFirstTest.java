@@ -3,6 +3,7 @@ package com.stackup.stackup.session.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -103,6 +104,21 @@ class SessionCallbackServiceFirstTest {
         assertThat(s.getStatus()).isEqualTo(SessionStatus.READY);
     }
 
+    @Test
+    void first_dropped_when_session_already_in_progress() {
+        InterviewSession s = inProgressSession(99L); // already IN_PROGRESS
+        when(processedRepo.existsById("mid-redeliver")).thenReturn(false);
+        when(sessionRepo.findByIdAndIsDeletedFalse(99L)).thenReturn(Optional.of(s));
+
+        QuestionsCallbackPayload p = new QuestionsCallbackPayload(
+            99L, "FIRST", "C", "Q", null, null, null);
+        service.apply(envelope("mid-redeliver", p));
+
+        verify(messageRepo, never()).save(any(InterviewMessage.class));
+        verify(processedRepo).save(any()); // 멱등 기록은 됨 — 재배달 시 skip
+        assertThat(s.getStatus()).isEqualTo(SessionStatus.IN_PROGRESS); // unchanged
+    }
+
     private InterviewSession ready(Long id) {
         User user = User.createGithubUser(1L, "u", "u@e.com", "url", "tok");
         ReflectionTestUtils.setField(user, "id", 1L);
@@ -110,6 +126,12 @@ class SessionCallbackServiceFirstTest {
             user, "t", null, SessionMode.ONLINE, InterviewType.TECHNICAL,
             JobCategory.BACKEND, 10, 60);
         ReflectionTestUtils.setField(s, "id", id);
+        return s;
+    }
+
+    private InterviewSession inProgressSession(Long id) {
+        InterviewSession s = ready(id);
+        s.markInProgress();
         return s;
     }
 
