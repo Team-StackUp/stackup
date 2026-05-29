@@ -1,10 +1,15 @@
 package com.stackup.stackup.session.application.dto;
 
+import com.stackup.stackup.session.domain.InterviewType;
+import com.stackup.stackup.session.domain.JobCategory;
+
 public record GenerateFollowupPayload(
     Long sessionId,
-    Long questionMessageId,
+    Long parentMessageId,
     Long answerMessageId,
+    String previousQuestion,
     String answerText,
-    String audioS3Key // 텍스트 면접에서는 null
+    InterviewType interviewType,
+    JobCategory jobCategory
 ) {
 }

@@ -66,4 +66,25 @@ public class AiRequestLog extends BaseTimeEntity {
 
     @Column(name = "error_message", columnDefinition = "text")
     private String errorMessage;
+
+    private AiRequestLog(User user, InterviewSession session, String requestType, String modelName,
+                         Integer inputTokens, Integer outputTokens, Integer latencyMs,
+                         AiRequestStatus status, String errorMessage) {
+        this.user = user;
+        this.session = session;
+        this.requestType = requestType;
+        this.modelName = modelName;
+        this.inputTokens = inputTokens;
+        this.outputTokens = outputTokens;
+        this.latencyMs = latencyMs;
+        this.status = status;
+        this.errorMessage = errorMessage;
+    }
+
+    public static AiRequestLog of(User user, InterviewSession session, String requestType, String modelName,
+                                  Integer inputTokens, Integer outputTokens, Integer latencyMs,
+                                  AiRequestStatus status, String errorMessage) {
+        return new AiRequestLog(user, session, requestType, modelName,
+            inputTokens, outputTokens, latencyMs, status, errorMessage);
+    }
 }

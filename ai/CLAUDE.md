@@ -93,8 +93,8 @@ ai/
 | `ai.analyze.resume` | `analyze.resume` | 본 구현 (PDF → MD) |
 | `ai.analyze.repository` | `analyze.repository` | 본 구현 (GitHub README + tree + 소스 sampling) |
 | `ai.analyze.web` | `analyze.web` | 본 구현 (URL → trafilatura) |
-| `ai.generate.questions` | `generate.questions` | 큐만, 코드 미구현 |
-| `ai.generate.followup` | `generate.followup` | 큐만, 코드 미구현 |
+| `ai.generate.questions` | `generate.questions` | 본 구현 (Pro 모델, 질문 풀 생성, US-18) |
+| `ai.generate.followup` | `generate.followup` | 본 구현 (Flash 모델, 답변 평가+꼬리질문, US-19) |
 
 콜백 발행: `ai.callback.{type}` 익스체인지.
 상세 envelope/스키마/재시도: [`/docs/messaging.md`](../docs/messaging.md).
@@ -310,19 +310,20 @@ docker run --env-file .env -p 8000:8000 stackup-ai
 ## 16. 현재 상태 (2026-05 기준)
 
 - FastAPI 부트스트랩 + 헬스체크
-- RabbitMQ consumer `ai.analyze.resume` 본 구현:
-  - PDF 텍스트 추출 (`analyzer/sources/pdf.py`, pypdf)
+- 분석 consumer 본 구현 — `analyze.resume` / `analyze.repository` / `analyze.web`:
+  - PDF·GitHub Repo·웹 URL 소스 추출 추상화 (`analyzer/sources/`)
   - LLM 분석 (`chain/document_analysis_chain.py`, Gemini Pro + Pydantic 출력 파서)
   - 분석 MD를 스토리지에 저장
   - `callback.analysis` 발행 (status `ANALYZED` / `FAILED`, retriable 플래그 포함)
-- **스토리지 추상화 도입** (`storage/`): `ObjectStorage` 인터페이스 + 구현체 두 개.
-  - `S3Storage` (기본) — boto3 + `asyncio.to_thread`. MinIO·AWS S3 모두 호환. `S3_ENDPOINT_URL`만 바꿔 swap.
-  - `LocalFilesystemStorage` (dev/test 전용) — aiofiles + traversal 방어.
-  - `STORAGE_BACKEND=s3|local` 환경변수 한 줄로 전환.
-- **소스 추출 추상화 도입** (`analyzer/sources/`): `SourceExtractor` 인터페이스 + `PdfSourceExtractor`.
-  GitHub repo / 웹 이력서 추출기는 동일 인터페이스로 후속 PR에서 추가 예정.
-- 임베딩·청킹·pgvector upsert는 미구현 → 후속 PR. `embedding_chunk_count`는 0으로 발행.
-- `analyze.repository` / `generate.questions` / `generate.followup` consumer는 큐 정의만, 코드 없음
+- 면접 consumer 본 구현 — `generate.questions` (US-18) / `generate.followup` (US-19):
+  - 질문 풀 생성 (Pro 모델, `chain/question_generation_chain.py`)
+  - 꼬리질문 + 답변 평가 (Flash 모델, `chain/followup_generation_chain.py`)
+  - 콜백: `callback.questions` (`kind=POOL|FOLLOWUP`)
+- **임베딩 본 구현** (`rag/`): `MarkdownChunker` + `GeminiEmbeddingProvider` (1536d, `gemini-embedding-001`).
+  운영/개발 default 는 gemini, 테스트는 `MockEmbeddingProvider`.
+- **스토리지 추상화** (`storage/`): `S3Storage`(기본) / `LocalFilesystemStorage`. `STORAGE_BACKEND` 토글.
+- **LLM 호출 로깅 본 구현** (`observability/llm_logging_callback.py`, US-30):
+  LangChain `AsyncCallbackHandler` 가 토큰/latency 측정 → Core `/api/internal/ai-logs` POST.
 - 음성 모듈은 Phase 2
 
 각 도입 시 본 문서 갱신.

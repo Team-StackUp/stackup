@@ -77,71 +77,85 @@ public class InterviewSession extends BaseSoftDeleteEntity {
     @Column(name = "ended_at")
     private Instant endedAt;
 
-    public static InterviewSession create(
-            User user, String title, String memo,
-            SessionMode mode, InterviewType interviewType, JobCategory jobCategory,
-            Integer maxQuestions, Integer maxDurationMinutes
-    ) {
+    private InterviewSession(User user, String title, String memo, SessionMode mode,
+                             InterviewType interviewType, JobCategory jobCategory,
+                             Integer maxQuestions, Integer maxDurationMinutes) {
+        this.user = user;
+        this.title = title;
+        this.memo = memo;
+        this.mode = mode;
+        this.interviewType = interviewType;
+        this.jobCategory = jobCategory;
+        if (maxQuestions != null) {
+            this.maxQuestions = maxQuestions;
+        }
+        if (maxDurationMinutes != null) {
+            this.maxDurationMinutes = maxDurationMinutes;
+        }
+    }
+
+    public static InterviewSession create(User user, String title, String memo, SessionMode mode,
+                                          InterviewType interviewType, JobCategory jobCategory,
+                                          Integer maxQuestions, Integer maxDurationMinutes) {
         if (user == null) {
             throw new IllegalArgumentException("user must not be null");
         }
-        if (mode == null) {
-            throw new IllegalArgumentException("mode must not be null");
+        if (mode == null || interviewType == null || jobCategory == null) {
+            throw new IllegalArgumentException("mode/interviewType/jobCategory must not be null");
         }
-        if (interviewType == null) {
-            throw new IllegalArgumentException("interviewType must not be null");
-        }
-        if (jobCategory == null) {
-            throw new IllegalArgumentException("jobCategory must not be null");
-        }
-        InterviewSession s = new InterviewSession();
-        s.user = user;
-        s.title = title;
-        s.memo = memo;
-        s.mode = mode;
-        s.interviewType = interviewType;
-        s.jobCategory = jobCategory;
-        s.maxQuestions = maxQuestions == null ? 10 : maxQuestions;
-        s.maxDurationMinutes = maxDurationMinutes == null ? 60 : maxDurationMinutes;
-        s.status = SessionStatus.READY;
-        s.totalQuestionCount = 0;
-        return s;
+        return new InterviewSession(user, title, memo, mode, interviewType, jobCategory, maxQuestions, maxDurationMinutes);
     }
 
-    public void markInProgress() {
-        if (this.status != SessionStatus.READY) {
-            throw new IllegalStateException("IN_PROGRESS 전이는 READY 상태에서만 가능합니다. 현재=" + this.status);
+    public void start() {
+        if (status != SessionStatus.READY) {
+            throw new IllegalStateException("session is not READY to start (current=" + status + ")");
         }
         this.status = SessionStatus.IN_PROGRESS;
         this.startedAt = Instant.now();
     }
 
-    public void incrementQuestionCount() {
-        if (this.status != SessionStatus.IN_PROGRESS) {
-            throw new IllegalStateException("IN_PROGRESS 상태에서만 증가할 수 있습니다.");
-        }
-        this.totalQuestionCount = (this.totalQuestionCount == null ? 0 : this.totalQuestionCount) + 1;
-    }
-
-    public boolean isMaxReached() {
-        return this.totalQuestionCount != null
-                && this.maxQuestions != null
-                && this.totalQuestionCount >= this.maxQuestions;
-    }
-
     public void end() {
-        if (this.status != SessionStatus.IN_PROGRESS) {
-            throw new IllegalStateException("IN_PROGRESS 상태에서만 종료할 수 있습니다. 현재=" + this.status);
+        if (status != SessionStatus.IN_PROGRESS) {
+            throw new IllegalStateException("session is not IN_PROGRESS to end (current=" + status + ")");
         }
         this.status = SessionStatus.COMPLETED;
         this.endedAt = Instant.now();
     }
 
+    public void interrupt() {
+        if (status != SessionStatus.IN_PROGRESS) {
+            throw new IllegalStateException("session is not IN_PROGRESS to interrupt (current=" + status + ")");
+        }
+        this.status = SessionStatus.INTERRUPTED;
+        this.endedAt = Instant.now();
+    }
+
     public void cancel() {
-        if (this.status == SessionStatus.COMPLETED || this.status == SessionStatus.CANCELLED) {
-            throw new IllegalStateException("취소할 수 없는 상태입니다. 현재=" + this.status);
+        if (status != SessionStatus.READY) {
+            throw new IllegalStateException("only READY session can be cancelled (current=" + status + ")");
         }
         this.status = SessionStatus.CANCELLED;
-        this.endedAt = Instant.now();
+    }
+
+    public void incrementQuestionCount() {
+        if (totalQuestionCount == null) {
+            totalQuestionCount = 0;
+        }
+        totalQuestionCount++;
+    }
+
+    public boolean isMaxReached() {
+        return totalQuestionCount != null
+                && maxQuestions != null
+                && totalQuestionCount >= maxQuestions;
+    }
+
+    public void updateTitleAndMemo(String title, String memo) {
+        if (title != null && !title.isBlank()) {
+            this.title = title;
+        }
+        if (memo != null) {
+            this.memo = memo;
+        }
     }
 }

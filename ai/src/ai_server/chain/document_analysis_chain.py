@@ -10,6 +10,8 @@ from pydantic import BaseModel, Field
 from ai_server.analyzer.sources.base import SourceType
 from ai_server.chain.prompts.document_analysis import HUMAN_PROMPT, SYSTEM_PROMPT
 from ai_server.config.settings import Settings
+from ai_server.core.client import CoreClient
+from ai_server.observability.llm_logging_callback import CoreAiLogCallback
 
 
 class DocumentAnalysisResult(BaseModel):
@@ -42,7 +44,7 @@ class LlmDocumentAnalyzer:
 
 
 # 프롬프트 -> LLM -> 파서 하나로 묶어서 처리함
-def build_document_analysis_chain(settings: Settings) -> Runnable:
+def build_document_analysis_chain(settings: Settings, core_client: CoreClient | None = None) -> Runnable:
     from langchain_openai import ChatOpenAI
 
     parser = PydanticOutputParser(pydantic_object=DocumentAnalysisResult)
@@ -53,10 +55,19 @@ def build_document_analysis_chain(settings: Settings) -> Runnable:
         ]
     ).partial(format_instructions=parser.get_format_instructions())
 
+    callbacks = []
+    if core_client is not None:
+        callbacks.append(CoreAiLogCallback(
+            core_client=core_client,
+            request_type="analyze.document",
+            default_model=settings.llm_pro_model,
+        ))
+
     llm = ChatOpenAI(
         model=settings.llm_pro_model,
         temperature=settings.llm_pro_temperature,
         api_key=settings.llm_api_key or None,
         base_url=settings.llm_base_url,
+        callbacks=callbacks,
     )
     return prompt | llm | parser

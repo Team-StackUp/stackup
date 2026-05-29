@@ -22,9 +22,12 @@ class Settings(BaseSettings):
     ai_queue_resume: str = "ai.analyze.resume"
     ai_queue_repository: str = "ai.analyze.repository"
     ai_queue_web: str = "ai.analyze.web"
+    ai_queue_questions: str = "ai.generate.questions"
+    ai_queue_followup: str = "ai.generate.followup"
     ai_queue_prefetch: int = 10
     ai_callback_exchange: str = "stackup.ai-to-core"
     ai_callback_routing_analysis: str = "callback.analysis"
+    ai_callback_routing_questions: str = "callback.questions"
     ai_publisher_name: str = "ai-server"
     ai_idempotency_lru_size: int = 1024
 
@@ -42,6 +45,11 @@ class Settings(BaseSettings):
     llm_base_url: str = "https://factchat-cloud.mindlogic.ai/v1/gateway"
     llm_pro_model: str = "gemini-3.1-pro-preview"
     llm_pro_temperature: float = 0.2
+
+    # 꼬리질문용 Flash 모델 (저지연 < 3s)
+    llm_flash_model: str = "gemini-3.1-flash-lite-preview"
+    llm_flash_temperature: float = 0.4
+    llm_flash_max_tokens: int = 512
 
     analyzed_resume_md_key_template: str = "analyzed/resume/{resume_id}/summary.md"
     analyzed_repository_md_key_template: str = (

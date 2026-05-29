@@ -85,6 +85,22 @@ public class GithubRepository extends BaseSoftDeleteEntity {
         return new GithubRepository(user, githubRepoId, repoName, repoFullName, repoUrl, defaultBranch);
     }
 
+    public void updateMetadata(String repoName, String repoFullName, String repoUrl, String defaultBranch) {
+        if (repoName != null && !repoName.isBlank()) {
+            this.repoName = repoName;
+        }
+        if (repoFullName != null && !repoFullName.isBlank()) {
+            this.repoFullName = repoFullName;
+        }
+        if (repoUrl != null && !repoUrl.isBlank()) {
+            this.repoUrl = repoUrl;
+        }
+        if (defaultBranch != null && !defaultBranch.isBlank()) {
+            this.defaultBranch = defaultBranch;
+        }
+        this.lastSyncedAt = Instant.now();
+    }
+
     public void markAnalyzing() {
         this.status = RepositoryStatus.ANALYZING;
     }

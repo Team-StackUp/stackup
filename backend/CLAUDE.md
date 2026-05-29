@@ -351,12 +351,16 @@ docker compose up -d
 
 ---
 
-## 19. 현재 상태 (2026-04 기준)
+## 19. 현재 상태 (2026-05 기준)
 
-- 도메인 패키지 골격만 존재, 실제 구현 거의 없음
-- Spring Security 미도입 → US-01 작업 시 도입
-- RabbitMQ starter 미도입 → US-09 작업 시 도입
-- Flyway 미도입 → 첫 entity 작성 PR에서 도입
+- 도메인 본 구현 진행 — auth · user(consent 포함) · github · resume · document · session · log.ai
+- Spring Security + JWT + GitHub OAuth (US-01) 본 구현
+- RabbitMQ starter 본 구현 — Core ↔ AI envelope · DLX · DLQ · 멱등(`processed_messages`) 완비
+- Flyway 본 구현 — 모든 테이블 / pgvector index / ENUM CHECK
+- ArchUnit 룰 적용 (의존 방향 · 순환 차단 · `@Transactional` application 한정 · entity는 domain 패키지)
+- 면접 도메인 (US-13~20) 본 구현: 세션 CRUD/start/end/interrupt, generate.questions 발행,
+  callback.questions(POOL/FOLLOWUP) 수신, 자동 종료
+- AI 호출 로깅 (US-30) 본 구현: `/api/internal/ai-logs` + `ai_request_logs` INSERT
 - **Spring AI 미사용** — LLM·임베딩 호출은 모두 AI 서버 위임. Core는 RabbitMQ 발행만 담당.
 - **Redis 미사용** — 휘발성 데이터는 DB short-lived 레코드 또는 인메모리로.
 

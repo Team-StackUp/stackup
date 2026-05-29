@@ -1,19 +1,35 @@
 package com.stackup.stackup.session.application.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import java.util.Map;
+import java.util.List;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record QuestionsCallbackPayload(
     Long sessionId,
-    String kind,                          // "FIRST" | "FOLLOWUP" | "END"
-    String category,                      // FIRST / FOLLOWUP 일 때: PROJECT_DEEP_DIVE / CS_FUNDAMENTAL 등
-    String question,                      // FIRST / FOLLOWUP 일 때: 질문 본문
-    Long parentMessageId,                 // FOLLOWUP 일 때: 직전 답변 메시지 id
-    Map<String, Object> answerEvaluation, // FOLLOWUP / END 일 때: { specificity, logic, structure }
-    Map<String, Object> voiceAnalysis     // 음성 모드, 텍스트 면접에선 null
+    String kind,                       // POOL | FOLLOWUP
+    List<GeneratedQuestion> questions, // POOL 시 사용
+    Long parentMessageId,              // FOLLOWUP 시 사용
+    String followupQuestion,           // FOLLOWUP 시 사용
+    AnswerEvaluation answerEvaluation  // FOLLOWUP 시 옵션
 ) {
-    public boolean isFirst()    { return "FIRST".equals(kind); }
-    public boolean isFollowup() { return "FOLLOWUP".equals(kind); }
-    public boolean isEnd()      { return "END".equals(kind); }
+    public boolean isPool() {
+        return "POOL".equals(kind);
+    }
+
+    public boolean isFollowup() {
+        return "FOLLOWUP".equals(kind);
+    }
+
+    public record GeneratedQuestion(
+        String category,
+        String question
+    ) {
+    }
+
+    public record AnswerEvaluation(
+        Double specificity,
+        Double logic,
+        String structure
+    ) {
+    }
 }

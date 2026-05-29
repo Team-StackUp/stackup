@@ -10,8 +10,12 @@ public interface InterviewMessageRepository extends JpaRepository<InterviewMessa
 
     List<InterviewMessage> findBySession_IdOrderBySequenceNumberAsc(Long sessionId);
 
+    Optional<InterviewMessage> findFirstBySession_IdOrderBySequenceNumberDesc(Long sessionId);
+
+    long countBySession_Id(Long sessionId);
+
+    Optional<InterviewMessage> findBySession_IdAndIdempotencyKey(Long sessionId, String idempotencyKey);
+
     @Query("select coalesce(max(m.sequenceNumber), 0) from InterviewMessage m where m.session.id = :sessionId")
     int findMaxSequenceBySessionId(@Param("sessionId") Long sessionId);
-
-    Optional<InterviewMessage> findFirstBySession_IdOrderBySequenceNumberDesc(Long sessionId);
 }

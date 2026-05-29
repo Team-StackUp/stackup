@@ -8,10 +8,13 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -38,5 +41,22 @@ public record UserController(UserService userService) {
             result.email(),
             result.avatarUrl()
         ));
+    }
+
+    @Operation(
+        operationId = "deleteCurrentUser",
+        summary = "회원 탈퇴 (soft delete + 모든 refresh token revoke)",
+        description = "User row 의 is_deleted=true. 모든 refresh_token revoke. GitHub access token 무효화는 사용자가 GitHub Settings 에서 별도 수행."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "탈퇴 처리됨"),
+        @ApiResponse(responseCode = "401", description = "인증 실패"),
+        @ApiResponse(responseCode = "410", description = "이미 탈퇴한 사용자")
+    })
+    @DeleteMapping("/me")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteCurrentUser(@AuthenticationPrincipal UserPrincipal principal) {
+        Long userId = principal == null ? null : principal.userId();
+        userService.deleteAccount(userId);
     }
 }

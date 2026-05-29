@@ -62,49 +62,50 @@ public class InterviewMessage extends BaseTimeEntity {
     @Enumerated(EnumType.STRING)
     private MessageStatus status = MessageStatus.CREATED;
 
-    public static InterviewMessage interviewer(
-            InterviewSession session, int sequence, String content, InterviewMessage parent
-    ) {
+    @Column(name = "idempotency_key", length = 64)
+    private String idempotencyKey;
+
+    private InterviewMessage(InterviewSession session, Integer sequenceNumber, MessageRole role,
+                             String content, InterviewMessage parentMessage,
+                             MessageStatus initialStatus, String idempotencyKey) {
         if (session == null) {
             throw new IllegalArgumentException("session must not be null");
         }
         if (content == null || content.isBlank()) {
             throw new IllegalArgumentException("content must not be null or blank");
         }
-        if (sequence < 1) {
+        if (sequenceNumber == null || sequenceNumber < 1) {
             throw new IllegalArgumentException("sequence must be >= 1");
         }
-
-        InterviewMessage m = new InterviewMessage();
-        m.session = session;
-        m.sequenceNumber = sequence;
-        m.role = MessageRole.INTERVIEWER;
-        m.content = content;
-        m.parentMessage = parent;
-        m.status = MessageStatus.CREATED;
-        return m;
+        this.session = session;
+        this.sequenceNumber = sequenceNumber;
+        this.role = role;
+        this.content = content;
+        this.parentMessage = parentMessage;
+        this.status = initialStatus;
+        this.idempotencyKey = idempotencyKey;
     }
 
-    public static InterviewMessage interviewee(
-            InterviewSession session, int sequence, String content, InterviewMessage parent
-    ) {
-        if (session == null) {
-            throw new IllegalArgumentException("session must not be null");
-        }
-        if (content == null || content.isBlank()) {
-            throw new IllegalArgumentException("content must not be null or blank");
-        }
-        if (sequence < 1) {
-            throw new IllegalArgumentException("sequence must be >= 1");
-        }
+    public static InterviewMessage interviewer(InterviewSession session, int seq, String content) {
+        return new InterviewMessage(session, seq, MessageRole.INTERVIEWER, content, null,
+            MessageStatus.CREATED, null);
+    }
 
-        InterviewMessage m = new InterviewMessage();
-        m.session = session;
-        m.sequenceNumber = sequence;
-        m.role = MessageRole.INTERVIEWEE;
-        m.content = content;
-        m.parentMessage = parent;
-        m.status = MessageStatus.COMPLETED; // 답변은 작성 시점에 완료
-        return m;
+    public static InterviewMessage followup(InterviewSession session, int seq, String content,
+                                            InterviewMessage parent) {
+        return new InterviewMessage(session, seq, MessageRole.INTERVIEWER, content, parent,
+            MessageStatus.CREATED, null);
+    }
+
+    public static InterviewMessage interviewee(InterviewSession session, int seq, String content,
+                                               InterviewMessage parent, String idempotencyKey) {
+        return new InterviewMessage(session, seq, MessageRole.INTERVIEWEE, content, parent,
+            MessageStatus.COMPLETED, idempotencyKey);
+    }
+
+    public void markStatus(MessageStatus newStatus) {
+        if (newStatus != null) {
+            this.status = newStatus;
+        }
     }
 }
