@@ -25,12 +25,24 @@ class Settings(BaseSettings):
     ai_queue_questions: str = "ai.generate.questions"
     ai_queue_followup: str = "ai.generate.followup"
     ai_queue_feedback: str = "ai.generate.feedback"
+    ai_queue_voice: str = "ai.analyze.voice"
     ai_queue_prefetch: int = 10
     ai_callback_exchange: str = "stackup.ai-to-core"
     ai_callback_routing_analysis: str = "callback.analysis"
     ai_callback_routing_questions: str = "callback.questions"
     ai_callback_routing_feedback: str = "callback.feedback"
+    ai_callback_routing_voice: str = "callback.voice"
     feedback_rag_top_k: int = 5
+
+    # STT (음성 답변)
+    stt_provider: Literal["mock", "openai_whisper"] = "mock"
+    openai_api_key: str = ""
+    openai_base_url: str = "https://api.openai.com/v1"
+    whisper_model: str = "whisper-1"
+    whisper_language: str = "ko"
+    whisper_timeout_sec: float = 60.0
+    # 음성 분석
+    voice_filler_pattern: str = r"(?:음+|어+|그+|아+)"
     ai_publisher_name: str = "ai-server"
     ai_idempotency_lru_size: int = 1024
 

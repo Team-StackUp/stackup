@@ -84,8 +84,8 @@ class SessionFeedbackRequesterTest {
     private RabbitMqProperties.RoutingKeyProperties mockRoutingKeys() {
         return new RabbitMqProperties.RoutingKeyProperties(
             "analyze.resume", "analyze.repository",
-            "generate.questions", "generate.followup", "generate.feedback",
-            "callback.analysis", "callback.questions", "callback.feedback",
+            "generate.questions", "generate.followup", "generate.feedback", "analyze.voice",
+            "callback.analysis", "callback.questions", "callback.feedback", "callback.voice",
             "realtime.session.notify");
     }
 }

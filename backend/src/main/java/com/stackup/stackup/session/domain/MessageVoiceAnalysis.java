@@ -11,6 +11,8 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -40,9 +42,30 @@ public class MessageVoiceAnalysis extends BaseTimeEntity {
     @Column(name = "silence_duration_sec")
     private Double silenceDurationSec;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "filler_word_counts", columnDefinition = "jsonb")
     private String fillerWordCounts;
 
     @Column(name = "pronunciation_accuracy")
     private Double pronunciationAccuracy;
+
+    private MessageVoiceAnalysis(InterviewMessage message, Double speakingRateWpm,
+                                 Double silenceDurationSec, String fillerWordCountsJson,
+                                 Double pronunciationAccuracy) {
+        if (message == null) {
+            throw new IllegalArgumentException("message must not be null");
+        }
+        this.message = message;
+        this.speakingRateWpm = speakingRateWpm;
+        this.silenceDurationSec = silenceDurationSec;
+        this.fillerWordCounts = fillerWordCountsJson;
+        this.pronunciationAccuracy = pronunciationAccuracy;
+    }
+
+    public static MessageVoiceAnalysis of(InterviewMessage message, Double speakingRateWpm,
+                                          Double silenceDurationSec, String fillerWordCountsJson,
+                                          Double pronunciationAccuracy) {
+        return new MessageVoiceAnalysis(message, speakingRateWpm, silenceDurationSec,
+            fillerWordCountsJson, pronunciationAccuracy);
+    }
 }

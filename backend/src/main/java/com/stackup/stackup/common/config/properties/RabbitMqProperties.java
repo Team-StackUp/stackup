@@ -68,9 +68,11 @@ public record RabbitMqProperties(
 			@NotBlank String aiGenerateQuestions,
 			@NotBlank String aiGenerateFollowup,
 			@NotBlank String aiGenerateFeedback,
+			@NotBlank String aiAnalyzeVoice,
 			@NotBlank String coreCallbackAnalysis,
 			@NotBlank String coreCallbackQuestions,
-			@NotBlank String coreCallbackFeedback
+			@NotBlank String coreCallbackFeedback,
+			@NotBlank String coreCallbackVoice
 		) {
 		}
 	}
@@ -81,9 +83,11 @@ public record RabbitMqProperties(
 		@NotBlank String generateQuestions,
 		@NotBlank String generateFollowup,
 		@NotBlank String generateFeedback,
+		@NotBlank String analyzeVoice,
 		@NotBlank String callbackAnalysis,
 		@NotBlank String callbackQuestions,
 		@NotBlank String callbackFeedback,
+		@NotBlank String callbackVoice,
 		@NotBlank String realtimeSessionNotify
 	) {
 	}

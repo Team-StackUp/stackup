@@ -34,6 +34,8 @@ public enum ApiErrorCode {
     SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "세션을 찾을 수 없습니다."),
     SESSION_FORBIDDEN(HttpStatus.FORBIDDEN, "세션에 접근할 수 없습니다."),
     FEEDBACK_NOT_READY(HttpStatus.NOT_FOUND, "피드백이 아직 생성되지 않았습니다."),
+    VOICE_INVALID_CONTENT_TYPE(HttpStatus.BAD_REQUEST, "지원하지 않는 음성 형식입니다."),
+    VOICE_MESSAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "음성 메시지를 찾을 수 없습니다."),
 
     VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "요청 값이 올바르지 않습니다."),
     ACCESS_DENIED(HttpStatus.FORBIDDEN, "접근 권한이 없습니다."),

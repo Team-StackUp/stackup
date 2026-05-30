@@ -111,6 +111,16 @@
       }
     },
     {
+      "name": "ai.analyze.voice",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "stackup.dlx",
+        "x-dead-letter-routing-key": "dlq.ai.analyze.voice"
+      }
+    },
+    {
       "name": "core.callback.analysis",
       "vhost": "/",
       "durable": true,
@@ -138,6 +148,16 @@
       "arguments": {
         "x-dead-letter-exchange": "stackup.dlx",
         "x-dead-letter-routing-key": "dlq.core.callback.feedback"
+      }
+    },
+    {
+      "name": "core.callback.voice",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "stackup.dlx",
+        "x-dead-letter-routing-key": "dlq.core.callback.voice"
       }
     },
     {
@@ -193,6 +213,13 @@
       "arguments": {}
     },
     {
+      "name": "dlq.ai.analyze.voice",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
       "name": "dlq.core.callback.analysis",
       "vhost": "/",
       "durable": true,
@@ -208,6 +235,13 @@
     },
     {
       "name": "dlq.core.callback.feedback",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "dlq.core.callback.voice",
       "vhost": "/",
       "durable": true,
       "auto_delete": false,
@@ -265,6 +299,13 @@
       "routing_key": "generate.feedback"
     },
     {
+      "source": "stackup.core-to-ai",
+      "vhost": "/",
+      "destination": "ai.analyze.voice",
+      "destination_type": "queue",
+      "routing_key": "analyze.voice"
+    },
+    {
       "source": "stackup.ai-to-core",
       "vhost": "/",
       "destination": "core.callback.analysis",
@@ -284,6 +325,13 @@
       "destination": "core.callback.feedback",
       "destination_type": "queue",
       "routing_key": "callback.feedback"
+    },
+    {
+      "source": "stackup.ai-to-core",
+      "vhost": "/",
+      "destination": "core.callback.voice",
+      "destination_type": "queue",
+      "routing_key": "callback.voice"
     },
     {
       "source": "stackup.realtime",
@@ -337,6 +385,13 @@
     {
       "source": "stackup.dlx",
       "vhost": "/",
+      "destination": "dlq.ai.analyze.voice",
+      "destination_type": "queue",
+      "routing_key": "dlq.ai.analyze.voice"
+    },
+    {
+      "source": "stackup.dlx",
+      "vhost": "/",
       "destination": "dlq.core.callback.analysis",
       "destination_type": "queue",
       "routing_key": "dlq.core.callback.analysis"
@@ -354,6 +409,13 @@
       "destination": "dlq.core.callback.feedback",
       "destination_type": "queue",
       "routing_key": "dlq.core.callback.feedback"
+    },
+    {
+      "source": "stackup.dlx",
+      "vhost": "/",
+      "destination": "dlq.core.callback.voice",
+      "destination_type": "queue",
+      "routing_key": "dlq.core.callback.voice"
     },
     {
       "source": "stackup.dlx",

@@ -93,6 +93,11 @@ public class RabbitMqConfig {
     }
 
     @Bean
+    public Queue aiAnalyzeVoiceQueue() {
+        return workQueue(properties.queues().names().aiAnalyzeVoice());
+    }
+
+    @Bean
     public Queue coreCallbackAnalysisQueue() {
         return workQueue(properties.queues().names().coreCallbackAnalysis());
     }
@@ -108,6 +113,11 @@ public class RabbitMqConfig {
     }
 
     @Bean
+    public Queue coreCallbackVoiceQueue() {
+        return workQueue(properties.queues().names().coreCallbackVoice());
+    }
+
+    @Bean
     public Declarables rabbitDeclarables(
         TopicExchange coreToAiExchange,
         TopicExchange aiToCoreExchange,
@@ -118,18 +128,22 @@ public class RabbitMqConfig {
         Queue aiGenerateQuestionsQueue,
         Queue aiGenerateFollowupQueue,
         Queue aiGenerateFeedbackQueue,
+        Queue aiAnalyzeVoiceQueue,
         Queue coreCallbackAnalysisQueue,
         Queue coreCallbackQuestionsQueue,
-        Queue coreCallbackFeedbackQueue
+        Queue coreCallbackFeedbackQueue,
+        Queue coreCallbackVoiceQueue
     ) {
         Queue dlqAiAnalyzeResume = dlq(properties.queues().names().aiAnalyzeResume());
         Queue dlqAiAnalyzeRepository = dlq(properties.queues().names().aiAnalyzeRepository());
         Queue dlqAiGenerateQuestions = dlq(properties.queues().names().aiGenerateQuestions());
         Queue dlqAiGenerateFollowup = dlq(properties.queues().names().aiGenerateFollowup());
         Queue dlqAiGenerateFeedback = dlq(properties.queues().names().aiGenerateFeedback());
+        Queue dlqAiAnalyzeVoice = dlq(properties.queues().names().aiAnalyzeVoice());
         Queue dlqCoreCallbackAnalysis = dlq(properties.queues().names().coreCallbackAnalysis());
         Queue dlqCoreCallbackQuestions = dlq(properties.queues().names().coreCallbackQuestions());
         Queue dlqCoreCallbackFeedback = dlq(properties.queues().names().coreCallbackFeedback());
+        Queue dlqCoreCallbackVoice = dlq(properties.queues().names().coreCallbackVoice());
 
         return new Declarables(
             coreToAiExchange,
@@ -141,33 +155,41 @@ public class RabbitMqConfig {
             aiGenerateQuestionsQueue,
             aiGenerateFollowupQueue,
             aiGenerateFeedbackQueue,
+            aiAnalyzeVoiceQueue,
             coreCallbackAnalysisQueue,
             coreCallbackQuestionsQueue,
             coreCallbackFeedbackQueue,
+            coreCallbackVoiceQueue,
             dlqAiAnalyzeResume,
             dlqAiAnalyzeRepository,
             dlqAiGenerateQuestions,
             dlqAiGenerateFollowup,
             dlqAiGenerateFeedback,
+            dlqAiAnalyzeVoice,
             dlqCoreCallbackAnalysis,
             dlqCoreCallbackQuestions,
             dlqCoreCallbackFeedback,
+            dlqCoreCallbackVoice,
             BindingBuilder.bind(aiAnalyzeResumeQueue).to(coreToAiExchange).with(properties.routingKeys().analyzeResume()),
             BindingBuilder.bind(aiAnalyzeRepositoryQueue).to(coreToAiExchange).with(properties.routingKeys().analyzeRepository()),
             BindingBuilder.bind(aiGenerateQuestionsQueue).to(coreToAiExchange).with(properties.routingKeys().generateQuestions()),
             BindingBuilder.bind(aiGenerateFollowupQueue).to(coreToAiExchange).with(properties.routingKeys().generateFollowup()),
             BindingBuilder.bind(aiGenerateFeedbackQueue).to(coreToAiExchange).with(properties.routingKeys().generateFeedback()),
+            BindingBuilder.bind(aiAnalyzeVoiceQueue).to(coreToAiExchange).with(properties.routingKeys().analyzeVoice()),
             BindingBuilder.bind(coreCallbackAnalysisQueue).to(aiToCoreExchange).with(properties.routingKeys().callbackAnalysis()),
             BindingBuilder.bind(coreCallbackQuestionsQueue).to(aiToCoreExchange).with(properties.routingKeys().callbackQuestions()),
             BindingBuilder.bind(coreCallbackFeedbackQueue).to(aiToCoreExchange).with(properties.routingKeys().callbackFeedback()),
+            BindingBuilder.bind(coreCallbackVoiceQueue).to(aiToCoreExchange).with(properties.routingKeys().callbackVoice()),
             BindingBuilder.bind(dlqAiAnalyzeResume).to(deadLetterExchange).with(dlqAiAnalyzeResume.getName()),
             BindingBuilder.bind(dlqAiAnalyzeRepository).to(deadLetterExchange).with(dlqAiAnalyzeRepository.getName()),
             BindingBuilder.bind(dlqAiGenerateQuestions).to(deadLetterExchange).with(dlqAiGenerateQuestions.getName()),
             BindingBuilder.bind(dlqAiGenerateFollowup).to(deadLetterExchange).with(dlqAiGenerateFollowup.getName()),
             BindingBuilder.bind(dlqAiGenerateFeedback).to(deadLetterExchange).with(dlqAiGenerateFeedback.getName()),
+            BindingBuilder.bind(dlqAiAnalyzeVoice).to(deadLetterExchange).with(dlqAiAnalyzeVoice.getName()),
             BindingBuilder.bind(dlqCoreCallbackAnalysis).to(deadLetterExchange).with(dlqCoreCallbackAnalysis.getName()),
             BindingBuilder.bind(dlqCoreCallbackQuestions).to(deadLetterExchange).with(dlqCoreCallbackQuestions.getName()),
-            BindingBuilder.bind(dlqCoreCallbackFeedback).to(deadLetterExchange).with(dlqCoreCallbackFeedback.getName())
+            BindingBuilder.bind(dlqCoreCallbackFeedback).to(deadLetterExchange).with(dlqCoreCallbackFeedback.getName()),
+            BindingBuilder.bind(dlqCoreCallbackVoice).to(deadLetterExchange).with(dlqCoreCallbackVoice.getName())
             // 주의: q.realtime.session.notify 큐 + binding (+ DLQ) 은 RealTime 서버 측에서
             // infra/rabbitmq/definitions.json 으로 import 되므로 Core 는 exchange 만 declare.
         );
