@@ -28,7 +28,7 @@ public class SessionFollowupRequester {
     private final RabbitMqProperties properties;
     private final InterviewMessageRepository messageRepository;
 
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onAnswerSubmitted(AnswerSubmittedEvent event) {
         InterviewMessage parent = messageRepository.findById(event.parentQuestionMessageId()).orElse(null);
