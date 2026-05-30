@@ -94,15 +94,19 @@ app:
           ai-analyze-repository: ai.analyze.repository
           ai-generate-questions: ai.generate.questions
           ai-generate-followup: ai.generate.followup
+          ai-generate-feedback: ai.generate.feedback
           core-callback-analysis: core.callback.analysis
           core-callback-questions: core.callback.questions
+          core-callback-feedback: core.callback.feedback
       routing-keys:
         analyze-resume: analyze.resume
         analyze-repository: analyze.repository
         generate-questions: generate.questions
         generate-followup: generate.followup
+        generate-feedback: generate.feedback
         callback-analysis: callback.analysis
         callback-questions: callback.questions
+        callback-feedback: callback.feedback
         realtime-session-notify: realtime.session.notify
       dead-letter:
         exchange: stackup.dlx

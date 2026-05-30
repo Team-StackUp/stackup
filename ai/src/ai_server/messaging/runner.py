@@ -17,6 +17,10 @@ from ai_server.chain.followup_generation_chain import (
     LlmFollowupGenerator,
     build_followup_generation_chain,
 )
+from ai_server.chain.feedback_generation_chain import (
+    LlmFeedbackGenerator,
+    build_feedback_generation_chain,
+)
 from ai_server.chain.question_generation_chain import (
     LlmQuestionGenerator,
     build_question_generation_chain,
@@ -26,6 +30,7 @@ from ai_server.core.client import HttpCoreClient
 from ai_server.messaging.connection import RabbitConnection
 from ai_server.rag.chunker import MarkdownChunker
 from ai_server.rag.embedder import build_embedding_provider
+from ai_server.messaging.consumers.feedback_consumer import FeedbackConsumer
 from ai_server.messaging.consumers.followup_consumer import FollowupConsumer
 from ai_server.messaging.consumers.questions_consumer import QuestionsConsumer
 from ai_server.messaging.consumers.repository_consumer import RepositoryConsumer
@@ -159,6 +164,20 @@ class MessagingRuntime:
             callback_routing_key=settings.ai_callback_routing_questions,
         )
 
+        # 종합 피드백 생성 (US-24)
+        feedback_generator = LlmFeedbackGenerator(
+            build_feedback_generation_chain(settings, core_client=core_client)
+        )
+        self._feedback_consumer = FeedbackConsumer(
+            generator=feedback_generator,
+            publisher=self._publisher,
+            idempotency=self._idempotency,
+            callback_routing_key=settings.ai_callback_routing_feedback,
+            core_client=core_client,
+            embedder=embedder,
+            rag_top_k=settings.feedback_rag_top_k,
+        )
+
         self._consumers: list[tuple[AbstractRobustQueue, str]] = []
 
     async def start(self) -> None:
@@ -191,6 +210,11 @@ class MessagingRuntime:
             channel,
             queue_name=self._settings.ai_queue_followup,
             handler=self._followup_consumer.handle,
+        )
+        await self._start_consumer(
+            channel,
+            queue_name=self._settings.ai_queue_feedback,
+            handler=self._feedback_consumer.handle,
         )
 
     async def _start_consumer(self, channel, *, queue_name, handler) -> None:

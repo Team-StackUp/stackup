@@ -7,6 +7,8 @@ import com.stackup.stackup.common.sse.SseEventType;
 import com.stackup.stackup.session.application.dto.QuestionsCallbackEnvelope;
 import com.stackup.stackup.session.application.dto.QuestionsCallbackPayload;
 import com.stackup.stackup.session.application.dto.QuestionsCallbackPayload.GeneratedQuestion;
+import com.stackup.stackup.session.application.event.SessionEndedEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import com.stackup.stackup.session.domain.InterviewMessage;
 import com.stackup.stackup.session.domain.InterviewMessageRepository;
 import com.stackup.stackup.session.domain.InterviewSession;
@@ -35,6 +37,7 @@ public class QuestionsCallbackService {
     private final InterviewMessageRepository messageRepository;
     private final ProcessedMessageRepository processedMessageRepository;
     private final SseEventPublisher sseEventPublisher;
+    private final ApplicationEventPublisher events;
 
     @Transactional
     public void apply(QuestionsCallbackEnvelope envelope) {
@@ -127,6 +130,8 @@ public class QuestionsCallbackService {
                     new SessionStateNotice(session.getId(), session.getStatus().name(), "MAX_QUESTIONS_REACHED"));
                 sseEventPublisher.publishToUser(session.getUser().getId(), SseEventType.SESSION_STATE,
                     new SessionStateNotice(session.getId(), session.getStatus().name(), "MAX_QUESTIONS_REACHED"));
+                events.publishEvent(new SessionEndedEvent(
+                    session.getUser().getId(), session.getId(), "MAX_QUESTIONS_REACHED"));
                 log.info("session auto-completed on max questions. sessionId={}, max={}",
                     session.getId(), max);
             } catch (IllegalStateException e) {

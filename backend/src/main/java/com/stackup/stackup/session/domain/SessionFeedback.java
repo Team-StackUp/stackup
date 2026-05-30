@@ -10,6 +10,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -46,9 +48,38 @@ public class SessionFeedback extends BaseSoftDeleteEntity {
     @Column(name = "weaknesses_summary", columnDefinition = "text")
     private String weaknessesSummary;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "improvement_keywords", columnDefinition = "jsonb")
     private String improvementKeywords;
 
     @Column(name = "report_file_path", length = 1000)
     private String reportFilePath;
+
+    private SessionFeedback(InterviewSession session, Double overallScore, Double technicalAccuracy,
+                            Double logicScore, Double communicationScore,
+                            String strengthsSummary, String weaknessesSummary,
+                            String improvementKeywordsJson, String reportFilePath) {
+        if (session == null) {
+            throw new IllegalArgumentException("session must not be null");
+        }
+        this.session = session;
+        this.overallScore = overallScore;
+        this.technicalAccuracy = technicalAccuracy;
+        this.logicScore = logicScore;
+        this.communicationScore = communicationScore;
+        this.strengthsSummary = strengthsSummary;
+        this.weaknessesSummary = weaknessesSummary;
+        this.improvementKeywords = improvementKeywordsJson;
+        this.reportFilePath = reportFilePath;
+    }
+
+    public static SessionFeedback of(InterviewSession session, Double overallScore,
+                                     Double technicalAccuracy, Double logicScore,
+                                     Double communicationScore,
+                                     String strengthsSummary, String weaknessesSummary,
+                                     String improvementKeywordsJson, String reportFilePath) {
+        return new SessionFeedback(session, overallScore, technicalAccuracy, logicScore,
+            communicationScore, strengthsSummary, weaknessesSummary,
+            improvementKeywordsJson, reportFilePath);
+    }
 }

@@ -8,6 +8,7 @@ import com.stackup.stackup.document.domain.AnalyzedDocumentRepository;
 import com.stackup.stackup.session.application.dto.SessionCreateCommand;
 import com.stackup.stackup.session.application.dto.SessionResult;
 import com.stackup.stackup.session.application.event.SessionCreatedEvent;
+import com.stackup.stackup.session.application.event.SessionEndedEvent;
 import com.stackup.stackup.session.domain.InterviewSession;
 import com.stackup.stackup.session.domain.InterviewSessionRepository;
 import com.stackup.stackup.session.domain.SessionContext;
@@ -94,6 +95,7 @@ public class SessionService {
         } catch (IllegalStateException e) {
             throw new DomainException(ApiErrorCode.SESSION_INVALID_STATE);
         }
+        events.publishEvent(new SessionEndedEvent(userId, sessionId, "USER_REQUEST"));
         return SessionResult.of(session, contextDocumentIds(sessionId));
     }
 

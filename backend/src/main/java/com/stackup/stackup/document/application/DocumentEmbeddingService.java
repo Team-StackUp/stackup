@@ -29,4 +29,10 @@ public class DocumentEmbeddingService {
             .toList();
         return embeddingRepository.upsertAll(command.documentId(), command.model(), mapped);
     }
+
+    public List<DocumentEmbeddingRepository.SearchHit> search(
+        float[] queryEmbedding, List<Long> documentIds, int topK
+    ) {
+        return embeddingRepository.search(queryEmbedding, documentIds, topK);
+    }
 }

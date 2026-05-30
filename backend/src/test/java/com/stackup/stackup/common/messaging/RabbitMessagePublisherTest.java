@@ -92,8 +92,10 @@ class RabbitMessagePublisherTest {
                     "ai.analyze.repository",
                     "ai.generate.questions",
                     "ai.generate.followup",
+                    "ai.generate.feedback",
                     "core.callback.analysis",
-                    "core.callback.questions"
+                    "core.callback.questions",
+                    "core.callback.feedback"
                 )
             ),
             new RabbitMqProperties.RoutingKeyProperties(
@@ -101,8 +103,10 @@ class RabbitMessagePublisherTest {
                 "analyze.repository",
                 "generate.questions",
                 "generate.followup",
+                "generate.feedback",
                 "callback.analysis",
                 "callback.questions",
+                "callback.feedback",
                 "realtime.session.notify"
             ),
             new RabbitMqProperties.DeadLetter("stackup.dlx", "dlq."),
