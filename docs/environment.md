@@ -97,7 +97,7 @@ LLM_API_KEY=                      # 학교 발급 키
 LLM_BASE_URL=https://factchat-cloud.mindlogic.ai/v1/gateway
 LLM_PRO_MODEL=gemini-3.1-pro-preview
 LLM_PRO_TEMPERATURE=0.2
-LLM_FLASH_MODEL=gemini-3.1-flash-lite-preview   # 꼬리질문(US-19) 저지연 모델
+LLM_FLASH_MODEL=gemini-3.1-flash-lite   # 꼬리질문(US-19) 저지연 모델
 LLM_FLASH_TEMPERATURE=0.4
 LLM_FLASH_MAX_TOKENS=512
 
