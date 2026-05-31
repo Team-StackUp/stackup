@@ -56,8 +56,9 @@ class DeepgramSttProvider:
         }
         if self._language:
             params["language"] = self._language
-        if hint:
-            # Deepgram 의 keyword boost. 토큰 단위로 콜론+boost 지정 가능. 간단히 hint 텍스트 그대로.
+        # Deepgram keywords 는 model=nova-* 에서만 지원 (Whisper 모델은 400).
+        # hint 는 한국어 정확도가 모델 자체로 충분하므로 nova 계열에서만 사용.
+        if hint and self._model.startswith("nova"):
             params["keywords"] = hint[:200]
 
         headers = {
