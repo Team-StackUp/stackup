@@ -34,13 +34,18 @@ class Settings(BaseSettings):
     ai_callback_routing_voice: str = "callback.voice"
     feedback_rag_top_k: int = 5
 
-    # STT (음성 답변)
-    stt_provider: Literal["mock", "openai_whisper"] = "mock"
+    # STT (음성 답변). "auto" 면 deepgram > openai_whisper > mock 순으로 키 보유 여부에 따라 자동 선택.
+    stt_provider: Literal["auto", "mock", "openai_whisper", "deepgram"] = "auto"
     openai_api_key: str = ""
     openai_base_url: str = "https://api.openai.com/v1"
     whisper_model: str = "whisper-1"
     whisper_language: str = "ko"
     whisper_timeout_sec: float = 60.0
+    deepgram_api_key: str = ""
+    deepgram_base_url: str = "https://api.deepgram.com/v1"
+    deepgram_model: str = "whisper-large"   # 한국어 정확도 우선; 저비용 우선 시 nova-2.
+    deepgram_language: str = "ko"
+    deepgram_timeout_sec: float = 60.0
     # 음성 분석
     voice_filler_pattern: str = r"(?:음+|어+|그+|아+)"
     ai_publisher_name: str = "ai-server"
