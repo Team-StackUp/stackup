@@ -112,6 +112,10 @@ services:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
+      backend:
+        # Spring RabbitMqConfig 가 ai.generate.*/ai.analyze.* 큐를 declare 한 뒤에야
+        # AI runner.py(passive=true 큐 검색)가 부팅 가능. backend healthy 이후 시작.
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:38030/health')"]
       interval: 10s
