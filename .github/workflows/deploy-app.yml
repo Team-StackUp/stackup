@@ -55,6 +55,7 @@ jobs:
           CORE_INTERNAL_API_KEY: ${{ secrets.CORE_INTERNAL_API_KEY }}
           GITHUB_OAUTH_CLIENT_ID: ${{ secrets.GH_OAUTH_CLIENT_ID }}
           GITHUB_OAUTH_CLIENT_SECRET: ${{ secrets.GH_OAUTH_CLIENT_SECRET }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           cd "$DEPLOY_DIR"
           if [ ! -f .env ]; then
@@ -107,6 +108,12 @@ jobs:
           upsert_env "CORE_INTERNAL_API_KEY" "$CORE_INTERNAL_API_KEY"
           upsert_env "GITHUB_OAUTH_CLIENT_ID" "$GITHUB_OAUTH_CLIENT_ID"
           upsert_env "GITHUB_OAUTH_CLIENT_SECRET" "$GITHUB_OAUTH_CLIENT_SECRET"
+          upsert_env "OPENAI_API_KEY" "$OPENAI_API_KEY"
+          # OPENAI_API_KEY 가 주입된 경우에만 STT 를 실제 모드로 자동 전환.
+          # secret 누락이거나 비어 있으면 STT_PROVIDER=mock 유지 (정의 안 됐으면 .env.example default).
+          if [ -n "$OPENAI_API_KEY" ]; then
+            upsert_env "STT_PROVIDER" "openai_whisper"
+          fi
 
       - name: Build and restart app services
         run: |
