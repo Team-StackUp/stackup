@@ -32,6 +32,14 @@ class EmbeddingChunkPayload:
     embedding: list[float]
 
 
+@dataclass(frozen=True)
+class EmbeddingSearchHit:
+    document_id: int
+    chunk_index: int
+    chunk_text: str
+    distance: float
+
+
 # 코어 서버 API 호출용
 class CoreClient(Protocol):
     async def fetch_github_token(self, user_id: int) -> str: ...
@@ -44,6 +52,14 @@ class CoreClient(Protocol):
         dim: int,
         chunks: list[EmbeddingChunkPayload],
     ) -> int: ...
+
+    async def search_embeddings(
+        self,
+        *,
+        query_embedding: list[float],
+        document_ids: list[int] | None = None,
+        top_k: int = 5,
+    ) -> list[EmbeddingSearchHit]: ...
 
     async def record_ai_log(
         self,
@@ -233,6 +249,54 @@ class HttpCoreClient:
         if not isinstance(count, int):
             return len(body["chunks"])
         return count
+
+    async def search_embeddings(
+        self,
+        *,
+        query_embedding: list[float],
+        document_ids: list[int] | None = None,
+        top_k: int = 5,
+    ) -> list[EmbeddingSearchHit]:
+        """pgvector cosine topK 검색. 실패 시 빈 리스트 반환 (RAG 보강용이므로 fatal 아님)."""
+        body = {
+            "queryEmbedding": query_embedding,
+            "documentIds": list(document_ids or []),
+            "topK": top_k,
+        }
+        path = "/api/internal/embeddings/search"
+        try:
+            if self._client is not None:
+                resp = await self._client.post(path, json=body)
+            else:
+                async with self._build_client() as client:
+                    resp = await client.post(path, json=body)
+        except httpx.HTTPError as exc:
+            log.warn("core.embedding.search.failed", error=str(exc))
+            return []
+
+        if resp.status_code >= 400:
+            log.warn(
+                "core.embedding.search.non_2xx",
+                status=resp.status_code,
+                body=resp.text[:200],
+            )
+            return []
+        try:
+            data = resp.json()
+        except ValueError:
+            return []
+        hits = data.get("hits") if isinstance(data, dict) else None
+        if not isinstance(hits, list):
+            return []
+        return [
+            EmbeddingSearchHit(
+                document_id=int(h.get("documentId", 0)),
+                chunk_index=int(h.get("chunkIndex", 0)),
+                chunk_text=str(h.get("chunkText", "")),
+                distance=float(h.get("distance", 0.0)),
+            )
+            for h in hits
+        ]
 
     async def record_ai_log(
         self,

@@ -59,8 +59,12 @@ class RabbitMqConfigTest {
                     "ai.analyze.repository",
                     "ai.generate.questions",
                     "ai.generate.followup",
+                    "ai.generate.feedback",
+                    "ai.analyze.voice",
                     "core.callback.analysis",
-                    "core.callback.questions"
+                    "core.callback.questions",
+                    "core.callback.feedback",
+                    "core.callback.voice"
                 )
             ),
             new RabbitMqProperties.RoutingKeyProperties(
@@ -68,8 +72,12 @@ class RabbitMqConfigTest {
                 "analyze.repository",
                 "generate.questions",
                 "generate.followup",
+                "generate.feedback",
+                "analyze.voice",
                 "callback.analysis",
                 "callback.questions",
+                "callback.feedback",
+                "callback.voice",
                 "realtime.session.notify"
             ),
             new RabbitMqProperties.DeadLetter("stackup.dlx", "dlq."),

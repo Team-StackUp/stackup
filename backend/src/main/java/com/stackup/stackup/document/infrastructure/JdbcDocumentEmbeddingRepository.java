@@ -2,13 +2,16 @@ package com.stackup.stackup.document.infrastructure;
 
 import com.stackup.stackup.document.domain.DocumentEmbeddingRepository;
 import java.sql.PreparedStatement;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import javax.sql.DataSource;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 
-// 네이티브 쿼리가 더 쉬워서 JPA 대신 씀 
+// 네이티브 쿼리가 더 쉬워서 JPA 대신 씀
 @Repository
 public class JdbcDocumentEmbeddingRepository implements DocumentEmbeddingRepository {
 
@@ -26,9 +29,11 @@ public class JdbcDocumentEmbeddingRepository implements DocumentEmbeddingReposit
             "SELECT count(*) FROM document_embeddings WHERE document_id = ?";
 
     private final JdbcTemplate jdbc;
+    private final NamedParameterJdbcTemplate namedJdbc;
 
     public JdbcDocumentEmbeddingRepository(DataSource dataSource) {
         this.jdbc = new JdbcTemplate(dataSource);
+        this.namedJdbc = new NamedParameterJdbcTemplate(dataSource);
     }
 
     @Override
@@ -57,6 +62,33 @@ public class JdbcDocumentEmbeddingRepository implements DocumentEmbeddingReposit
     public int countByDocumentId(long documentId) {
         Integer n = jdbc.queryForObject(COUNT_SQL, Integer.class, documentId);
         return n == null ? 0 : n;
+    }
+
+    @Override
+    public List<SearchHit> search(float[] queryEmbedding, List<Long> documentIds, int topK) {
+        if (queryEmbedding == null || queryEmbedding.length == 0) {
+            return List.of();
+        }
+        int limit = topK <= 0 ? 5 : topK;
+        boolean filterByDoc = documentIds != null && !documentIds.isEmpty();
+        StringBuilder sql = new StringBuilder(
+            "SELECT document_id, chunk_index, chunk_text, (embedding <=> CAST(:qvec AS vector)) AS distance "
+            + "FROM document_embeddings ");
+        Map<String, Object> params = new HashMap<>();
+        params.put("qvec", toVectorLiteral(queryEmbedding));
+        if (filterByDoc) {
+            sql.append("WHERE document_id IN (:documentIds) ");
+            params.put("documentIds", documentIds);
+        }
+        sql.append("ORDER BY embedding <=> CAST(:qvec AS vector) LIMIT :limit");
+        params.put("limit", limit);
+
+        return namedJdbc.query(sql.toString(), params, (rs, rowNum) -> new SearchHit(
+            rs.getLong("document_id"),
+            rs.getInt("chunk_index"),
+            rs.getString("chunk_text"),
+            rs.getDouble("distance")
+        ));
     }
 
     private static String toVectorLiteral(float[] embedding) {

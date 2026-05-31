@@ -103,9 +103,28 @@ public class InterviewMessage extends BaseTimeEntity {
             MessageStatus.COMPLETED, idempotencyKey);
     }
 
+    // 음성 답변 placeholder. content 는 STT 완료 후 채움. 생성 시 CHECK 제약 만족을 위해 임시 공백 + audio_file_path 후속 갱신.
+    public static InterviewMessage voiceInterviewee(InterviewSession session, int seq,
+                                                    InterviewMessage parent, String idempotencyKey) {
+        InterviewMessage m = new InterviewMessage(session, seq, MessageRole.INTERVIEWEE, "(transcribing)",
+            parent, MessageStatus.CREATED, idempotencyKey);
+        return m;
+    }
+
     public void markStatus(MessageStatus newStatus) {
         if (newStatus != null) {
             this.status = newStatus;
         }
+    }
+
+    public void attachAudio(String audioFilePath) {
+        this.audioFilePath = audioFilePath;
+    }
+
+    public void completeWithTranscript(String transcript) {
+        if (transcript != null && !transcript.isBlank()) {
+            this.content = transcript;
+        }
+        this.status = MessageStatus.COMPLETED;
     }
 }

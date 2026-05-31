@@ -11,6 +11,8 @@ public interface SessionFeedbackRepository extends JpaRepository<SessionFeedback
 
     Optional<SessionFeedback> findBySession_Id(Long sessionId);
 
+    boolean existsBySession_Id(Long sessionId);
+
     @Query("""
         SELECT f FROM SessionFeedback f
         WHERE f.session.user.id = :userId

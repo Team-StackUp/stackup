@@ -90,6 +90,15 @@ services:
       LLM_FLASH_MODEL: ${LLM_FLASH_MODEL:-gemini-3.1-flash-lite}
       LLM_FLASH_TEMPERATURE: ${LLM_FLASH_TEMPERATURE:-0.4}
       LLM_FLASH_MAX_TOKENS: ${LLM_FLASH_MAX_TOKENS:-512}
+      STT_PROVIDER: ${STT_PROVIDER:-auto}
+      DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY:-}
+      DEEPGRAM_BASE_URL: ${DEEPGRAM_BASE_URL:-https://api.deepgram.com/v1}
+      DEEPGRAM_MODEL: ${DEEPGRAM_MODEL:-whisper-large}
+      DEEPGRAM_LANGUAGE: ${DEEPGRAM_LANGUAGE:-ko}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      WHISPER_MODEL: ${WHISPER_MODEL:-whisper-1}
+      WHISPER_LANGUAGE: ${WHISPER_LANGUAGE:-ko}
       # AI → Core 내부 API. 같은 compose 네트워크의 backend 서비스로 직접 라우팅.
       CORE_INTERNAL_BASE_URL: ${CORE_INTERNAL_BASE_URL:-http://backend:38010}
       CORE_INTERNAL_API_KEY: ${CORE_INTERNAL_API_KEY:-local-development-internal-api-key}
@@ -107,6 +116,10 @@ services:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
+      backend:
+        # Spring RabbitMqConfig 가 ai.generate.*/ai.analyze.* 큐를 declare 한 뒤에야
+        # AI runner.py(passive=true 큐 검색)가 부팅 가능. backend healthy 이후 시작.
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:38030/health')"]
       interval: 10s

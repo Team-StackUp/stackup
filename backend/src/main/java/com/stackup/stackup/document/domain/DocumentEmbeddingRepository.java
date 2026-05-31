@@ -8,6 +8,12 @@ public interface DocumentEmbeddingRepository {
 
     int countByDocumentId(long documentId);
 
+    // pgvector cosine distance topK 검색. documentIds 가 비어 있으면 전체 대상.
+    List<SearchHit> search(float[] queryEmbedding, List<Long> documentIds, int topK);
+
     record EmbeddingChunk(int chunkIndex, String chunkText, float[] embedding) {
+    }
+
+    record SearchHit(long documentId, int chunkIndex, String chunkText, double distance) {
     }
 }

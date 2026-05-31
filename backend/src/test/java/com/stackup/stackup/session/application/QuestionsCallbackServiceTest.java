@@ -39,6 +39,7 @@ class QuestionsCallbackServiceTest {
     @Mock InterviewMessageRepository messageRepository;
     @Mock ProcessedMessageRepository processedMessageRepository;
     @Mock SseEventPublisher sseEventPublisher;
+    @Mock org.springframework.context.ApplicationEventPublisher events;
     @InjectMocks QuestionsCallbackService service;
 
     @Test
