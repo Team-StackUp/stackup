@@ -20,11 +20,16 @@ public class RabbitMessagePublisher {
     }
 
     public <T> MessageEnvelope<T> publishToAi(String routingKey, T payload, MessageContext context) {
+        String traceId = TraceContext.getTraceId();
+        if (traceId == null || traceId.isBlank()) {
+            // RabbitListener / EventListener 등에서 MDC 미주입 흐름 — 발행 시점에 새 traceId 생성.
+            traceId = UUID.randomUUID().toString();
+        }
         MessageEnvelope<T> envelope = new MessageEnvelope<>(
             UUID.randomUUID().toString(),
             routingKey,
             properties.version(),
-            TraceContext.getTraceId(),
+            traceId,
             Instant.now(),
             properties.publisher(),
             payload,
