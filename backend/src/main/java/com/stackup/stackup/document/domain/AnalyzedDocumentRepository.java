@@ -17,21 +17,28 @@ public interface AnalyzedDocumentRepository extends JpaRepository<AnalyzedDocume
             Long repositoryUserId
     );
 
+
     @Query("""
         SELECT d FROM AnalyzedDocument d
+        LEFT JOIN d.resume rs
+        LEFT JOIN rs.user ru
+        LEFT JOIN d.repository rp
+        LEFT JOIN rp.user pu
         WHERE d.deleted = false
-          AND ((d.resume IS NOT NULL AND d.resume.user.id = :userId)
-            OR (d.repository IS NOT NULL AND d.repository.user.id = :userId))
+          AND (ru.id = :userId OR pu.id = :userId)
         ORDER BY d.id DESC
         """)
     List<AnalyzedDocument> findActiveByOwner(@Param("userId") Long userId);
 
     @Query("""
         SELECT d FROM AnalyzedDocument d
+        LEFT JOIN d.resume rs
+        LEFT JOIN rs.user ru
+        LEFT JOIN d.repository rp
+        LEFT JOIN rp.user pu
         WHERE d.id = :id
           AND d.deleted = false
-          AND ((d.resume IS NOT NULL AND d.resume.user.id = :userId)
-            OR (d.repository IS NOT NULL AND d.repository.user.id = :userId))
+          AND (ru.id = :userId OR pu.id = :userId)
         """)
     Optional<AnalyzedDocument> findActiveByIdAndOwner(@Param("id") Long id, @Param("userId") Long userId);
 
