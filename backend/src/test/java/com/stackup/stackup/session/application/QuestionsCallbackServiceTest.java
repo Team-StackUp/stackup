@@ -3,6 +3,7 @@ package com.stackup.stackup.session.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -26,6 +27,7 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -42,7 +44,7 @@ class QuestionsCallbackServiceTest {
     @InjectMocks QuestionsCallbackService service;
 
     @Test
-    void apply_poolInsertsFirstQuestionAndPushesSse() {
+    void apply_poolCallbackStoresOnlyInitialQuestionAndPushesSse() {
         InterviewSession session = sessionFixture(11L, SessionStatus.READY);
         QuestionsCallbackEnvelope env = poolEnvelope(11L, List.of(
             new GeneratedQuestion("INTRO", "Introduce yourself"),
@@ -58,8 +60,14 @@ class QuestionsCallbackServiceTest {
 
         service.apply(env);
 
-        verify(messageRepository).save(any(InterviewMessage.class));
+        ArgumentCaptor<InterviewMessage> messageCaptor = ArgumentCaptor.forClass(InterviewMessage.class);
+        verify(messageRepository).save(messageCaptor.capture());
+        assertThat(messageCaptor.getValue().getContent()).isEqualTo("Introduce yourself");
+        assertThat(messageCaptor.getValue().getSequenceNumber()).isEqualTo(1);
         verify(sseEventPublisher).publishToSession(eq(11L), eq(SseEventType.SESSION_MESSAGE), any());
+        verify(sseEventPublisher).publishToUser(eq(1L), eq(SseEventType.SESSION_MESSAGE),
+            argThat(payload -> payload instanceof QuestionsCallbackService.SessionMessageNotice notice
+                && "INITIAL_QUESTION_READY".equals(notice.reason())));
         verify(processedMessageRepository).save(any(ProcessedMessage.class));
         assertThat(session.getTotalQuestionCount()).isEqualTo(1);
     }

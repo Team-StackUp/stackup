@@ -9,6 +9,9 @@ public record GenerateQuestionsPayload(
     SessionMode mode,
     JobCategory jobCategory,
     List<DocumentContext> documents,
+    // Number of questions AI should generate for this initial callback.
+    Integer initialQuestionCount,
+    // Overall session question limit; not the generation batch size.
     Integer maxQuestions
 ) {
     public record DocumentContext(
