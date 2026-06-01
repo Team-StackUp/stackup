@@ -10,6 +10,7 @@ on:
       - "ai/**"
       - "realtime/**"
       - "backend/**"
+      - "frontend/**"
       - "docker-compose.yml"
       - "infra/**"
       - ".github/workflows/deploy-app.yml"
@@ -109,6 +110,7 @@ jobs:
           upsert_env "CORE_INTERNAL_API_KEY" "$CORE_INTERNAL_API_KEY"
           upsert_env "GITHUB_OAUTH_CLIENT_ID" "$GITHUB_OAUTH_CLIENT_ID"
           upsert_env "GITHUB_OAUTH_CLIENT_SECRET" "$GITHUB_OAUTH_CLIENT_SECRET"
+          upsert_env "GITHUB_OAUTH_REDIRECT_URI" "https://stack-up.shop/auth/callback"
           upsert_env "OPENAI_API_KEY" "$OPENAI_API_KEY"
           upsert_env "DEEPGRAM_API_KEY" "$DEEPGRAM_API_KEY"
           # STT_PROVIDER 자동 선택. auto 로 두면 AI factory 가 보유 키 기준으로 선택 (deepgram > openai_whisper > mock).
@@ -121,6 +123,18 @@ jobs:
         run: |
           cd "$DEPLOY_DIR"
           docker compose up -d --build ai realtime backend
+
+      - name: Build and deploy frontend
+        env:
+          VITE_API_BASE_URL: https://stack-up.shop
+          VITE_REALTIME_BASE_URL: https://stack-up.shop
+          VITE_SSE_BASE_URL: https://stack-up.shop
+        run: |
+          cd "$GITHUB_WORKSPACE/frontend"
+          npm ci
+          npm run build
+          mkdir -p /var/www/stackup/frontend/dist
+          rsync -a --delete "$GITHUB_WORKSPACE/frontend/dist/" /var/www/stackup/frontend/dist/
 
       - name: Wait for healthy
         run: |
