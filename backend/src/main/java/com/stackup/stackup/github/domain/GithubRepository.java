@@ -117,4 +117,11 @@ public class GithubRepository extends BaseSoftDeleteEntity {
     public void markDeleted() {
         this.deleted = true;
     }
+
+    // 이전에 soft delete 된 레포를 다시 등록할 때 같은 행을 복구한다.
+    public void reactivate(String repoName, String repoFullName, String repoUrl, String defaultBranch) {
+        this.deleted = false;
+        this.status = RepositoryStatus.PENDING;
+        updateMetadata(repoName, repoFullName, repoUrl, defaultBranch);
+    }
 }
