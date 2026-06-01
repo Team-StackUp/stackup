@@ -94,7 +94,7 @@ public record AuthService(
         if (userId == null) {
             throw new BadCredentialsException("Authentication is required to create stream token");
         }
-        return new StreamTokenResult(streamTokenProvider.createStreamToken(userId));
+        return new StreamTokenResult(streamTokenProvider.createStreamToken(userId, "USER", userId));
     }
 
 }

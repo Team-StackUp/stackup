@@ -15,6 +15,7 @@ import (
 	"github.com/Team-StackUp/stackup/realtime/internal/auth"
 	"github.com/Team-StackUp/stackup/realtime/internal/bridge"
 	"github.com/Team-StackUp/stackup/realtime/internal/config"
+	"github.com/Team-StackUp/stackup/realtime/internal/core"
 	"github.com/Team-StackUp/stackup/realtime/internal/messaging"
 	"github.com/Team-StackUp/stackup/realtime/internal/session"
 	"github.com/Team-StackUp/stackup/realtime/internal/transport"
@@ -38,7 +39,9 @@ func main() {
 
 	sseHandler := transport.NewSSEHandler(registry, cfg.SSEBufferSize, cfg.SSEPingInterval)
 	verifier := auth.NewStreamTokenVerifier(cfg.JWTSecret)
-	router := transport.NewRouter(sseHandler, verifier)
+	coreClient := core.NewClient(cfg.CoreBaseURL, cfg.InternalApiKey, cfg.WSWriteTimeout)
+	wsHandler := transport.NewWSHandler(registry, coreClient, cfg.WSWriteTimeout)
+	router := transport.NewRouter(sseHandler, wsHandler, verifier)
 
 	srv := &http.Server{
 		Addr:              cfg.ListenAddr,

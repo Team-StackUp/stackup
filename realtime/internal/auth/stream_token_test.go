@@ -24,22 +24,24 @@ func mintToken(t *testing.T, claims jwt.MapClaims) string {
 
 func validClaims() jwt.MapClaims {
 	return jwt.MapClaims{
-		"sub":       "42",
-		"userId":    42,
-		"tokenType": "STREAM",
-		"scope":     "SSE_CONNECT",
-		"exp":       time.Now().Add(time.Minute).Unix(),
+		"sub":          "42",
+		"userId":       42,
+		"tokenType":    "STREAM",
+		"scope":        "SSE_CONNECT",
+		"resourceType": "USER",
+		"resourceId":   42,
+		"exp":          time.Now().Add(time.Minute).Unix(),
 	}
 }
 
 func TestVerifyValidToken(t *testing.T) {
 	v := NewStreamTokenVerifier(testSecret)
-	userID, err := v.Verify(mintToken(t, validClaims()))
+	claims, err := v.Verify(mintToken(t, validClaims()))
 	if err != nil {
 		t.Fatalf("Verify err: %v", err)
 	}
-	if userID != 42 {
-		t.Errorf("userID = %d, want 42", userID)
+	if claims.UserID != 42 || claims.ResourceType != "USER" || claims.ResourceID != 42 {
+		t.Errorf("claims = %+v", claims)
 	}
 }
 

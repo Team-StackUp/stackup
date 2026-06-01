@@ -71,7 +71,8 @@
   → [Frontend] (음성 모드) WebRTC stream → RealTime
         ㄴ Phase 2 RealTime 분리 전: 청크를 REST POST로 업로드
   → [AI] Whisper API → 텍스트 변환
-  → [Frontend → Core] POST /api/sessions/{id}/messages (텍스트 답변)
+  → [Frontend] (텍스트 모드) WS send {type:"answer", content} → [RealTime] → POST /api/internal/sessions/{id}/messages
+        ㄴ 레거시 직접 경로: POST /api/sessions/{id}/messages (프론트 WS 전환 전까지 병행)
   → [Core] interview_messages INSERT (role=INTERVIEWEE, parent=직전 질문)
   → [Core] RabbitMQ publish: stackup.core-to-ai / generate.followup
   → [AI] 답변 평가 + 꼬리질문 생성 (Gemini 3.1 Flash + RAG)
@@ -79,7 +80,7 @@
   → [AI] RabbitMQ publish: stackup.ai-to-core / callback.questions (kind=FOLLOWUP)
   → [Core] interview_messages INSERT (role=INTERVIEWER, 꼬리질문)
         → message_voice_analyses INSERT (음성 모드일 경우)
-  → [Core] SSE → 다음 질문 push
+  → [Core] 영속 후 RealtimeNotifyPublisher.publishToSession → [RealTime] WS/SSE → 다음 질문 push
 ```
 
 ### 3.3 세션 종료

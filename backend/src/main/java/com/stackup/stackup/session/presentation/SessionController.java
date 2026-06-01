@@ -5,6 +5,7 @@ import com.stackup.stackup.session.application.SessionService;
 import com.stackup.stackup.session.presentation.dto.SessionCreateRequest;
 import com.stackup.stackup.session.presentation.dto.SessionResponse;
 import com.stackup.stackup.session.presentation.dto.SessionUpdateRequest;
+import com.stackup.stackup.session.presentation.dto.StreamTokenResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -154,6 +155,21 @@ public class SessionController {
         @PathVariable Long sessionId
     ) {
         return SessionResponse.from(sessionService.cancel(principal.userId(), sessionId));
+    }
+
+    @Operation(operationId = "createSessionStreamToken", summary = "세션 채널 SSE/WS 용 리소스 스코프 stream token")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "토큰 발급"),
+        @ApiResponse(responseCode = "401", description = "인증 실패"),
+        @ApiResponse(responseCode = "404", description = "세션 없음 / 소유자 아님")
+    })
+    @PostMapping("/{sessionId}/stream-token")
+    public StreamTokenResponse createSessionStreamToken(
+        @AuthenticationPrincipal UserPrincipal principal,
+        @PathVariable Long sessionId
+    ) {
+        return new StreamTokenResponse(
+            sessionService.createSessionStreamToken(principal.userId(), sessionId));
     }
 
     @Operation(operationId = "deleteSession", summary = "세션 soft delete")

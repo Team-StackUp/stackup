@@ -15,6 +15,13 @@ const (
 
 var ErrInvalidStreamToken = errors.New("invalid stream token")
 
+// Claims holds the verified identity and resource scope from a stream token.
+type Claims struct {
+	UserID       int64
+	ResourceType string
+	ResourceID   int64
+}
+
 // StreamTokenVerifier validates Core-issued SSE stream tokens.
 // It mirrors Core StreamTokenProvider: HS256 over key = SHA-256(jwtSecret).
 type StreamTokenVerifier struct {
@@ -26,8 +33,8 @@ func NewStreamTokenVerifier(jwtSecret string) *StreamTokenVerifier {
 	return &StreamTokenVerifier{key: sum[:]}
 }
 
-// Verify checks signature, expiry, tokenType, scope and returns the userId.
-func (v *StreamTokenVerifier) Verify(token string) (int64, error) {
+// Verify checks signature, expiry, tokenType, scope and returns the Claims.
+func (v *StreamTokenVerifier) Verify(token string) (Claims, error) {
 	claims := jwt.MapClaims{}
 	parsed, err := jwt.ParseWithClaims(token, claims, func(t *jwt.Token) (any, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -36,22 +43,24 @@ func (v *StreamTokenVerifier) Verify(token string) (int64, error) {
 		return v.key, nil
 	})
 	if err != nil || !parsed.Valid {
-		return 0, ErrInvalidStreamToken
+		return Claims{}, ErrInvalidStreamToken
 	}
 	if s, _ := claims["tokenType"].(string); s != streamTokenType {
-		return 0, ErrInvalidStreamToken
+		return Claims{}, ErrInvalidStreamToken
 	}
 	if s, _ := claims["scope"].(string); s != sseConnectScope {
-		return 0, ErrInvalidStreamToken
+		return Claims{}, ErrInvalidStreamToken
 	}
-	raw, ok := claims["userId"]
+	uid, ok := claims["userId"].(float64)
 	if !ok {
-		return 0, ErrInvalidStreamToken
+		return Claims{}, ErrInvalidStreamToken
 	}
-	// JSON numbers decode to float64 in MapClaims.
-	f, ok := raw.(float64)
-	if !ok {
-		return 0, ErrInvalidStreamToken
+	out := Claims{UserID: int64(uid)}
+	if rt, ok := claims["resourceType"].(string); ok {
+		out.ResourceType = rt
 	}
-	return int64(f), nil
+	if rid, ok := claims["resourceId"].(float64); ok {
+		out.ResourceID = int64(rid)
+	}
+	return out, nil
 }
