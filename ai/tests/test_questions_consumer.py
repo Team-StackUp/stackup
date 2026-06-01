@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from ai_server.chain.question_generation_chain import GeneratedQuestionPool
+from ai_server.core.client import EmbeddingSearchHit
 from ai_server.messaging.consumers.questions_consumer import (
     QuestionsConsumer,
     _build_context,
@@ -85,6 +86,7 @@ async def test_consumer_generates_questions_and_publishes_callback():
                 }
             ],
             "maxQuestions": 5,
+            "initialQuestionCount": 2,
         }
     )
     await consumer.handle(_StubMessage(body))
@@ -93,8 +95,8 @@ async def test_consumer_generates_questions_and_publishes_callback():
     call = generator.generate.await_args
     assert call.kwargs["job_category"] == "BACKEND"
     assert call.kwargs["mode"] == "TECHNICAL"
-    # envelope.max_questions(=5) 무시하고 initial_pool_size(default 1) 로 강제. Core 가 첫 질문만 사용.
-    assert call.kwargs["max_questions"] == 1
+    # maxQuestions is the session limit; initialQuestionCount controls this result.
+    assert call.kwargs["max_questions"] == 2
     assert "Java" in call.kwargs["context"]
 
     publisher.publish.assert_awaited_once()
@@ -135,6 +137,166 @@ async def test_consumer_skips_when_message_id_already_seen():
     await consumer.handle(_StubMessage(body))
     generator.generate.assert_not_awaited()
     publisher.publish.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_consumer_defaults_initial_question_count_to_one():
+    generator = MagicMock()
+    generator.generate = AsyncMock(return_value=GeneratedQuestionPool(questions=[]))
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+
+    consumer = QuestionsConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.questions",
+        initial_pool_size=3,
+    )
+    body = _envelope(
+        {
+            "sessionId": 99,
+            "mode": "TECHNICAL",
+            "jobCategory": "BACKEND",
+            "documents": [],
+            "maxQuestions": 5,
+        }
+    )
+    await consumer.handle(_StubMessage(body))
+
+    assert generator.generate.await_args.kwargs["max_questions"] == 1
+
+
+@pytest.mark.asyncio
+async def test_consumer_clamps_initial_question_count_to_at_least_one():
+    generator = MagicMock()
+    generator.generate = AsyncMock(return_value=GeneratedQuestionPool(questions=[]))
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+
+    consumer = QuestionsConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.questions",
+        initial_pool_size=3,
+    )
+    body = _envelope(
+        {
+            "sessionId": 99,
+            "mode": "TECHNICAL",
+            "jobCategory": "BACKEND",
+            "documents": [],
+            "initialQuestionCount": 0,
+            "maxQuestions": 5,
+        }
+    )
+    await consumer.handle(_StubMessage(body))
+
+    assert generator.generate.await_args.kwargs["max_questions"] == 1
+
+
+@pytest.mark.asyncio
+async def test_consumer_injects_initial_rag_chunks_when_available():
+    generator = MagicMock()
+    generator.generate = AsyncMock(return_value=GeneratedQuestionPool(questions=[]))
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+    core = MagicMock()
+    core.search_embeddings = AsyncMock(
+        return_value=[
+            EmbeddingSearchHit(
+                document_id=1,
+                chunk_index=4,
+                chunk_text="Outbox table uses status and retry count",
+                distance=0.11,
+            )
+        ]
+    )
+    embedder = MagicMock()
+    embedder.embed = AsyncMock(return_value=[[0.1, 0.2]])
+
+    consumer = QuestionsConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.questions",
+        core_client=core,
+        embedder=embedder,
+        rag_top_k=2,
+    )
+    body = _envelope(
+        {
+            "sessionId": 99,
+            "mode": "TECHNICAL",
+            "jobCategory": "BACKEND",
+            "documents": [
+                {
+                    "documentId": 1,
+                    "sourceType": "REPOSITORY",
+                    "summary": "outbox 구현",
+                    "techStack": ["Spring"],
+                    "markdown": "transactional publisher",
+                }
+            ],
+            "initialQuestionCount": 1,
+            "maxQuestions": 5,
+        }
+    )
+    await consumer.handle(_StubMessage(body))
+
+    embedder.embed.assert_awaited_once()
+    core.search_embeddings.assert_awaited_once_with(
+        query_embedding=[0.1, 0.2],
+        document_ids=[1],
+        top_k=2,
+    )
+    context = generator.generate.await_args.kwargs["context"]
+    assert "Outbox table uses status and retry count" in context
+    assert "outbox 구현" in context
+
+
+@pytest.mark.asyncio
+async def test_consumer_falls_back_to_document_context_when_rag_fails():
+    generator = MagicMock()
+    generator.generate = AsyncMock(return_value=GeneratedQuestionPool(questions=[]))
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+    core = MagicMock()
+    core.search_embeddings = AsyncMock(side_effect=RuntimeError("core down"))
+    embedder = MagicMock()
+    embedder.embed = AsyncMock(return_value=[[0.1, 0.2]])
+
+    consumer = QuestionsConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.questions",
+        core_client=core,
+        embedder=embedder,
+    )
+    body = _envelope(
+        {
+            "sessionId": 99,
+            "mode": "TECHNICAL",
+            "jobCategory": "BACKEND",
+            "documents": [
+                {
+                    "documentId": 1,
+                    "sourceType": "RESUME",
+                    "summary": "Java/Spring backend",
+                    "techStack": ["Java"],
+                    "markdown": "payment service",
+                }
+            ],
+            "maxQuestions": 5,
+        }
+    )
+    await consumer.handle(_StubMessage(body))
+
+    context = generator.generate.await_args.kwargs["context"]
+    assert "Java/Spring backend" in context
+    assert "Retrieved document chunks" not in context
 
 
 def test_build_context_handles_empty_documents():

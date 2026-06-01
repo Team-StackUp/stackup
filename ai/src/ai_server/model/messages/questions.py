@@ -33,6 +33,7 @@ class GenerateQuestionsRequest(BaseModel):
     mode: InterviewMode
     job_category: JobCategory
     documents: list[DocumentContext] = []
+    initial_question_count: int = 1
     max_questions: int = 10
 
 
