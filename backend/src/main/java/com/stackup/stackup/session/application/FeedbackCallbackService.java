@@ -4,7 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stackup.stackup.common.messaging.domain.ProcessedMessage;
 import com.stackup.stackup.common.messaging.domain.ProcessedMessageRepository;
-import com.stackup.stackup.common.sse.SseEventPublisher;
+import com.stackup.stackup.common.messaging.RealtimeNotifyPublisher;
 import com.stackup.stackup.common.sse.SseEventType;
 import com.stackup.stackup.session.application.dto.FeedbackCallbackEnvelope;
 import com.stackup.stackup.session.application.dto.FeedbackCallbackPayload;
@@ -33,7 +33,7 @@ public class FeedbackCallbackService {
     private final InterviewSessionRepository sessionRepository;
     private final SessionFeedbackRepository feedbackRepository;
     private final ProcessedMessageRepository processedMessageRepository;
-    private final SseEventPublisher sseEventPublisher;
+    private final RealtimeNotifyPublisher realtimeNotifyPublisher;
 
     @Transactional
     public void apply(FeedbackCallbackEnvelope envelope) {
@@ -84,9 +84,9 @@ public class FeedbackCallbackService {
             return;
         }
 
-        sseEventPublisher.publishToSession(sessionId, SseEventType.FEEDBACK_READY,
+        realtimeNotifyPublisher.publishToSession(sessionId, SseEventType.FEEDBACK_READY,
             new SessionFeedbackNotice(sessionId, feedback.getId()));
-        sseEventPublisher.publishToUser(session.getUser().getId(), SseEventType.FEEDBACK_READY,
+        realtimeNotifyPublisher.publishToUser(session.getUser().getId(), SseEventType.FEEDBACK_READY,
             new SessionFeedbackNotice(sessionId, feedback.getId()));
 
         markProcessed(envelope.messageId());

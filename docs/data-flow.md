@@ -65,7 +65,7 @@
 ### 3.2 질문-답변 사이클 (반복)
 
 ```
-[Core/RealTime] SSE → 첫 질문 push
+[Core] 영속 후 RealtimeNotifyPublisher.publishToSession → [RealTime] SSE/WS → 첫 질문 push
   → [Frontend] 표시 + 마이크 활성화
   → [사용자] 음성 답변 (Phase 2) 또는 텍스트
   → [Frontend] (음성 모드) WebRTC stream → RealTime
@@ -130,8 +130,8 @@
 ```
 [AI 작업 시작/진행/완료]
   → AI Server: RabbitMQ publish (callback.analysis 등)
-  → [Core] consume → DB 상태 갱신 + 인메모리 채널로 push
-  → [Core] SSE 엔드포인트가 user별 구독자에게 broadcast
+  → [Core] consume → DB 상태 갱신 + RealtimeNotifyPublisher.publishToUser/publishToDocument 발행
+  → [RealTime] stackup.realtime consume → user/document 채널 SSE fan-out
   → [Frontend] EventSource 수신 → 상태 UI 갱신
 
 SSE 끊김 시:
@@ -139,7 +139,7 @@ SSE 끊김 시:
   → [Frontend] 폴링 fallback: GET /api/documents/{id} (5초 간격)
 ```
 
-> 단일 Core 인스턴스에서는 인메모리 채널로 충분. 멀티 인스턴스 시점에 RabbitMQ fanout exchange 도입 (Redis 미사용 결정 — [`architecture.md §4.5`](./architecture.md))
+> SSE 서빙 주체는 **RealTime 서버**다. Core는 `stackup.realtime`으로 발행만 하고, DB 영속(AFTER_COMMIT/트랜잭션 내 INSERT 이후) 시점에 발행하므로 SSE 페이로드의 ID는 항상 조회 가능하다. 멀티 인스턴스 시점에 RealTime fanout exchange + 인스턴스별 큐 도입 (Redis 미사용 결정 — [`architecture.md §4.5`](./architecture.md))
 
 상세 이벤트 스펙은 [`event-stream.md`](./event-stream.md) 참조.
 

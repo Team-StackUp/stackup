@@ -24,7 +24,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "Repositories", description = "GitHub 레포 등록/관리. 등록 시 분석 파이프라인이 자동 트리거되며 결과는 /api/stream/me (REPO_STATE) 로 통지됨.")
+@Tag(name = "Repositories", description = "GitHub 레포 등록/관리. 등록 시 분석 파이프라인이 자동 트리거되며 결과는 /realtime/stream/me (REPO_STATE) 로 통지됨.")
 @RestController
 @RequestMapping("/api/repositories")
 @RequiredArgsConstructor

@@ -88,7 +88,9 @@ public record RabbitMqProperties(
 		@NotBlank String callbackQuestions,
 		@NotBlank String callbackFeedback,
 		@NotBlank String callbackVoice,
-		@NotBlank String realtimeSessionNotify
+		@NotBlank String realtimeSessionNotify,
+		@NotBlank String realtimeUserNotify,
+		@NotBlank String realtimeDocumentNotify
 	) {
 	}
 

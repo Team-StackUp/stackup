@@ -111,7 +111,9 @@ class RabbitMessagePublisherTest {
                 "callback.questions",
                 "callback.feedback",
                 "callback.voice",
-                "realtime.session.notify"
+                "realtime.session.notify",
+                "realtime.user.notify",
+                "realtime.document.notify"
             ),
             new RabbitMqProperties.DeadLetter("stackup.dlx", "dlq."),
             new RabbitMqProperties.Retry(3, Duration.ofSeconds(1), 2.0, Duration.ofSeconds(10))

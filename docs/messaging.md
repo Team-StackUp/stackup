@@ -26,7 +26,7 @@
 | `ai.generate.followup` | `stackup.core-to-ai` | `generate.followup` | AI Server |
 | `core.callback.analysis` | `stackup.ai-to-core` | `callback.analysis` | Core Server |
 | `core.callback.questions` | `stackup.ai-to-core` | `callback.questions` | Core Server |
-| `q.realtime.session.notify` | `stackup.realtime` | `realtime.session.*` | RealTime Server |
+| `q.realtime.session.notify` | `stackup.realtime` | `realtime.session.*` · `realtime.user.*` · `realtime.document.*` | RealTime Server |
 
 ### Dead Letter Queues (durable)
 
@@ -325,6 +325,18 @@
 - 소비자: RealTime 서버 (SSE 구독자에게 fan-out)
 - `context.sessionId` 필수 — 라우팅 키
 - `payload.eventType`은 SSE `event:` 필드로 매핑
+
+### 5.13 `realtime.user.notify` · `realtime.document.notify`
+
+`realtime.session.notify` 와 동일 구조. 채널(messageType)만 다르다.
+
+- `realtime.user.notify` — `context.userId` 필수. 분석 상태(`DOC_STATE`/`REPO_STATE`) 등 사용자 단위 알림.
+- `realtime.document.notify` — `context.documentId` 필수. 문서 단위 분석 상태.
+- 발행: Core `RealtimeNotifyPublisher.publishToUser(userId, ...)` / `publishToDocument(documentId, ...)`.
+- `payload.eventType` 은 `SseEventType` enum 이름(`DOC_STATE` 등). RealTime이 SSE `event:` 필드로 전달.
+- RealTime 측은 envelope `messageType`(`realtime.{kind}.notify`)으로 채널을 판별해 해당 채널 구독자에게 fan-out.
+
+> 단일 큐 `q.realtime.session.notify` 가 세 라우팅 키(`realtime.session.*`/`realtime.user.*`/`realtime.document.*`)를 모두 바인딩한다.
 
 ---
 

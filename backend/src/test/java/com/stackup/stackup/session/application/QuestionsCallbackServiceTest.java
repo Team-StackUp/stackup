@@ -9,7 +9,7 @@ import static org.mockito.Mockito.when;
 
 import com.stackup.stackup.common.messaging.domain.ProcessedMessage;
 import com.stackup.stackup.common.messaging.domain.ProcessedMessageRepository;
-import com.stackup.stackup.common.sse.SseEventPublisher;
+import com.stackup.stackup.common.messaging.RealtimeNotifyPublisher;
 import com.stackup.stackup.common.sse.SseEventType;
 import com.stackup.stackup.session.application.dto.QuestionsCallbackEnvelope;
 import com.stackup.stackup.session.application.dto.QuestionsCallbackPayload;
@@ -37,7 +37,7 @@ class QuestionsCallbackServiceTest {
     @Mock InterviewSessionRepository sessionRepository;
     @Mock InterviewMessageRepository messageRepository;
     @Mock ProcessedMessageRepository processedMessageRepository;
-    @Mock SseEventPublisher sseEventPublisher;
+    @Mock RealtimeNotifyPublisher realtimeNotifyPublisher;
     @Mock org.springframework.context.ApplicationEventPublisher events;
     @InjectMocks QuestionsCallbackService service;
 
@@ -59,7 +59,7 @@ class QuestionsCallbackServiceTest {
         service.apply(env);
 
         verify(messageRepository).save(any(InterviewMessage.class));
-        verify(sseEventPublisher).publishToSession(eq(11L), eq(SseEventType.SESSION_MESSAGE), any());
+        verify(realtimeNotifyPublisher).publishToSession(eq(11L), eq(SseEventType.SESSION_MESSAGE), any());
         verify(processedMessageRepository).save(any(ProcessedMessage.class));
         assertThat(session.getTotalQuestionCount()).isEqualTo(1);
     }

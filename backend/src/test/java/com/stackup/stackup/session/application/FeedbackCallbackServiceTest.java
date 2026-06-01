@@ -8,7 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.stackup.stackup.common.messaging.domain.ProcessedMessageRepository;
-import com.stackup.stackup.common.sse.SseEventPublisher;
+import com.stackup.stackup.common.messaging.RealtimeNotifyPublisher;
 import com.stackup.stackup.common.sse.SseEventType;
 import com.stackup.stackup.session.application.dto.FeedbackCallbackEnvelope;
 import com.stackup.stackup.session.application.dto.FeedbackCallbackPayload;
@@ -35,7 +35,7 @@ class FeedbackCallbackServiceTest {
     @Mock InterviewSessionRepository sessionRepository;
     @Mock SessionFeedbackRepository feedbackRepository;
     @Mock ProcessedMessageRepository processedMessageRepository;
-    @Mock SseEventPublisher sseEventPublisher;
+    @Mock RealtimeNotifyPublisher realtimeNotifyPublisher;
     @InjectMocks FeedbackCallbackService service;
 
     @Test
@@ -60,7 +60,7 @@ class FeedbackCallbackServiceTest {
         verify(feedbackRepository).save(cap.capture());
         assertThat(cap.getValue().getOverallScore()).isEqualTo(85.0);
         assertThat(cap.getValue().getImprovementKeywords()).contains("Spring");
-        verify(sseEventPublisher).publishToSession(eq(50L), eq(SseEventType.FEEDBACK_READY), any());
+        verify(realtimeNotifyPublisher).publishToSession(eq(50L), eq(SseEventType.FEEDBACK_READY), any());
     }
 
     @Test

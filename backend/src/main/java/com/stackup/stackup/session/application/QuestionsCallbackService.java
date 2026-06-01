@@ -2,7 +2,7 @@ package com.stackup.stackup.session.application;
 
 import com.stackup.stackup.common.messaging.domain.ProcessedMessage;
 import com.stackup.stackup.common.messaging.domain.ProcessedMessageRepository;
-import com.stackup.stackup.common.sse.SseEventPublisher;
+import com.stackup.stackup.common.messaging.RealtimeNotifyPublisher;
 import com.stackup.stackup.common.sse.SseEventType;
 import com.stackup.stackup.session.application.dto.QuestionsCallbackEnvelope;
 import com.stackup.stackup.session.application.dto.QuestionsCallbackPayload;
@@ -36,7 +36,7 @@ public class QuestionsCallbackService {
     private final InterviewSessionRepository sessionRepository;
     private final InterviewMessageRepository messageRepository;
     private final ProcessedMessageRepository processedMessageRepository;
-    private final SseEventPublisher sseEventPublisher;
+    private final RealtimeNotifyPublisher realtimeNotifyPublisher;
     private final ApplicationEventPublisher events;
 
     @Transactional
@@ -85,9 +85,9 @@ public class QuestionsCallbackService {
             InterviewMessage.interviewer(session, 1, first.question())
         );
         session.incrementQuestionCount();
-        sseEventPublisher.publishToSession(session.getId(), SseEventType.SESSION_MESSAGE, message.getId());
+        realtimeNotifyPublisher.publishToSession(session.getId(), SseEventType.SESSION_MESSAGE, message.getId());
         // 사용자 user 채널에도 알림 — frontend 가 documentId/sessionId 사전 인지 없이도 받을 수 있게
-        sseEventPublisher.publishToUser(
+        realtimeNotifyPublisher.publishToUser(
             session.getUser().getId(),
             SseEventType.SESSION_MESSAGE,
             new SessionMessageNotice(session.getId(), message.getId(), "QUESTION_POOL_READY")
@@ -113,8 +113,8 @@ public class QuestionsCallbackService {
         );
         session.incrementQuestionCount();
 
-        sseEventPublisher.publishToSession(session.getId(), SseEventType.SESSION_MESSAGE, message.getId());
-        sseEventPublisher.publishToUser(
+        realtimeNotifyPublisher.publishToSession(session.getId(), SseEventType.SESSION_MESSAGE, message.getId());
+        realtimeNotifyPublisher.publishToUser(
             session.getUser().getId(),
             SseEventType.SESSION_MESSAGE,
             new SessionMessageNotice(session.getId(), message.getId(), "FOLLOWUP_READY")
@@ -126,9 +126,9 @@ public class QuestionsCallbackService {
             && session.getTotalQuestionCount() >= max) {
             try {
                 session.end();
-                sseEventPublisher.publishToSession(session.getId(), SseEventType.SESSION_STATE,
+                realtimeNotifyPublisher.publishToSession(session.getId(), SseEventType.SESSION_STATE,
                     new SessionStateNotice(session.getId(), session.getStatus().name(), "MAX_QUESTIONS_REACHED"));
-                sseEventPublisher.publishToUser(session.getUser().getId(), SseEventType.SESSION_STATE,
+                realtimeNotifyPublisher.publishToUser(session.getUser().getId(), SseEventType.SESSION_STATE,
                     new SessionStateNotice(session.getId(), session.getStatus().name(), "MAX_QUESTIONS_REACHED"));
                 events.publishEvent(new SessionEndedEvent(
                     session.getUser().getId(), session.getId(), "MAX_QUESTIONS_REACHED"));
