@@ -7,6 +7,7 @@ from ai_server.core.client import (
     CoreEmbeddingUpsertError,
     CoreTokenError,
     EmbeddingChunkPayload,
+    EmbeddingSearchHit,
     HttpCoreClient,
 )
 
@@ -241,3 +242,86 @@ async def test_upsert_embeddings_httpx_error_retriable() -> None:
         )
     assert exc_info.value.code == "CORE_UNAVAILABLE"
     assert exc_info.value.retriable is True
+
+
+# ----------- search_embeddings -----------
+
+
+def _make_post_client(
+    *,
+    status: int = 200,
+    json_body: dict | None = None,
+    text: str = "",
+    raise_exc: Exception | None = None,
+) -> MagicMock:
+    client = MagicMock()
+    resp = MagicMock(spec=httpx.Response)
+    resp.status_code = status
+    resp.text = text
+    resp.json = (
+        MagicMock(return_value=json_body)
+        if json_body is not None
+        else MagicMock(side_effect=ValueError("no json"))
+    )
+    if raise_exc is not None:
+        client.post = AsyncMock(side_effect=raise_exc)
+    else:
+        client.post = AsyncMock(return_value=resp)
+    return client
+
+
+@pytest.mark.asyncio
+async def test_search_embeddings_uses_latest_core_contract() -> None:
+    client = _make_post_client(
+        json_body={
+            "hits": [
+                {
+                    "documentId": 7,
+                    "chunkIndex": 2,
+                    "chunkText": "Spring transaction boundaries",
+                    "distance": 0.17,
+                }
+            ]
+        }
+    )
+    core = HttpCoreClient(base_url="http://core:38010", api_key="k", client=client)
+
+    hits = await core.search_embeddings(
+        query_embedding=[0.1, 0.2],
+        document_ids=[7, 8],
+        top_k=3,
+    )
+
+    assert hits == [
+        EmbeddingSearchHit(
+            document_id=7,
+            chunk_index=2,
+            chunk_text="Spring transaction boundaries",
+            distance=0.17,
+        )
+    ]
+    client.post.assert_awaited_once_with(
+        "/api/internal/embeddings/search",
+        json={
+            "queryEmbedding": [0.1, 0.2],
+            "documentIds": [7, 8],
+            "topK": 3,
+        },
+    )
+
+
+@pytest.mark.parametrize("status", [400, 401, 403, 404, 500])
+@pytest.mark.asyncio
+async def test_search_embeddings_non_2xx_returns_empty(status: int) -> None:
+    client = _make_post_client(status=status, text="bad")
+    core = HttpCoreClient(base_url="http://core:38010", api_key="k", client=client)
+
+    assert await core.search_embeddings(query_embedding=[0.1]) == []
+
+
+@pytest.mark.asyncio
+async def test_search_embeddings_http_error_returns_empty() -> None:
+    client = _make_post_client(raise_exc=httpx.ConnectError("dns fail"))
+    core = HttpCoreClient(base_url="http://core:38010", api_key="k", client=client)
+
+    assert await core.search_embeddings(query_embedding=[0.1]) == []

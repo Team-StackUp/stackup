@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from ai_server.chain.followup_generation_chain import FollowupResult
+from ai_server.core.client import EmbeddingSearchHit
 from ai_server.messaging.consumers.followup_consumer import FollowupConsumer
 from ai_server.messaging.idempotency import LruIdempotencyStore
 from ai_server.model.messages.followup import (
@@ -47,6 +48,7 @@ def _envelope() -> bytes:
             "answerText": "RabbitMQ로 보냈습니다.",
             "mode": "TECHNICAL",
             "jobCategory": "BACKEND",
+            "contextDocumentIds": [7],
         },
         "context": {"userId": 42, "sessionId": 99},
     }
@@ -84,6 +86,85 @@ async def test_consumer_generates_followup_and_publishes_callback():
     assert payload.followup_question.startswith("구체적으로")
     assert payload.answer_evaluation.structure == "PARTIAL_STAR"
     assert publisher.publish.await_args.kwargs["message_type"] == "callback.questions"
+
+
+@pytest.mark.asyncio
+async def test_consumer_injects_followup_rag_context_when_available():
+    generator = MagicMock()
+    generator.generate = AsyncMock(
+        return_value=FollowupResult(
+            followup_question="outbox 저장과 발행의 원자성은 어떻게 보장했나요?",
+            answer_evaluation=AnswerEvaluation(
+                specificity=2.0, logic=3.0, structure="PARTIAL_STAR"
+            ),
+        )
+    )
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+    core = MagicMock()
+    core.search_embeddings = AsyncMock(
+        return_value=[
+            EmbeddingSearchHit(
+                document_id=7,
+                chunk_index=2,
+                chunk_text="Outbox rows are inserted in the same transaction",
+                distance=0.12,
+            )
+        ]
+    )
+    embedder = MagicMock()
+    embedder.embed = AsyncMock(return_value=[[0.1, 0.2, 0.3]])
+
+    consumer = FollowupConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.questions",
+        core_client=core,
+        embedder=embedder,
+        rag_top_k=3,
+    )
+    await consumer.handle(_StubMessage(_envelope()))
+
+    embedder.embed.assert_awaited_once()
+    core.search_embeddings.assert_awaited_once_with(
+        query_embedding=[0.1, 0.2, 0.3],
+        document_ids=[7],
+        top_k=3,
+    )
+    context = generator.generate.await_args.kwargs["context"]
+    assert "Outbox rows are inserted in the same transaction" in context
+
+
+@pytest.mark.asyncio
+async def test_consumer_falls_back_when_followup_rag_fails():
+    generator = MagicMock()
+    generator.generate = AsyncMock(
+        return_value=FollowupResult(
+            followup_question="실패 재처리는 어떻게 했나요?",
+            answer_evaluation=AnswerEvaluation(
+                specificity=2.0, logic=3.0, structure="PARTIAL_STAR"
+            ),
+        )
+    )
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+    core = MagicMock()
+    core.search_embeddings = AsyncMock(side_effect=RuntimeError("core down"))
+    embedder = MagicMock()
+    embedder.embed = AsyncMock(return_value=[[0.1, 0.2, 0.3]])
+
+    consumer = FollowupConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.questions",
+        core_client=core,
+        embedder=embedder,
+    )
+    await consumer.handle(_StubMessage(_envelope()))
+
+    assert generator.generate.await_args.kwargs["context"] == "(none)"
 
 
 @pytest.mark.asyncio
