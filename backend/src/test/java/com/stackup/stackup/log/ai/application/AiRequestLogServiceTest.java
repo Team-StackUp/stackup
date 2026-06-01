@@ -19,6 +19,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -59,5 +61,24 @@ class AiRequestLogServiceTest {
         ArgumentCaptor<AiRequestLog> cap = ArgumentCaptor.forClass(AiRequestLog.class);
         verify(logRepository).save(cap.capture());
         assertThat(cap.getValue().getStatus()).isEqualTo(AiRequestStatus.FAILED);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "generate.questions",
+        "generate.followup",
+        "generate.feedback",
+        "stt.transcribe",
+        "tts.synthesize"
+    })
+    void record_keepsAiWorkflowRequestType(String requestType) {
+        service.record(new AiRequestLogCommand(
+            null, null, requestType, "gemini-flash",
+            10, 20, 800, "SUCCESS", null
+        ));
+
+        ArgumentCaptor<AiRequestLog> cap = ArgumentCaptor.forClass(AiRequestLog.class);
+        verify(logRepository).save(cap.capture());
+        assertThat(cap.getValue().getRequestType()).isEqualTo(requestType);
     }
 }
