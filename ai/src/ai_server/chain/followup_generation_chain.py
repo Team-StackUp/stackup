@@ -24,7 +24,7 @@ class FollowupGenerator(Protocol):
         self,
         *,
         job_category: str,
-        interview_type: str,
+        mode: str,
         previous_question: str,
         answer_text: str,
     ) -> FollowupResult: ...
@@ -38,14 +38,14 @@ class LlmFollowupGenerator:
         self,
         *,
         job_category: str,
-        interview_type: str,
+        mode: str,
         previous_question: str,
         answer_text: str,
     ) -> FollowupResult:
         result = await self._chain.ainvoke(
             {
                 "job_category": job_category,
-                "interview_type": interview_type,
+                "mode": mode,
                 "previous_question": previous_question,
                 "answer_text": answer_text,
             }

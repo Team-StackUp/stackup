@@ -17,7 +17,7 @@ SYSTEM_PROMPT = (
 
 HUMAN_PROMPT = (
     "직군: {job_category}\n"
-    "면접 유형: {interview_type}\n\n"
+    "면접 모드: {mode}\n\n"
     "직전 질문:\n{previous_question}\n\n"
     "지원자 답변:\n{answer_text}\n\n"
     "{format_instructions}"

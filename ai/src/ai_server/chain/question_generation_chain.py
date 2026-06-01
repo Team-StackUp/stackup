@@ -23,7 +23,7 @@ class QuestionGenerator(Protocol):
         self,
         *,
         job_category: str,
-        interview_type: str,
+        mode: str,
         max_questions: int,
         context: str,
     ) -> GeneratedQuestionPool: ...
@@ -37,14 +37,14 @@ class LlmQuestionGenerator:
         self,
         *,
         job_category: str,
-        interview_type: str,
+        mode: str,
         max_questions: int,
         context: str,
     ) -> GeneratedQuestionPool:
         result = await self._chain.ainvoke(
             {
                 "job_category": job_category,
-                "interview_type": interview_type,
+                "mode": mode,
                 "max_questions": max_questions,
                 "context": context,
             }

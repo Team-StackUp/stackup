@@ -39,7 +39,7 @@ def _envelope(*, context_documents: list[int] | None = None) -> bytes:
         "publisher": "core-server",
         "payload": {
             "sessionId": 50,
-            "interviewType": "TECHNICAL",
+            "mode": "TECHNICAL",
             "jobCategory": "BACKEND",
             "totalQuestionCount": 2,
             "endReason": "MAX_QUESTIONS_REACHED",

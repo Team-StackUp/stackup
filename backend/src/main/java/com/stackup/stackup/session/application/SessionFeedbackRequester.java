@@ -61,7 +61,7 @@ public class SessionFeedbackRequester {
 
         GenerateFeedbackPayload payload = new GenerateFeedbackPayload(
             session.getId(),
-            session.getInterviewType().name(),
+            session.getMode().name(),
             session.getJobCategory().name(),
             session.getTotalQuestionCount(),
             event.reason(),

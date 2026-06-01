@@ -44,7 +44,7 @@
   createSession(true, false);
 
   // 좋음
-  createSession(SessionMode.ONLINE, JobCategory.BACKEND);
+  createSession(SessionMode.TECHNICAL, JobCategory.BACKEND);
   ```
 
 ---
@@ -109,7 +109,7 @@ analyzeResume_whenS3UploadFails_marksResumeFailed
 ```java
 // given
 var user = aUser().build();
-var request = aSessionCreateRequest().mode(ONLINE).build();
+var request = aSessionCreateRequest().mode(TECHNICAL).build();
 
 // when
 var session = sessionService.create(user, request);
@@ -168,7 +168,7 @@ if (session.questionCount() >= DEFAULT_MAX_QUESTIONS) {...}
 public Session create(User user, boolean online, boolean technical) {...}
 
 // 좋음
-public Session create(User user, SessionMode mode, InterviewType type) {...}
+public Session create(User user, SessionMode mode, JobCategory jobCategory) {...}
 ```
 
 ---

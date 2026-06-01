@@ -22,7 +22,7 @@ SYSTEM_PROMPT = (
 
 HUMAN_PROMPT = (
     "직군: {job_category}\n"
-    "면접 유형: {interview_type}\n"
+    "면접 모드: {mode}\n"
     "총 질문 수: {total_question_count}\n"
     "종료 사유: {end_reason}\n\n"
     "=== 메시지 시퀀스 ===\n"

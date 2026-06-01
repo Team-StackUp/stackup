@@ -47,7 +47,7 @@ def _envelope() -> bytes:
             "audioS3Key": "interview/voice/raw/99/501.webm",
             "contentType": "audio/webm",
             "previousQuestionText": "ACID 설명해주세요",
-            "interviewType": "TECHNICAL",
+            "mode": "TECHNICAL",
             "jobCategory": "BACKEND",
         },
         "context": {"userId": 42, "sessionId": 99},

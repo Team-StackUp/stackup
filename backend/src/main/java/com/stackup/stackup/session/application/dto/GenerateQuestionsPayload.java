@@ -1,12 +1,12 @@
 package com.stackup.stackup.session.application.dto;
 
-import com.stackup.stackup.session.domain.InterviewType;
 import com.stackup.stackup.session.domain.JobCategory;
+import com.stackup.stackup.session.domain.SessionMode;
 import java.util.List;
 
 public record GenerateQuestionsPayload(
     Long sessionId,
-    InterviewType interviewType,
+    SessionMode mode,
     JobCategory jobCategory,
     List<DocumentContext> documents,
     Integer maxQuestions

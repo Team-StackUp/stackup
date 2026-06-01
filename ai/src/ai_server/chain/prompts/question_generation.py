@@ -1,9 +1,9 @@
 # 질문 풀 생성 프롬프트 (US-18)
-# 분석된 이력서/레포 컨텍스트 + 직군 + 면접 유형 → 질문 N개.
+# 분석된 이력서/레포 컨텍스트 + 직군 + 면접 모드 → 질문 N개.
 
 SYSTEM_PROMPT = (
     "당신은 IT 직군 채용을 진행하는 시니어 면접관입니다. "
-    "지원자 컨텍스트(이력서, GitHub 레포 분석)와 면접 유형에 맞춰 면접 질문 풀을 "
+    "지원자 컨텍스트(이력서, GitHub 레포 분석)와 면접 모드에 맞춰 면접 질문 풀을 "
     "생성하세요.\n"
     "- 사실에 근거한 질문만. 자료에 없는 내용은 추측하지 않습니다.\n"
     "- 자료에 명시된 기술 스택과 프로젝트 경험을 적극 인용하세요.\n"
@@ -15,7 +15,7 @@ SYSTEM_PROMPT = (
 
 HUMAN_PROMPT = (
     "직군: {job_category}\n"
-    "면접 유형: {interview_type}\n"
+    "면접 모드: {mode}\n"
     "최대 질문 수: {max_questions}\n\n"
     "지원자 컨텍스트 (이력서/레포 분석):\n"
     "---\n"
@@ -24,7 +24,7 @@ HUMAN_PROMPT = (
     "요구 사항:\n"
     "1. 정확히 {max_questions}개의 질문을 생성합니다.\n"
     "2. 각 질문에 적절한 category 를 부여합니다.\n"
-    "3. 직군({job_category})·유형({interview_type}) 에 맞는 비중으로 카테고리 분배:\n"
+    "3. 직군({job_category})·면접 모드({mode}) 에 맞는 비중으로 카테고리 분배:\n"
     "   - TECHNICAL: CS_FUNDAMENTAL + TECH_CHOICE + PROJECT_DEEP_DIVE 중심.\n"
     "   - PERSONALITY: BEHAVIORAL 중심.\n"
     "   - INTEGRATED: 모두 균형.\n"

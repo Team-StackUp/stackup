@@ -87,7 +87,7 @@ class FeedbackConsumer:
 
             result = await self._generator.generate(
                 job_category=req.job_category,
-                interview_type=req.interview_type,
+                mode=req.mode,
                 total_question_count=req.total_question_count,
                 end_reason=req.end_reason,
                 transcript=transcript,

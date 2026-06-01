@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from ai_server.model._config import camel_config
 
-InterviewType = Literal["PERSONALITY", "TECHNICAL", "LIVE_CODING", "INTEGRATED"]
+InterviewMode = Literal["PERSONALITY", "TECHNICAL", "INTEGRATED"]
 JobCategory = Literal["FRONTEND", "BACKEND", "INFRA", "DBA"]
 QuestionCategory = Literal[
     "CS_FUNDAMENTAL",
@@ -30,7 +30,7 @@ class GenerateQuestionsRequest(BaseModel):
     model_config = camel_config()
 
     session_id: int
-    interview_type: InterviewType
+    mode: InterviewMode
     job_category: JobCategory
     documents: list[DocumentContext] = []
     max_questions: int = 10

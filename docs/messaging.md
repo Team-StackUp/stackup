@@ -220,7 +220,7 @@
   "messageType": "generate.questions",
   "payload": {
     "sessionId": 99,
-    "interviewType": "TECHNICAL",
+    "mode": "TECHNICAL",
     "jobCategory": "BACKEND",
     "documentIds": [42, 17],
     "maxQuestions": 10
