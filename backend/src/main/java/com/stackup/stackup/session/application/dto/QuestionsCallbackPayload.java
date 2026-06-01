@@ -7,7 +7,7 @@ import java.util.List;
 public record QuestionsCallbackPayload(
     Long sessionId,
     String kind,                       // POOL | FOLLOWUP
-    List<GeneratedQuestion> questions, // POOL 시 사용
+    List<GeneratedQuestion> questions, // POOL legacy kind: initial question result
     Long parentMessageId,              // FOLLOWUP 시 사용
     String followupQuestion,           // FOLLOWUP 시 사용
     AnswerEvaluation answerEvaluation  // FOLLOWUP 시 옵션

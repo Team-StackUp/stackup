@@ -20,6 +20,7 @@ import com.stackup.stackup.user.domain.User;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -82,6 +83,35 @@ class InterviewMessageServiceTest {
 
         assertThatThrownBy(() -> service.submitAnswer(1L, 10L, "x", null))
             .isInstanceOf(DomainException.class);
+    }
+
+    @Test
+    void submitAnswer_allowsTextRetryAfterFailedVoiceAnswer() {
+        InterviewSession session = sessionInProgress(10L);
+        InterviewMessage question = InterviewMessage.interviewer(session, 1, "Q1?");
+        ReflectionTestUtils.setField(question, "id", 100L);
+        InterviewMessage failedVoice = InterviewMessage.voiceInterviewee(session, 2, question, null);
+        ReflectionTestUtils.setField(failedVoice, "id", 200L);
+        failedVoice.attachAudio("interview/voice/raw/10/200.webm");
+        failedVoice.failVoiceTranscription();
+
+        when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(10L, 1L)).thenReturn(Optional.of(session));
+        when(messageRepository.findFirstBySession_IdOrderBySequenceNumberDesc(10L)).thenReturn(Optional.of(failedVoice));
+        when(messageRepository.save(any(InterviewMessage.class))).thenAnswer(inv -> {
+            InterviewMessage m = inv.getArgument(0);
+            ReflectionTestUtils.setField(m, "id", 201L);
+            return m;
+        });
+
+        MessageResult result = service.submitAnswer(1L, 10L, "retry as text", null);
+
+        assertThat(result.id()).isEqualTo(201L);
+        assertThat(result.sequenceNumber()).isEqualTo(3);
+        assertThat(result.parentMessageId()).isEqualTo(100L);
+        ArgumentCaptor<AnswerSubmittedEvent> eventCaptor = ArgumentCaptor.forClass(AnswerSubmittedEvent.class);
+        verify(events).publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getValue().parentQuestionMessageId()).isEqualTo(100L);
+        assertThat(eventCaptor.getValue().answerMessageId()).isEqualTo(201L);
     }
 
     private InterviewSession sessionInProgress(Long id) {

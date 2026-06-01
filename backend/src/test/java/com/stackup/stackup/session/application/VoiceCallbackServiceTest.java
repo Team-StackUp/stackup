@@ -95,6 +95,38 @@ class VoiceCallbackServiceTest {
         service.apply(env);
 
         assertThat(voiceMsg.getStatus()).isEqualTo(MessageStatus.FAILED);
+        assertThat(voiceMsg.getContent()).isEqualTo(InterviewMessage.VOICE_TRANSCRIPTION_FAILED_TEXT);
+        verify(voiceAnalysisRepository, never()).save(any(MessageVoiceAnalysis.class));
+        verify(events, never()).publishEvent(any(AnswerSubmittedEvent.class));
+        ArgumentCaptor<Object> ev = ArgumentCaptor.forClass(Object.class);
+        verify(events, atLeastOnce()).publishEvent(ev.capture());
+        assertThat(ev.getAllValues()).anySatisfy(e -> {
+            assertThat(e).isInstanceOf(RealtimeNotifyEvent.class);
+            RealtimeNotifyEvent rne = (RealtimeNotifyEvent) e;
+            assertThat(rne.channel()).isEqualTo(RealtimeNotifyEvent.Channel.SESSION);
+            assertThat(rne.type()).isEqualTo(SseEventType.SESSION_MESSAGE);
+            assertThat(rne.payload()).isInstanceOf(VoiceCallbackService.VoiceFailedNotice.class);
+        });
+    }
+
+    @Test
+    void apply_marksMessageFailedOnBlankTranscript() {
+        InterviewSession session = sessionFixture(50L);
+        InterviewMessage voiceMsg = InterviewMessage.voiceInterviewee(session, 2, null, null);
+        ReflectionTestUtils.setField(voiceMsg, "id", 200L);
+
+        VoiceCallbackPayload payload = new VoiceCallbackPayload(50L, 200L, " ", 120.0, 1.0,
+            Map.of(), 0.8, null);
+        VoiceCallbackEnvelope env = new VoiceCallbackEnvelope("vc-blank", "callback.voice", "1", "t",
+            null, "ai", payload, null);
+
+        when(processedMessageRepository.existsById("vc-blank")).thenReturn(false);
+        when(messageRepository.findById(200L)).thenReturn(Optional.of(voiceMsg));
+
+        service.apply(env);
+
+        assertThat(voiceMsg.getStatus()).isEqualTo(MessageStatus.FAILED);
+        assertThat(voiceMsg.getContent()).isEqualTo(InterviewMessage.VOICE_TRANSCRIPTION_FAILED_TEXT);
         verify(voiceAnalysisRepository, never()).save(any(MessageVoiceAnalysis.class));
         verify(events, never()).publishEvent(any(AnswerSubmittedEvent.class));
     }

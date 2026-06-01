@@ -42,7 +42,7 @@ class QuestionsCallbackServiceTest {
     @InjectMocks QuestionsCallbackService service;
 
     @Test
-    void apply_poolInsertsFirstQuestionAndPushesSse() {
+    void apply_poolCallbackStoresOnlyInitialQuestionAndPushesSse() {
         InterviewSession session = sessionFixture(11L, SessionStatus.READY);
         QuestionsCallbackEnvelope env = poolEnvelope(11L, List.of(
             new GeneratedQuestion("INTRO", "Introduce yourself"),
@@ -58,7 +58,11 @@ class QuestionsCallbackServiceTest {
 
         service.apply(env);
 
-        verify(messageRepository).save(any(InterviewMessage.class));
+        ArgumentCaptor<InterviewMessage> messageCaptor = ArgumentCaptor.forClass(InterviewMessage.class);
+        verify(messageRepository).save(messageCaptor.capture());
+        assertThat(messageCaptor.getValue().getContent()).isEqualTo("Introduce yourself");
+        assertThat(messageCaptor.getValue().getSequenceNumber()).isEqualTo(1);
+
         ArgumentCaptor<Object> ev = ArgumentCaptor.forClass(Object.class);
         verify(events, atLeastOnce()).publishEvent(ev.capture());
         assertThat(ev.getAllValues()).anySatisfy(e -> {
@@ -66,6 +70,14 @@ class QuestionsCallbackServiceTest {
             RealtimeNotifyEvent rne = (RealtimeNotifyEvent) e;
             assertThat(rne.channel()).isEqualTo(RealtimeNotifyEvent.Channel.SESSION);
             assertThat(rne.type()).isEqualTo(SseEventType.SESSION_MESSAGE);
+        });
+        assertThat(ev.getAllValues()).anySatisfy(e -> {
+            assertThat(e).isInstanceOf(RealtimeNotifyEvent.class);
+            RealtimeNotifyEvent rne = (RealtimeNotifyEvent) e;
+            assertThat(rne.channel()).isEqualTo(RealtimeNotifyEvent.Channel.USER);
+            assertThat(rne.payload()).isInstanceOf(QuestionsCallbackService.SessionMessageNotice.class);
+            assertThat(((QuestionsCallbackService.SessionMessageNotice) rne.payload()).reason())
+                .isEqualTo("INITIAL_QUESTION_READY");
         });
         verify(processedMessageRepository).save(any(ProcessedMessage.class));
         assertThat(session.getTotalQuestionCount()).isEqualTo(1);

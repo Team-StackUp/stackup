@@ -8,6 +8,8 @@ import com.stackup.stackup.session.domain.InterviewMessage;
 import com.stackup.stackup.session.domain.InterviewMessageRepository;
 import com.stackup.stackup.session.domain.InterviewSession;
 import com.stackup.stackup.session.domain.InterviewSessionRepository;
+import com.stackup.stackup.session.domain.MessageRole;
+import com.stackup.stackup.session.domain.MessageStatus;
 import com.stackup.stackup.session.domain.SessionStatus;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -51,20 +53,31 @@ public class InterviewMessageService {
         InterviewMessage latest = messageRepository
             .findFirstBySession_IdOrderBySequenceNumberDesc(sessionId)
             .orElseThrow(() -> new DomainException(ApiErrorCode.SESSION_INVALID_STATE));
-        if (latest.getRole() != com.stackup.stackup.session.domain.MessageRole.INTERVIEWER) {
-            // 직전 메시지가 질문이 아니면 답변 불가
-            throw new DomainException(ApiErrorCode.SESSION_INVALID_STATE);
-        }
+        InterviewMessage parentQuestion = resolveAnswerParent(latest);
         int nextSeq = latest.getSequenceNumber() + 1;
         InterviewMessage answer = messageRepository.save(
-            InterviewMessage.interviewee(session, nextSeq, content, latest,
+            InterviewMessage.interviewee(session, nextSeq, content, parentQuestion,
                 idempotencyKey != null && !idempotencyKey.isBlank() ? idempotencyKey : null)
         );
 
         events.publishEvent(new AnswerSubmittedEvent(
-            userId, sessionId, latest.getId(), answer.getId()
+            userId, sessionId, parentQuestion.getId(), answer.getId()
         ));
         return MessageResult.of(answer);
+    }
+
+    private InterviewMessage resolveAnswerParent(InterviewMessage latest) {
+        if (latest.getRole() == MessageRole.INTERVIEWER) {
+            return latest;
+        }
+        if (latest.getRole() == MessageRole.INTERVIEWEE
+            && latest.getStatus() == MessageStatus.FAILED
+            && latest.getAudioFilePath() != null
+            && latest.getParentMessage() != null
+            && latest.getParentMessage().getRole() == MessageRole.INTERVIEWER) {
+            return latest.getParentMessage();
+        }
+        throw new DomainException(ApiErrorCode.SESSION_INVALID_STATE);
     }
 
     private InterviewSession ownedSession(Long userId, Long sessionId) {

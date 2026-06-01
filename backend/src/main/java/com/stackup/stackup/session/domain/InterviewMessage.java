@@ -33,6 +33,10 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class InterviewMessage extends BaseTimeEntity {
 
+    public static final String VOICE_TRANSCRIPTION_PENDING_TEXT = "(transcribing)";
+    public static final String VOICE_TRANSCRIPTION_FAILED_TEXT =
+        "음성 인식에 실패했습니다. 텍스트로 다시 답변해 주세요.";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -106,7 +110,8 @@ public class InterviewMessage extends BaseTimeEntity {
     // 음성 답변 placeholder. content 는 STT 완료 후 채움. 생성 시 CHECK 제약 만족을 위해 임시 공백 + audio_file_path 후속 갱신.
     public static InterviewMessage voiceInterviewee(InterviewSession session, int seq,
                                                     InterviewMessage parent, String idempotencyKey) {
-        InterviewMessage m = new InterviewMessage(session, seq, MessageRole.INTERVIEWEE, "(transcribing)",
+        InterviewMessage m = new InterviewMessage(session, seq, MessageRole.INTERVIEWEE,
+            VOICE_TRANSCRIPTION_PENDING_TEXT,
             parent, MessageStatus.CREATED, idempotencyKey);
         return m;
     }
@@ -126,5 +131,10 @@ public class InterviewMessage extends BaseTimeEntity {
             this.content = transcript;
         }
         this.status = MessageStatus.COMPLETED;
+    }
+
+    public void failVoiceTranscription() {
+        this.content = VOICE_TRANSCRIPTION_FAILED_TEXT;
+        this.status = MessageStatus.FAILED;
     }
 }

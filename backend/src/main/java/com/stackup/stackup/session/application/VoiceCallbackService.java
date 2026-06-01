@@ -11,7 +11,6 @@ import com.stackup.stackup.session.application.dto.VoiceCallbackPayload;
 import com.stackup.stackup.session.application.event.AnswerSubmittedEvent;
 import com.stackup.stackup.session.domain.InterviewMessage;
 import com.stackup.stackup.session.domain.InterviewMessageRepository;
-import com.stackup.stackup.session.domain.MessageStatus;
 import com.stackup.stackup.session.domain.MessageVoiceAnalysis;
 import com.stackup.stackup.session.domain.MessageVoiceAnalysisRepository;
 import lombok.RequiredArgsConstructor;
@@ -63,12 +62,17 @@ public class VoiceCallbackService {
         }
 
         if (p.errorCode() != null && !p.errorCode().isBlank()) {
-            message.markStatus(MessageStatus.FAILED);
-            events.publishEvent(RealtimeNotifyEvent.session(p.sessionId(), SseEventType.SESSION_MESSAGE,
-                new VoiceFailedNotice(p.sessionId(), message.getId(), p.errorCode())));
+            failVoiceMessage(p.sessionId(), message, p.errorCode());
             markProcessed(envelope.messageId());
             log.warn("callback.voice STT failed. sessionId={}, msg={}, code={}",
                 p.sessionId(), message.getId(), p.errorCode());
+            return;
+        }
+        if (p.transcript() == null || p.transcript().isBlank()) {
+            failVoiceMessage(p.sessionId(), message, "STT_EMPTY_TRANSCRIPT");
+            markProcessed(envelope.messageId());
+            log.warn("callback.voice STT empty transcript. sessionId={}, msg={}",
+                p.sessionId(), message.getId());
             return;
         }
 
@@ -112,7 +116,20 @@ public class VoiceCallbackService {
     public record VoiceTranscribedNotice(Long sessionId, Long messageId, String transcript) {
     }
 
-    public record VoiceFailedNotice(Long sessionId, Long messageId, String errorCode) {
+    public record VoiceFailedNotice(Long sessionId, Long messageId, String errorCode, String fallbackText) {
+    }
+
+    private void failVoiceMessage(Long sessionId, InterviewMessage message, String errorCode) {
+        message.failVoiceTranscription();
+        VoiceFailedNotice notice = new VoiceFailedNotice(
+            sessionId,
+            message.getId(),
+            errorCode,
+            message.getContent()
+        );
+        events.publishEvent(RealtimeNotifyEvent.session(sessionId, SseEventType.SESSION_MESSAGE, notice));
+        events.publishEvent(RealtimeNotifyEvent.user(message.getSession().getUser().getId(),
+            SseEventType.SESSION_MESSAGE, notice));
     }
 
     private String fillerToJson(java.util.Map<String, Integer> map) {

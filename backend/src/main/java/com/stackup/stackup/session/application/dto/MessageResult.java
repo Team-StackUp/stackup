@@ -11,6 +11,7 @@ public record MessageResult(
     Integer sequenceNumber,
     MessageRole role,
     String content,
+    String audioFilePath,
     Long parentMessageId,
     MessageStatus status,
     Instant createdAt
@@ -22,6 +23,7 @@ public record MessageResult(
             m.getSequenceNumber(),
             m.getRole(),
             m.getContent(),
+            m.getAudioFilePath(),
             m.getParentMessage() == null ? null : m.getParentMessage().getId(),
             m.getStatus(),
             m.getCreatedAt()
