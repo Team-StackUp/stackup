@@ -6,7 +6,6 @@ import { repoKeys } from '@/features/repo'
 import { documentKeys } from '@/features/analysis'
 import { useEventStream } from '@/shared/hooks'
 
-// /api/stream/me 를 구독해 분석 상태(DOC_STATE/REPO_STATE) 가 오면
 // 이력서·레포·문서 쿼리를 무효화 → 화면이 자동으로 최신 상태로 갱신된다.
 export function useWorkspaceAnalysisStream() {
   const queryClient = useQueryClient()
@@ -20,7 +19,7 @@ export function useWorkspaceAnalysisStream() {
   }, [queryClient])
 
   useEventStream({
-    path: '/api/stream/me',
+    path: '/realtime/stream/me',
     getToken,
     handlers: {
       DOC_STATE: invalidateAll,

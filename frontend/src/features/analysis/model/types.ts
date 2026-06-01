@@ -20,7 +20,7 @@ export type AnalyzedDocument = {
   updatedAt: string
 }
 
-// /api/stream/me 의 DOC_STATE / REPO_STATE 이벤트 data 의 payload 필드.
+// /realtime/stream/me 의 DOC_STATE / REPO_STATE 이벤트 data 의 payload 필드.
 export type AnalysisEventPayload = {
   targetType: AnalysisSourceType
   targetId: number

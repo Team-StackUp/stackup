@@ -42,7 +42,11 @@ public class GithubRepositoryService {
         User user = userRepository.findByIdAndDeletedFalse(userId)
             .orElseThrow(() -> new DomainException(ApiErrorCode.USER_NOT_FOUND));
 
-        if (repositoryRepository.findByUser_IdAndGithubRepoIdAndDeletedFalse(userId, command.githubRepoId()).isPresent()) {
+        // soft delete 된 행이 있으면 새 INSERT 대신 그 행을 복구한다
+        GithubRepository existing = repositoryRepository
+            .findByUser_IdAndGithubRepoId(userId, command.githubRepoId())
+            .orElse(null);
+        if (existing != null && !existing.isDeleted()) {
             throw new DomainException(ApiErrorCode.REPO_ALREADY_REGISTERED);
         }
 
@@ -55,14 +59,20 @@ public class GithubRepositoryService {
             throw new DomainException(ApiErrorCode.VALIDATION_ERROR);
         }
 
-        GithubRepository repo = repositoryRepository.save(GithubRepository.create(
-            user,
-            meta.id(),
-            meta.name(),
-            meta.fullName(),
-            meta.htmlUrl(),
-            meta.defaultBranch()
-        ));
+        GithubRepository repo;
+        if (existing != null) {
+            existing.reactivate(meta.name(), meta.fullName(), meta.htmlUrl(), meta.defaultBranch());
+            repo = existing;
+        } else {
+            repo = repositoryRepository.save(GithubRepository.create(
+                user,
+                meta.id(),
+                meta.name(),
+                meta.fullName(),
+                meta.htmlUrl(),
+                meta.defaultBranch()
+            ));
+        }
 
         events.publishEvent(new RepositoryRegisteredEvent(userId, repo.getId()));
         return GithubRepositoryResult.of(repo);

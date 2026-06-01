@@ -13,5 +13,7 @@ public interface GithubRepositoryRepository extends JpaRepository<GithubReposito
 
     Optional<GithubRepository> findByUser_IdAndGithubRepoIdAndDeletedFalse(Long userId, Long githubRepoId);
 
+    Optional<GithubRepository> findByUser_IdAndGithubRepoId(Long userId, Long githubRepoId);
+
     List<GithubRepository> findByUser_IdAndGithubRepoIdInAndDeletedFalse(Long userId, Set<Long> githubRepoIds);
 }
