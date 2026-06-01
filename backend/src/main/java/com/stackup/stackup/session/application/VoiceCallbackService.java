@@ -4,7 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stackup.stackup.common.messaging.domain.ProcessedMessage;
 import com.stackup.stackup.common.messaging.domain.ProcessedMessageRepository;
-import com.stackup.stackup.common.messaging.RealtimeNotifyPublisher;
+import com.stackup.stackup.common.messaging.RealtimeNotifyEvent;
 import com.stackup.stackup.common.sse.SseEventType;
 import com.stackup.stackup.session.application.dto.VoiceCallbackEnvelope;
 import com.stackup.stackup.session.application.dto.VoiceCallbackPayload;
@@ -37,7 +37,6 @@ public class VoiceCallbackService {
     private final InterviewMessageRepository messageRepository;
     private final MessageVoiceAnalysisRepository voiceAnalysisRepository;
     private final ProcessedMessageRepository processedMessageRepository;
-    private final RealtimeNotifyPublisher realtimeNotifyPublisher;
     private final ApplicationEventPublisher events;
 
     @Transactional
@@ -65,8 +64,8 @@ public class VoiceCallbackService {
 
         if (p.errorCode() != null && !p.errorCode().isBlank()) {
             message.markStatus(MessageStatus.FAILED);
-            realtimeNotifyPublisher.publishToSession(p.sessionId(), SseEventType.SESSION_MESSAGE,
-                new VoiceFailedNotice(p.sessionId(), message.getId(), p.errorCode()));
+            events.publishEvent(RealtimeNotifyEvent.session(p.sessionId(), SseEventType.SESSION_MESSAGE,
+                new VoiceFailedNotice(p.sessionId(), message.getId(), p.errorCode())));
             markProcessed(envelope.messageId());
             log.warn("callback.voice STT failed. sessionId={}, msg={}, code={}",
                 p.sessionId(), message.getId(), p.errorCode());
@@ -89,11 +88,11 @@ public class VoiceCallbackService {
             }
         }
 
-        realtimeNotifyPublisher.publishToSession(p.sessionId(), SseEventType.SESSION_MESSAGE,
-            new VoiceTranscribedNotice(p.sessionId(), message.getId(), p.transcript()));
-        realtimeNotifyPublisher.publishToUser(message.getSession().getUser().getId(),
+        events.publishEvent(RealtimeNotifyEvent.session(p.sessionId(), SseEventType.SESSION_MESSAGE,
+            new VoiceTranscribedNotice(p.sessionId(), message.getId(), p.transcript())));
+        events.publishEvent(RealtimeNotifyEvent.user(message.getSession().getUser().getId(),
             SseEventType.SESSION_MESSAGE,
-            new VoiceTranscribedNotice(p.sessionId(), message.getId(), p.transcript()));
+            new VoiceTranscribedNotice(p.sessionId(), message.getId(), p.transcript())));
 
         // 텍스트 답변과 동일 흐름으로 followup 트리거.
         Long parentId = message.getParentMessage() == null ? null : message.getParentMessage().getId();

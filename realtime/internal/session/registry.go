@@ -66,12 +66,24 @@ func (r *Registry) Dispatch(channel Channel, ev Event, slowTimeout time.Duration
 	subs := append([]*Subscriber(nil), r.subs[channel]...)
 	r.mu.RUnlock()
 
+	// Reuse a single timer across subscribers. time.After would leak one timer
+	// goroutine per (subscriber × event) until slowTimeout elapsed.
+	timer := time.NewTimer(slowTimeout)
+	defer timer.Stop()
+
 	delivered := 0
 	for _, s := range subs {
+		if !timer.Stop() {
+			select {
+			case <-timer.C:
+			default:
+			}
+		}
+		timer.Reset(slowTimeout)
 		select {
 		case s.Ch <- ev:
 			delivered++
-		case <-time.After(slowTimeout):
+		case <-timer.C:
 			// drop slow consumer's delivery
 		}
 	}

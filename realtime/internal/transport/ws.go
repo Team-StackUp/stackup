@@ -61,7 +61,13 @@ func (h *WSHandler) ServeWS(w http.ResponseWriter, r *http.Request) {
 	defer h.Registry.Unsubscribe(channel, sub)
 	slog.Info("ws.subscribe", "session_id", sid, "user_id", userID, "trace_id", traceID)
 
-	go h.writeLoop(ctx, conn, sub)
+	// done signals writeLoop to exit when ServeWS returns. The request context of a
+	// hijacked WS connection is not guaranteed to be cancelled on client close, so we
+	// cannot rely on ctx.Done() alone — without this the writeLoop goroutine would block
+	// forever on sub.Ch when the client disconnects with no event pending.
+	done := make(chan struct{})
+	defer close(done)
+	go h.writeLoop(ctx, done, conn, sub)
 
 	for {
 		_, data, err := conn.Read(ctx)
@@ -81,10 +87,12 @@ func (h *WSHandler) ServeWS(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *WSHandler) writeLoop(ctx context.Context, conn *websocket.Conn, sub *session.Subscriber) {
+func (h *WSHandler) writeLoop(ctx context.Context, done <-chan struct{}, conn *websocket.Conn, sub *session.Subscriber) {
 	for {
 		select {
 		case <-ctx.Done():
+			return
+		case <-done:
 			return
 		case ev, ok := <-sub.Ch:
 			if !ok {
@@ -102,7 +110,8 @@ func (h *WSHandler) writeLoop(ctx context.Context, conn *websocket.Conn, sub *se
 }
 
 func (h *WSHandler) writeError(ctx context.Context, conn *websocket.Conn, message string) {
-	frame, _ := json.Marshal(outboundFrame{Event: "error", Data: json.RawMessage(`"` + message + `"`)})
+	msgJSON, _ := json.Marshal(message)
+	frame, _ := json.Marshal(outboundFrame{Event: "error", Data: msgJSON})
 	writeCtx, cancel := context.WithTimeout(ctx, h.WriteTimeout)
 	defer cancel()
 	_ = conn.Write(writeCtx, websocket.MessageText, frame)

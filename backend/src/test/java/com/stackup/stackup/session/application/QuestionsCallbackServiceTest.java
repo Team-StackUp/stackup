@@ -2,14 +2,14 @@ package com.stackup.stackup.session.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.stackup.stackup.common.messaging.RealtimeNotifyEvent;
 import com.stackup.stackup.common.messaging.domain.ProcessedMessage;
 import com.stackup.stackup.common.messaging.domain.ProcessedMessageRepository;
-import com.stackup.stackup.common.messaging.RealtimeNotifyPublisher;
 import com.stackup.stackup.common.sse.SseEventType;
 import com.stackup.stackup.session.application.dto.QuestionsCallbackEnvelope;
 import com.stackup.stackup.session.application.dto.QuestionsCallbackPayload;
@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -37,7 +38,6 @@ class QuestionsCallbackServiceTest {
     @Mock InterviewSessionRepository sessionRepository;
     @Mock InterviewMessageRepository messageRepository;
     @Mock ProcessedMessageRepository processedMessageRepository;
-    @Mock RealtimeNotifyPublisher realtimeNotifyPublisher;
     @Mock org.springframework.context.ApplicationEventPublisher events;
     @InjectMocks QuestionsCallbackService service;
 
@@ -59,7 +59,14 @@ class QuestionsCallbackServiceTest {
         service.apply(env);
 
         verify(messageRepository).save(any(InterviewMessage.class));
-        verify(realtimeNotifyPublisher).publishToSession(eq(11L), eq(SseEventType.SESSION_MESSAGE), any());
+        ArgumentCaptor<Object> ev = ArgumentCaptor.forClass(Object.class);
+        verify(events, atLeastOnce()).publishEvent(ev.capture());
+        assertThat(ev.getAllValues()).anySatisfy(e -> {
+            assertThat(e).isInstanceOf(RealtimeNotifyEvent.class);
+            RealtimeNotifyEvent rne = (RealtimeNotifyEvent) e;
+            assertThat(rne.channel()).isEqualTo(RealtimeNotifyEvent.Channel.SESSION);
+            assertThat(rne.type()).isEqualTo(SseEventType.SESSION_MESSAGE);
+        });
         verify(processedMessageRepository).save(any(ProcessedMessage.class));
         assertThat(session.getTotalQuestionCount()).isEqualTo(1);
     }

@@ -4,8 +4,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stackup.stackup.common.messaging.domain.ProcessedMessage;
 import com.stackup.stackup.common.messaging.domain.ProcessedMessageRepository;
-import com.stackup.stackup.common.messaging.RealtimeNotifyPublisher;
+import com.stackup.stackup.common.messaging.RealtimeNotifyEvent;
 import com.stackup.stackup.common.sse.SseEventType;
+import org.springframework.context.ApplicationEventPublisher;
 import com.stackup.stackup.session.application.dto.FeedbackCallbackEnvelope;
 import com.stackup.stackup.session.application.dto.FeedbackCallbackPayload;
 import com.stackup.stackup.session.domain.InterviewSession;
@@ -33,7 +34,7 @@ public class FeedbackCallbackService {
     private final InterviewSessionRepository sessionRepository;
     private final SessionFeedbackRepository feedbackRepository;
     private final ProcessedMessageRepository processedMessageRepository;
-    private final RealtimeNotifyPublisher realtimeNotifyPublisher;
+    private final ApplicationEventPublisher events;
 
     @Transactional
     public void apply(FeedbackCallbackEnvelope envelope) {
@@ -84,10 +85,10 @@ public class FeedbackCallbackService {
             return;
         }
 
-        realtimeNotifyPublisher.publishToSession(sessionId, SseEventType.FEEDBACK_READY,
-            new SessionFeedbackNotice(sessionId, feedback.getId()));
-        realtimeNotifyPublisher.publishToUser(session.getUser().getId(), SseEventType.FEEDBACK_READY,
-            new SessionFeedbackNotice(sessionId, feedback.getId()));
+        events.publishEvent(RealtimeNotifyEvent.session(sessionId, SseEventType.FEEDBACK_READY,
+            new SessionFeedbackNotice(sessionId, feedback.getId())));
+        events.publishEvent(RealtimeNotifyEvent.user(session.getUser().getId(), SseEventType.FEEDBACK_READY,
+            new SessionFeedbackNotice(sessionId, feedback.getId())));
 
         markProcessed(envelope.messageId());
         log.info("callback.feedback processed. sessionId={}, feedbackId={}", sessionId, feedback.getId());
