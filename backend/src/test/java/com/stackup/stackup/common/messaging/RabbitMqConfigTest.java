@@ -37,6 +37,8 @@ class RabbitMqConfigTest {
             .containsEntry("x-dead-letter-routing-key", "dlq.core.callback.analysis");
         assertThat(config.coreCallbackQuestionsQueue().getArguments())
             .containsEntry("x-dead-letter-routing-key", "dlq.core.callback.questions");
+        assertThat(config.coreCallbackTtsQueue().getArguments())
+            .containsEntry("x-dead-letter-routing-key", "dlq.core.callback.tts");
     }
 
     private RabbitMqProperties rabbitMqProperties() {
@@ -64,7 +66,8 @@ class RabbitMqConfigTest {
                     "core.callback.analysis",
                     "core.callback.questions",
                     "core.callback.feedback",
-                    "core.callback.voice"
+                    "core.callback.voice",
+                    "core.callback.tts"
                 )
             ),
             new RabbitMqProperties.RoutingKeyProperties(
@@ -78,6 +81,7 @@ class RabbitMqConfigTest {
                 "callback.questions",
                 "callback.feedback",
                 "callback.voice",
+                "callback.tts",
                 "realtime.session.notify",
                 "realtime.user.notify",
                 "realtime.document.notify"

@@ -216,7 +216,8 @@ class VoiceAnswerUploadServiceTest {
                     "core.callback.analysis",
                     "core.callback.questions",
                     "core.callback.feedback",
-                    "core.callback.voice"
+                    "core.callback.voice",
+                    "core.callback.tts"
                 )),
             new RabbitMqProperties.RoutingKeyProperties(
                 "analyze.resume",
@@ -229,6 +230,7 @@ class VoiceAnswerUploadServiceTest {
                 "callback.questions",
                 "callback.feedback",
                 "callback.voice",
+                "callback.tts",
                 "session.notify",
                 "realtime.user.notify",
                 "realtime.document.notify"

@@ -97,7 +97,8 @@ class RabbitMessagePublisherTest {
                     "core.callback.analysis",
                     "core.callback.questions",
                     "core.callback.feedback",
-                    "core.callback.voice"
+                    "core.callback.voice",
+                    "core.callback.tts"
                 )
             ),
             new RabbitMqProperties.RoutingKeyProperties(
@@ -111,6 +112,7 @@ class RabbitMessagePublisherTest {
                 "callback.questions",
                 "callback.feedback",
                 "callback.voice",
+                "callback.tts",
                 "realtime.session.notify",
                 "realtime.user.notify",
                 "realtime.document.notify"
