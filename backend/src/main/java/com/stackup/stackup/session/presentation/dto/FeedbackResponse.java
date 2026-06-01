@@ -1,6 +1,7 @@
 package com.stackup.stackup.session.presentation.dto;
 
 import com.stackup.stackup.session.application.dto.FeedbackResult;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.util.List;
 
@@ -13,7 +14,9 @@ public record FeedbackResponse(
     Double communicationScore,
     String strengthsSummary,
     String weaknessesSummary,
+    @Schema(description = "Improvement keywords returned by AI. The current contract is a string list.")
     List<String> improvementKeywords,
+    @Schema(description = "Stored report path when AI generates a detailed learning guide/report.")
     String reportFilePath,
     Instant createdAt
 ) {
