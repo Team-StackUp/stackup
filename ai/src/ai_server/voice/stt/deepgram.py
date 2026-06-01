@@ -41,6 +41,10 @@ class DeepgramSttProvider:
         self._timeout_sec = timeout_sec
         self._client = client
 
+    @property
+    def model_name(self) -> str | None:
+        return self._model
+
     async def transcribe(
         self,
         *,
@@ -69,17 +73,33 @@ class DeepgramSttProvider:
 
         try:
             if self._client is not None:
-                resp = await self._client.post(url, params=params, headers=headers, content=audio_bytes)
+                resp = await self._client.post(
+                    url, params=params, headers=headers, content=audio_bytes
+                )
             else:
                 async with httpx.AsyncClient(timeout=self._timeout_sec) as client:
-                    resp = await client.post(url, params=params, headers=headers, content=audio_bytes)
+                    resp = await client.post(
+                        url, params=params, headers=headers, content=audio_bytes
+                    )
         except httpx.HTTPError as exc:
-            raise SttError(code="STT_UNAVAILABLE", message=f"Deepgram 호출 실패: {exc}", retriable=True) from exc
+            raise SttError(
+                code="STT_UNAVAILABLE",
+                message=f"Deepgram 호출 실패: {exc}",
+                retriable=True,
+            ) from exc
 
         if resp.status_code in (401, 403):
-            raise SttError(code="STT_AUTH_FAILED", message=f"Deepgram 인증 실패: {resp.status_code}", retriable=False)
+            raise SttError(
+                code="STT_AUTH_FAILED",
+                message=f"Deepgram 인증 실패: {resp.status_code}",
+                retriable=False,
+            )
         if resp.status_code >= 500:
-            raise SttError(code="STT_UNAVAILABLE", message=f"Deepgram 5xx: {resp.status_code}", retriable=True)
+            raise SttError(
+                code="STT_UNAVAILABLE",
+                message=f"Deepgram 5xx: {resp.status_code}",
+                retriable=True,
+            )
         if resp.status_code >= 400:
             raise SttError(
                 code="STT_BAD_REQUEST",
@@ -90,13 +110,19 @@ class DeepgramSttProvider:
         try:
             data = resp.json()
         except ValueError as exc:
-            raise SttError(code="STT_BAD_RESPONSE", message=f"JSON 파싱 실패: {exc}", retriable=True) from exc
+            raise SttError(
+                code="STT_BAD_RESPONSE",
+                message=f"JSON 파싱 실패: {exc}",
+                retriable=True,
+            ) from exc
 
         metadata = data.get("metadata") or {}
         results = data.get("results") or {}
         channels = results.get("channels") or []
         if not channels:
-            return TranscriptionResult(text="", language=self._language, duration_sec=None, segments=[])
+            return TranscriptionResult(
+                text="", language=self._language, duration_sec=None, segments=[]
+            )
 
         alt = (channels[0].get("alternatives") or [{}])[0]
         text = str(alt.get("transcript") or "")
