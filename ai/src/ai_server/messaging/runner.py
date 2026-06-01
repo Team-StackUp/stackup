@@ -153,6 +153,7 @@ class MessagingRuntime:
             publisher=self._publisher,
             idempotency=self._idempotency,
             callback_routing_key=settings.ai_callback_routing_questions,
+            initial_pool_size=settings.questions_initial_pool_size,
         )
 
         # 꼬리질문 생성 (US-19)

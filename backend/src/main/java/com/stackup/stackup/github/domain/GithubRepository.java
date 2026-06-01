@@ -113,4 +113,8 @@ public class GithubRepository extends BaseSoftDeleteEntity {
     public void markFailed() {
         this.status = RepositoryStatus.FAILED;
     }
+
+    public void markDeleted() {
+        this.deleted = true;
+    }
 }

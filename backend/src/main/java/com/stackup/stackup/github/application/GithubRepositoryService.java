@@ -5,6 +5,7 @@ import com.stackup.stackup.common.exception.DomainException;
 import com.stackup.stackup.github.application.dto.CandidateRepositoryResult;
 import com.stackup.stackup.github.application.dto.GithubRepositoryResult;
 import com.stackup.stackup.github.application.dto.RegisterRepositoryCommand;
+import com.stackup.stackup.github.application.event.RepositoryDeletedEvent;
 import com.stackup.stackup.github.application.event.RepositoryRegisteredEvent;
 import com.stackup.stackup.github.domain.GithubRepository;
 import com.stackup.stackup.github.domain.GithubRepositoryRepository;
@@ -80,7 +81,9 @@ public class GithubRepositoryService {
     @Transactional
     public void delete(Long userId, Long repositoryId) {
         GithubRepository repo = loadOwned(userId, repositoryId);
-        repositoryRepository.delete(repo);
+        repo.markDeleted();
+        // 분석 결과 cascade — document 도메인 listener 가 RepositoryDeletedEvent 수신해 AnalyzedDocument soft delete.
+        events.publishEvent(new RepositoryDeletedEvent(userId, repositoryId));
     }
 
     // US-08: GitHub 메타 재동기화. 등록된 레포의 default_branch / name / url 등을 최신화.

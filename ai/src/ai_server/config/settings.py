@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     ai_callback_routing_feedback: str = "callback.feedback"
     ai_callback_routing_voice: str = "callback.voice"
     feedback_rag_top_k: int = 5
+    # 질문 풀 초기 크기. Core 의 applyPool 이 questions[0] 만 INSERT 하므로 1 로 고정해 토큰 낭비 차단.
+    # 후속 작업에서 풀 저장 도입 시 늘리기 (예: 5).
+    questions_initial_pool_size: int = 1
 
     # STT (음성 답변). "auto" 면 deepgram > openai_whisper > mock 순으로 키 보유 여부에 따라 자동 선택.
     stt_provider: Literal["auto", "mock", "openai_whisper", "deepgram"] = "auto"
