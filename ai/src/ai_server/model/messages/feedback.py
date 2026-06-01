@@ -4,6 +4,8 @@ from pydantic import BaseModel, Field
 
 from ai_server.model._config import camel_config
 
+InterviewMode = Literal["PERSONALITY", "TECHNICAL", "INTEGRATED"]
+
 
 class FeedbackMessageItem(BaseModel):
     """세션 시퀀스 한 줄 (Core 가 통째로 동봉)."""
@@ -21,7 +23,7 @@ class GenerateFeedbackRequest(BaseModel):
     model_config = camel_config()
 
     session_id: int
-    interview_type: Literal["PERSONALITY", "TECHNICAL", "LIVE_CODING", "INTEGRATED"]
+    mode: InterviewMode
     job_category: Literal["FRONTEND", "BACKEND", "INFRA", "DBA"]
     total_question_count: int | None = None
     end_reason: Literal["USER_REQUEST", "MAX_QUESTIONS_REACHED"] | None = None

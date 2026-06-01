@@ -73,7 +73,7 @@ async def test_consumer_generates_questions_and_publishes_callback():
     body = _envelope(
         {
             "sessionId": 99,
-            "interviewType": "TECHNICAL",
+            "mode": "TECHNICAL",
             "jobCategory": "BACKEND",
             "documents": [
                 {
@@ -92,7 +92,7 @@ async def test_consumer_generates_questions_and_publishes_callback():
     generator.generate.assert_awaited_once()
     call = generator.generate.await_args
     assert call.kwargs["job_category"] == "BACKEND"
-    assert call.kwargs["interview_type"] == "TECHNICAL"
+    assert call.kwargs["mode"] == "TECHNICAL"
     # envelope.max_questions(=5) 무시하고 initial_pool_size(default 1) 로 강제. Core 가 첫 질문만 사용.
     assert call.kwargs["max_questions"] == 1
     assert "Java" in call.kwargs["context"]
@@ -126,7 +126,7 @@ async def test_consumer_skips_when_message_id_already_seen():
     body = _envelope(
         {
             "sessionId": 99,
-            "interviewType": "TECHNICAL",
+            "mode": "TECHNICAL",
             "jobCategory": "BACKEND",
             "documents": [],
             "maxQuestions": 3,

@@ -62,7 +62,7 @@ class FollowupConsumer:
 
             result = await self._generator.generate(
                 job_category=req.job_category,
-                interview_type=req.interview_type,
+                mode=req.mode,
                 previous_question=req.previous_question,
                 answer_text=req.answer_text,
             )

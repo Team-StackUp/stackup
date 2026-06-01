@@ -4,6 +4,8 @@ from pydantic import BaseModel, Field
 
 from ai_server.model._config import camel_config
 
+InterviewMode = Literal["PERSONALITY", "TECHNICAL", "INTEGRATED"]
+
 
 class AnalyzeVoiceRequest(BaseModel):
     """Core 가 음성 답변 업로드 commit 후 발행."""
@@ -15,7 +17,7 @@ class AnalyzeVoiceRequest(BaseModel):
     audio_s3_key: str
     content_type: str
     previous_question_text: str | None = None
-    interview_type: Literal["PERSONALITY", "TECHNICAL", "LIVE_CODING", "INTEGRATED"]
+    mode: InterviewMode
     job_category: Literal["FRONTEND", "BACKEND", "INFRA", "DBA"]
 
 

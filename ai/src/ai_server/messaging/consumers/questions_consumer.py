@@ -71,7 +71,7 @@ class QuestionsConsumer:
             context_text = _build_context(req.documents)
             pool = await self._generator.generate(
                 job_category=req.job_category,
-                interview_type=req.interview_type,
+                mode=req.mode,
                 max_questions=effective_pool_size,
                 context=context_text,
             )

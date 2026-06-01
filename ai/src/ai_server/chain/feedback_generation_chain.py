@@ -28,7 +28,7 @@ class FeedbackGenerator(Protocol):
         self,
         *,
         job_category: str,
-        interview_type: str,
+        mode: str,
         total_question_count: int | None,
         end_reason: str | None,
         transcript: str,
@@ -44,7 +44,7 @@ class LlmFeedbackGenerator:
         self,
         *,
         job_category: str,
-        interview_type: str,
+        mode: str,
         total_question_count: int | None,
         end_reason: str | None,
         transcript: str,
@@ -53,7 +53,7 @@ class LlmFeedbackGenerator:
         result = await self._chain.ainvoke(
             {
                 "job_category": job_category,
-                "interview_type": interview_type,
+                "mode": mode,
                 "total_question_count": total_question_count or 0,
                 "end_reason": end_reason or "USER_REQUEST",
                 "transcript": transcript,
