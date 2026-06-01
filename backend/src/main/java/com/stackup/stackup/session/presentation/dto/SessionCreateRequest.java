@@ -1,7 +1,6 @@
 package com.stackup.stackup.session.presentation.dto;
 
 import com.stackup.stackup.session.application.dto.SessionCreateCommand;
-import com.stackup.stackup.session.domain.InterviewType;
 import com.stackup.stackup.session.domain.JobCategory;
 import com.stackup.stackup.session.domain.SessionMode;
 import jakarta.validation.constraints.Max;
@@ -13,9 +12,8 @@ import java.util.List;
 public record SessionCreateRequest(
     @Size(max = 200) String title,
     @Size(max = 4000) String memo,
-    // mode: 현재 시연 범위에선 ONLINE 만 유효. 미입력 시 default 적용 (Sprint 4 에서 정식 분기).
-    SessionMode mode,
-    @NotNull InterviewType interviewType,
+    // mode: TECHNICAL/PERSONALITY/INTEGRATED 중 하나를 선택한다.
+    @NotNull SessionMode mode,
     @NotNull JobCategory jobCategory,
     // 첫 질문 + 꼬리질문 최소 1쌍 보장을 위해 하한 2. applyFollowup 자동 종료 흐름 결합.
     @Min(2) @Max(30) Integer maxQuestions,
@@ -27,8 +25,7 @@ public record SessionCreateRequest(
         return new SessionCreateCommand(
             title,
             memo,
-            mode == null ? SessionMode.ONLINE : mode,
-            interviewType,
+            mode,
             jobCategory,
             maxQuestions,
             maxDurationMinutes,

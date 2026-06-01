@@ -8,7 +8,7 @@ public record AnalyzeVoicePayload(
     String audioS3Key,
     String contentType,
     String previousQuestionText,            // STT 정확도 향상용 hint (optional)
-    String interviewType,
+    String mode,
     String jobCategory
 ) {
 }

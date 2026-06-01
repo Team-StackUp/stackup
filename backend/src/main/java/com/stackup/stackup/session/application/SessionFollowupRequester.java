@@ -45,7 +45,7 @@ public class SessionFollowupRequester {
             answer.getId(),
             parent.getContent(),
             answer.getContent(),
-            session.getInterviewType(),
+            session.getMode(),
             session.getJobCategory()
         );
         publisher.publishToAi(

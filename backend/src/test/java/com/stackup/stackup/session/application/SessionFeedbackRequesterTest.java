@@ -16,7 +16,6 @@ import com.stackup.stackup.session.domain.InterviewMessage;
 import com.stackup.stackup.session.domain.InterviewMessageRepository;
 import com.stackup.stackup.session.domain.InterviewSession;
 import com.stackup.stackup.session.domain.InterviewSessionRepository;
-import com.stackup.stackup.session.domain.InterviewType;
 import com.stackup.stackup.session.domain.JobCategory;
 import com.stackup.stackup.session.domain.SessionContextRepository;
 import com.stackup.stackup.session.domain.SessionFeedbackRepository;
@@ -75,8 +74,7 @@ class SessionFeedbackRequesterTest {
     private InterviewSession sessionFixture(Long id) {
         User user = User.createGithubUser(1L, "u", null, null, "t");
         ReflectionTestUtils.setField(user, "id", 1L);
-        InterviewSession s = InterviewSession.create(user, "t", null, SessionMode.ONLINE,
-            InterviewType.TECHNICAL, JobCategory.BACKEND, 5, 30);
+        InterviewSession s = InterviewSession.create(user, "t", null, SessionMode.TECHNICAL, JobCategory.BACKEND, 5, 30);
         ReflectionTestUtils.setField(s, "id", id);
         return s;
     }

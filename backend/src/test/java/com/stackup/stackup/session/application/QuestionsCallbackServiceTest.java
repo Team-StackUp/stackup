@@ -18,7 +18,6 @@ import com.stackup.stackup.session.domain.InterviewMessage;
 import com.stackup.stackup.session.domain.InterviewMessageRepository;
 import com.stackup.stackup.session.domain.InterviewSession;
 import com.stackup.stackup.session.domain.InterviewSessionRepository;
-import com.stackup.stackup.session.domain.InterviewType;
 import com.stackup.stackup.session.domain.JobCategory;
 import com.stackup.stackup.session.domain.SessionMode;
 import com.stackup.stackup.session.domain.SessionStatus;
@@ -46,7 +45,7 @@ class QuestionsCallbackServiceTest {
     void apply_poolInsertsFirstQuestionAndPushesSse() {
         InterviewSession session = sessionFixture(11L, SessionStatus.READY);
         QuestionsCallbackEnvelope env = poolEnvelope(11L, List.of(
-            new GeneratedQuestion("INTRO", "자기소개"),
+            new GeneratedQuestion("INTRO", "Introduce yourself"),
             new GeneratedQuestion("TECH", "JPA?")
         ));
         when(processedMessageRepository.existsById("m-1")).thenReturn(false);
@@ -68,10 +67,10 @@ class QuestionsCallbackServiceTest {
     @Test
     void apply_followupAutoEndsSessionAtMaxQuestions() {
         InterviewSession session = sessionFixture(11L, SessionStatus.IN_PROGRESS);
-        // maxQuestions=5 ; total=4 → followup INSERT 시 5 도달 → 자동 종료
+        // maxQuestions=5; total=4, then one follow-up reaches the limit.
         ReflectionTestUtils.setField(session, "totalQuestionCount", 4);
 
-        QuestionsCallbackEnvelope env = followupEnvelope(11L, 200L, "꼬리?");
+        QuestionsCallbackEnvelope env = followupEnvelope(11L, 200L, "Follow-up?");
         when(processedMessageRepository.existsById("m-2")).thenReturn(false);
         when(sessionRepository.findById(11L)).thenReturn(Optional.of(session));
         when(messageRepository.findById(200L)).thenReturn(Optional.of(parentMessageFixture(session)));
@@ -117,8 +116,7 @@ class QuestionsCallbackServiceTest {
         User user = User.createGithubUser(1L, "u", null, null, "t");
         ReflectionTestUtils.setField(user, "id", 1L);
         InterviewSession s = InterviewSession.create(
-            user, "t", null, SessionMode.ONLINE,
-            InterviewType.TECHNICAL, JobCategory.BACKEND, 5, 30
+            user, "t", null, SessionMode.TECHNICAL, JobCategory.BACKEND, 5, 30
         );
         ReflectionTestUtils.setField(s, "id", id);
         if (status == SessionStatus.IN_PROGRESS || status == SessionStatus.COMPLETED) {

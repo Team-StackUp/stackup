@@ -50,7 +50,7 @@ public class SessionQuestionsRequester {
         List<DocumentContext> documents = buildDocumentContexts(event.contextDocumentIds());
         GenerateQuestionsPayload payload = new GenerateQuestionsPayload(
             event.sessionId(),
-            event.interviewType(),
+            event.mode(),
             event.jobCategory(),
             documents,
             event.maxQuestions()

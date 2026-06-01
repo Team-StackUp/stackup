@@ -35,7 +35,7 @@ public class SessionController {
     @Operation(
         operationId = "createSession",
         summary = "세션 생성 (US-13/14)",
-        description = "mode/interviewType/jobCategory 필수. contextDocumentIds 로 분석 문서 N개 연결 (US-14). 분석 미완료 문서는 422."
+        description = "mode/jobCategory 필수. contextDocumentIds 로 분석 문서 N개 연결 (US-14). 분석 미완료 문서는 422."
     )
     @ApiResponses({
         @ApiResponse(responseCode = "201", description = "세션 생성 완료"),

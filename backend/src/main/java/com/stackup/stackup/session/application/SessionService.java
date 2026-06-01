@@ -44,7 +44,6 @@ public class SessionService {
             command.title(),
             command.memo(),
             command.mode(),
-            command.interviewType(),
             command.jobCategory(),
             command.maxQuestions(),
             command.maxDurationMinutes()
@@ -56,7 +55,7 @@ public class SessionService {
         events.publishEvent(new SessionCreatedEvent(
             userId,
             session.getId(),
-            session.getInterviewType(),
+            session.getMode(),
             session.getJobCategory(),
             session.getMaxQuestions(),
             linkedIds

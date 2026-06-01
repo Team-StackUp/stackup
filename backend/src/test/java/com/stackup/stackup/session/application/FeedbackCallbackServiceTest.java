@@ -14,7 +14,6 @@ import com.stackup.stackup.session.application.dto.FeedbackCallbackEnvelope;
 import com.stackup.stackup.session.application.dto.FeedbackCallbackPayload;
 import com.stackup.stackup.session.domain.InterviewSession;
 import com.stackup.stackup.session.domain.InterviewSessionRepository;
-import com.stackup.stackup.session.domain.InterviewType;
 import com.stackup.stackup.session.domain.JobCategory;
 import com.stackup.stackup.session.domain.SessionFeedback;
 import com.stackup.stackup.session.domain.SessionFeedbackRepository;
@@ -44,7 +43,7 @@ class FeedbackCallbackServiceTest {
         InterviewSession session = sessionFixture(50L);
         FeedbackCallbackEnvelope env = envelope(50L, "fb-1",
             new FeedbackCallbackPayload(50L, 85.0, 80.0, 90.0, 75.0,
-                "강점 요약", "약점 요약", List.of("Spring", "JPA"), null));
+                "strength summary", "weakness summary", List.of("Spring", "JPA"), null));
 
         when(processedMessageRepository.existsById("fb-1")).thenReturn(false);
         when(feedbackRepository.existsBySession_Id(50L)).thenReturn(false);
@@ -96,8 +95,7 @@ class FeedbackCallbackServiceTest {
     private InterviewSession sessionFixture(Long id) {
         User user = User.createGithubUser(1L, "u", null, null, "t");
         ReflectionTestUtils.setField(user, "id", 1L);
-        InterviewSession s = InterviewSession.create(user, "t", null, SessionMode.ONLINE,
-            InterviewType.TECHNICAL, JobCategory.BACKEND, 5, 30);
+        InterviewSession s = InterviewSession.create(user, "t", null, SessionMode.TECHNICAL, JobCategory.BACKEND, 5, 30);
         ReflectionTestUtils.setField(s, "id", id);
         return s;
     }

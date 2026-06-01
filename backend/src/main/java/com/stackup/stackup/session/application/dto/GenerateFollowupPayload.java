@@ -1,7 +1,7 @@
 package com.stackup.stackup.session.application.dto;
 
-import com.stackup.stackup.session.domain.InterviewType;
 import com.stackup.stackup.session.domain.JobCategory;
+import com.stackup.stackup.session.domain.SessionMode;
 
 public record GenerateFollowupPayload(
     Long sessionId,
@@ -9,7 +9,7 @@ public record GenerateFollowupPayload(
     Long answerMessageId,
     String previousQuestion,
     String answerText,
-    InterviewType interviewType,
+    SessionMode mode,
     JobCategory jobCategory
 ) {
 }
