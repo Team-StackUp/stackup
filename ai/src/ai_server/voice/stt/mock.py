@@ -13,6 +13,10 @@ class MockSttProvider:
     def __init__(self, *, default_text: str = "(mock transcript)") -> None:
         self._default_text = default_text
 
+    @property
+    def model_name(self) -> str | None:
+        return "mock-stt"
+
     async def transcribe(
         self,
         *,

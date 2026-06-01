@@ -194,6 +194,7 @@ class MessagingRuntime:
             idempotency=self._idempotency,
             callback_routing_key=settings.ai_callback_routing_voice,
             filler_pattern=settings.voice_filler_pattern,
+            core_client=core_client,
         )
 
         self._consumers: list[tuple[AbstractRobustQueue, str]] = []

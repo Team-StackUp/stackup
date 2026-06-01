@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import asyncio
+import time
+
 import structlog
 from aio_pika.abc import AbstractIncomingMessage
 
+from ai_server.core.client import CoreClient
 from ai_server.messaging.idempotency import LruIdempotencyStore
 from ai_server.messaging.publisher import CallbackPublisher
 from ai_server.model.envelope import Envelope
@@ -37,6 +41,7 @@ class VoiceConsumer:
         idempotency: LruIdempotencyStore,
         callback_routing_key: str,
         filler_pattern: str,
+        core_client: CoreClient | None = None,
     ) -> None:
         self._stt = stt
         self._storage = storage
@@ -44,13 +49,20 @@ class VoiceConsumer:
         self._idempotency = idempotency
         self._callback_routing_key = callback_routing_key
         self._filler_pattern = filler_pattern
+        self._core_client = core_client
 
     async def handle(self, message: AbstractIncomingMessage) -> None:
         async with message.process(requeue=False):
             try:
-                envelope = Envelope[AnalyzeVoiceRequest].model_validate_json(message.body)
+                envelope = Envelope[AnalyzeVoiceRequest].model_validate_json(
+                    message.body
+                )
             except Exception as exc:
-                log.error("voice.parse.failed", error=str(exc), delivery_tag=message.delivery_tag)
+                log.error(
+                    "voice.parse.failed",
+                    error=str(exc),
+                    delivery_tag=message.delivery_tag,
+                )
                 raise
 
             if self._idempotency.is_seen_then_mark(envelope.message_id):
@@ -74,13 +86,29 @@ class VoiceConsumer:
                 await self._publish_failed(envelope, req, code="AUDIO_FETCH_FAILED")
                 return
 
+            started = None
             try:
+                started = time.perf_counter()
                 result = await self._stt.transcribe(
                     audio_bytes=audio_bytes,
                     content_type=req.content_type,
                     hint=req.previous_question_text,
                 )
+                self._record_stt_log(
+                    req,
+                    envelope,
+                    latency_ms=_elapsed_ms(started),
+                    status="SUCCESS",
+                    error_message=None,
+                )
             except SttError as exc:
+                self._record_stt_log(
+                    req,
+                    envelope,
+                    latency_ms=_elapsed_ms(started),
+                    status="FAILED",
+                    error_message=exc.message,
+                )
                 log.error(
                     "voice.stt.failed",
                     error=str(exc),
@@ -90,7 +118,16 @@ class VoiceConsumer:
                 await self._publish_failed(envelope, req, code=exc.code)
                 return
             except Exception as exc:
-                log.error("voice.stt.unexpected", error=str(exc), session_id=req.session_id)
+                self._record_stt_log(
+                    req,
+                    envelope,
+                    latency_ms=_elapsed_ms(started),
+                    status="FAILED",
+                    error_message=str(exc),
+                )
+                log.error(
+                    "voice.stt.unexpected", error=str(exc), session_id=req.session_id
+                )
                 await self._publish_failed(envelope, req, code="TRANSCRIPTION_FAILED")
                 return
 
@@ -123,7 +160,9 @@ class VoiceConsumer:
                 trace_id=envelope.trace_id,
             )
 
-    async def _publish_failed(self, envelope, req: AnalyzeVoiceRequest, *, code: str) -> None:
+    async def _publish_failed(
+        self, envelope, req: AnalyzeVoiceRequest, *, code: str
+    ) -> None:
         payload = VoiceCallbackPayload(
             session_id=req.session_id,
             interview_message_id=req.message_id,
@@ -142,3 +181,48 @@ class VoiceConsumer:
             correlation_id=envelope.message_id,
             context=envelope.context,
         )
+
+    def _record_stt_log(
+        self,
+        req: AnalyzeVoiceRequest,
+        envelope,
+        *,
+        latency_ms: int | None,
+        status: str,
+        error_message: str | None,
+    ) -> None:
+        if self._core_client is None:
+            return
+
+        async def _do() -> None:
+            try:
+                await self._core_client.record_ai_log(
+                    request_type="stt.transcribe",
+                    model_name=_provider_model_name(self._stt),
+                    input_tokens=None,
+                    output_tokens=None,
+                    latency_ms=latency_ms,
+                    status=status,
+                    user_id=envelope.context.user_id,
+                    session_id=req.session_id,
+                    error_message=(error_message[:1000] if error_message else None),
+                )
+            except Exception as exc:
+                log.warn(
+                    "voice.ai_log.failed", error=str(exc), session_id=req.session_id
+                )
+
+        asyncio.create_task(_do())
+
+
+def _elapsed_ms(started: float | None) -> int | None:
+    if started is None:
+        return None
+    return int((time.perf_counter() - started) * 1000)
+
+
+def _provider_model_name(provider) -> str | None:
+    value = getattr(provider, "model_name", None)
+    if isinstance(value, str):
+        return value
+    return None

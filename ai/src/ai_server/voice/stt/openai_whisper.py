@@ -38,6 +38,10 @@ class OpenAiWhisperSttProvider:
         self._timeout_sec = timeout_sec
         self._client = client
 
+    @property
+    def model_name(self) -> str | None:
+        return self._model
+
     async def transcribe(
         self,
         *,
@@ -60,17 +64,33 @@ class OpenAiWhisperSttProvider:
 
         try:
             if self._client is not None:
-                resp = await self._client.post(url, headers=headers, files=files, data=data)
+                resp = await self._client.post(
+                    url, headers=headers, files=files, data=data
+                )
             else:
                 async with httpx.AsyncClient(timeout=self._timeout_sec) as client:
-                    resp = await client.post(url, headers=headers, files=files, data=data)
+                    resp = await client.post(
+                        url, headers=headers, files=files, data=data
+                    )
         except httpx.HTTPError as exc:
-            raise SttError(code="STT_UNAVAILABLE", message=f"OpenAI 호출 실패: {exc}", retriable=True) from exc
+            raise SttError(
+                code="STT_UNAVAILABLE",
+                message=f"OpenAI 호출 실패: {exc}",
+                retriable=True,
+            ) from exc
 
         if resp.status_code in (401, 403):
-            raise SttError(code="STT_AUTH_FAILED", message=f"OpenAI 인증 실패: {resp.status_code}", retriable=False)
+            raise SttError(
+                code="STT_AUTH_FAILED",
+                message=f"OpenAI 인증 실패: {resp.status_code}",
+                retriable=False,
+            )
         if resp.status_code >= 500:
-            raise SttError(code="STT_UNAVAILABLE", message=f"OpenAI 5xx: {resp.status_code}", retriable=True)
+            raise SttError(
+                code="STT_UNAVAILABLE",
+                message=f"OpenAI 5xx: {resp.status_code}",
+                retriable=True,
+            )
         if resp.status_code >= 400:
             raise SttError(
                 code="STT_BAD_REQUEST",
@@ -81,7 +101,11 @@ class OpenAiWhisperSttProvider:
         try:
             data_resp = resp.json()
         except ValueError as exc:
-            raise SttError(code="STT_BAD_RESPONSE", message=f"JSON 파싱 실패: {exc}", retriable=True) from exc
+            raise SttError(
+                code="STT_BAD_RESPONSE",
+                message=f"JSON 파싱 실패: {exc}",
+                retriable=True,
+            ) from exc
 
         segments = []
         for seg in data_resp.get("segments") or []:
@@ -90,13 +114,17 @@ class OpenAiWhisperSttProvider:
                     start_sec=float(seg.get("start", 0.0)),
                     end_sec=float(seg.get("end", 0.0)),
                     text=str(seg.get("text", "")),
-                    avg_logprob=(float(seg["avg_logprob"]) if "avg_logprob" in seg else None),
+                    avg_logprob=(
+                        float(seg["avg_logprob"]) if "avg_logprob" in seg else None
+                    ),
                 )
             )
         return TranscriptionResult(
             text=str(data_resp.get("text", "")),
             language=data_resp.get("language"),
-            duration_sec=(float(data_resp["duration"]) if "duration" in data_resp else None),
+            duration_sec=(
+                float(data_resp["duration"]) if "duration" in data_resp else None
+            ),
             segments=segments,
         )
 

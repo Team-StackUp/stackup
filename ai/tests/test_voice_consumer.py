@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -63,9 +64,12 @@ def _stt_ok():
             language="ko",
             duration_sec=30.0,
             segments=[
-                TranscriptionSegment(start_sec=0.0, end_sec=30.0,
-                                     text="ACID는 원자성 일관성 격리성 영속성 입니다",
-                                     avg_logprob=-0.3)
+                TranscriptionSegment(
+                    start_sec=0.0,
+                    end_sec=30.0,
+                    text="ACID는 원자성 일관성 격리성 영속성 입니다",
+                    avg_logprob=-0.3,
+                )
             ],
         )
     )
@@ -124,6 +128,65 @@ async def test_consumer_publishes_error_code_on_stt_failure():
     payload: VoiceCallbackPayload = publisher.publish.await_args.kwargs["payload"]
     assert payload.error_code == "STT_AUTH_FAILED"
     assert payload.transcript is None
+
+
+@pytest.mark.asyncio
+async def test_consumer_records_stt_ai_log_success_fire_and_forget():
+    stt = _stt_ok()
+    stt.model_name = "whisper-test"
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+    core_client = MagicMock()
+    core_client.record_ai_log = AsyncMock(side_effect=RuntimeError("core down"))
+
+    consumer = VoiceConsumer(
+        stt=stt,
+        storage=_storage_ok(),
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.voice",
+        filler_pattern=r"(?:??|??|洹?|??)",
+        core_client=core_client,
+    )
+    await consumer.handle(_StubMessage(_envelope()))
+    await asyncio.sleep(0)
+
+    publisher.publish.assert_awaited_once()
+    core_client.record_ai_log.assert_awaited_once()
+    kwargs = core_client.record_ai_log.await_args.kwargs
+    assert kwargs["request_type"] == "stt.transcribe"
+    assert kwargs["model_name"] == "whisper-test"
+    assert kwargs["status"] == "SUCCESS"
+    assert kwargs["session_id"] == 99
+
+
+@pytest.mark.asyncio
+async def test_consumer_records_stt_ai_log_failure_without_blocking_callback():
+    stt = MagicMock()
+    stt.model_name = "whisper-test"
+    stt.transcribe = AsyncMock(
+        side_effect=SttError(code="STT_AUTH_FAILED", message="bad key", retriable=False)
+    )
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+    core_client = MagicMock()
+    core_client.record_ai_log = AsyncMock()
+
+    consumer = VoiceConsumer(
+        stt=stt,
+        storage=_storage_ok(),
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.voice",
+        filler_pattern=r"(?:??|??|洹?|??)",
+        core_client=core_client,
+    )
+    await consumer.handle(_StubMessage(_envelope()))
+    await asyncio.sleep(0)
+
+    payload: VoiceCallbackPayload = publisher.publish.await_args.kwargs["payload"]
+    assert payload.error_code == "STT_AUTH_FAILED"
+    assert core_client.record_ai_log.await_args.kwargs["status"] == "FAILED"
 
 
 @pytest.mark.asyncio
