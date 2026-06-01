@@ -96,16 +96,19 @@ public class VoiceAnswerUploadService {
     }
 
     private void validate(VoiceAnswerUploadCommand cmd) {
-        if (cmd.size() <= 0 || cmd.size() > MAX_BYTES) {
-            throw new DomainException(ApiErrorCode.RESUME_FILE_TOO_LARGE);
+        if (cmd == null || cmd.content() == null || cmd.size() <= 0) {
+            throw new DomainException(ApiErrorCode.VOICE_EMPTY_FILE);
         }
-        if (cmd.contentType() == null || !ALLOWED_CONTENT_TYPES.contains(cmd.contentType().toLowerCase())) {
+        if (cmd.size() > MAX_BYTES) {
+            throw new DomainException(ApiErrorCode.VOICE_FILE_TOO_LARGE);
+        }
+        if (cmd.contentType() == null || !ALLOWED_CONTENT_TYPES.contains(cmd.contentType().trim().toLowerCase())) {
             throw new DomainException(ApiErrorCode.VOICE_INVALID_CONTENT_TYPE);
         }
     }
 
     private static String buildKey(Long sessionId, Long messageId, String contentType) {
-        String ext = switch (contentType.toLowerCase()) {
+        String ext = switch (contentType.trim().toLowerCase()) {
             case "audio/webm" -> "webm";
             case "audio/ogg" -> "ogg";
             case "audio/mpeg" -> "mp3";
