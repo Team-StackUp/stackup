@@ -38,6 +38,7 @@ public class SessionQuestionsRequester {
     private static final JsonMapper JSON = JsonMapper.builder().build();
     private static final TypeReference<List<String>> TECH_STACK_TYPE = new TypeReference<>() {};
     private static final long MAX_MARKDOWN_BYTES = 200_000L;  // envelope 비대화 방지
+    private static final int INITIAL_QUESTION_COUNT = 1;
 
     private final RabbitMessagePublisher publisher;
     private final RabbitMqProperties properties;
@@ -53,6 +54,7 @@ public class SessionQuestionsRequester {
             event.mode(),
             event.jobCategory(),
             documents,
+            INITIAL_QUESTION_COUNT,
             event.maxQuestions()
         );
         publisher.publishToAi(
@@ -60,8 +62,8 @@ public class SessionQuestionsRequester {
             payload,
             new MessageContext(event.userId(), event.sessionId(), null, null)
         );
-        log.info("generate.questions published. sessionId={}, doc_count={}, max={}",
-            event.sessionId(), documents.size(), event.maxQuestions());
+        log.info("generate.questions published. sessionId={}, doc_count={}, initial_count={}, max={}",
+            event.sessionId(), documents.size(), INITIAL_QUESTION_COUNT, event.maxQuestions());
     }
 
     private List<DocumentContext> buildDocumentContexts(List<Long> documentIds) {
