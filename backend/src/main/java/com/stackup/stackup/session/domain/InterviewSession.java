@@ -50,10 +50,6 @@ public class InterviewSession extends BaseSoftDeleteEntity {
     @Enumerated(EnumType.STRING)
     private SessionMode mode;
 
-    @Column(name = "interview_type", nullable = false, length = 30)
-    @Enumerated(EnumType.STRING)
-    private InterviewType interviewType;
-
     @Column(name = "job_category", nullable = false, length = 30)
     @Enumerated(EnumType.STRING)
     private JobCategory jobCategory;
@@ -78,13 +74,12 @@ public class InterviewSession extends BaseSoftDeleteEntity {
     private Instant endedAt;
 
     private InterviewSession(User user, String title, String memo, SessionMode mode,
-                             InterviewType interviewType, JobCategory jobCategory,
+                             JobCategory jobCategory,
                              Integer maxQuestions, Integer maxDurationMinutes) {
         this.user = user;
         this.title = title;
         this.memo = memo;
         this.mode = mode;
-        this.interviewType = interviewType;
         this.jobCategory = jobCategory;
         if (maxQuestions != null) {
             this.maxQuestions = maxQuestions;
@@ -95,15 +90,15 @@ public class InterviewSession extends BaseSoftDeleteEntity {
     }
 
     public static InterviewSession create(User user, String title, String memo, SessionMode mode,
-                                          InterviewType interviewType, JobCategory jobCategory,
+                                          JobCategory jobCategory,
                                           Integer maxQuestions, Integer maxDurationMinutes) {
         if (user == null) {
             throw new IllegalArgumentException("user must not be null");
         }
-        if (mode == null || interviewType == null || jobCategory == null) {
-            throw new IllegalArgumentException("mode/interviewType/jobCategory must not be null");
+        if (mode == null || jobCategory == null) {
+            throw new IllegalArgumentException("mode/jobCategory must not be null");
         }
-        return new InterviewSession(user, title, memo, mode, interviewType, jobCategory, maxQuestions, maxDurationMinutes);
+        return new InterviewSession(user, title, memo, mode, jobCategory, maxQuestions, maxDurationMinutes);
     }
 
     public void start() {

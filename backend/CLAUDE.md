@@ -137,9 +137,8 @@ QueryDSL Q-class 생성 위치: `build/generated/sources/annotationProcessor/...
 public record SessionCreateRequest(
     String title,
     @NotNull SessionMode mode,
-    @NotNull InterviewType interviewType,
     @NotNull JobCategory jobCategory,
-    @Min(1) @Max(30) Integer maxQuestions,
+    @Min(2) @Max(30) Integer maxQuestions,
     @Min(5) @Max(180) Integer maxDurationMinutes,
     List<Long> contextDocumentIds
 ) {}

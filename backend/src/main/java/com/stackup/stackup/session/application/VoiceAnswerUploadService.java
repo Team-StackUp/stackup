@@ -82,7 +82,7 @@ public class VoiceAnswerUploadService {
             key,
             cmd.contentType(),
             latest.getContent(),
-            session.getInterviewType().name(),
+            session.getMode().name(),
             session.getJobCategory().name()
         );
         publisher.publishToAi(

@@ -1,7 +1,6 @@
 package com.stackup.stackup.session.presentation.dto;
 
 import com.stackup.stackup.session.application.dto.SessionResult;
-import com.stackup.stackup.session.domain.InterviewType;
 import com.stackup.stackup.session.domain.JobCategory;
 import com.stackup.stackup.session.domain.SessionMode;
 import com.stackup.stackup.session.domain.SessionStatus;
@@ -13,7 +12,6 @@ public record SessionResponse(
     String title,
     String memo,
     SessionMode mode,
-    InterviewType interviewType,
     JobCategory jobCategory,
     Integer maxQuestions,
     Integer maxDurationMinutes,
@@ -31,7 +29,6 @@ public record SessionResponse(
             r.title(),
             r.memo(),
             r.mode(),
-            r.interviewType(),
             r.jobCategory(),
             r.maxQuestions(),
             r.maxDurationMinutes(),

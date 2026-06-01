@@ -16,7 +16,6 @@ import com.stackup.stackup.session.application.dto.SessionResult;
 import com.stackup.stackup.session.application.event.SessionCreatedEvent;
 import com.stackup.stackup.session.domain.InterviewSession;
 import com.stackup.stackup.session.domain.InterviewSessionRepository;
-import com.stackup.stackup.session.domain.InterviewType;
 import com.stackup.stackup.session.domain.JobCategory;
 import com.stackup.stackup.session.domain.SessionContext;
 import com.stackup.stackup.session.domain.SessionContextRepository;
@@ -55,7 +54,7 @@ class SessionServiceTest {
         });
 
         SessionResult result = service.create(1L, new SessionCreateCommand(
-            "title", "memo", SessionMode.ONLINE, InterviewType.TECHNICAL, JobCategory.BACKEND,
+            "title", "memo", SessionMode.TECHNICAL, JobCategory.BACKEND,
             5, 30, List.of()
         ));
 
@@ -77,7 +76,7 @@ class SessionServiceTest {
         when(documentRepository.findActiveByIdAndOwner(7L, 1L)).thenReturn(Optional.of(doc));
 
         SessionResult result = service.create(1L, new SessionCreateCommand(
-            "t", null, SessionMode.ONLINE, InterviewType.TECHNICAL, JobCategory.BACKEND,
+            "t", null, SessionMode.TECHNICAL, JobCategory.BACKEND,
             5, 30, List.of(7L, 7L)
         ));
 
@@ -94,7 +93,7 @@ class SessionServiceTest {
         when(documentRepository.findActiveByIdAndOwner(8L, 1L)).thenReturn(Optional.of(pending));
 
         assertThatThrownBy(() -> service.create(1L, new SessionCreateCommand(
-            "t", null, SessionMode.ONLINE, InterviewType.TECHNICAL, JobCategory.BACKEND,
+            "t", null, SessionMode.TECHNICAL, JobCategory.BACKEND,
             5, 30, List.of(8L)
         ))).isInstanceOf(DomainException.class);
     }
@@ -141,8 +140,7 @@ class SessionServiceTest {
 
     private InterviewSession sessionFixture(Long id) {
         InterviewSession s = InterviewSession.create(
-            userFixture(1L), "t", null, SessionMode.ONLINE,
-            InterviewType.TECHNICAL, JobCategory.BACKEND, 5, 30
+            userFixture(1L), "t", null, SessionMode.TECHNICAL, JobCategory.BACKEND, 5, 30
         );
         ReflectionTestUtils.setField(s, "id", id);
         return s;

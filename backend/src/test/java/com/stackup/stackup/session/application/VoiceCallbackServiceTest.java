@@ -16,7 +16,6 @@ import com.stackup.stackup.session.application.event.AnswerSubmittedEvent;
 import com.stackup.stackup.session.domain.InterviewMessage;
 import com.stackup.stackup.session.domain.InterviewMessageRepository;
 import com.stackup.stackup.session.domain.InterviewSession;
-import com.stackup.stackup.session.domain.InterviewType;
 import com.stackup.stackup.session.domain.JobCategory;
 import com.stackup.stackup.session.domain.MessageStatus;
 import com.stackup.stackup.session.domain.MessageVoiceAnalysis;
@@ -52,8 +51,8 @@ class VoiceCallbackServiceTest {
         ReflectionTestUtils.setField(voiceMsg, "id", 200L);
 
         VoiceCallbackPayload payload = new VoiceCallbackPayload(50L, 200L,
-            "원자성 일관성 격리성 영속성",
-            120.0, 1.5, Map.of("음", 2), 0.85, null);
+            "Transactions provide isolation and consistency",
+            120.0, 1.5, Map.of("um", 2), 0.85, null);
         VoiceCallbackEnvelope env = new VoiceCallbackEnvelope("vc-1", "callback.voice", "1", "t",
             null, "ai", payload, null);
 
@@ -63,7 +62,7 @@ class VoiceCallbackServiceTest {
 
         service.apply(env);
 
-        assertThat(voiceMsg.getContent()).isEqualTo("원자성 일관성 격리성 영속성");
+        assertThat(voiceMsg.getContent()).isEqualTo("Transactions provide isolation and consistency");
         assertThat(voiceMsg.getStatus()).isEqualTo(MessageStatus.COMPLETED);
         verify(voiceAnalysisRepository).save(any(MessageVoiceAnalysis.class));
         verify(events).publishEvent(any(AnswerSubmittedEvent.class));
@@ -107,8 +106,7 @@ class VoiceCallbackServiceTest {
     private InterviewSession sessionFixture(Long id) {
         User user = User.createGithubUser(1L, "u", null, null, "t");
         ReflectionTestUtils.setField(user, "id", 1L);
-        InterviewSession s = InterviewSession.create(user, "t", null, SessionMode.ONLINE,
-            InterviewType.TECHNICAL, JobCategory.BACKEND, 5, 30);
+        InterviewSession s = InterviewSession.create(user, "t", null, SessionMode.TECHNICAL, JobCategory.BACKEND, 5, 30);
         ReflectionTestUtils.setField(s, "id", id);
         return s;
     }

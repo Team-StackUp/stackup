@@ -140,9 +140,7 @@ CREATE TABLE interview_sessions (
     user_id               BIGINT       NOT NULL REFERENCES users(id),
     title                 VARCHAR(200),
     memo                  TEXT,
-    mode                  VARCHAR(20)  NOT NULL CHECK (mode IN ('ONLINE','OFFLINE')),
-    interview_type        VARCHAR(30)  NOT NULL
-                          CHECK (interview_type IN ('PERSONALITY','TECHNICAL','LIVE_CODING','INTEGRATED')),
+    mode                  VARCHAR(20)  NOT NULL CHECK (mode IN ('TECHNICAL','PERSONALITY','INTEGRATED')),
     job_category          VARCHAR(30)  NOT NULL
                           CHECK (job_category IN ('FRONTEND','BACKEND','INFRA','DBA')),
     max_questions         INT          NOT NULL DEFAULT 10,
@@ -247,8 +245,7 @@ CREATE TABLE ai_request_logs (
 > 코드(Enum)와 DB(VARCHAR + CHECK)는 **반드시 1:1 매칭**. Enum 추가 시 Flyway 마이그레이션도 같이 작성.
 
 ```
-mode             : ONLINE | OFFLINE
-interview_type   : PERSONALITY | TECHNICAL | LIVE_CODING | INTEGRATED
+mode             : TECHNICAL | PERSONALITY | INTEGRATED
 job_category     : FRONTEND | BACKEND | INFRA | DBA
 session_status   : READY | IN_PROGRESS | INTERRUPTED | COMPLETED | CANCELLED
 message_role     : INTERVIEWER | INTERVIEWEE | SYSTEM

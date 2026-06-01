@@ -45,7 +45,7 @@ def _envelope() -> bytes:
             "answerMessageId": 502,
             "previousQuestion": "결제 outbox 어떻게 구현?",
             "answerText": "RabbitMQ로 보냈습니다.",
-            "interviewType": "TECHNICAL",
+            "mode": "TECHNICAL",
             "jobCategory": "BACKEND",
         },
         "context": {"userId": 42, "sessionId": 99},

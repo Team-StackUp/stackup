@@ -14,7 +14,6 @@ import com.stackup.stackup.session.domain.InterviewMessage;
 import com.stackup.stackup.session.domain.InterviewMessageRepository;
 import com.stackup.stackup.session.domain.InterviewSession;
 import com.stackup.stackup.session.domain.InterviewSessionRepository;
-import com.stackup.stackup.session.domain.InterviewType;
 import com.stackup.stackup.session.domain.JobCategory;
 import com.stackup.stackup.session.domain.SessionMode;
 import com.stackup.stackup.user.domain.User;
@@ -89,8 +88,7 @@ class InterviewMessageServiceTest {
         User user = User.createGithubUser(1L, "u", null, null, "t");
         ReflectionTestUtils.setField(user, "id", 1L);
         InterviewSession s = InterviewSession.create(
-            user, "t", null, SessionMode.ONLINE,
-            InterviewType.TECHNICAL, JobCategory.BACKEND, 5, 30
+            user, "t", null, SessionMode.TECHNICAL, JobCategory.BACKEND, 5, 30
         );
         ReflectionTestUtils.setField(s, "id", id);
         s.start();

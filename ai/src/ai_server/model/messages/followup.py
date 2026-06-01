@@ -4,6 +4,8 @@ from pydantic import BaseModel
 
 from ai_server.model._config import camel_config
 
+InterviewMode = Literal["PERSONALITY", "TECHNICAL", "INTEGRATED"]
+
 
 class GenerateFollowupRequest(BaseModel):
     """Core 가 답변 commit 후 발행."""
@@ -14,7 +16,7 @@ class GenerateFollowupRequest(BaseModel):
     answer_message_id: int                  # 답변 메시지 ID
     previous_question: str
     answer_text: str
-    interview_type: Literal["PERSONALITY", "TECHNICAL", "LIVE_CODING", "INTEGRATED"]
+    mode: InterviewMode
     job_category: Literal["FRONTEND", "BACKEND", "INFRA", "DBA"]
 
 
