@@ -72,7 +72,8 @@ public record RabbitMqProperties(
 			@NotBlank String coreCallbackAnalysis,
 			@NotBlank String coreCallbackQuestions,
 			@NotBlank String coreCallbackFeedback,
-			@NotBlank String coreCallbackVoice
+			@NotBlank String coreCallbackVoice,
+			@NotBlank String coreCallbackTts
 		) {
 		}
 	}
@@ -88,6 +89,7 @@ public record RabbitMqProperties(
 		@NotBlank String callbackQuestions,
 		@NotBlank String callbackFeedback,
 		@NotBlank String callbackVoice,
+		@NotBlank String callbackTts,
 		@NotBlank String realtimeSessionNotify,
 		@NotBlank String realtimeUserNotify,
 		@NotBlank String realtimeDocumentNotify

@@ -100,6 +100,7 @@ app:
           core-callback-questions: core.callback.questions
           core-callback-feedback: core.callback.feedback
           core-callback-voice: core.callback.voice
+          core-callback-tts: core.callback.tts
       routing-keys:
         analyze-resume: analyze.resume
         analyze-repository: analyze.repository
@@ -111,6 +112,7 @@ app:
         callback-questions: callback.questions
         callback-feedback: callback.feedback
         callback-voice: callback.voice
+        callback-tts: callback.tts
         realtime-session-notify: realtime.session.notify
         realtime-user-notify: realtime.user.notify
         realtime-document-notify: realtime.document.notify
