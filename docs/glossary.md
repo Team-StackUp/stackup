@@ -35,12 +35,11 @@
 | 한국어 | 영어 | 비고 |
 |--------|------|------|
 | 면접 세션 | `interview session` | DB: `interview_sessions` |
-| 면접 모드 | `mode` | `ONLINE` / `OFFLINE` |
-| 면접 유형 | `interview type` | `PERSONALITY` / `TECHNICAL` / `LIVE_CODING` / `INTEGRATED` |
+| 면접 모드 | `mode` | `TECHNICAL` / `PERSONALITY` / `INTEGRATED` |
+| 면접 유형 | `interview type` | legacy 용어. MVP에서는 `mode`로 통합 |
 | 직군 | `job category` | `FRONTEND` / `BACKEND` / `INFRA` / `DBA` |
 | 인성 면접 | `personality interview` | `PERSONALITY` |
 | 기술 면접 | `technical interview` | `TECHNICAL` |
-| 라이브 코딩 | `live coding` | `LIVE_CODING` |
 | 종합 면접 | `integrated interview` | `INTEGRATED` |
 | 질문 풀 | `question pool` | 세션 시작 시 Pro 모델이 생성 |
 | 꼬리질문 | `follow-up question` | Flash + RAG로 실시간 생성 |

@@ -98,13 +98,12 @@ StackUp 도메인 한정 컬러. `features/*/ui` 의 도메인 뱃지에서만 �
 | Infra    | `#b06c70` (rose) | `bg-job-infra` |
 | DBA      | `#b89c5e` (gold) | `bg-job-dba` |
 
-#### 면접 유형
+#### 면접 모드
 
-| 유형 | Hex | Tailwind |
+| 모드 | Hex | Tailwind |
 |---|---|---|
 | Personality | `#6f9978` (mint)  | `bg-type-personality` |
 | Technical   | `#6c8294` (slate) | `bg-type-technical` |
-| Live Coding | `#a87385` (mauve) | `bg-type-live-coding` |
 | Integrated  | `#8a7896` (violet)| `bg-type-integrated` |
 
 ### 2.6 타이포그래피 — 폰트 패밀리 (3-Tier)
@@ -270,7 +269,7 @@ Tailwind v4 기본 `--spacing: 0.25rem` (= 4px) 사용. `p-4` = `16px`.
 
 ### Domain-aware (`features/*/ui` 에 위치)
 - `JobCategoryBadge` — 직군별 컬러 (§2.5).
-- `InterviewTypeBadge` — 면접 유형별 컬러 (§2.5).
+- `InterviewModeBadge` — 면접 모드별 컬러 (§2.5).
 - `SessionStatusBadge` — 상태 매핑 (§4).
 - `AnalysisStateIndicator` — `QUEUED / PROCESSING / COMPLETED / FAILED` 4단계 progress.
 
