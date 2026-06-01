@@ -1,25 +1,35 @@
 package com.stackup.stackup.session.application.dto;
 
 import java.util.List;
+import java.util.Map;
 
-// generate.feedback envelope payload (Core → AI).
-// AI 가 세션 메시지/평가/분석문서 컨텍스트 기반으로 종합 피드백을 생성.
+// generate.feedback envelope payload (Core -> AI).
+// AI generates comprehensive feedback from session messages, evaluation context, documents, and voice summary.
 public record GenerateFeedbackPayload(
     Long sessionId,
     String mode,
     String jobCategory,
     Integer totalQuestionCount,
-    String endReason,                              // USER_REQUEST | MAX_QUESTIONS_REACHED
+    String endReason,
     List<MessageItem> messages,
-    List<Long> contextDocumentIds                  // pgvector RAG 검색용 — AI 가 search API 호출 시 사용
+    List<Long> contextDocumentIds,
+    VoiceAnalysisSummary voiceAnalysisSummary
 ) {
 
     public record MessageItem(
         Long id,
         Integer sequenceNumber,
-        String role,                               // INTERVIEWER | INTERVIEWEE
+        String role,
         String content,
         Long parentMessageId
+    ) {
+    }
+
+    public record VoiceAnalysisSummary(
+        int analyzedMessageCount,
+        Double averageSpeakingRateWpm,
+        Double totalSilenceDurationSec,
+        Map<String, Integer> fillerWordCounts
     ) {
     }
 }

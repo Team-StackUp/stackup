@@ -1,19 +1,25 @@
 package com.stackup.stackup.session.application;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stackup.stackup.common.config.properties.RabbitMqProperties;
 import com.stackup.stackup.common.messaging.MessageContext;
 import com.stackup.stackup.common.messaging.RabbitMessagePublisher;
 import com.stackup.stackup.session.application.dto.GenerateFeedbackPayload;
 import com.stackup.stackup.session.application.dto.GenerateFeedbackPayload.MessageItem;
+import com.stackup.stackup.session.application.dto.GenerateFeedbackPayload.VoiceAnalysisSummary;
 import com.stackup.stackup.session.application.event.SessionEndedEvent;
 import com.stackup.stackup.session.domain.InterviewMessage;
 import com.stackup.stackup.session.domain.InterviewMessageRepository;
 import com.stackup.stackup.session.domain.InterviewSession;
 import com.stackup.stackup.session.domain.InterviewSessionRepository;
-import com.stackup.stackup.session.domain.SessionContext;
+import com.stackup.stackup.session.domain.MessageVoiceAnalysis;
+import com.stackup.stackup.session.domain.MessageVoiceAnalysisRepository;
 import com.stackup.stackup.session.domain.SessionContextRepository;
 import com.stackup.stackup.session.domain.SessionFeedbackRepository;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,6 +36,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
 public class SessionFeedbackRequester {
 
     private static final Logger log = LoggerFactory.getLogger(SessionFeedbackRequester.class);
+    private static final ObjectMapper JSON = new ObjectMapper();
 
     private final RabbitMessagePublisher publisher;
     private final RabbitMqProperties properties;
@@ -37,6 +44,7 @@ public class SessionFeedbackRequester {
     private final InterviewMessageRepository messageRepository;
     private final SessionContextRepository contextRepository;
     private final SessionFeedbackRepository feedbackRepository;
+    private final MessageVoiceAnalysisRepository voiceAnalysisRepository;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -66,7 +74,8 @@ public class SessionFeedbackRequester {
             session.getTotalQuestionCount(),
             event.reason(),
             messages,
-            contextDocumentIds
+            contextDocumentIds,
+            summarizeVoiceAnalysis(event.sessionId())
         );
 
         publisher.publishToAi(
@@ -87,5 +96,57 @@ public class SessionFeedbackRequester {
             m.getContent(),
             parentId
         );
+    }
+
+    private VoiceAnalysisSummary summarizeVoiceAnalysis(Long sessionId) {
+        List<MessageVoiceAnalysis> analyses = voiceAnalysisRepository.findByMessage_Session_Id(sessionId);
+        if (analyses.isEmpty()) {
+            return new VoiceAnalysisSummary(0, null, 0.0, Map.of());
+        }
+
+        double speakingRateTotal = 0.0;
+        int speakingRateCount = 0;
+        double silenceTotal = 0.0;
+        Map<String, Integer> fillerCounts = new TreeMap<>();
+
+        for (MessageVoiceAnalysis analysis : analyses) {
+            if (analysis.getSpeakingRateWpm() != null) {
+                speakingRateTotal += analysis.getSpeakingRateWpm();
+                speakingRateCount++;
+            }
+            if (analysis.getSilenceDurationSec() != null) {
+                silenceTotal += analysis.getSilenceDurationSec();
+            }
+            mergeFillerCounts(fillerCounts, analysis.getFillerWordCounts());
+        }
+
+        Double averageSpeakingRate = speakingRateCount == 0 ? null : speakingRateTotal / speakingRateCount;
+        return new VoiceAnalysisSummary(analyses.size(), averageSpeakingRate, silenceTotal, fillerCounts);
+    }
+
+    private void mergeFillerCounts(Map<String, Integer> totals, String fillerWordCountsJson) {
+        if (fillerWordCountsJson == null || fillerWordCountsJson.isBlank()) {
+            return;
+        }
+        try {
+            JsonNode root = JSON.readTree(fillerWordCountsJson);
+            if (!root.isObject()) {
+                return;
+            }
+            root.fields().forEachRemaining(entry -> {
+                String word = entry.getKey();
+                JsonNode value = entry.getValue();
+                if (word == null || word.isBlank() || !value.canConvertToInt()) {
+                    return;
+                }
+                int count = value.asInt();
+                if (count <= 0) {
+                    return;
+                }
+                totals.merge(word, count, Integer::sum);
+            });
+        } catch (Exception e) {
+            log.warn("filler_word_counts json parse failed. raw={}", fillerWordCountsJson, e);
+        }
     }
 }
