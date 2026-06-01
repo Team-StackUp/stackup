@@ -135,6 +135,10 @@ services:
       REALTIME_LISTEN_ADDR: :38020
       REALTIME_RABBITMQ_URL: amqp://${RABBITMQ_USER:-stackup}:${RABBITMQ_PASSWORD:-stackup}@rabbitmq:38050/
       REALTIME_LOG_LEVEL: ${REALTIME_LOG_LEVEL:-info}
+      REALTIME_JWT_SECRET: ${JWT_SECRET:-}
+      REALTIME_CORE_BASE_URL: ${CORE_INTERNAL_BASE_URL:-http://backend:38010}
+      REALTIME_INTERNAL_API_KEY: ${CORE_INTERNAL_API_KEY:-local-development-internal-api-key}
+      REALTIME_WS_WRITE_TIMEOUT: ${REALTIME_WS_WRITE_TIMEOUT:-10s}
     depends_on:
       rabbitmq:
         condition: service_healthy

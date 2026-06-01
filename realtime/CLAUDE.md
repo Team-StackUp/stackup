@@ -151,9 +151,9 @@ Heartbeat (proxy keepalive):
 | `REALTIME_SSE_PING_INTERVAL` | `30s` | SSE heartbeat 주기 |
 | `REALTIME_SSE_SLOW_CONSUMER_TIMEOUT` | `5s` | 구독자 send timeout |
 | `REALTIME_SSE_BUFFER_SIZE` | `16` | 구독자별 채널 버퍼 |
-| `REALTIME_JWT_SECRET` | `change-me-in-prod` | Stream 토큰 검증 키 소스 (Core `JWT_SECRET`과 동일값. 키 = `SHA-256(secret)`, HS256) |
-| `REALTIME_CORE_BASE_URL` | `http://localhost:38080` | Core 내부 REST base URL (WS 답변 프록시) |
-| `REALTIME_INTERNAL_API_KEY` | `change-me-internal-key` | Core 내부 API 호출용 `X-Internal-API-Key` |
+| `REALTIME_JWT_SECRET` | `local-development-jwt-secret-must-be-replaced` | **Core `JWT_SECRET`과 동일값 필수** (Stream 토큰 검증 키. 키=`SHA-256(secret)`, HS256). 불일치 시 SSE/WS 인증 401 |
+| `REALTIME_CORE_BASE_URL` | `http://localhost:38010` | Core 내부 REST base URL (WS 답변 프록시). compose 내부는 `http://backend:38010` |
+| `REALTIME_INTERNAL_API_KEY` | `local-development-internal-api-key` | **Core `CORE_INTERNAL_API_KEY`와 동일값 필수** (AI 서버도 공유). `X-Internal-API-Key` |
 | `REALTIME_WS_WRITE_TIMEOUT` | `10s` | WS write 타임아웃 |
 
 ---
