@@ -2,7 +2,7 @@ package com.stackup.stackup.session.application;
 
 import com.stackup.stackup.common.messaging.domain.ProcessedMessage;
 import com.stackup.stackup.common.messaging.domain.ProcessedMessageRepository;
-import com.stackup.stackup.common.sse.SseEventPublisher;
+import com.stackup.stackup.common.messaging.RealtimeNotifyEvent;
 import com.stackup.stackup.common.sse.SseEventType;
 import com.stackup.stackup.session.application.dto.TtsCallbackEnvelope;
 import com.stackup.stackup.session.application.dto.TtsCallbackPayload;
@@ -13,6 +13,7 @@ import com.stackup.stackup.session.domain.TtsStatus;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,7 +28,7 @@ public class TtsCallbackService {
 
     private final InterviewMessageRepository messageRepository;
     private final ProcessedMessageRepository processedMessageRepository;
-    private final SseEventPublisher sseEventPublisher;
+    private final ApplicationEventPublisher events;
 
     @Transactional
     public void apply(TtsCallbackEnvelope envelope) {
@@ -94,9 +95,9 @@ public class TtsCallbackService {
             message.getTtsDurationSec(),
             errorCode
         );
-        sseEventPublisher.publishToSession(sessionId, SseEventType.SESSION_MESSAGE, notice);
-        sseEventPublisher.publishToUser(message.getSession().getUser().getId(),
-            SseEventType.SESSION_MESSAGE, notice);
+        events.publishEvent(RealtimeNotifyEvent.session(sessionId, SseEventType.SESSION_MESSAGE, notice));
+        events.publishEvent(RealtimeNotifyEvent.user(message.getSession().getUser().getId(),
+            SseEventType.SESSION_MESSAGE, notice));
     }
 
     private boolean isProcessed(String messageId) {

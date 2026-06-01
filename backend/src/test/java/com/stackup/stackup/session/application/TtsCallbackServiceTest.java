@@ -2,15 +2,15 @@ package com.stackup.stackup.session.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.stackup.stackup.common.messaging.RealtimeNotifyEvent;
 import com.stackup.stackup.common.messaging.domain.ProcessedMessage;
 import com.stackup.stackup.common.messaging.domain.ProcessedMessageRepository;
-import com.stackup.stackup.common.sse.SseEventPublisher;
 import com.stackup.stackup.common.sse.SseEventType;
 import com.stackup.stackup.session.application.dto.MessageResult;
 import com.stackup.stackup.session.application.dto.TtsCallbackEnvelope;
@@ -28,6 +28,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -37,7 +38,7 @@ class TtsCallbackServiceTest {
 
     @Mock InterviewMessageRepository messageRepository;
     @Mock ProcessedMessageRepository processedMessageRepository;
-    @Mock SseEventPublisher sseEventPublisher;
+    @Mock ApplicationEventPublisher events;
     @InjectMocks TtsCallbackService service;
 
     @Test
@@ -57,8 +58,10 @@ class TtsCallbackServiceTest {
         assertThat(question.getTtsAudioPath()).isEqualTo("interview/tts/50/100.mp3");
         assertThat(question.getTtsDurationSec()).isEqualTo(2.4);
         assertThat(MessageResult.of(question).ttsAudioPath()).isEqualTo("interview/tts/50/100.mp3");
-        verify(sseEventPublisher).publishToSession(eq(50L), eq(SseEventType.SESSION_MESSAGE), any());
-        verify(sseEventPublisher).publishToUser(eq(1L), eq(SseEventType.SESSION_MESSAGE), any());
+        verify(events).publishEvent(argThat(event ->
+            isNotice(event, RealtimeNotifyEvent.Channel.SESSION, 50L)));
+        verify(events).publishEvent(argThat(event ->
+            isNotice(event, RealtimeNotifyEvent.Channel.USER, 1L)));
         verify(processedMessageRepository).save(any(ProcessedMessage.class));
     }
 
@@ -78,7 +81,8 @@ class TtsCallbackServiceTest {
         assertThat(question.getTtsStatus()).isEqualTo(TtsStatus.FAILED);
         assertThat(question.getContent()).isEqualTo("Q?");
         assertThat(question.getTtsAudioPath()).isNull();
-        verify(sseEventPublisher).publishToSession(eq(50L), eq(SseEventType.SESSION_MESSAGE), any());
+        verify(events).publishEvent(argThat(event ->
+            isNotice(event, RealtimeNotifyEvent.Channel.SESSION, 50L)));
         verify(processedMessageRepository).save(any(ProcessedMessage.class));
     }
 
@@ -96,7 +100,7 @@ class TtsCallbackServiceTest {
         )));
 
         assertThat(answer.getTtsStatus()).isEqualTo(TtsStatus.NOT_REQUESTED);
-        verify(sseEventPublisher, never()).publishToSession(any(), any(), any());
+        verify(events, never()).publishEvent(any());
         verify(processedMessageRepository).save(any(ProcessedMessage.class));
     }
 
@@ -130,6 +134,15 @@ class TtsCallbackServiceTest {
     private TtsCallbackEnvelope envelope(String messageId, TtsCallbackPayload payload) {
         return new TtsCallbackEnvelope(messageId, "callback.tts", "1", "t",
             null, "ai", payload, null);
+    }
+
+    private boolean isNotice(Object event, RealtimeNotifyEvent.Channel channel, Long id) {
+        if (!(event instanceof RealtimeNotifyEvent realtimeNotifyEvent)) {
+            return false;
+        }
+        return realtimeNotifyEvent.channel() == channel
+            && realtimeNotifyEvent.id().equals(id)
+            && realtimeNotifyEvent.type() == SseEventType.SESSION_MESSAGE;
     }
 
     private InterviewSession sessionFixture(Long id) {
