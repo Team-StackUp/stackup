@@ -24,11 +24,15 @@ class QuestionsConsumer:
         publisher: CallbackPublisher,
         idempotency: LruIdempotencyStore,
         callback_routing_key: str,
+        initial_pool_size: int = 1,
     ) -> None:
         self._generator = generator
         self._publisher = publisher
         self._idempotency = idempotency
         self._callback_routing_key = callback_routing_key
+        # Core 의 QuestionsCallbackService.applyPool 은 questions[0] 만 INSERT 하고 나머지는 폐기.
+        # 토큰 낭비를 줄이기 위해 envelope.max_questions 대신 풀 크기를 강제. 후속 작업에서 풀 저장 도입 시 늘리기 쉬움.
+        self._initial_pool_size = max(1, initial_pool_size)
 
     async def handle(self, message: AbstractIncomingMessage) -> None:
         async with message.process(requeue=False):
@@ -53,12 +57,14 @@ class QuestionsConsumer:
                 return
 
             req = envelope.payload
+            effective_pool_size = self._initial_pool_size  # envelope.max_questions 무시
             log.info(
                 "questions.generate.start",
                 message_id=envelope.message_id,
                 session_id=req.session_id,
                 doc_count=len(req.documents),
                 max_questions=req.max_questions,
+                pool_size=effective_pool_size,
                 trace_id=envelope.trace_id,
             )
 
@@ -66,7 +72,7 @@ class QuestionsConsumer:
             pool = await self._generator.generate(
                 job_category=req.job_category,
                 interview_type=req.interview_type,
-                max_questions=req.max_questions,
+                max_questions=effective_pool_size,
                 context=context_text,
             )
 

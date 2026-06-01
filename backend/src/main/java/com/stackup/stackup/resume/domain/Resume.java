@@ -80,4 +80,8 @@ public class Resume extends BaseSoftDeleteEntity {
     public void markFailed() {
         this.status = ResumeStatus.FAILED;
     }
+
+    public void markDeleted() {
+        this.deleted = true;
+    }
 }

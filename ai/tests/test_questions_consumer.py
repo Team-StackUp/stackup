@@ -93,7 +93,8 @@ async def test_consumer_generates_questions_and_publishes_callback():
     call = generator.generate.await_args
     assert call.kwargs["job_category"] == "BACKEND"
     assert call.kwargs["interview_type"] == "TECHNICAL"
-    assert call.kwargs["max_questions"] == 5
+    # envelope.max_questions(=5) 무시하고 initial_pool_size(default 1) 로 강제. Core 가 첫 질문만 사용.
+    assert call.kwargs["max_questions"] == 1
     assert "Java" in call.kwargs["context"]
 
     publisher.publish.assert_awaited_once()

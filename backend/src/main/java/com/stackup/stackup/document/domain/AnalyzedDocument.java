@@ -106,4 +106,8 @@ public class AnalyzedDocument extends BaseSoftDeleteEntity {
         this.errorCode = errorCode;
         this.errorMessage = errorMessage;
     }
+
+    public void markDeleted() {
+        this.deleted = true;
+    }
 }

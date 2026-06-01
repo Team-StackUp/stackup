@@ -5,6 +5,7 @@ import com.stackup.stackup.common.exception.DomainException;
 import com.stackup.stackup.common.storage.ObjectStorageClient;
 import com.stackup.stackup.resume.application.dto.ResumeResult;
 import com.stackup.stackup.resume.application.dto.ResumeUploadCommand;
+import com.stackup.stackup.resume.application.event.ResumeDeletedEvent;
 import com.stackup.stackup.resume.application.event.ResumeUploadedEvent;
 import com.stackup.stackup.resume.domain.Resume;
 import com.stackup.stackup.resume.domain.ResumeFileType;
@@ -65,8 +66,10 @@ public class ResumeService {
     @Transactional
     public void delete(Long userId, Long resumeId) {
         Resume resume = loadOwned(userId, resumeId);
-        // 객체(S3 본문) 삭제는 후속 정책(보존 vs 즉시 cleanup)에 따라. 우선 row soft delete.
-        resumeRepository.delete(resume);
+        resume.markDeleted();
+        // 분석 결과 cascade — document 도메인 listener 가 ResumeDeletedEvent 받아 AnalyzedDocument soft delete.
+        // 직접 의존 회피 (ArchUnit 도메인 cycle 방지).
+        events.publishEvent(new ResumeDeletedEvent(userId, resumeId));
     }
 
     private Resume loadOwned(Long userId, Long resumeId) {
