@@ -21,6 +21,9 @@ class TranscriptionResult:
 
 
 class SttProvider(Protocol):
+    @property
+    def model_name(self) -> str | None: ...
+
     async def transcribe(
         self,
         *,
