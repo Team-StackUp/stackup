@@ -9,15 +9,15 @@
 ## 1. 엔드포인트
 
 ```
-GET /api/stream/user/{userId}
-GET /api/stream/sessions/{sessionId}
-GET /api/stream/documents/{documentId}
+GET /realtime/stream/me                  # user 채널 (userId는 토큰에서 추출)
+GET /realtime/stream/sessions/{sessionId}
+GET /realtime/stream/documents/{documentId}
 ```
 
-- 제공 주체: Phase 1은 **Core Server**가 직접 제공. RealTime Server 분리 시점에 그쪽으로 이전.
-- 인증: `Authorization: Bearer ...` 또는 쿼리 토큰 (`?access_token=...` — EventSource 한계 우회용)
-- 권한: 본인 리소스만 구독 가능
-- 연결 유지: 30초마다 `:keep-alive` 코멘트 송신
+- 제공 주체: **RealTime Server (Go)**. Core는 직접 SSE를 서빙하지 않고 `stackup.realtime` exchange로 발행만 한다 (RealTime이 consume → fan-out).
+- 인증: 쿼리 토큰 `?access_token=<stream-token>` (EventSource 헤더 한계 우회). 토큰은 Core `POST /api/auth/stream-token` 발급, RealTime `internal/auth`가 HS256(키=`SHA-256(JWT_SECRET)`)로 검증.
+- 권한: 현재는 토큰 진위(userId)만 검증. 리소스 소유권(이 user가 이 session/document의 주인인가)은 후속 플랜에서 리소스 스코프 토큰 또는 Core 조회로 강화.
+- 연결 유지: 약 30초마다 `: ping <unix-ts>` heartbeat 코멘트 송신 (`REALTIME_SSE_PING_INTERVAL`).
 
 ---
 

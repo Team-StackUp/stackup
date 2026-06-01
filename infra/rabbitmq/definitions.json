@@ -341,6 +341,20 @@
       "routing_key": "realtime.session.*"
     },
     {
+      "source": "stackup.realtime",
+      "vhost": "/",
+      "destination": "q.realtime.session.notify",
+      "destination_type": "queue",
+      "routing_key": "realtime.user.*"
+    },
+    {
+      "source": "stackup.realtime",
+      "vhost": "/",
+      "destination": "q.realtime.session.notify",
+      "destination_type": "queue",
+      "routing_key": "realtime.document.*"
+    },
+    {
       "source": "stackup.dlx",
       "vhost": "/",
       "destination": "dlq.ai.analyze.repository",

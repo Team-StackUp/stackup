@@ -88,11 +88,14 @@ config는 cmd, internal/* 모두에서 import 가능
 | ID | Method | Path | 책임 | 상태 |
 |----|--------|------|------|------|
 | - | GET | `/health` | 헬스체크 | 활성 |
-| RT2 | GET | `/realtime/sessions/{id}` | SSE 작업 알림 | 활성 |
-| RT1 | WS | `/realtime/sessions/{id}` | 라이브 면접 메시지 | **미구현** (US-Session-03) |
+| RT2 | GET | `/realtime/stream/me` | user 채널 SSE (분석 상태). userId는 토큰에서 | 활성 |
+| RT2 | GET | `/realtime/stream/documents/{id}` | document 채널 SSE | 활성 |
+| RT2 | GET | `/realtime/stream/sessions/{id}` | session 채널 SSE (feedback.ready 등 비-라이브) | 활성 |
+| RT1 | WS | `/realtime/sessions/{id}` | 라이브 면접 메시지 | **미구현** (후속 플랜) |
 | RT3 | WS | `/realtime/sessions/{id}/audio` | 음성 스트림 | **미구현** (US-Voice-01) |
 
-> RT1과 RT2는 동일 path. Upgrade 헤더 유무로 분기. 본 PR은 SSE만이라 분기 미적용.
+> 모든 `/realtime/stream/*` 는 인증 필요 — `?access_token=<stream-token>` 쿼리로 Core 발급 토큰 검증 (EventSource 헤더 한계 우회). `internal/auth` 미들웨어가 처리.
+> RT1 WS는 동일 prefix에서 Upgrade 헤더로 분기 예정 (후속 플랜).
 
 ---
 
@@ -100,7 +103,9 @@ config는 cmd, internal/* 모두에서 import 가능
 
 | Queue | Bind | Consumer | DLQ |
 |-------|------|----------|-----|
-| `q.realtime.session.notify` | `stackup.realtime` exchange, routing key `realtime.session.*` | RealTime | `dlq.q.realtime.session.notify` (via `stackup.dlx`) |
+| `q.realtime.session.notify` | `stackup.realtime` exchange, routing keys `realtime.session.*` · `realtime.user.*` · `realtime.document.*` | RealTime | `dlq.q.realtime.session.notify` (via `stackup.dlx`) |
+
+> 단일 큐가 세 채널(session/user/document) 라우팅 키를 모두 바인딩한다. 채널 판별은 envelope `messageType`(`realtime.{kind}.notify`) → `bridge.Envelope.Channel()` 가 `context`에서 id를 꺼낸다.
 
 발행자: Core 서버. envelope 스키마는 [`/docs/messaging.md §5`](../docs/messaging.md).
 
@@ -145,6 +150,7 @@ Heartbeat (proxy keepalive):
 | `REALTIME_SSE_PING_INTERVAL` | `30s` | SSE heartbeat 주기 |
 | `REALTIME_SSE_SLOW_CONSUMER_TIMEOUT` | `5s` | 구독자 send timeout |
 | `REALTIME_SSE_BUFFER_SIZE` | `16` | 구독자별 채널 버퍼 |
+| `REALTIME_JWT_SECRET` | `change-me-in-prod` | Stream 토큰 검증 키 소스 (Core `JWT_SECRET`과 동일값. 키 = `SHA-256(secret)`, HS256) |
 
 ---
 
@@ -204,10 +210,11 @@ docker build -t stackup-realtime ./realtime
 ## 15. 현재 상태 (2026-05 기준)
 
 - HTTP 서버 + `/health` 활성
-- SSE `/realtime/sessions/{id}` 활성
-- AMQP `q.realtime.session.notify` consumer 활성, dispatcher → SSE fan-out 동작
-- WebSocket 미구현
-- JWT 인증 미구현 (TODO 주석)
+- 멀티채널 SSE 활성 — `/realtime/stream/{me,documents/{id},sessions/{id}}` (session/user/document)
+- Stream 토큰 인증 활성 — `?access_token=` 검증 (`internal/auth`, Core와 동일 HS256 규약)
+- AMQP `q.realtime.session.notify` consumer 활성 — `messageType` 기반 채널 라우팅 → fan-out
+- WebSocket(RT1 라이브 면접) 미구현 — 후속 플랜
+- 리소스 소유권 검증 미구현 — 현재 토큰 진위(userId)만 검증. 후속 플랜에서 리소스 스코프 토큰 또는 Core 조회로 강화
 - DLQ 활성 — handler 실패 메시지는 `dlq.q.realtime.session.notify` 로 격리
 - Prometheus 노출 미구현
 

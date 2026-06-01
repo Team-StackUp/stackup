@@ -8,7 +8,7 @@ import (
 )
 
 type DispatchResult struct {
-	SessionID int64
+	Channel   session.Channel
 	Delivered int
 	Envelope  Envelope
 }
@@ -28,17 +28,21 @@ func (d *Dispatcher) Dispatch(body []byte) (DispatchResult, error) {
 		return DispatchResult{}, err
 	}
 
-	sid := *env.Context.SessionID
+	channel, err := env.Channel()
+	if err != nil {
+		return DispatchResult{}, err
+	}
+
 	data, _ := json.Marshal(map[string]any{
 		"data":    env.Payload.Data,
 		"traceId": env.TraceID,
 	})
 
-	delivered := d.registry.Dispatch(sid, session.Event{
+	delivered := d.registry.Dispatch(channel, session.Event{
 		ID:   env.MessageID,
 		Type: env.Payload.EventType,
 		Data: data,
 	}, d.slowTimeout)
 
-	return DispatchResult{SessionID: sid, Delivered: delivered, Envelope: env}, nil
+	return DispatchResult{Channel: channel, Delivered: delivered, Envelope: env}, nil
 }
