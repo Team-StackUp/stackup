@@ -21,10 +21,10 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-// callback.questions 처리.
-// POOL: 첫 질문을 interview_messages 에 INSERT + SSE session.message push.
-//       (전체 풀은 first cut 에선 메모리상 처리 — 후속 PR 에서 별도 테이블 또는 컬럼)
-// FOLLOWUP: parent_message_id 매핑하여 INSERT + SSE push (B5 진행 시 활성)
+// callback.questions handling.
+// POOL is kept as the legacy callback kind, but Core treats it as the single
+// initial question result. Extra questions are ignored; Core does not manage a pool.
+// FOLLOWUP inserts a follow-up question and pushes it through SSE.
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -65,7 +65,7 @@ public class QuestionsCallbackService {
         }
 
         if (payload.isPool()) {
-            applyPool(session, payload);
+            applyInitialQuestion(session, payload);
         } else if (payload.isFollowup()) {
             applyFollowup(session, payload);
         } else {
@@ -74,13 +74,17 @@ public class QuestionsCallbackService {
         markProcessed(envelope.messageId());
     }
 
-    private void applyPool(InterviewSession session, QuestionsCallbackPayload payload) {
+    private void applyInitialQuestion(InterviewSession session, QuestionsCallbackPayload payload) {
         List<GeneratedQuestion> questions = payload.questions();
         if (questions == null || questions.isEmpty()) {
-            log.warn("callback.questions POOL with no questions. sessionId={}", session.getId());
+            log.warn("callback.questions initial result with no questions. sessionId={}", session.getId());
             return;
         }
         GeneratedQuestion first = questions.get(0);
+        if (questions.size() > 1) {
+            log.info("callback.questions initial result included extra questions; ignoring extras. sessionId={}, extra={}",
+                session.getId(), questions.size() - 1);
+        }
         InterviewMessage message = messageRepository.save(
             InterviewMessage.interviewer(session, 1, first.question())
         );
@@ -90,10 +94,10 @@ public class QuestionsCallbackService {
         sseEventPublisher.publishToUser(
             session.getUser().getId(),
             SseEventType.SESSION_MESSAGE,
-            new SessionMessageNotice(session.getId(), message.getId(), "QUESTION_POOL_READY")
+            new SessionMessageNotice(session.getId(), message.getId(), "INITIAL_QUESTION_READY")
         );
-        log.info("callback.questions POOL processed. sessionId={}, total={}",
-            session.getId(), questions.size());
+        log.info("callback.questions initial question processed. sessionId={}, ignored_extras={}",
+            session.getId(), Math.max(questions.size() - 1, 0));
     }
 
     private void applyFollowup(InterviewSession session, QuestionsCallbackPayload payload) {
