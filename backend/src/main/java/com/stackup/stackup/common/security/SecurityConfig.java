@@ -30,18 +30,15 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final InternalApiKeyAuthenticationFilter internalApiKeyAuthenticationFilter;
-    private final StreamTokenAuthenticationFilter streamTokenAuthenticationFilter;
     private final CorsProperties corsProperties;
 
     public SecurityConfig(
         JwtAuthenticationFilter jwtAuthenticationFilter,
         InternalApiKeyAuthenticationFilter internalApiKeyAuthenticationFilter,
-        StreamTokenAuthenticationFilter streamTokenAuthenticationFilter,
         CorsProperties corsProperties
     ) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.internalApiKeyAuthenticationFilter = internalApiKeyAuthenticationFilter;
-        this.streamTokenAuthenticationFilter = streamTokenAuthenticationFilter;
         this.corsProperties = corsProperties;
     }
 
@@ -74,7 +71,6 @@ public class SecurityConfig {
                 .anyRequest().permitAll()
             )
             .addFilterBefore(internalApiKeyAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-            .addFilterBefore(streamTokenAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .build();
     }

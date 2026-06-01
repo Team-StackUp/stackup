@@ -4,7 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stackup.stackup.common.messaging.domain.ProcessedMessage;
 import com.stackup.stackup.common.messaging.domain.ProcessedMessageRepository;
-import com.stackup.stackup.common.sse.SseEventPublisher;
+import com.stackup.stackup.common.messaging.RealtimeNotifyEvent;
 import com.stackup.stackup.common.sse.SseEventType;
 import com.stackup.stackup.session.application.dto.VoiceCallbackEnvelope;
 import com.stackup.stackup.session.application.dto.VoiceCallbackPayload;
@@ -36,7 +36,6 @@ public class VoiceCallbackService {
     private final InterviewMessageRepository messageRepository;
     private final MessageVoiceAnalysisRepository voiceAnalysisRepository;
     private final ProcessedMessageRepository processedMessageRepository;
-    private final SseEventPublisher sseEventPublisher;
     private final ApplicationEventPublisher events;
 
     @Transactional
@@ -93,11 +92,11 @@ public class VoiceCallbackService {
             }
         }
 
-        sseEventPublisher.publishToSession(p.sessionId(), SseEventType.SESSION_MESSAGE,
-            new VoiceTranscribedNotice(p.sessionId(), message.getId(), p.transcript()));
-        sseEventPublisher.publishToUser(message.getSession().getUser().getId(),
+        events.publishEvent(RealtimeNotifyEvent.session(p.sessionId(), SseEventType.SESSION_MESSAGE,
+            new VoiceTranscribedNotice(p.sessionId(), message.getId(), p.transcript())));
+        events.publishEvent(RealtimeNotifyEvent.user(message.getSession().getUser().getId(),
             SseEventType.SESSION_MESSAGE,
-            new VoiceTranscribedNotice(p.sessionId(), message.getId(), p.transcript()));
+            new VoiceTranscribedNotice(p.sessionId(), message.getId(), p.transcript())));
 
         // 텍스트 답변과 동일 흐름으로 followup 트리거.
         Long parentId = message.getParentMessage() == null ? null : message.getParentMessage().getId();
@@ -128,9 +127,9 @@ public class VoiceCallbackService {
             errorCode,
             message.getContent()
         );
-        sseEventPublisher.publishToSession(sessionId, SseEventType.SESSION_MESSAGE, notice);
-        sseEventPublisher.publishToUser(message.getSession().getUser().getId(),
-            SseEventType.SESSION_MESSAGE, notice);
+        events.publishEvent(RealtimeNotifyEvent.session(sessionId, SseEventType.SESSION_MESSAGE, notice));
+        events.publishEvent(RealtimeNotifyEvent.user(message.getSession().getUser().getId(),
+            SseEventType.SESSION_MESSAGE, notice));
     }
 
     private String fillerToJson(java.util.Map<String, Integer> map) {

@@ -229,7 +229,9 @@ class VoiceAnswerUploadServiceTest {
                 "callback.questions",
                 "callback.feedback",
                 "callback.voice",
-                "session.notify"
+                "session.notify",
+                "realtime.user.notify",
+                "realtime.document.notify"
             ),
             new RabbitMqProperties.DeadLetter("dlx", "dlq."),
             new RabbitMqProperties.Retry(3, Duration.ofSeconds(1), 2.0, Duration.ofSeconds(10))

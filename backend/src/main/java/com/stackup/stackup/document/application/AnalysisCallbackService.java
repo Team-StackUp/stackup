@@ -4,8 +4,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.stackup.stackup.common.messaging.domain.ProcessedMessage;
 import com.stackup.stackup.common.messaging.domain.ProcessedMessageRepository;
-import com.stackup.stackup.common.sse.SseEventPublisher;
+import com.stackup.stackup.common.messaging.RealtimeNotifyEvent;
 import com.stackup.stackup.common.sse.SseEventType;
+import org.springframework.context.ApplicationEventPublisher;
 import com.stackup.stackup.document.application.dto.AnalysisCallbackEnvelope;
 import com.stackup.stackup.document.application.dto.AnalysisCallbackPayload;
 import com.stackup.stackup.document.domain.AnalyzedDocument;
@@ -32,7 +33,7 @@ public class AnalysisCallbackService {
 
     private final AnalyzedDocumentRepository documentRepository;
     private final ProcessedMessageRepository processedMessageRepository;
-    private final SseEventPublisher sseEventPublisher;
+    private final ApplicationEventPublisher events;
 
     @Transactional
     public void apply(AnalysisCallbackEnvelope envelope) {
@@ -104,11 +105,11 @@ public class AnalysisCallbackService {
 
     private void publishSse(AnalyzedDocument doc, AnalysisCallbackPayload payload) {
         SseEventType type = doc.getRepository() != null ? SseEventType.REPO_STATE : SseEventType.DOC_STATE;
-        sseEventPublisher.publishToDocument(doc.getId(), type, payload);
-        // 프론트가 documentId 를 모르고도 /api/stream/me 로 분석 진행을 받을 수 있게 user 채널에도 push.
+        events.publishEvent(RealtimeNotifyEvent.document(doc.getId(), type, payload));
+        // 프론트가 documentId 를 모르고도 /realtime/stream/me 로 분석 진행을 받을 수 있게 user 채널에도 push.
         Long userId = resolveOwnerUserId(doc);
         if (userId != null) {
-            sseEventPublisher.publishToUser(userId, type, payload);
+            events.publishEvent(RealtimeNotifyEvent.user(userId, type, payload));
         }
     }
 

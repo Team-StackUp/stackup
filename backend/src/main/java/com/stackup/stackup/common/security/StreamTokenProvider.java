@@ -26,6 +26,11 @@ public class StreamTokenProvider {
     private static final String SSE_CONNECT_SCOPE = "SSE_CONNECT";
     private static final String TOKEN_TYPE_CLAIM = "tokenType";
     private static final String STREAM_TOKEN_TYPE = "STREAM";
+    private static final String RESOURCE_TYPE_CLAIM = "resourceType";
+    private static final String RESOURCE_ID_CLAIM = "resourceId";
+
+    public record StreamTokenClaims(Long userId, String resourceType, Long resourceId) {
+    }
 
     private final SseProperties sseProperties;
     private final byte[] secretKey;
@@ -35,18 +40,31 @@ public class StreamTokenProvider {
         this.secretKey = sha256(securityProperties.jwtSecret());
     }
 
-    public String createStreamToken(Long userId) {
+    public String createStreamToken(Long userId, String resourceType, Long resourceId) {
         Instant now = Instant.now();
         JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
             .subject(String.valueOf(userId))
             .claim(USER_ID_CLAIM, userId)
             .claim(TOKEN_TYPE_CLAIM, STREAM_TOKEN_TYPE)
             .claim(SCOPE_CLAIM, SSE_CONNECT_SCOPE)
+            .claim(RESOURCE_TYPE_CLAIM, resourceType)
+            .claim(RESOURCE_ID_CLAIM, resourceId)
             .issueTime(Date.from(now))
             .expirationTime(Date.from(now.plus(sseProperties.streamTokenTtl())))
             .build();
-
         return sign(claimsSet);
+    }
+
+    public StreamTokenClaims parseClaims(String token) {
+        JWTClaimsSet claims = parseAndValidate(token);
+        try {
+            Long userId = claims.getLongClaim(USER_ID_CLAIM);
+            String resourceType = claims.getStringClaim(RESOURCE_TYPE_CLAIM);
+            Long resourceId = claims.getLongClaim(RESOURCE_ID_CLAIM);
+            return new StreamTokenClaims(userId, resourceType, resourceId);
+        } catch (java.text.ParseException exception) {
+            throw invalidToken();
+        }
     }
 
     public boolean validateStreamToken(String token) {

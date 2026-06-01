@@ -77,9 +77,10 @@ config는 cmd, internal/* 모두에서 import 가능
 ## 5. 비책임 (명시적)
 
 - ❌ PostgreSQL 직접 접근 — 데이터가 필요하면 Core `/internal/*` API
-- ❌ JWT 발급 — Core 책임. RealTime은 (도입 시) 서명 검증만
+- ❌ JWT 발급 — Core 책임. RealTime은 Stream 토큰 서명 검증만
 - ❌ 비즈니스 로직 (질문 생성, 분석) — AI 또는 Core
 - ❌ RabbitMQ에 publish — Core를 통해서만 (`architecture.md §4.1`)
+- ❌ PostgreSQL 접근 — WS 답변도 Core 내부 REST(`POST /api/internal/sessions/{id}/messages`)로 프록시. RealTime은 PG·MQ publish 모두 미접근
 
 ---
 
@@ -88,11 +89,14 @@ config는 cmd, internal/* 모두에서 import 가능
 | ID | Method | Path | 책임 | 상태 |
 |----|--------|------|------|------|
 | - | GET | `/health` | 헬스체크 | 활성 |
-| RT2 | GET | `/realtime/sessions/{id}` | SSE 작업 알림 | 활성 |
-| RT1 | WS | `/realtime/sessions/{id}` | 라이브 면접 메시지 | **미구현** (US-Session-03) |
+| RT2 | GET | `/realtime/stream/me` | user 채널 SSE (분석 상태). userId는 토큰에서 | 활성 |
+| RT2 | GET | `/realtime/stream/documents/{id}` | document 채널 SSE | 활성 |
+| RT2 | GET | `/realtime/stream/sessions/{id}` | session 채널 SSE (feedback.ready 등 비-라이브) | 활성 |
+| RT1 | WS | `/realtime/sessions/{id}` | 라이브 텍스트 면접 (서버→클라 push + 클라→서버 답변) | 활성 |
 | RT3 | WS | `/realtime/sessions/{id}/audio` | 음성 스트림 | **미구현** (US-Voice-01) |
 
-> RT1과 RT2는 동일 path. Upgrade 헤더 유무로 분기. 본 PR은 SSE만이라 분기 미적용.
+> 모든 `/realtime/stream/*` (SSE) 및 `/realtime/sessions/{id}` (WS) 는 인증 필요 — `?access_token=<stream-token>` 쿼리로 Core 발급 토큰 검증 (EventSource/WS 헤더 한계 우회). `internal/auth` 미들웨어가 처리.
+> WS는 SSE(`/realtime/stream/*`)와 **다른 path**라 Upgrade 헤더 분기가 필요 없다. WS 핸들러(`coder/websocket`)는 session 채널 fan-out을 그대로 구독(서버→클라)하고, 수신한 답변(`{type:"answer",content,idempotencyKey?}`)을 `internal/core` 클라이언트로 Core 내부 REST(`POST /api/internal/sessions/{id}/messages`)에 프록시한다.
 
 ---
 
@@ -100,7 +104,9 @@ config는 cmd, internal/* 모두에서 import 가능
 
 | Queue | Bind | Consumer | DLQ |
 |-------|------|----------|-----|
-| `q.realtime.session.notify` | `stackup.realtime` exchange, routing key `realtime.session.*` | RealTime | `dlq.q.realtime.session.notify` (via `stackup.dlx`) |
+| `q.realtime.session.notify` | `stackup.realtime` exchange, routing keys `realtime.session.*` · `realtime.user.*` · `realtime.document.*` | RealTime | `dlq.q.realtime.session.notify` (via `stackup.dlx`) |
+
+> 단일 큐가 세 채널(session/user/document) 라우팅 키를 모두 바인딩한다. 채널 판별은 envelope `messageType`(`realtime.{kind}.notify`) → `bridge.Envelope.Channel()` 가 `context`에서 id를 꺼낸다.
 
 발행자: Core 서버. envelope 스키마는 [`/docs/messaging.md §5`](../docs/messaging.md).
 
@@ -145,6 +151,10 @@ Heartbeat (proxy keepalive):
 | `REALTIME_SSE_PING_INTERVAL` | `30s` | SSE heartbeat 주기 |
 | `REALTIME_SSE_SLOW_CONSUMER_TIMEOUT` | `5s` | 구독자 send timeout |
 | `REALTIME_SSE_BUFFER_SIZE` | `16` | 구독자별 채널 버퍼 |
+| `REALTIME_JWT_SECRET` | `change-me-in-prod` | Stream 토큰 검증 키 소스 (Core `JWT_SECRET`과 동일값. 키 = `SHA-256(secret)`, HS256) |
+| `REALTIME_CORE_BASE_URL` | `http://localhost:38080` | Core 내부 REST base URL (WS 답변 프록시) |
+| `REALTIME_INTERNAL_API_KEY` | `change-me-internal-key` | Core 내부 API 호출용 `X-Internal-API-Key` |
+| `REALTIME_WS_WRITE_TIMEOUT` | `10s` | WS write 타임아웃 |
 
 ---
 
@@ -204,10 +214,11 @@ docker build -t stackup-realtime ./realtime
 ## 15. 현재 상태 (2026-05 기준)
 
 - HTTP 서버 + `/health` 활성
-- SSE `/realtime/sessions/{id}` 활성
-- AMQP `q.realtime.session.notify` consumer 활성, dispatcher → SSE fan-out 동작
-- WebSocket 미구현
-- JWT 인증 미구현 (TODO 주석)
+- 멀티채널 SSE 활성 — `/realtime/stream/{me,documents/{id},sessions/{id}}` (session/user/document)
+- Stream 토큰 인증 활성 — `?access_token=` 검증 (`internal/auth`, Core와 동일 HS256 규약)
+- AMQP `q.realtime.session.notify` consumer 활성 — `messageType` 기반 채널 라우팅 → fan-out
+- WebSocket(RT1 라이브 면접) 활성 — `/realtime/sessions/{id}` 서버→클라 push + 클라→서버 답변 프록시(Core 내부 REST)
+- 리소스 소유권 검증 미구현 — 현재 토큰 진위(userId)만 검증. 후속 플랜에서 리소스 스코프 토큰 또는 Core 조회로 강화
 - DLQ 활성 — handler 실패 메시지는 `dlq.q.realtime.session.notify` 로 격리
 - Prometheus 노출 미구현
 

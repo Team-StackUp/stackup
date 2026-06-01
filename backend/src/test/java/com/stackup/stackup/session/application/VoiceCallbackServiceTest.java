@@ -2,13 +2,13 @@ package com.stackup.stackup.session.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.stackup.stackup.common.messaging.RealtimeNotifyEvent;
 import com.stackup.stackup.common.messaging.domain.ProcessedMessageRepository;
-import com.stackup.stackup.common.sse.SseEventPublisher;
 import com.stackup.stackup.common.sse.SseEventType;
 import com.stackup.stackup.session.application.dto.VoiceCallbackEnvelope;
 import com.stackup.stackup.session.application.dto.VoiceCallbackPayload;
@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -38,7 +39,6 @@ class VoiceCallbackServiceTest {
     @Mock InterviewMessageRepository messageRepository;
     @Mock MessageVoiceAnalysisRepository voiceAnalysisRepository;
     @Mock ProcessedMessageRepository processedMessageRepository;
-    @Mock SseEventPublisher sseEventPublisher;
     @Mock ApplicationEventPublisher events;
     @InjectMocks VoiceCallbackService service;
 
@@ -65,8 +65,17 @@ class VoiceCallbackServiceTest {
         assertThat(voiceMsg.getContent()).isEqualTo("Transactions provide isolation and consistency");
         assertThat(voiceMsg.getStatus()).isEqualTo(MessageStatus.COMPLETED);
         verify(voiceAnalysisRepository).save(any(MessageVoiceAnalysis.class));
-        verify(events).publishEvent(any(AnswerSubmittedEvent.class));
-        verify(sseEventPublisher).publishToSession(eq(50L), eq(SseEventType.SESSION_MESSAGE), any());
+        ArgumentCaptor<Object> ev = ArgumentCaptor.forClass(Object.class);
+        verify(events, atLeastOnce()).publishEvent(ev.capture());
+        assertThat(ev.getAllValues()).anySatisfy(e -> {
+            assertThat(e).isInstanceOf(AnswerSubmittedEvent.class);
+        });
+        assertThat(ev.getAllValues()).anySatisfy(e -> {
+            assertThat(e).isInstanceOf(RealtimeNotifyEvent.class);
+            RealtimeNotifyEvent rne = (RealtimeNotifyEvent) e;
+            assertThat(rne.channel()).isEqualTo(RealtimeNotifyEvent.Channel.SESSION);
+            assertThat(rne.type()).isEqualTo(SseEventType.SESSION_MESSAGE);
+        });
     }
 
     @Test
@@ -89,8 +98,15 @@ class VoiceCallbackServiceTest {
         assertThat(voiceMsg.getContent()).isEqualTo(InterviewMessage.VOICE_TRANSCRIPTION_FAILED_TEXT);
         verify(voiceAnalysisRepository, never()).save(any(MessageVoiceAnalysis.class));
         verify(events, never()).publishEvent(any(AnswerSubmittedEvent.class));
-        verify(sseEventPublisher).publishToSession(eq(50L), eq(SseEventType.SESSION_MESSAGE), any());
-        verify(sseEventPublisher).publishToUser(eq(1L), eq(SseEventType.SESSION_MESSAGE), any());
+        ArgumentCaptor<Object> ev = ArgumentCaptor.forClass(Object.class);
+        verify(events, atLeastOnce()).publishEvent(ev.capture());
+        assertThat(ev.getAllValues()).anySatisfy(e -> {
+            assertThat(e).isInstanceOf(RealtimeNotifyEvent.class);
+            RealtimeNotifyEvent rne = (RealtimeNotifyEvent) e;
+            assertThat(rne.channel()).isEqualTo(RealtimeNotifyEvent.Channel.SESSION);
+            assertThat(rne.type()).isEqualTo(SseEventType.SESSION_MESSAGE);
+            assertThat(rne.payload()).isInstanceOf(VoiceCallbackService.VoiceFailedNotice.class);
+        });
     }
 
     @Test

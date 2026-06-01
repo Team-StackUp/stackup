@@ -42,6 +42,16 @@ func TestLoadFromEnv(t *testing.T) {
 	}
 }
 
+func TestJWTSecretDefault(t *testing.T) {
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load err: %v", err)
+	}
+	if cfg.JWTSecret == "" {
+		t.Error("JWTSecret should have a non-empty default")
+	}
+}
+
 func TestLoadDefaults(t *testing.T) {
 	// Clear all overrides
 	for _, k := range []string{

@@ -17,7 +17,7 @@ type UseEventStreamOptions = {
 const BASE_BACKOFF_MS = 1_000
 const MAX_BACKOFF_MS = 30_000
 
-// EventSource 는 커스텀 헤더를 못 싣는다 → 인증은 ?token= 쿼리(stream token)로 전달.
+// EventSource 는 커스텀 헤더를 못 싣는다 → 인증은 ?access_token= 쿼리(stream token)로 전달. 호스트는 RealTime 서버(REALTIME_BASE_URL).
 export function useEventStream({
   path,
   getToken,
@@ -60,8 +60,8 @@ export function useEventStream({
       }
       if (cancelled) return
 
-      const query = token ? `?token=${encodeURIComponent(token)}` : ''
-      const es = new EventSource(`${env.SSE_BASE_URL}${path}${query}`, {
+      const query = token ? `?access_token=${encodeURIComponent(token)}` : ''
+      const es = new EventSource(`${env.REALTIME_BASE_URL}${path}${query}`, {
         withCredentials: true,
       })
       source = es

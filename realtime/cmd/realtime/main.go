@@ -12,8 +12,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Team-StackUp/stackup/realtime/internal/auth"
 	"github.com/Team-StackUp/stackup/realtime/internal/bridge"
 	"github.com/Team-StackUp/stackup/realtime/internal/config"
+	"github.com/Team-StackUp/stackup/realtime/internal/core"
 	"github.com/Team-StackUp/stackup/realtime/internal/messaging"
 	"github.com/Team-StackUp/stackup/realtime/internal/session"
 	"github.com/Team-StackUp/stackup/realtime/internal/transport"
@@ -36,7 +38,10 @@ func main() {
 	}
 
 	sseHandler := transport.NewSSEHandler(registry, cfg.SSEBufferSize, cfg.SSEPingInterval)
-	router := transport.NewRouter(registry, sseHandler)
+	verifier := auth.NewStreamTokenVerifier(cfg.JWTSecret)
+	coreClient := core.NewClient(cfg.CoreBaseURL, cfg.InternalApiKey, cfg.WSWriteTimeout)
+	wsHandler := transport.NewWSHandler(registry, coreClient, cfg.WSWriteTimeout)
+	router := transport.NewRouter(sseHandler, wsHandler, verifier)
 
 	srv := &http.Server{
 		Addr:              cfg.ListenAddr,
@@ -89,7 +94,8 @@ func (h handlerAdapter) Handle(body []byte) error {
 		return nil // drop, do not requeue
 	}
 	slog.Info("dispatched",
-		"session_id", res.SessionID,
+		"channel_kind", res.Channel.Kind,
+		"channel_id", res.Channel.ID,
 		"delivered", res.Delivered,
 		"trace_id", res.Envelope.TraceID,
 		"event_type", res.Envelope.Payload.EventType,

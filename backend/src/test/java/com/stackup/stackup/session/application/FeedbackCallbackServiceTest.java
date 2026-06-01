@@ -2,13 +2,13 @@ package com.stackup.stackup.session.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.stackup.stackup.common.messaging.RealtimeNotifyEvent;
 import com.stackup.stackup.common.messaging.domain.ProcessedMessageRepository;
-import com.stackup.stackup.common.sse.SseEventPublisher;
 import com.stackup.stackup.common.sse.SseEventType;
 import com.stackup.stackup.session.application.dto.FeedbackCallbackEnvelope;
 import com.stackup.stackup.session.application.dto.FeedbackCallbackPayload;
@@ -27,6 +27,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -35,7 +36,7 @@ class FeedbackCallbackServiceTest {
     @Mock InterviewSessionRepository sessionRepository;
     @Mock SessionFeedbackRepository feedbackRepository;
     @Mock ProcessedMessageRepository processedMessageRepository;
-    @Mock SseEventPublisher sseEventPublisher;
+    @Mock ApplicationEventPublisher events;
     @InjectMocks FeedbackCallbackService service;
 
     @Test
@@ -60,7 +61,15 @@ class FeedbackCallbackServiceTest {
         verify(feedbackRepository).save(cap.capture());
         assertThat(cap.getValue().getOverallScore()).isEqualTo(85.0);
         assertThat(cap.getValue().getImprovementKeywords()).contains("Spring");
-        verify(sseEventPublisher).publishToSession(eq(50L), eq(SseEventType.FEEDBACK_READY), any());
+
+        ArgumentCaptor<Object> evCap = ArgumentCaptor.forClass(Object.class);
+        verify(events, atLeastOnce()).publishEvent(evCap.capture());
+        assertThat(evCap.getAllValues()).anySatisfy(e -> {
+            assertThat(e).isInstanceOf(RealtimeNotifyEvent.class);
+            RealtimeNotifyEvent rne = (RealtimeNotifyEvent) e;
+            assertThat(rne.channel()).isEqualTo(RealtimeNotifyEvent.Channel.SESSION);
+            assertThat(rne.type()).isEqualTo(SseEventType.FEEDBACK_READY);
+        });
     }
 
     @Test

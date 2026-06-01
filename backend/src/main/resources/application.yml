@@ -112,6 +112,8 @@ app:
         callback-feedback: callback.feedback
         callback-voice: callback.voice
         realtime-session-notify: realtime.session.notify
+        realtime-user-notify: realtime.user.notify
+        realtime-document-notify: realtime.document.notify
       dead-letter:
         exchange: stackup.dlx
         routing-key-prefix: dlq.

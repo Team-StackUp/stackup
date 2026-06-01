@@ -2,6 +2,7 @@ package com.stackup.stackup.session.application;
 
 import com.stackup.stackup.common.exception.ApiErrorCode;
 import com.stackup.stackup.common.exception.DomainException;
+import com.stackup.stackup.common.security.StreamTokenProvider;
 import com.stackup.stackup.document.domain.AnalysisStatus;
 import com.stackup.stackup.document.domain.AnalyzedDocument;
 import com.stackup.stackup.document.domain.AnalyzedDocumentRepository;
@@ -35,6 +36,7 @@ public class SessionService {
     private final AnalyzedDocumentRepository documentRepository;
     private final UserRepository userRepository;
     private final ApplicationEventPublisher events;
+    private final StreamTokenProvider streamTokenProvider;
 
     @Transactional
     public SessionResult create(Long userId, SessionCreateCommand command) {
@@ -124,6 +126,12 @@ public class SessionService {
     public void delete(Long userId, Long sessionId) {
         InterviewSession session = loadOwned(userId, sessionId);
         sessionRepository.delete(session);
+    }
+
+    public String createSessionStreamToken(Long userId, Long sessionId) {
+        sessionRepository.findByIdAndUser_IdAndDeletedFalse(sessionId, userId)
+            .orElseThrow(() -> new DomainException(ApiErrorCode.SESSION_NOT_FOUND));
+        return streamTokenProvider.createStreamToken(userId, "SESSION", sessionId);
     }
 
     @Transactional

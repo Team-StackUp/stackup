@@ -2,15 +2,14 @@ package com.stackup.stackup.session.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.stackup.stackup.common.messaging.RealtimeNotifyEvent;
 import com.stackup.stackup.common.messaging.domain.ProcessedMessage;
 import com.stackup.stackup.common.messaging.domain.ProcessedMessageRepository;
-import com.stackup.stackup.common.sse.SseEventPublisher;
 import com.stackup.stackup.common.sse.SseEventType;
 import com.stackup.stackup.session.application.dto.QuestionsCallbackEnvelope;
 import com.stackup.stackup.session.application.dto.QuestionsCallbackPayload;
@@ -39,7 +38,6 @@ class QuestionsCallbackServiceTest {
     @Mock InterviewSessionRepository sessionRepository;
     @Mock InterviewMessageRepository messageRepository;
     @Mock ProcessedMessageRepository processedMessageRepository;
-    @Mock SseEventPublisher sseEventPublisher;
     @Mock org.springframework.context.ApplicationEventPublisher events;
     @InjectMocks QuestionsCallbackService service;
 
@@ -64,10 +62,23 @@ class QuestionsCallbackServiceTest {
         verify(messageRepository).save(messageCaptor.capture());
         assertThat(messageCaptor.getValue().getContent()).isEqualTo("Introduce yourself");
         assertThat(messageCaptor.getValue().getSequenceNumber()).isEqualTo(1);
-        verify(sseEventPublisher).publishToSession(eq(11L), eq(SseEventType.SESSION_MESSAGE), any());
-        verify(sseEventPublisher).publishToUser(eq(1L), eq(SseEventType.SESSION_MESSAGE),
-            argThat(payload -> payload instanceof QuestionsCallbackService.SessionMessageNotice notice
-                && "INITIAL_QUESTION_READY".equals(notice.reason())));
+
+        ArgumentCaptor<Object> ev = ArgumentCaptor.forClass(Object.class);
+        verify(events, atLeastOnce()).publishEvent(ev.capture());
+        assertThat(ev.getAllValues()).anySatisfy(e -> {
+            assertThat(e).isInstanceOf(RealtimeNotifyEvent.class);
+            RealtimeNotifyEvent rne = (RealtimeNotifyEvent) e;
+            assertThat(rne.channel()).isEqualTo(RealtimeNotifyEvent.Channel.SESSION);
+            assertThat(rne.type()).isEqualTo(SseEventType.SESSION_MESSAGE);
+        });
+        assertThat(ev.getAllValues()).anySatisfy(e -> {
+            assertThat(e).isInstanceOf(RealtimeNotifyEvent.class);
+            RealtimeNotifyEvent rne = (RealtimeNotifyEvent) e;
+            assertThat(rne.channel()).isEqualTo(RealtimeNotifyEvent.Channel.USER);
+            assertThat(rne.payload()).isInstanceOf(QuestionsCallbackService.SessionMessageNotice.class);
+            assertThat(((QuestionsCallbackService.SessionMessageNotice) rne.payload()).reason())
+                .isEqualTo("INITIAL_QUESTION_READY");
+        });
         verify(processedMessageRepository).save(any(ProcessedMessage.class));
         assertThat(session.getTotalQuestionCount()).isEqualTo(1);
     }

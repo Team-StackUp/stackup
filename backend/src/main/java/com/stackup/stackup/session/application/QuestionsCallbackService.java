@@ -2,7 +2,7 @@ package com.stackup.stackup.session.application;
 
 import com.stackup.stackup.common.messaging.domain.ProcessedMessage;
 import com.stackup.stackup.common.messaging.domain.ProcessedMessageRepository;
-import com.stackup.stackup.common.sse.SseEventPublisher;
+import com.stackup.stackup.common.messaging.RealtimeNotifyEvent;
 import com.stackup.stackup.common.sse.SseEventType;
 import com.stackup.stackup.session.application.dto.QuestionsCallbackEnvelope;
 import com.stackup.stackup.session.application.dto.QuestionsCallbackPayload;
@@ -36,7 +36,6 @@ public class QuestionsCallbackService {
     private final InterviewSessionRepository sessionRepository;
     private final InterviewMessageRepository messageRepository;
     private final ProcessedMessageRepository processedMessageRepository;
-    private final SseEventPublisher sseEventPublisher;
     private final ApplicationEventPublisher events;
 
     @Transactional
@@ -89,13 +88,13 @@ public class QuestionsCallbackService {
             InterviewMessage.interviewer(session, 1, first.question())
         );
         session.incrementQuestionCount();
-        sseEventPublisher.publishToSession(session.getId(), SseEventType.SESSION_MESSAGE, message.getId());
+        events.publishEvent(RealtimeNotifyEvent.session(session.getId(), SseEventType.SESSION_MESSAGE, message.getId()));
         // 사용자 user 채널에도 알림 — frontend 가 documentId/sessionId 사전 인지 없이도 받을 수 있게
-        sseEventPublisher.publishToUser(
+        events.publishEvent(RealtimeNotifyEvent.user(
             session.getUser().getId(),
             SseEventType.SESSION_MESSAGE,
             new SessionMessageNotice(session.getId(), message.getId(), "INITIAL_QUESTION_READY")
-        );
+        ));
         log.info("callback.questions initial question processed. sessionId={}, ignored_extras={}",
             session.getId(), Math.max(questions.size() - 1, 0));
     }
@@ -117,12 +116,12 @@ public class QuestionsCallbackService {
         );
         session.incrementQuestionCount();
 
-        sseEventPublisher.publishToSession(session.getId(), SseEventType.SESSION_MESSAGE, message.getId());
-        sseEventPublisher.publishToUser(
+        events.publishEvent(RealtimeNotifyEvent.session(session.getId(), SseEventType.SESSION_MESSAGE, message.getId()));
+        events.publishEvent(RealtimeNotifyEvent.user(
             session.getUser().getId(),
             SseEventType.SESSION_MESSAGE,
             new SessionMessageNotice(session.getId(), message.getId(), "FOLLOWUP_READY")
-        );
+        ));
 
         // maxQuestions 도달 시 자동 종료 (plan §A-4)
         Integer max = session.getMaxQuestions();
@@ -130,10 +129,10 @@ public class QuestionsCallbackService {
             && session.getTotalQuestionCount() >= max) {
             try {
                 session.end();
-                sseEventPublisher.publishToSession(session.getId(), SseEventType.SESSION_STATE,
-                    new SessionStateNotice(session.getId(), session.getStatus().name(), "MAX_QUESTIONS_REACHED"));
-                sseEventPublisher.publishToUser(session.getUser().getId(), SseEventType.SESSION_STATE,
-                    new SessionStateNotice(session.getId(), session.getStatus().name(), "MAX_QUESTIONS_REACHED"));
+                events.publishEvent(RealtimeNotifyEvent.session(session.getId(), SseEventType.SESSION_STATE,
+                    new SessionStateNotice(session.getId(), session.getStatus().name(), "MAX_QUESTIONS_REACHED")));
+                events.publishEvent(RealtimeNotifyEvent.user(session.getUser().getId(), SseEventType.SESSION_STATE,
+                    new SessionStateNotice(session.getId(), session.getStatus().name(), "MAX_QUESTIONS_REACHED")));
                 events.publishEvent(new SessionEndedEvent(
                     session.getUser().getId(), session.getId(), "MAX_QUESTIONS_REACHED"));
                 log.info("session auto-completed on max questions. sessionId={}, max={}",
