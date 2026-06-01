@@ -11,6 +11,7 @@ public record MessageResponse(
     Integer sequenceNumber,
     MessageRole role,
     String content,
+    String audioFilePath,
     Long parentMessageId,
     MessageStatus status,
     Instant createdAt
@@ -22,6 +23,7 @@ public record MessageResponse(
             r.sequenceNumber(),
             r.role(),
             r.content(),
+            r.audioFilePath(),
             r.parentMessageId(),
             r.status(),
             r.createdAt()
