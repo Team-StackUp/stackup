@@ -4,6 +4,7 @@ import structlog
 from aio_pika.abc import AbstractIncomingMessage
 
 from ai_server.chain.followup_generation_chain import FollowupGenerator
+from ai_server.core.client import CoreClient
 from ai_server.messaging.idempotency import LruIdempotencyStore
 from ai_server.messaging.publisher import CallbackPublisher
 from ai_server.model.envelope import Envelope
@@ -11,6 +12,7 @@ from ai_server.model.messages.followup import (
     FollowupCallbackPayload,
     GenerateFollowupRequest,
 )
+from ai_server.rag.embedder import EmbeddingProvider
 
 log = structlog.get_logger(__name__)
 
@@ -23,11 +25,17 @@ class FollowupConsumer:
         publisher: CallbackPublisher,
         idempotency: LruIdempotencyStore,
         callback_routing_key: str,
+        core_client: CoreClient | None = None,
+        embedder: EmbeddingProvider | None = None,
+        rag_top_k: int = 5,
     ) -> None:
         self._generator = generator
         self._publisher = publisher
         self._idempotency = idempotency
         self._callback_routing_key = callback_routing_key
+        self._core = core_client
+        self._embedder = embedder
+        self._rag_top_k = rag_top_k
 
     async def handle(self, message: AbstractIncomingMessage) -> None:
         async with message.process(requeue=False):
@@ -65,6 +73,7 @@ class FollowupConsumer:
                 mode=req.mode,
                 previous_question=req.previous_question,
                 answer_text=req.answer_text,
+                context=await self._build_rag_context(req),
             )
 
             payload = FollowupCallbackPayload(
@@ -89,3 +98,25 @@ class FollowupConsumer:
                 session_id=req.session_id,
                 trace_id=envelope.trace_id,
             )
+
+    async def _build_rag_context(self, req: GenerateFollowupRequest) -> str:
+        if not self._core or not self._embedder or not req.context_document_ids:
+            return "(none)"
+
+        query = f"{req.previous_question}\n\n{req.answer_text}"
+        try:
+            query_vec = (await self._embedder.embed([query]))[0]
+            hits = await self._core.search_embeddings(
+                query_embedding=query_vec,
+                document_ids=req.context_document_ids,
+                top_k=self._rag_top_k,
+            )
+        except Exception as exc:
+            log.warn("followup.rag.failed", error=str(exc), session_id=req.session_id)
+            return "(none)"
+
+        if not hits:
+            return "(none)"
+        return "\n---\n".join(
+            f"[doc#{h.document_id} chunk#{h.chunk_index}] {h.chunk_text}" for h in hits
+        )

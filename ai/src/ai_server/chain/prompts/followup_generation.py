@@ -18,7 +18,12 @@ SYSTEM_PROMPT = (
 HUMAN_PROMPT = (
     "직군: {job_category}\n"
     "면접 모드: {mode}\n\n"
+    "모드별 지침:\n"
+    "- TECHNICAL: 기술 역량, 프로젝트 경험, 문제 해결을 중심으로 파고듭니다.\n"
+    "- PERSONALITY: 협업, 갈등 해결, 성장 경험을 중심으로 파고듭니다.\n"
+    "- INTEGRATED: 기술 질문과 인성 질문의 관점을 균형 있게 반영합니다.\n\n"
     "직전 질문:\n{previous_question}\n\n"
     "지원자 답변:\n{answer_text}\n\n"
+    "검색 문서 컨텍스트:\n---\n{context}\n---\n\n"
     "{format_instructions}"
 )

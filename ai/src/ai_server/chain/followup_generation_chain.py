@@ -27,6 +27,7 @@ class FollowupGenerator(Protocol):
         mode: str,
         previous_question: str,
         answer_text: str,
+        context: str = "(none)",
     ) -> FollowupResult: ...
 
 
@@ -41,6 +42,7 @@ class LlmFollowupGenerator:
         mode: str,
         previous_question: str,
         answer_text: str,
+        context: str = "(none)",
     ) -> FollowupResult:
         result = await self._chain.ainvoke(
             {
@@ -48,6 +50,7 @@ class LlmFollowupGenerator:
                 "mode": mode,
                 "previous_question": previous_question,
                 "answer_text": answer_text,
+                "context": context,
             }
         )
         if not isinstance(result, FollowupResult):

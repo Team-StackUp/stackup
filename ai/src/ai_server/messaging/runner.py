@@ -154,6 +154,8 @@ class MessagingRuntime:
             idempotency=self._idempotency,
             callback_routing_key=settings.ai_callback_routing_questions,
             initial_pool_size=settings.questions_initial_pool_size,
+            core_client=core_client,
+            embedder=embedder,
         )
 
         # 꼬리질문 생성 (US-19)
@@ -165,6 +167,8 @@ class MessagingRuntime:
             publisher=self._publisher,
             idempotency=self._idempotency,
             callback_routing_key=settings.ai_callback_routing_questions,
+            core_client=core_client,
+            embedder=embedder,
         )
 
         # 종합 피드백 생성 (US-24)

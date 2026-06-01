@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ai_server.model._config import camel_config
 
@@ -18,6 +18,7 @@ class GenerateFollowupRequest(BaseModel):
     answer_text: str
     mode: InterviewMode
     job_category: Literal["FRONTEND", "BACKEND", "INFRA", "DBA"]
+    context_document_ids: list[int] = Field(default_factory=list)
 
 
 class AnswerEvaluation(BaseModel):
