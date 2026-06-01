@@ -161,6 +161,16 @@
       }
     },
     {
+      "name": "core.callback.tts",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "stackup.dlx",
+        "x-dead-letter-routing-key": "dlq.core.callback.tts"
+      }
+    },
+    {
       "name": "q.realtime.session.notify",
       "vhost": "/",
       "durable": true,
@@ -242,6 +252,13 @@
     },
     {
       "name": "dlq.core.callback.voice",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "dlq.core.callback.tts",
       "vhost": "/",
       "durable": true,
       "auto_delete": false,
@@ -332,6 +349,13 @@
       "destination": "core.callback.voice",
       "destination_type": "queue",
       "routing_key": "callback.voice"
+    },
+    {
+      "source": "stackup.ai-to-core",
+      "vhost": "/",
+      "destination": "core.callback.tts",
+      "destination_type": "queue",
+      "routing_key": "callback.tts"
     },
     {
       "source": "stackup.realtime",
@@ -430,6 +454,13 @@
       "destination": "dlq.core.callback.voice",
       "destination_type": "queue",
       "routing_key": "dlq.core.callback.voice"
+    },
+    {
+      "source": "stackup.dlx",
+      "vhost": "/",
+      "destination": "dlq.core.callback.tts",
+      "destination_type": "queue",
+      "routing_key": "dlq.core.callback.tts"
     },
     {
       "source": "stackup.dlx",

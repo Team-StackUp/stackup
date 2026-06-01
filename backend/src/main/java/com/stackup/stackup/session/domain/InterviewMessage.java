@@ -58,6 +58,16 @@ public class InterviewMessage extends BaseTimeEntity {
     @Column(name = "audio_file_path", length = 1000)
     private String audioFilePath;
 
+    @Column(name = "tts_audio_path", length = 1000)
+    private String ttsAudioPath;
+
+    @Column(name = "tts_status", nullable = false, length = 20)
+    @Enumerated(EnumType.STRING)
+    private TtsStatus ttsStatus = TtsStatus.NOT_REQUESTED;
+
+    @Column(name = "tts_duration_sec")
+    private Double ttsDurationSec;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_message_id")
     private InterviewMessage parentMessage;
@@ -91,14 +101,18 @@ public class InterviewMessage extends BaseTimeEntity {
     }
 
     public static InterviewMessage interviewer(InterviewSession session, int seq, String content) {
-        return new InterviewMessage(session, seq, MessageRole.INTERVIEWER, content, null,
+        InterviewMessage m = new InterviewMessage(session, seq, MessageRole.INTERVIEWER, content, null,
             MessageStatus.CREATED, null);
+        m.markTtsPending();
+        return m;
     }
 
     public static InterviewMessage followup(InterviewSession session, int seq, String content,
                                             InterviewMessage parent) {
-        return new InterviewMessage(session, seq, MessageRole.INTERVIEWER, content, parent,
+        InterviewMessage m = new InterviewMessage(session, seq, MessageRole.INTERVIEWER, content, parent,
             MessageStatus.CREATED, null);
+        m.markTtsPending();
+        return m;
     }
 
     public static InterviewMessage interviewee(InterviewSession session, int seq, String content,
@@ -124,6 +138,22 @@ public class InterviewMessage extends BaseTimeEntity {
 
     public void attachAudio(String audioFilePath) {
         this.audioFilePath = audioFilePath;
+    }
+
+    public void markTtsPending() {
+        this.ttsStatus = TtsStatus.PENDING;
+    }
+
+    public void completeTts(String ttsAudioPath, Double ttsDurationSec) {
+        if (ttsAudioPath != null && !ttsAudioPath.isBlank()) {
+            this.ttsAudioPath = ttsAudioPath;
+        }
+        this.ttsDurationSec = ttsDurationSec;
+        this.ttsStatus = TtsStatus.SUCCEEDED;
+    }
+
+    public void failTts() {
+        this.ttsStatus = TtsStatus.FAILED;
     }
 
     public void completeWithTranscript(String transcript) {

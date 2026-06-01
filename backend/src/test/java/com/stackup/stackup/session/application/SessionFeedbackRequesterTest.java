@@ -84,6 +84,7 @@ class SessionFeedbackRequesterTest {
             "analyze.resume", "analyze.repository",
             "generate.questions", "generate.followup", "generate.feedback", "analyze.voice",
             "callback.analysis", "callback.questions", "callback.feedback", "callback.voice",
+            "callback.tts",
             "realtime.session.notify", "realtime.user.notify", "realtime.document.notify");
     }
 }
