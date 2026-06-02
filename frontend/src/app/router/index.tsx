@@ -8,10 +8,12 @@ import InterviewSetupPage from '@/pages/InterviewSetup'
 import InterviewSessionPage from '@/pages/InterviewSession'
 import SessionFeedbackPage from '@/pages/SessionFeedback'
 import HistoryPage from '@/pages/History'
+import SharedFeedbackPage from '@/pages/SharedFeedback'
 
 export const router = createBrowserRouter([
   { path: '/', element: <HomePage /> },
   { path: '/login', element: <LoginPage /> },
+  { path: '/share/:token', element: <SharedFeedbackPage /> },
   { path: '/auth/callback', element: <AuthCallbackPage /> },
   {
     path: '/workspace',

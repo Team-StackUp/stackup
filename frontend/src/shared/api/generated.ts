@@ -141,6 +141,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sessions/{sessionId}/feedback/share": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 피드백 공유 토큰 발급(멱등) */
+        post: operations["shareSessionFeedback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/resumes": {
         parameters: {
             query?: never;
@@ -591,6 +608,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/public/feedbacks/{shareToken}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 공유 토큰으로 피드백 조회 */
+        get: operations["getSharedFeedback"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/internal/users/{userId}/github-token": {
         parameters: {
             query?: never;
@@ -819,6 +853,9 @@ export interface components {
             parentMessageId?: number;
             /** Format: int32 */
             sequenceNumber?: number;
+        };
+        ShareResponse: {
+            shareToken?: string;
         };
         ResumeResponse: {
             /** Format: int64 */
@@ -1611,6 +1648,46 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["VoiceStreamBeginResponse"];
+                };
+            };
+        };
+    };
+    shareSessionFeedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 공유 토큰 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ShareResponse"];
+                };
+            };
+            /** @description 인증 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ShareResponse"];
+                };
+            };
+            /** @description 세션 또는 피드백 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ShareResponse"];
                 };
             };
         };
@@ -2817,6 +2894,37 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["CandidateRepositoryResponse"][];
+                };
+            };
+        };
+    };
+    getSharedFeedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                shareToken: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 피드백 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["FeedbackResponse"];
+                };
+            };
+            /** @description 공유된 피드백 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["FeedbackResponse"];
                 };
             };
         };
