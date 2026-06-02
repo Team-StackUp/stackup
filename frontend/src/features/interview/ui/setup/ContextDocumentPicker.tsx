@@ -1,0 +1,33 @@
+export type DocOption = { id: number; label: string; sourceType: string }
+
+export function ContextDocumentPicker({
+  documents,
+  selected,
+  onToggle,
+}: {
+  documents: DocOption[]
+  selected: number[]
+  onToggle: (id: number) => void
+}) {
+  if (documents.length === 0) {
+    return (
+      <p className="text-caption text-fg-muted">
+        분석 완료된 이력서·레포지토리가 없습니다. 워크스페이스에서 먼저 분석하세요.
+      </p>
+    )
+  }
+  return (
+    <div className="flex flex-col gap-2">
+      {documents.map((doc) => (
+        <label
+          key={doc.id}
+          className="flex cursor-pointer items-center gap-2 rounded-md border border-border bg-surface-raised px-3 py-2"
+        >
+          <input type="checkbox" checked={selected.includes(doc.id)} onChange={() => onToggle(doc.id)} />
+          <span className="text-button text-fg">{doc.label}</span>
+          <span className="text-caption text-fg-muted">{doc.sourceType}</span>
+        </label>
+      ))}
+    </div>
+  )
+}

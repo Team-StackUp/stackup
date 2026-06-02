@@ -1,0 +1,3175 @@
+{
+  "openapi" : "3.1.0",
+  "info" : {
+    "title" : "OpenAPI definition",
+    "version" : "v0"
+  },
+  "servers" : [ {
+    "url" : "http://localhost",
+    "description" : "Generated server url"
+  } ],
+  "tags" : [ {
+    "name" : "Internal: Analysis Triggers",
+    "description" : "X-Internal-API-Key 필요. e2e 검증/디버그용 강제 트리거. 실제 사용자 흐름은 POST /api/resumes, POST /api/repositories 가 자동 트리거."
+  }, {
+    "name" : "Internal: GitHub Token Delegation",
+    "description" : "X-Internal-API-Key 필요. AI 서버가 레포 분석 시점에 사용자 GitHub 토큰을 짧게 위임받기 위해 호출."
+  }, {
+    "name" : "Users",
+    "description" : "Authenticated user APIs"
+  }, {
+    "name" : "Internal: AI Request Logs",
+    "description" : "X-Internal-API-Key 필요. AI 가 LLM 호출별 토큰/지연시간을 기록."
+  }, {
+    "name" : "Voice Answer",
+    "description" : "음성 답변 업로드 (Phase 2 - 음성 면접)"
+  }, {
+    "name" : "Auth",
+    "description" : "GitHub OAuth login and authentication token APIs"
+  }, {
+    "name" : "Documents",
+    "description" : "분석 문서(이력서/레포 공통) 조회. 상세 조회 시 분석 마크다운의 presigned S3 URL 포함."
+  }, {
+    "name" : "Users (Stats)",
+    "description" : "사용자 면접 통계 — 총/완료 세션 수, 평균 점수, 최근 점수 추이."
+  }, {
+    "name" : "Internal: Session Messages",
+    "description" : "X-Internal-API-Key 필요. RealTime WS 답변 위임."
+  }, {
+    "name" : "Sessions",
+    "description" : "면접 세션 생성·조회·상태 전환. 컨텍스트(이력서/레포 분석 문서) 연결 포함."
+  }, {
+    "name" : "Session Feedback",
+    "description" : "세션 종합 피드백 (US-24)"
+  }, {
+    "name" : "Internal: Document Embeddings",
+    "description" : "X-Internal-API-Key 필요. AI 서버가 분석 결과 청크/임베딩을 pgvector 에 idempotent upsert 할 때 호출."
+  }, {
+    "name" : "User Consents",
+    "description" : "개인정보처리/이용약관/마케팅 동의 제출·이력·철회 (append-only audit)."
+  }, {
+    "name" : "Resumes",
+    "description" : "이력서 업로드/관리. 업로드 시 분석 파이프라인이 자동 트리거되며 결과는 /realtime/stream/me (DOC_STATE) 로 통지됨."
+  }, {
+    "name" : "Repositories",
+    "description" : "GitHub 레포 등록/관리. 등록 시 분석 파이프라인이 자동 트리거되며 결과는 /realtime/stream/me (REPO_STATE) 로 통지됨."
+  }, {
+    "name" : "Session Messages",
+    "description" : "면접 메시지 시퀀스 — 질문/답변 트리."
+  }, {
+    "name" : "Internal: Embedding Search",
+    "description" : "X-Internal-API-Key 필요. AI 서버가 질문/피드백 생성 시 컨텍스트 청크 검색 (pgvector cosine)."
+  } ],
+  "paths" : {
+    "/api/internal/documents/{documentId}/embeddings" : {
+      "put" : {
+        "tags" : [ "Internal: Document Embeddings" ],
+        "summary" : "분석 문서 청크 + 임베딩 upsert",
+        "description" : "(document_id, chunk_index) 기준 idempotent. 벡터 차원이 dim 과 다르면 400.",
+        "operationId" : "internalUpsertDocumentEmbeddings",
+        "parameters" : [ {
+          "name" : "documentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpsertRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "upsert 성공 (응답에 upsert 된 개수 포함)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UpsertResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "임베딩 페이로드 검증 실패 (dim 불일치 등)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UpsertResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "X-Internal-API-Key 인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UpsertResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "documentId 에 해당하는 analyzed_documents 없음",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UpsertResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/me/consents" : {
+      "get" : {
+        "tags" : [ "User Consents" ],
+        "summary" : "내 동의 이력 (최신순)",
+        "operationId" : "listConsents",
+        "responses" : {
+          "200" : {
+            "description" : "이력 목록",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/ConsentResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/ConsentResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "User Consents" ],
+        "summary" : "동의 제출 (새 row 생성)",
+        "operationId" : "submitConsent",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ConsentSubmitRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "동의 row 생성",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ConsentResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "요청 검증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ConsentResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ConsentResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions" : {
+      "get" : {
+        "tags" : [ "Sessions" ],
+        "summary" : "내 세션 히스토리 (US-15)",
+        "operationId" : "listSessions",
+        "responses" : {
+          "200" : {
+            "description" : "세션 목록",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/SessionResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/SessionResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "Sessions" ],
+        "summary" : "세션 생성 (US-13/14)",
+        "description" : "mode/jobCategory 필수. contextDocumentIds 로 분석 문서 N개 연결 (US-14). 분석 미완료 문서는 422.",
+        "operationId" : "createSession",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SessionCreateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "세션 생성 완료",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "요청 검증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "지정된 문서 없음",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "422" : {
+            "description" : "분석 미완료 문서를 컨텍스트로 지정",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{sessionId}/stream-token" : {
+      "post" : {
+        "tags" : [ "Sessions" ],
+        "summary" : "세션 채널 SSE/WS 용 리소스 스코프 stream token",
+        "operationId" : "createSessionStreamToken",
+        "parameters" : [ {
+          "name" : "sessionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "토큰 발급",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/StreamTokenResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/StreamTokenResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "세션 없음 / 소유자 아님",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/StreamTokenResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{sessionId}/messages" : {
+      "get" : {
+        "tags" : [ "Session Messages" ],
+        "summary" : "세션 메시지 시퀀스 (US-20)",
+        "operationId" : "listSessionMessages",
+        "parameters" : [ {
+          "name" : "sessionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "메시지 목록",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/MessageResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/MessageResponse"
+                  }
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "세션 없음",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/MessageResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "Session Messages" ],
+        "summary" : "답변 제출 (US-19) + 꼬리질문 자동 트리거",
+        "description" : "직전 INTERVIEWER 메시지에 대한 답변을 INTERVIEWEE 로 INSERT. commit 후 generate.followup 발행.",
+        "operationId" : "submitAnswer",
+        "parameters" : [ {
+          "name" : "sessionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/MessageSubmitRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "답변 저장 + 꼬리질문 발행",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "검증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "세션 없음",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "422" : {
+            "description" : "세션이 IN_PROGRESS 아니거나 직전 메시지가 질문 아님",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{sessionId}/messages/voice" : {
+      "post" : {
+        "tags" : [ "Voice Answer" ],
+        "summary" : "음성 답변 업로드 + STT/분석 트리거",
+        "description" : "multipart/form-data 로 audio 파일 업로드. 응답은 transcribing 상태 메시지. STT 완료 후 SESSION_MESSAGE SSE 로 transcript 가 도착합니다.",
+        "operationId" : "submitVoiceAnswer",
+        "parameters" : [ {
+          "name" : "sessionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "multipart/form-data" : {
+              "schema" : {
+                "type" : "object",
+                "properties" : {
+                  "audio" : {
+                    "type" : "string",
+                    "format" : "binary"
+                  }
+                },
+                "required" : [ "audio" ]
+              }
+            }
+          }
+        },
+        "responses" : {
+          "201" : {
+            "description" : "메시지 INSERT + analyze.voice 발행",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "파일 형식/크기 오류",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "세션 없음",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "422" : {
+            "description" : "세션이 IN_PROGRESS 아니거나 직전 메시지가 질문 아님",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{sessionId}/messages/voice/stream-begin" : {
+      "post" : {
+        "tags" : [ "Voice Answer" ],
+        "summary" : "실시간 음성 답변 시작 (placeholder 생성)",
+        "description" : "WS 오디오 스트림 전에 호출. placeholder 메시지를 만들고 messageId 를 반환. 이 messageId 를 WS 쿼리로 넘긴다.",
+        "operationId" : "beginVoiceStream",
+        "parameters" : [ {
+          "name" : "sessionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "201" : {
+            "description" : "placeholder 생성",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/VoiceStreamBeginResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "세션 없음",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/VoiceStreamBeginResponse"
+                }
+              }
+            }
+          },
+          "422" : {
+            "description" : "세션 상태/직전 메시지 조건 불만족",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/VoiceStreamBeginResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/resumes" : {
+      "get" : {
+        "tags" : [ "Resumes" ],
+        "summary" : "내 이력서 목록",
+        "operationId" : "listResumes",
+        "responses" : {
+          "200" : {
+            "description" : "사용자 소유 이력서 목록",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/ResumeResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/ResumeResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "Resumes" ],
+        "summary" : "이력서 PDF 업로드 + 분석 트리거",
+        "description" : "multipart/form-data 로 PDF 파일을 받아 S3 저장 → DB row 생성(status=PENDING) → AI 분석 자동 발행. 최대 20MB, application/pdf 만 허용.",
+        "operationId" : "uploadResume",
+        "requestBody" : {
+          "content" : {
+            "multipart/form-data" : {
+              "schema" : {
+                "type" : "object",
+                "properties" : {
+                  "file" : {
+                    "type" : "string",
+                    "format" : "binary"
+                  }
+                },
+                "required" : [ "file" ]
+              }
+            }
+          }
+        },
+        "responses" : {
+          "201" : {
+            "description" : "업로드 + 분석 트리거 성공",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ResumeResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "빈 파일 / 사이즈 초과 / 비-PDF",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ResumeResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ResumeResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/repositories" : {
+      "get" : {
+        "tags" : [ "Repositories" ],
+        "summary" : "등록된 레포 목록",
+        "operationId" : "listRegisteredRepositories",
+        "responses" : {
+          "200" : {
+            "description" : "사용자가 등록한 레포 목록",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/RegisteredRepositoryResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/RegisteredRepositoryResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "Repositories" ],
+        "summary" : "GitHub 레포 등록 + 분석 트리거",
+        "description" : "사용자의 GitHub 토큰으로 메타를 재확인 후 INSERT. id/fullName 불일치(VALIDATION_ERROR), 비공개 접근 불가(REPO_PRIVATE_NO_ACCESS), 존재하지 않음(REPO_NOT_FOUND), 중복(REPO_ALREADY_REGISTERED) 분기.",
+        "operationId" : "registerRepository",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RegisterRepositoryRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "등록 + 분석 트리거 성공",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RegisteredRepositoryResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "id ↔ fullName 불일치 / 잘못된 요청",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RegisteredRepositoryResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RegisteredRepositoryResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "비공개 레포 접근 불가",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RegisteredRepositoryResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "GitHub에 해당 레포 없음",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RegisteredRepositoryResponse"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "이미 등록된 레포",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RegisteredRepositoryResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/repositories/{repositoryId}/sync" : {
+      "post" : {
+        "tags" : [ "Repositories" ],
+        "summary" : "GitHub 메타 재동기화 (US-08)",
+        "description" : "GitHub API 로 default_branch/name/url 등을 다시 fetch 해 DB 갱신. last_synced_at 갱신. 분석은 재트리거하지 않음.",
+        "operationId" : "syncRepository",
+        "parameters" : [ {
+          "name" : "repositoryId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "메타 갱신 완료",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RegisteredRepositoryResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RegisteredRepositoryResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "등록된 레포 또는 GitHub 상 레포 없음",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RegisteredRepositoryResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "비공개 레포 접근 불가",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RegisteredRepositoryResponse"
+                }
+              }
+            }
+          },
+          "502" : {
+            "description" : "GitHub API 호출 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RegisteredRepositoryResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/internal/sessions/{sessionId}/messages" : {
+      "post" : {
+        "tags" : [ "Internal: Session Messages" ],
+        "summary" : "RealTime WS 답변 위임 → 답변 INSERT + 꼬리질문 발행",
+        "operationId" : "internalSubmitAnswer",
+        "parameters" : [ {
+          "name" : "sessionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/InternalAnswerSubmitRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "답변 저장",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "X-Internal-API-Key 인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "세션 없음 / 소유자 불일치",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "422" : {
+            "description" : "세션 IN_PROGRESS 아님 또는 직전이 질문 아님",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/internal/embeddings/search" : {
+      "post" : {
+        "tags" : [ "Internal: Embedding Search" ],
+        "summary" : "pgvector cosine topK 검색",
+        "description" : "queryEmbedding 으로 가장 가까운 청크 topK 반환. documentIds 가 비어 있으면 전체.",
+        "operationId" : "internalSearchEmbeddings",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SearchRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "검색 결과",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SearchResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "queryEmbedding 누락",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SearchResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "X-Internal-API-Key 인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SearchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/internal/analyses/resume/{resumeId}" : {
+      "post" : {
+        "tags" : [ "Internal: Analysis Triggers" ],
+        "summary" : "이력서 분석 강제 트리거",
+        "operationId" : "internalTriggerResumeAnalysis",
+        "parameters" : [ {
+          "name" : "resumeId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TriggerRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "트리거 성공",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AnalysisHandle"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "X-Internal-API-Key 인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AnalysisHandle"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/internal/analyses/repository/{repositoryId}" : {
+      "post" : {
+        "tags" : [ "Internal: Analysis Triggers" ],
+        "summary" : "GitHub 레포 분석 강제 트리거",
+        "operationId" : "internalTriggerRepositoryAnalysis",
+        "parameters" : [ {
+          "name" : "repositoryId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TriggerRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "트리거 성공",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AnalysisHandle"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "X-Internal-API-Key 인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AnalysisHandle"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/internal/ai-logs" : {
+      "post" : {
+        "tags" : [ "Internal: AI Request Logs" ],
+        "summary" : "AI 요청 로그 기록",
+        "operationId" : "internalRecordAiRequestLog",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Request"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "202" : {
+            "description" : "기록 큐잉 (fire-and-forget)"
+          },
+          "401" : {
+            "description" : "X-Internal-API-Key 인증 실패"
+          }
+        }
+      }
+    },
+    "/api/auth/stream-token" : {
+      "post" : {
+        "tags" : [ "Auth" ],
+        "summary" : "Create SSE stream token",
+        "operationId" : "createStreamToken",
+        "responses" : {
+          "200" : {
+            "description" : "Stream token created",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/StreamTokenResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is required",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/StreamTokenResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/refresh" : {
+      "post" : {
+        "tags" : [ "Auth" ],
+        "summary" : "Refresh StackUp access token",
+        "operationId" : "refreshAccessToken",
+        "parameters" : [ {
+          "name" : "refresh_token",
+          "in" : "cookie",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Access token refreshed",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RefreshTokenResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Refresh token is missing or invalid",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RefreshTokenResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/github" : {
+      "post" : {
+        "tags" : [ "Auth" ],
+        "summary" : "Create GitHub OAuth authorization URL",
+        "operationId" : "startGithubLogin",
+        "responses" : {
+          "200" : {
+            "description" : "GitHub authorization URL created",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GithubLoginResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{sessionId}" : {
+      "get" : {
+        "tags" : [ "Sessions" ],
+        "summary" : "세션 상세 (US-16)",
+        "operationId" : "getSession",
+        "parameters" : [ {
+          "name" : "sessionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "세션 상세",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "세션 없음",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "Sessions" ],
+        "summary" : "세션 soft delete",
+        "operationId" : "deleteSession",
+        "parameters" : [ {
+          "name" : "sessionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "삭제됨"
+          },
+          "401" : {
+            "description" : "인증 실패"
+          },
+          "404" : {
+            "description" : "세션 없음"
+          }
+        }
+      },
+      "patch" : {
+        "tags" : [ "Sessions" ],
+        "summary" : "세션 제목/메모 수정",
+        "operationId" : "updateSessionMeta",
+        "parameters" : [ {
+          "name" : "sessionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SessionUpdateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "갱신 완료",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "세션 없음",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{sessionId}/start" : {
+      "patch" : {
+        "tags" : [ "Sessions" ],
+        "summary" : "세션 시작 (READY→IN_PROGRESS) (US-17)",
+        "operationId" : "startSession",
+        "parameters" : [ {
+          "name" : "sessionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "시작됨",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "세션 없음",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "422" : {
+            "description" : "READY 아님",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{sessionId}/interrupt" : {
+      "patch" : {
+        "tags" : [ "Sessions" ],
+        "summary" : "세션 중단 (IN_PROGRESS→INTERRUPTED) (US-17)",
+        "operationId" : "interruptSession",
+        "parameters" : [ {
+          "name" : "sessionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "중단됨",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "세션 없음",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "422" : {
+            "description" : "IN_PROGRESS 아님",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{sessionId}/end" : {
+      "patch" : {
+        "tags" : [ "Sessions" ],
+        "summary" : "세션 종료 (IN_PROGRESS→COMPLETED) (US-17)",
+        "operationId" : "endSession",
+        "parameters" : [ {
+          "name" : "sessionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "종료됨",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "세션 없음",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "422" : {
+            "description" : "IN_PROGRESS 아님",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{sessionId}/cancel" : {
+      "patch" : {
+        "tags" : [ "Sessions" ],
+        "summary" : "세션 취소 (READY→CANCELLED)",
+        "operationId" : "cancelSession",
+        "parameters" : [ {
+          "name" : "sessionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "취소됨",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "세션 없음",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "422" : {
+            "description" : "READY 아님",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/me" : {
+      "get" : {
+        "tags" : [ "Users" ],
+        "summary" : "Get current authenticated user profile",
+        "operationId" : "getCurrentUser",
+        "responses" : {
+          "200" : {
+            "description" : "Current user profile returned",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UserProfileResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication is required",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UserProfileResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "User not found",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UserProfileResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "Users" ],
+        "summary" : "회원 탈퇴 (soft delete + 모든 refresh token revoke)",
+        "description" : "User row 의 is_deleted=true. 모든 refresh_token revoke. GitHub access token 무효화는 사용자가 GitHub Settings 에서 별도 수행.",
+        "operationId" : "deleteCurrentUser",
+        "responses" : {
+          "204" : {
+            "description" : "탈퇴 처리됨"
+          },
+          "401" : {
+            "description" : "인증 실패"
+          },
+          "410" : {
+            "description" : "이미 탈퇴한 사용자"
+          }
+        }
+      }
+    },
+    "/api/users/me/stats" : {
+      "get" : {
+        "tags" : [ "Users (Stats)" ],
+        "summary" : "내 면접 통계 (US-02)",
+        "description" : "신규 사용자(데이터 없음)는 카운트 0, 평균 null, recent 빈 배열.",
+        "operationId" : "getCurrentUserStats",
+        "responses" : {
+          "200" : {
+            "description" : "통계 반환",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UserStatsResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UserStatsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/system/ready" : {
+      "get" : {
+        "tags" : [ "system-controller" ],
+        "operationId" : "ready",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SystemHealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/system/live" : {
+      "get" : {
+        "tags" : [ "system-controller" ],
+        "operationId" : "live",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SystemLiveResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/system/health" : {
+      "get" : {
+        "tags" : [ "system-controller" ],
+        "operationId" : "health",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SystemHealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{sessionId}/feedback" : {
+      "get" : {
+        "tags" : [ "Session Feedback" ],
+        "summary" : "세션 종합 피드백 조회",
+        "operationId" : "getSessionFeedback",
+        "parameters" : [ {
+          "name" : "sessionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "피드백",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/FeedbackResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/FeedbackResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "세션 또는 피드백 없음",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/FeedbackResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/resumes/{resumeId}" : {
+      "get" : {
+        "tags" : [ "Resumes" ],
+        "summary" : "이력서 단건 조회",
+        "operationId" : "getResume",
+        "parameters" : [ {
+          "name" : "resumeId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "이력서 메타",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ResumeResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ResumeResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "이력서 없음",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ResumeResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "Resumes" ],
+        "summary" : "이력서 soft delete",
+        "operationId" : "deleteResume",
+        "parameters" : [ {
+          "name" : "resumeId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "삭제 완료"
+          },
+          "401" : {
+            "description" : "인증 실패"
+          },
+          "404" : {
+            "description" : "이력서 없음"
+          }
+        }
+      }
+    },
+    "/api/repositories/{repositoryId}" : {
+      "get" : {
+        "tags" : [ "Repositories" ],
+        "summary" : "등록 레포 단건 조회",
+        "operationId" : "getRepository",
+        "parameters" : [ {
+          "name" : "repositoryId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "레포 메타",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RegisteredRepositoryResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RegisteredRepositoryResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "레포 없음",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RegisteredRepositoryResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "Repositories" ],
+        "summary" : "등록 레포 soft delete",
+        "operationId" : "deleteRepository",
+        "parameters" : [ {
+          "name" : "repositoryId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "삭제 완료"
+          },
+          "401" : {
+            "description" : "인증 실패"
+          },
+          "404" : {
+            "description" : "레포 없음"
+          }
+        }
+      }
+    },
+    "/api/repositories/github" : {
+      "get" : {
+        "tags" : [ "Repositories" ],
+        "summary" : "GitHub 후보 레포 목록 (페이지)",
+        "description" : "사용자의 GitHub 토큰으로 owner 레포를 updated 순으로 페이지 조회. 각 항목에 alreadyRegistered 플래그.",
+        "operationId" : "listCandidateRepositories",
+        "parameters" : [ {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 1
+          }
+        }, {
+          "name" : "perPage",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 30
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "GitHub 후보 페이지",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/CandidateRepositoryResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/CandidateRepositoryResponse"
+                  }
+                }
+              }
+            }
+          },
+          "502" : {
+            "description" : "GitHub API 호출 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/CandidateRepositoryResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/internal/users/{userId}/github-token" : {
+      "get" : {
+        "tags" : [ "Internal: GitHub Token Delegation" ],
+        "summary" : "사용자 GitHub access token 평문 반환",
+        "description" : "GithubTokenCipher 로 복호화한 평문 토큰을 응답. 메모리/로그/이벤트 envelope 등 외부 영속/전송 금지.",
+        "operationId" : "internalFetchGithubToken",
+        "parameters" : [ {
+          "name" : "userId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "토큰 반환",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GithubTokenResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "X-Internal-API-Key 인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GithubTokenResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "사용자 없음 또는 토큰 미존재",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GithubTokenResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/documents" : {
+      "get" : {
+        "tags" : [ "Documents" ],
+        "summary" : "내 분석 문서 목록 (filter: resumeId 또는 repositoryId)",
+        "description" : "filter 미지정 시 사용자 보유 전체. resumeId/repositoryId 둘 다 지정 시 resumeId 가 우선.",
+        "operationId" : "listAnalyzedDocuments",
+        "parameters" : [ {
+          "name" : "resumeId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "repositoryId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "분석 문서 목록 (documentDownloadUrl 은 비어있음)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/AnalyzedDocumentResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/AnalyzedDocumentResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/documents/{documentId}" : {
+      "get" : {
+        "tags" : [ "Documents" ],
+        "summary" : "분석 문서 상세 + presigned MD 다운로드 URL",
+        "description" : "documentDownloadUrl 은 10분 TTL presigned. analysis_status 가 ANALYZED 인 경우에만 의미 있음.",
+        "operationId" : "getAnalyzedDocument",
+        "parameters" : [ {
+          "name" : "documentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "분석 문서 상세",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AnalyzedDocumentResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AnalyzedDocumentResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "분석 문서 없음",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AnalyzedDocumentResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/github/callback" : {
+      "get" : {
+        "tags" : [ "Auth" ],
+        "summary" : "Complete GitHub OAuth login",
+        "operationId" : "completeGithubLogin",
+        "parameters" : [ {
+          "name" : "code",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "state",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Login completed",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GithubCallbackResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "GitHub OAuth login failed",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/GithubCallbackResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/me/consents/{type}" : {
+      "delete" : {
+        "tags" : [ "User Consents" ],
+        "summary" : "동의 철회 (최신 활성 row 의 revoked_at 갱신)",
+        "operationId" : "revokeConsent",
+        "parameters" : [ {
+          "name" : "type",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "TOS", "PRIVACY", "MARKETING" ]
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "철회 처리됨"
+          },
+          "400" : {
+            "description" : "철회할 활성 동의 없음"
+          },
+          "401" : {
+            "description" : "인증 실패"
+          }
+        }
+      }
+    },
+    "/api/auth/logout" : {
+      "delete" : {
+        "tags" : [ "Auth" ],
+        "summary" : "Logout and revoke refresh token",
+        "operationId" : "logout",
+        "parameters" : [ {
+          "name" : "refresh_token",
+          "in" : "cookie",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "Logged out"
+          }
+        }
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "ChunkRequest" : {
+        "type" : "object",
+        "properties" : {
+          "chunkIndex" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "chunkText" : {
+            "type" : "string"
+          },
+          "embedding" : {
+            "type" : "array",
+            "items" : {
+              "type" : "number",
+              "format" : "float"
+            }
+          }
+        }
+      },
+      "UpsertRequest" : {
+        "type" : "object",
+        "properties" : {
+          "model" : {
+            "type" : "string"
+          },
+          "dim" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "chunks" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChunkRequest"
+            },
+            "minItems" : 1
+          }
+        },
+        "required" : [ "chunks" ]
+      },
+      "UpsertResponse" : {
+        "type" : "object",
+        "properties" : {
+          "upserted" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "ConsentSubmitRequest" : {
+        "type" : "object",
+        "properties" : {
+          "consentType" : {
+            "type" : "string",
+            "enum" : [ "TOS", "PRIVACY", "MARKETING" ]
+          },
+          "consentVersion" : {
+            "type" : "string",
+            "minLength" : 1
+          }
+        },
+        "required" : [ "consentType", "consentVersion" ]
+      },
+      "ConsentResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "consentType" : {
+            "type" : "string",
+            "enum" : [ "TOS", "PRIVACY", "MARKETING" ]
+          },
+          "consentVersion" : {
+            "type" : "string"
+          },
+          "agreed" : {
+            "type" : "boolean"
+          },
+          "agreedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "revokedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "SessionCreateRequest" : {
+        "type" : "object",
+        "properties" : {
+          "title" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          },
+          "memo" : {
+            "type" : "string",
+            "maxLength" : 4000,
+            "minLength" : 0
+          },
+          "mode" : {
+            "type" : "string",
+            "enum" : [ "TECHNICAL", "PERSONALITY", "INTEGRATED" ]
+          },
+          "jobCategory" : {
+            "type" : "string",
+            "enum" : [ "FRONTEND", "BACKEND", "INFRA", "DBA" ]
+          },
+          "maxQuestions" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 30,
+            "minimum" : 2
+          },
+          "maxDurationMinutes" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "contextDocumentIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          }
+        },
+        "required" : [ "jobCategory", "mode" ]
+      },
+      "SessionResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "memo" : {
+            "type" : "string"
+          },
+          "mode" : {
+            "type" : "string",
+            "enum" : [ "TECHNICAL", "PERSONALITY", "INTEGRATED" ]
+          },
+          "jobCategory" : {
+            "type" : "string",
+            "enum" : [ "FRONTEND", "BACKEND", "INFRA", "DBA" ]
+          },
+          "maxQuestions" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxDurationMinutes" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "READY", "IN_PROGRESS", "INTERRUPTED", "COMPLETED", "CANCELLED" ]
+          },
+          "totalQuestionCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "startedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "endedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "contextDocumentIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "StreamTokenResponse" : {
+        "type" : "object",
+        "properties" : {
+          "streamToken" : {
+            "type" : "string"
+          }
+        }
+      },
+      "MessageSubmitRequest" : {
+        "type" : "object",
+        "properties" : {
+          "content" : {
+            "type" : "string",
+            "maxLength" : 8000,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "content" ]
+      },
+      "MessageResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sessionId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sequenceNumber" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "role" : {
+            "type" : "string",
+            "enum" : [ "INTERVIEWER", "INTERVIEWEE", "SYSTEM" ]
+          },
+          "content" : {
+            "type" : "string"
+          },
+          "audioFilePath" : {
+            "type" : "string"
+          },
+          "ttsAudioPath" : {
+            "type" : "string"
+          },
+          "ttsStatus" : {
+            "type" : "string",
+            "enum" : [ "NOT_REQUESTED", "PENDING", "SUCCEEDED", "FAILED" ]
+          },
+          "ttsDurationSec" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "parentMessageId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "CREATED", "COMPLETED", "FAILED" ]
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "VoiceStreamBeginResponse" : {
+        "type" : "object",
+        "properties" : {
+          "messageId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "parentMessageId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sequenceNumber" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "ResumeResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "originalFilename" : {
+            "type" : "string"
+          },
+          "filePath" : {
+            "type" : "string"
+          },
+          "fileType" : {
+            "type" : "string",
+            "enum" : [ "PDF" ]
+          },
+          "fileSize" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "PENDING", "ANALYZING", "ANALYZED", "FAILED" ]
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "RegisterRepositoryRequest" : {
+        "type" : "object",
+        "properties" : {
+          "githubRepoId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "fullName" : {
+            "type" : "string",
+            "minLength" : 1
+          }
+        },
+        "required" : [ "fullName", "githubRepoId" ]
+      },
+      "RegisteredRepositoryResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "githubRepoId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "repoName" : {
+            "type" : "string"
+          },
+          "repoFullName" : {
+            "type" : "string"
+          },
+          "repoUrl" : {
+            "type" : "string"
+          },
+          "defaultBranch" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "PENDING", "ANALYZING", "ANALYZED", "FAILED" ]
+          },
+          "lastSyncedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "InternalAnswerSubmitRequest" : {
+        "type" : "object",
+        "properties" : {
+          "userId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "content" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "idempotencyKey" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "content", "userId" ]
+      },
+      "SearchRequest" : {
+        "type" : "object",
+        "properties" : {
+          "queryEmbedding" : {
+            "type" : "array",
+            "items" : {
+              "type" : "number",
+              "format" : "float"
+            }
+          },
+          "documentIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "topK" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "queryEmbedding" ]
+      },
+      "SearchResponse" : {
+        "type" : "object",
+        "properties" : {
+          "hits" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SearchResponseHit"
+            }
+          }
+        }
+      },
+      "SearchResponseHit" : {
+        "type" : "object",
+        "properties" : {
+          "documentId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "chunkIndex" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "chunkText" : {
+            "type" : "string"
+          },
+          "distance" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        }
+      },
+      "TriggerRequest" : {
+        "type" : "object",
+        "properties" : {
+          "userId" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "userId" ]
+      },
+      "AnalysisHandle" : {
+        "type" : "object",
+        "properties" : {
+          "analyzedDocumentId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "resumeId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "repositoryId" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "Request" : {
+        "type" : "object",
+        "properties" : {
+          "userId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sessionId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "requestType" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "modelName" : {
+            "type" : "string"
+          },
+          "inputTokens" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "outputTokens" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "latencyMs" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "errorMessage" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "requestType", "status" ]
+      },
+      "RefreshTokenResponse" : {
+        "type" : "object",
+        "properties" : {
+          "accessToken" : {
+            "type" : "string",
+            "description" : "New StackUp JWT access token",
+            "example" : "new-our-jwt-access-token"
+          },
+          "tokenType" : {
+            "type" : "string",
+            "description" : "Access token type",
+            "example" : "Bearer"
+          },
+          "expiresIn" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Access token TTL in seconds",
+            "example" : 900
+          }
+        }
+      },
+      "GithubLoginResponse" : {
+        "type" : "object",
+        "properties" : {
+          "authorizationUrl" : {
+            "type" : "string",
+            "description" : "GitHub OAuth authorization URL",
+            "example" : "https://github.com/login/oauth/authorize?client_id=...&redirect_uri=...&scope=read:user%20user:email%20repo&state=generated-state"
+          },
+          "state" : {
+            "type" : "string",
+            "description" : "CSRF protection state value to be verified on callback",
+            "example" : "generated-state"
+          }
+        }
+      },
+      "SessionUpdateRequest" : {
+        "type" : "object",
+        "properties" : {
+          "title" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          },
+          "memo" : {
+            "type" : "string",
+            "maxLength" : 4000,
+            "minLength" : 0
+          }
+        }
+      },
+      "UserProfileResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "StackUp user id",
+            "example" : 1
+          },
+          "githubId" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Stable GitHub user id",
+            "example" : 123456
+          },
+          "githubUsername" : {
+            "type" : "string",
+            "description" : "GitHub username at login time",
+            "example" : "octocat"
+          },
+          "email" : {
+            "type" : [ "string", "null" ],
+            "description" : "Primary GitHub email when available",
+            "example" : "octocat@example.com"
+          },
+          "avatarUrl" : {
+            "type" : [ "string", "null" ],
+            "description" : "GitHub avatar URL",
+            "example" : "https://avatars.githubusercontent.com/u/123456"
+          }
+        }
+      },
+      "AverageScores" : {
+        "type" : "object",
+        "properties" : {
+          "overall" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "technical" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "logic" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "communication" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        }
+      },
+      "RecentScore" : {
+        "type" : "object",
+        "properties" : {
+          "sessionId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "overall" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "technical" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "logic" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "communication" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "endedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "UserStatsResponse" : {
+        "type" : "object",
+        "properties" : {
+          "totalSessionCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "completedSessionCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "averages" : {
+            "$ref" : "#/components/schemas/AverageScores"
+          },
+          "recent" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RecentScore"
+            }
+          }
+        }
+      },
+      "ComponentHealthResponse" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "details" : {
+            "type" : "object",
+            "additionalProperties" : { }
+          }
+        }
+      },
+      "SystemHealthResponse" : {
+        "type" : "object",
+        "properties" : {
+          "status" : {
+            "type" : "string"
+          },
+          "timestamp" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "components" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "$ref" : "#/components/schemas/ComponentHealthResponse"
+            }
+          }
+        }
+      },
+      "SystemLiveResponse" : {
+        "type" : "object",
+        "properties" : {
+          "status" : {
+            "type" : "string"
+          },
+          "timestamp" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "FeedbackResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sessionId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "overallScore" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "technicalAccuracy" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "logicScore" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "communicationScore" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "strengthsSummary" : {
+            "type" : "string"
+          },
+          "weaknessesSummary" : {
+            "type" : "string"
+          },
+          "improvementKeywords" : {
+            "type" : "array",
+            "description" : "Improvement keywords returned by AI. The current contract is a string list.",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "reportFilePath" : {
+            "type" : "string",
+            "description" : "Stored report path when AI generates a detailed learning guide/report."
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "CandidateRepositoryResponse" : {
+        "type" : "object",
+        "properties" : {
+          "githubRepoId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "fullName" : {
+            "type" : "string"
+          },
+          "htmlUrl" : {
+            "type" : "string"
+          },
+          "defaultBranch" : {
+            "type" : "string"
+          },
+          "isPrivate" : {
+            "type" : "boolean"
+          },
+          "alreadyRegistered" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "GithubTokenResponse" : {
+        "type" : "object",
+        "properties" : {
+          "accessToken" : {
+            "type" : "string"
+          }
+        }
+      },
+      "AnalyzedDocumentResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sourceType" : {
+            "type" : "string"
+          },
+          "sourceId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "documentPath" : {
+            "type" : "string"
+          },
+          "documentDownloadUrl" : {
+            "type" : "string",
+            "format" : "uri"
+          },
+          "summary" : {
+            "type" : "string"
+          },
+          "techStack" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "embeddingChunkCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "analysisStatus" : {
+            "type" : "string",
+            "enum" : [ "PROCESSING", "ANALYZED", "FAILED" ]
+          },
+          "errorCode" : {
+            "type" : "string"
+          },
+          "errorMessage" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "ACTIVE", "ARCHIVED" ]
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "AuthUserResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "StackUp user id",
+            "example" : 1
+          },
+          "githubId" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Stable GitHub user id",
+            "example" : 123456
+          },
+          "githubUsername" : {
+            "type" : "string",
+            "description" : "GitHub username at login time",
+            "example" : "octocat"
+          },
+          "email" : {
+            "type" : [ "string", "null" ],
+            "description" : "Primary GitHub email when available",
+            "example" : "octocat@example.com"
+          },
+          "avatarUrl" : {
+            "type" : [ "string", "null" ],
+            "description" : "GitHub avatar URL",
+            "example" : "https://avatars.githubusercontent.com/u/123456"
+          }
+        }
+      },
+      "GithubCallbackResponse" : {
+        "type" : "object",
+        "properties" : {
+          "accessToken" : {
+            "type" : "string",
+            "description" : "StackUp JWT access token",
+            "example" : "our-jwt-access-token"
+          },
+          "tokenType" : {
+            "type" : "string",
+            "description" : "Access token type",
+            "example" : "Bearer"
+          },
+          "expiresIn" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Access token TTL in seconds",
+            "example" : 900
+          },
+          "user" : {
+            "$ref" : "#/components/schemas/AuthUserResponse",
+            "description" : "Authenticated user profile"
+          },
+          "isNewUser" : {
+            "type" : "boolean",
+            "description" : "Whether a new user was created during this login",
+            "example" : false
+          }
+        }
+      }
+    }
+  }
+}
