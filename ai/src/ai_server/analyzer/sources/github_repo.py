@@ -60,12 +60,20 @@ class RepositoryFetchError(Exception):
 
 
 @dataclass(frozen=True)
+class ContributionInfo:
+    login: str
+    commit_count: int
+    authored_files: list[str]
+
+
+@dataclass(frozen=True)
 class _RepoConfig:
     api_base_url: str
     fallback_token: str
     max_files: int
     max_file_bytes: int
     timeout_sec: float
+    max_contrib_commits: int
 
 
 # 리드미, 주요 소스를 읽는다
@@ -78,6 +86,7 @@ class GitHubRepoSourceExtractor(SourceExtractor):
         max_files: int = 8,
         max_file_bytes: int = 50_000,
         timeout_sec: float = 30.0,
+        max_contrib_commits: int = 15,
         client: httpx.AsyncClient | None = None,
     ) -> None:
         self._cfg = _RepoConfig(
@@ -86,6 +95,7 @@ class GitHubRepoSourceExtractor(SourceExtractor):
             max_files=max_files,
             max_file_bytes=max_file_bytes,
             timeout_sec=timeout_sec,
+            max_contrib_commits=max_contrib_commits,
         )
         self._client = client
 
@@ -109,12 +119,18 @@ class GitHubRepoSourceExtractor(SourceExtractor):
             )
 
         effective_token = access_token or self._cfg.fallback_token
+        # 기여도 분석은 지원자 본인 token 이 있을 때만 의미 있음(GET /user = 지원자).
+        has_user_token = bool(access_token)
 
         if self._client is not None:
-            return await self._extract_with_client(self._client, owner_repo)
+            return await self._extract_with_client(
+                self._client, owner_repo, has_user_token=has_user_token
+            )
 
         async with self._build_client(effective_token) as client:
-            return await self._extract_with_client(client, owner_repo)
+            return await self._extract_with_client(
+                client, owner_repo, has_user_token=has_user_token
+            )
 
     def _build_client(self, token: str) -> httpx.AsyncClient:
         headers = {
@@ -133,15 +149,24 @@ class GitHubRepoSourceExtractor(SourceExtractor):
         self,
         client: httpx.AsyncClient,
         owner_repo: str,
+        *,
+        has_user_token: bool = False,
     ) -> ExtractedSource:
         repo_info = await self._fetch_json(client, f"/repos/{owner_repo}")
         default_branch = repo_info.get("default_branch") or "main"
+
+        contribution: ContributionInfo | None = None
+        if has_user_token:
+            contribution = await self._fetch_contribution(
+                client, owner_repo, default_branch
+            )
 
         readme_text = await self._fetch_readme(client, owner_repo)
         tree_paths, truncated = await self._fetch_tree(
             client, owner_repo, default_branch
         )
-        picked = _select_files(tree_paths, self._cfg.max_files)
+        authored = contribution.authored_files if contribution else []
+        picked = _select_files(tree_paths, self._cfg.max_files, prioritized=authored)
         snippets = await self._fetch_snippets(
             client, owner_repo, default_branch, picked
         )
@@ -150,6 +175,16 @@ class GitHubRepoSourceExtractor(SourceExtractor):
         parts.append(f"# {owner_repo} (branch: {default_branch})")
         if desc := repo_info.get("description"):
             parts.append(f"\n> {desc}")
+
+        # 다중 기여자 레포에서 "지원자가 실제 쓴 코드" 를 구분하기 위한 기여 요약.
+        if contribution and contribution.commit_count:
+            parts.append("\n## 지원자 기여\n")
+            parts.append(
+                f"- 지원자(@{contribution.login}) 커밋 {contribution.commit_count}개"
+            )
+            if contribution.authored_files:
+                top = contribution.authored_files[:10]
+                parts.append("- 주요 작성 파일:\n" + "\n".join(f"  - {p}" for p in top))
 
         if readme_text:
             parts.append("\n## README\n")
@@ -175,7 +210,62 @@ class GitHubRepoSourceExtractor(SourceExtractor):
                 "tree_size": len(tree_paths),
                 "tree_truncated": truncated,
                 "sampled_files": [p for p, _ in snippets],
+                "contributor_login": contribution.login if contribution else None,
+                "contrib_commit_count": (
+                    contribution.commit_count if contribution else 0
+                ),
             },
+        )
+
+    # 지원자 token 으로 GET /user → login 확보 후, 그 login 이 author 인 커밋을
+    # 집계해 기여 파일을 추린다. 실패(권한/rate limit/공개레포)는 None 으로 graceful.
+    async def _fetch_contribution(
+        self,
+        client: httpx.AsyncClient,
+        owner_repo: str,
+        branch: str,
+    ) -> ContributionInfo | None:
+        try:
+            me = await self._fetch_json(client, "/user")
+        except RepositoryFetchError as err:
+            log.warning("repo.contrib.user_skip", code=err.code)
+            return None
+        login = me.get("login") if isinstance(me, dict) else None
+        if not login:
+            return None
+
+        try:
+            commits = await self._fetch_json(
+                client,
+                f"/repos/{owner_repo}/commits"
+                f"?author={login}&sha={branch}&per_page=100",
+            )
+        except RepositoryFetchError as err:
+            log.warning("repo.contrib.commits_skip", code=err.code)
+            return None
+        if not isinstance(commits, list) or not commits:
+            return ContributionInfo(login=login, commit_count=0, authored_files=[])
+
+        file_counter: dict[str, int] = {}
+        for commit in commits[: self._cfg.max_contrib_commits]:
+            sha = commit.get("sha") if isinstance(commit, dict) else None
+            if not sha:
+                continue
+            try:
+                detail = await self._fetch_json(
+                    client, f"/repos/{owner_repo}/commits/{sha}"
+                )
+            except RepositoryFetchError:
+                continue
+            files = detail.get("files") if isinstance(detail, dict) else None
+            for f in files or []:
+                path = f.get("filename") if isinstance(f, dict) else None
+                if path:
+                    file_counter[path] = file_counter.get(path, 0) + 1
+
+        authored = sorted(file_counter, key=lambda p: file_counter[p], reverse=True)
+        return ContributionInfo(
+            login=login, commit_count=len(commits), authored_files=authored
         )
 
     async def _fetch_json(self, client: httpx.AsyncClient, path: str) -> dict:
@@ -267,10 +357,26 @@ class GitHubRepoSourceExtractor(SourceExtractor):
         return out
 
 
-def _select_files(paths: list[str], cap: int) -> list[str]:
-    """우선순위 → 디렉토리당 대표 텍스트 파일 1개씩, 합쳐서 cap까지."""
+def _select_files(
+    paths: list[str], cap: int, *, prioritized: list[str] | None = None
+) -> list[str]:
+    """지원자 기여 파일 → 설정파일 우선순위 → 디렉토리당 대표 텍스트 파일, cap까지."""
     chosen: list[str] = []
     seen: set[str] = set()
+    tree = set(paths)
+
+    # 지원자가 실제 작성한 텍스트 파일을 가장 먼저 (트리에 존재 + 텍스트 확장자).
+    for p in prioritized or []:
+        if p in seen or p not in tree:
+            continue
+        if "." not in p.rsplit("/", 1)[-1]:
+            continue
+        if ("." + p.rsplit(".", 1)[-1].lower()) not in _TEXT_EXTENSIONS:
+            continue
+        chosen.append(p)
+        seen.add(p)
+        if len(chosen) >= cap:
+            return chosen
 
     for needle in _PRIORITY_FILES:
         for p in paths:

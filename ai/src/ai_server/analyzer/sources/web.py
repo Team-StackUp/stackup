@@ -26,10 +26,12 @@ class WebSourceExtractor(SourceExtractor):
         *,
         timeout_sec: float = 20.0,
         max_html_bytes: int = 2_000_000,
+        enable_render_fallback: bool = True,
         client: httpx.AsyncClient | None = None,
     ) -> None:
         self._timeout_sec = timeout_sec
         self._max_html_bytes = max_html_bytes
+        self._enable_render_fallback = enable_render_fallback
         self._client = client
 
     async def extract(self, locator: str) -> ExtractedSource:
@@ -43,6 +45,15 @@ class WebSourceExtractor(SourceExtractor):
 
         html, final_url, content_type = await self._fetch_html(url)
         text = await asyncio.to_thread(_extract_main_text, html, final_url)
+        rendered = False
+
+        # 본문이 비면 JS 렌더링 SPA(React 포폴 등)일 가능성 → Playwright 로 렌더 후 재추출.
+        if not text.strip() and self._enable_render_fallback:
+            rendered_html = await self._render(url)
+            if rendered_html:
+                html = rendered_html
+                text = await asyncio.to_thread(_extract_main_text, html, final_url)
+                rendered = True
 
         if not text.strip():
             raise WebFetchError(
@@ -60,8 +71,34 @@ class WebSourceExtractor(SourceExtractor):
                 "content_type": content_type,
                 "html_bytes": len(html.encode("utf-8")),
                 "text_chars": len(text),
+                "rendered": rendered,
             },
         )
+
+    async def _render(self, url: str) -> str | None:
+        """헤드리스 chromium 으로 페이지를 렌더해 최종 HTML 을 반환.
+        playwright 미설치/브라우저 미설치/렌더 실패는 None 으로 graceful."""
+        try:
+            from playwright.async_api import async_playwright
+        except ImportError:
+            log.warning("web.render.playwright_unavailable", url=url)
+            return None
+        try:
+            async with async_playwright() as p:
+                browser = await p.chromium.launch(headless=True)
+                try:
+                    page = await browser.new_page()
+                    await page.goto(
+                        url,
+                        wait_until="networkidle",
+                        timeout=int(self._timeout_sec * 1000),
+                    )
+                    return await page.content()
+                finally:
+                    await browser.close()
+        except Exception as exc:  # noqa: BLE001
+            log.warning("web.render.failed", url=url, error=str(exc))
+            return None
 
     async def _fetch_html(self, url: str) -> tuple[str, str, str]:
         if self._client is not None:

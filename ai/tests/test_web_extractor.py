@@ -100,11 +100,38 @@ async def test_rejects_oversized_html() -> None:
 @pytest.mark.asyncio
 async def test_raises_on_empty_body() -> None:
     client = _make_client(body="<html><body></body></html>")
-    extractor = WebSourceExtractor(client=client)
+    extractor = WebSourceExtractor(client=client, enable_render_fallback=False)
     with pytest.raises(WebFetchError) as exc_info:
         await extractor.extract("https://example.com/r")
     assert exc_info.value.code == "EMPTY_WEB_BODY"
     assert exc_info.value.retriable is False
+
+
+@pytest.mark.asyncio
+async def test_empty_body_falls_back_to_render() -> None:
+    # 1차 fetch = JS 셸(본문 없음) → 렌더 폴백으로 본문 확보
+    client = _make_client(body='<html><body><div id="root"></div></body></html>')
+    extractor = WebSourceExtractor(client=client)
+    rendered_html = (
+        "<html><body><article><h1>김OO</h1>"
+        "<p>프론트엔드 개발자. React 포트폴리오.</p></article></body></html>"
+    )
+    extractor._render = AsyncMock(return_value=rendered_html)
+
+    result = await extractor.extract("https://example.com/spa")
+    assert "프론트엔드 개발자" in result.text
+    assert result.metadata["rendered"] is True
+    extractor._render.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_render_fallback_returning_none_raises_empty() -> None:
+    client = _make_client(body='<html><body><div id="root"></div></body></html>')
+    extractor = WebSourceExtractor(client=client)
+    extractor._render = AsyncMock(return_value=None)  # 렌더 실패/불가
+    with pytest.raises(WebFetchError) as exc_info:
+        await extractor.extract("https://example.com/spa")
+    assert exc_info.value.code == "EMPTY_WEB_BODY"
 
 
 @pytest.mark.asyncio

@@ -130,6 +130,10 @@ class Settings(BaseSettings):
     embedding_chunk_overlap: int = 200
     embedding_batch_size: int = 32
 
+    # PDF Vision (이미지/스캔 PDF 폴백 — 게이트웨이 멀티모달)
+    pdf_vision_max_pages: int = 5
+    pdf_vision_dpi: int = 150
+
     gemini_api_key: str = ""
 
 
