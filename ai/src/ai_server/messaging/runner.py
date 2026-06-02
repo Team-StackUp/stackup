@@ -13,6 +13,7 @@ from ai_server.chain.document_analysis_chain import (
     LlmDocumentAnalyzer,
     build_document_analysis_chain,
 )
+from ai_server.chain.pdf_vision import build_vision_pdf_reader
 from ai_server.chain.followup_generation_chain import (
     LlmFollowupGenerator,
     build_followup_generation_chain,
@@ -97,10 +98,13 @@ class MessagingRuntime:
             gemini_api_key=settings.gemini_api_key,
         )
         reranker = build_reranker(settings, core_client=core_client)
+        vision_pdf_reader = build_vision_pdf_reader(settings, core_client=core_client)
 
         # 이력서 PDF
         resume_analyzer = ResumeAnalyzer(
-            extractor=PdfSourceExtractor(storage=storage),
+            extractor=PdfSourceExtractor(
+                storage=storage, vision_reader=vision_pdf_reader
+            ),
             chain=chain_analyzer,
             storage=storage,
             chunker=chunker,

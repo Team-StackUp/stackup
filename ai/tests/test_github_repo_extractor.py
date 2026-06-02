@@ -142,6 +142,84 @@ async def test_extract_rejects_malformed_locator() -> None:
     assert exc_info.value.code == "INVALID_REPO_LOCATOR"
 
 
+@pytest.mark.asyncio
+async def test_extract_includes_contributor_analysis_with_user_token() -> None:
+    routes = {
+        "/repos/user/repo": {"default_branch": "dev", "description": "demo"},
+        "/user": {"login": "alice"},
+        "/repos/user/repo/commits?author=alice&sha=dev&per_page=100": [
+            {"sha": "c1"},
+            {"sha": "c2"},
+        ],
+        "/repos/user/repo/commits/c1": {"files": [{"filename": "src/pay.py"}]},
+        "/repos/user/repo/commits/c2": {
+            "files": [{"filename": "src/pay.py"}, {"filename": "src/util.py"}]
+        },
+        "/repos/user/repo/readme": 404,
+        "/repos/user/repo/git/trees/dev?recursive=1": {
+            "tree": [
+                {"path": "src/pay.py", "type": "blob"},
+                {"path": "src/util.py", "type": "blob"},
+                {"path": "src/other.py", "type": "blob"},
+            ],
+            "truncated": False,
+        },
+        "/repos/user/repo/contents/src/pay.py?ref=dev": {
+            "encoding": "base64",
+            "content": _b64("def pay(): ..."),
+        },
+        "/repos/user/repo/contents/src/util.py?ref=dev": {
+            "encoding": "base64",
+            "content": _b64("def util(): ..."),
+        },
+        "/repos/user/repo/contents/src/other.py?ref=dev": {
+            "encoding": "base64",
+            "content": _b64("def other(): ..."),
+        },
+    }
+    client, _ = _make_client(routes)
+    extractor = GitHubRepoSourceExtractor(
+        api_base_url="https://api.github.com", client=client
+    )
+
+    result = await extractor.extract("user/repo", access_token="alice-token")
+
+    assert "## 지원자 기여" in result.text
+    assert "@alice" in result.text
+    assert "커밋 2개" in result.text
+    assert result.metadata["contributor_login"] == "alice"
+    assert result.metadata["contrib_commit_count"] == 2
+    # 기여 파일(src/pay.py)이 샘플링 우선순위에 들어감
+    assert "src/pay.py" in result.metadata["sampled_files"]
+
+
+@pytest.mark.asyncio
+async def test_extract_skips_contribution_without_user_token() -> None:
+    routes = {
+        "/repos/user/repo": {"default_branch": "main"},
+        "/repos/user/repo/readme": 404,
+        "/repos/user/repo/git/trees/main?recursive=1": {
+            "tree": [],
+            "truncated": False,
+        },
+    }
+    client, getter = _make_client(routes)
+    extractor = GitHubRepoSourceExtractor(
+        api_base_url="https://api.github.com", client=client
+    )
+    result = await extractor.extract("user/repo")  # access_token 없음
+    # /user 를 호출하지 않음 (기여도 분석 스킵)
+    called_paths = [c.args[0] for c in getter.call_args_list]
+    assert "/user" not in called_paths
+    assert result.metadata["contrib_commit_count"] == 0
+
+
+def test_select_files_prioritizes_contributed_files_first() -> None:
+    paths = ["package.json", "src/index.ts", "src/feature/pay.ts"]
+    picked = _select_files(paths, cap=2, prioritized=["src/feature/pay.ts"])
+    assert picked[0] == "src/feature/pay.ts"  # 기여 파일이 최우선
+
+
 def test_select_files_prioritizes_manifests_then_one_per_dir() -> None:
     paths = [
         "package.json",
