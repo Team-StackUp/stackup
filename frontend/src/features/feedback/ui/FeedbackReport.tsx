@@ -1,55 +1,79 @@
+import { useRef, useState } from 'react'
 import { StatusBadge } from '@/shared/ui/StatusBadge'
 import { ScoreBar } from '@/shared/ui/ScoreBar'
+import { Button } from '@/shared/ui/Button'
 import type { Feedback } from '../api/feedbackApi'
+import { downloadElementAsPdf } from '../lib/downloadPdf'
 
 export function FeedbackReport({ feedback }: { feedback: Feedback }) {
+  const reportRef = useRef<HTMLDivElement>(null)
+  const [downloading, setDownloading] = useState(false)
+
+  const handleDownload = async () => {
+    if (!reportRef.current) return
+    setDownloading(true)
+    try {
+      await downloadElementAsPdf(reportRef.current, '면접피드백.pdf')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   const overall = feedback.overallScore
   return (
-    <div className="flex w-full flex-col gap-8">
-      <section className="flex flex-col items-center gap-2">
-        <span className="text-caption text-fg-muted">종합 점수</span>
-        <span className="text-h2 text-fg">
-          {typeof overall === 'number' ? Math.round(overall) : '—'}
-          <span className="text-h5 text-fg-muted"> / 100</span>
-        </span>
-      </section>
+    <div className="flex w-full flex-col gap-4">
+      <div className="flex justify-end">
+        <Button variant="secondary" onClick={handleDownload} disabled={downloading}>
+          {downloading ? 'PDF 생성 중…' : 'PDF 다운로드'}
+        </Button>
+      </div>
 
-      <section className="flex flex-col gap-4">
-        <ScoreBar label="기술 정확도" score={feedback.technicalAccuracy} />
-        <ScoreBar label="논리력" score={feedback.logicScore} />
-        <ScoreBar label="전달력" score={feedback.communicationScore} />
-      </section>
-
-      {feedback.strengthsSummary && (
-        <section className="flex flex-col gap-2">
-          <h2 className="text-h6 text-fg">강점</h2>
-          <p className="whitespace-pre-wrap text-body text-fg-muted">
-            {feedback.strengthsSummary}
-          </p>
+      <div ref={reportRef} className="flex w-full flex-col gap-8 bg-bg p-2">
+        <section className="flex flex-col items-center gap-2">
+          <span className="text-caption text-fg-muted">종합 점수</span>
+          <span className="text-h2 text-fg">
+            {typeof overall === 'number' ? Math.round(overall) : '—'}
+            <span className="text-h5 text-fg-muted"> / 100</span>
+          </span>
         </section>
-      )}
 
-      {feedback.weaknessesSummary && (
-        <section className="flex flex-col gap-2">
-          <h2 className="text-h6 text-fg">개선할 점</h2>
-          <p className="whitespace-pre-wrap text-body text-fg-muted">
-            {feedback.weaknessesSummary}
-          </p>
+        <section className="flex flex-col gap-4">
+          <ScoreBar label="기술 정확도" score={feedback.technicalAccuracy} />
+          <ScoreBar label="논리력" score={feedback.logicScore} />
+          <ScoreBar label="전달력" score={feedback.communicationScore} />
         </section>
-      )}
 
-      {feedback.improvementKeywords && feedback.improvementKeywords.length > 0 && (
-        <section className="flex flex-col gap-2">
-          <h2 className="text-h6 text-fg">다음에 채울 키워드</h2>
-          <div className="flex flex-wrap gap-2">
-            {feedback.improvementKeywords.map((kw) => (
-              <StatusBadge key={kw} tone="info">
-                {kw}
-              </StatusBadge>
-            ))}
-          </div>
-        </section>
-      )}
+        {feedback.strengthsSummary && (
+          <section className="flex flex-col gap-2">
+            <h2 className="text-h6 text-fg">강점</h2>
+            <p className="whitespace-pre-wrap text-body text-fg-muted">
+              {feedback.strengthsSummary}
+            </p>
+          </section>
+        )}
+
+        {feedback.weaknessesSummary && (
+          <section className="flex flex-col gap-2">
+            <h2 className="text-h6 text-fg">개선할 점</h2>
+            <p className="whitespace-pre-wrap text-body text-fg-muted">
+              {feedback.weaknessesSummary}
+            </p>
+          </section>
+        )}
+
+        {feedback.improvementKeywords && feedback.improvementKeywords.length > 0 && (
+          <section className="flex flex-col gap-2">
+            <h2 className="text-h6 text-fg">다음에 채울 키워드</h2>
+            <div className="flex flex-wrap gap-2">
+              {feedback.improvementKeywords.map((kw) => (
+                <StatusBadge key={kw} tone="info">
+                  {kw}
+                </StatusBadge>
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
     </div>
   )
 }
