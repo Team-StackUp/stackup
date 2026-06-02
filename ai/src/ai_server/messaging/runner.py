@@ -33,8 +33,10 @@ from ai_server.rag.embedder import build_embedding_provider
 from ai_server.messaging.consumers.feedback_consumer import FeedbackConsumer
 from ai_server.messaging.consumers.followup_consumer import FollowupConsumer
 from ai_server.messaging.consumers.questions_consumer import QuestionsConsumer
+from ai_server.messaging.consumers.tts_consumer import TtsConsumer
 from ai_server.messaging.consumers.voice_consumer import VoiceConsumer
 from ai_server.voice.stt.factory import build_stt_provider
+from ai_server.voice.tts.factory import build_tts_provider
 from ai_server.messaging.consumers.repository_consumer import RepositoryConsumer
 from ai_server.messaging.consumers.resume_consumer import ResumeConsumer
 from ai_server.messaging.consumers.web_consumer import WebResumeConsumer
@@ -210,6 +212,18 @@ class MessagingRuntime:
             core_client=core_client,
         )
 
+        # 질문 TTS (Part A)
+        tts = build_tts_provider(settings)
+        self._tts_consumer = TtsConsumer(
+            tts=tts,
+            storage=storage,
+            publisher=self._publisher,
+            idempotency=self._idempotency,
+            callback_routing_key=settings.ai_callback_routing_tts,
+            voice=settings.openai_tts_voice,
+            key_template=settings.tts_audio_key_template,
+        )
+
         self._consumers: list[tuple[AbstractRobustQueue, str]] = []
 
     async def start(self) -> None:
@@ -253,6 +267,11 @@ class MessagingRuntime:
             channel,
             queue_name=self._settings.ai_queue_voice,
             handler=self._voice_consumer.handle,
+        )
+        await self._start_consumer(
+            channel,
+            queue_name=self._settings.ai_queue_tts,
+            handler=self._tts_consumer.handle,
         )
 
     async def _start_consumer(self, channel, *, queue_name, handler) -> None:

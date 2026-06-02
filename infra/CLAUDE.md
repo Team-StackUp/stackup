@@ -113,6 +113,7 @@ docker exec -i stackup-postgres psql -U stackup stackup < backup.sql
 | `ai.analyze.web` | `stackup.core-to-ai` | `analyze.web` | `dlq.ai.analyze.web` | AI Server |
 | `ai.generate.questions` | `stackup.core-to-ai` | `generate.questions` | `dlq.ai.generate.questions` | AI Server |
 | `ai.generate.followup` | `stackup.core-to-ai` | `generate.followup` | `dlq.ai.generate.followup` | AI Server |
+| `ai.generate.tts` | `stackup.core-to-ai` | `generate.tts` | `dlq.ai.generate.tts` | AI Server |
 | `core.callback.analysis` | `stackup.ai-to-core` | `callback.analysis` | `dlq.core.callback.analysis` | Core Server |
 | `core.callback.questions` | `stackup.ai-to-core` | `callback.questions` | `dlq.core.callback.questions` | Core Server |
 | `q.realtime.session.notify` | `stackup.realtime` | `realtime.session.*` | `dlq.q.realtime.session.notify` | RealTime Server |

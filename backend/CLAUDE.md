@@ -359,6 +359,8 @@ docker compose up -d
 - ArchUnit 룰 적용 (의존 방향 · 순환 차단 · `@Transactional` application 한정 · entity는 domain 패키지)
 - 면접 도메인 (US-13~20) 본 구현: 세션 CRUD/start/end/interrupt, generate.questions 발행,
   callback.questions(POOL/FOLLOWUP) 수신, 자동 종료
+- 질문 TTS 발행 본 구현: 질문 영속 후 `QuestionPersistedEvent`(AFTER_COMMIT) → `SessionTtsRequester` 가 `generate.tts` 발행,
+  `callback.tts` 수신해 메시지에 오디오 경로 반영(`TtsCallbackService`)
 - AI 호출 로깅 (US-30) 본 구현: `/api/internal/ai-logs` + `ai_request_logs` INSERT
 - **Spring AI 미사용** — LLM·임베딩 호출은 모두 AI 서버 위임. Core는 RabbitMQ 발행만 담당.
 - **Redis 미사용** — 휘발성 데이터는 DB short-lived 레코드 또는 인메모리로.

@@ -62,6 +62,7 @@ class SessionQuestionsRequesterTest {
         return new RabbitMqProperties.RoutingKeyProperties(
             "analyze.resume", "analyze.repository",
             "generate.questions", "generate.followup", "generate.feedback", "analyze.voice",
+            "generate.tts",
             "callback.analysis", "callback.questions", "callback.feedback", "callback.voice",
             "callback.tts",
             "realtime.session.notify", "realtime.user.notify", "realtime.document.notify");

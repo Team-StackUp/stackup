@@ -7,6 +7,7 @@ import com.stackup.stackup.common.sse.SseEventType;
 import com.stackup.stackup.session.application.dto.QuestionsCallbackEnvelope;
 import com.stackup.stackup.session.application.dto.QuestionsCallbackPayload;
 import com.stackup.stackup.session.application.dto.QuestionsCallbackPayload.GeneratedQuestion;
+import com.stackup.stackup.session.application.event.QuestionPersistedEvent;
 import com.stackup.stackup.session.application.event.SessionEndedEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import com.stackup.stackup.session.domain.InterviewMessage;
@@ -88,6 +89,8 @@ public class QuestionsCallbackService {
             InterviewMessage.interviewer(session, 1, first.question())
         );
         session.incrementQuestionCount();
+        events.publishEvent(new QuestionPersistedEvent(
+            session.getUser().getId(), session.getId(), message.getId()));
         events.publishEvent(RealtimeNotifyEvent.session(session.getId(), SseEventType.SESSION_MESSAGE, message.getId()));
         // 사용자 user 채널에도 알림 — frontend 가 documentId/sessionId 사전 인지 없이도 받을 수 있게
         events.publishEvent(RealtimeNotifyEvent.user(
@@ -115,6 +118,9 @@ public class QuestionsCallbackService {
             InterviewMessage.followup(session, nextSeq, payload.followupQuestion(), parent)
         );
         session.incrementQuestionCount();
+
+        events.publishEvent(new QuestionPersistedEvent(
+            session.getUser().getId(), session.getId(), message.getId()));
 
         events.publishEvent(RealtimeNotifyEvent.session(session.getId(), SseEventType.SESSION_MESSAGE, message.getId()));
         events.publishEvent(RealtimeNotifyEvent.user(
