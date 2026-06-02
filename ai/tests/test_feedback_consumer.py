@@ -5,11 +5,22 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from ai_server.chain.feedback_generation_chain import FeedbackResult
+from ai_server.chain.feedback_generation_chain import (
+    FeedbackResult,
+    LlmFeedbackGenerator,
+)
+from ai_server.chain.prompts.feedback_generation import HUMAN_PROMPT
 from ai_server.core.client import EmbeddingSearchHit
 from ai_server.messaging.consumers.feedback_consumer import FeedbackConsumer
 from ai_server.messaging.idempotency import LruIdempotencyStore
 from ai_server.model.messages.feedback import FeedbackCallbackPayload
+
+VOICE_SUMMARY = {
+    "analyzedMessageCount": 2,
+    "averageSpeakingRateWpm": 132.5,
+    "totalSilenceDurationSec": 4.2,
+    "fillerWordCounts": {"um": 3, "like": 1},
+}
 
 
 class _StubMessage:
@@ -29,7 +40,11 @@ class _NoopCtx:
         return False
 
 
-def _envelope(*, context_documents: list[int] | None = None) -> bytes:
+def _envelope(
+    *,
+    context_documents: list[int] | None = None,
+    voice_analysis_summary: dict | None = None,
+) -> bytes:
     env = {
         "messageId": "fb-1",
         "messageType": "generate.feedback",
@@ -44,14 +59,26 @@ def _envelope(*, context_documents: list[int] | None = None) -> bytes:
             "totalQuestionCount": 2,
             "endReason": "MAX_QUESTIONS_REACHED",
             "messages": [
-                {"id": 100, "sequenceNumber": 1, "role": "INTERVIEWER", "content": "ACID?"},
-                {"id": 101, "sequenceNumber": 2, "role": "INTERVIEWEE",
-                 "content": "원자성·일관성·격리성·영속성", "parentMessageId": 100},
+                {
+                    "id": 100,
+                    "sequenceNumber": 1,
+                    "role": "INTERVIEWER",
+                    "content": "ACID?",
+                },
+                {
+                    "id": 101,
+                    "sequenceNumber": 2,
+                    "role": "INTERVIEWEE",
+                    "content": "원자성·일관성·격리성·영속성",
+                    "parentMessageId": 100,
+                },
             ],
             "contextDocumentIds": context_documents or [],
         },
         "context": {"userId": 1, "sessionId": 50},
     }
+    if voice_analysis_summary is not None:
+        env["payload"]["voiceAnalysisSummary"] = voice_analysis_summary
     return json.dumps(env).encode()
 
 
@@ -104,7 +131,12 @@ async def test_consumer_calls_rag_when_documents_and_embedder_present():
     core = MagicMock()
     core.search_embeddings = AsyncMock(
         return_value=[
-            EmbeddingSearchHit(document_id=7, chunk_index=2, chunk_text="JPA dirty checking", distance=0.12)
+            EmbeddingSearchHit(
+                document_id=7,
+                chunk_index=2,
+                chunk_text="JPA dirty checking",
+                distance=0.12,
+            )
         ]
     )
     embedder = MagicMock()
@@ -126,6 +158,61 @@ async def test_consumer_calls_rag_when_documents_and_embedder_present():
     # rag_context 가 chain 호출 인자로 전달됐는지 확인
     invoked_kwargs = generator.generate.await_args.kwargs
     assert "JPA dirty checking" in invoked_kwargs["rag_context"]
+
+
+@pytest.mark.asyncio
+async def test_consumer_accepts_voice_summary_and_passes_it_to_generator():
+    generator = _generator()
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+
+    consumer = FeedbackConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.feedback",
+        core_client=MagicMock(),
+        embedder=None,
+    )
+    await consumer.handle(_StubMessage(_envelope(voice_analysis_summary=VOICE_SUMMARY)))
+
+    invoked_kwargs = generator.generate.await_args.kwargs
+    voice_context = invoked_kwargs["voice_analysis_summary"]
+    assert "Analyzed answer messages: 2" in voice_context
+    assert "Average speaking rate: 132.5 WPM" in voice_context
+    assert "Total silence duration: 4.2 seconds" in voice_context
+    assert "like: 1" in voice_context
+    assert "um: 3" in voice_context
+
+    payload: FeedbackCallbackPayload = publisher.publish.await_args.kwargs["payload"]
+    assert not hasattr(payload, "voice_analysis_summary")
+
+
+@pytest.mark.asyncio
+async def test_llm_feedback_generator_includes_voice_summary_in_chain_input():
+    class _FakeChain:
+        def __init__(self):
+            self.input = None
+
+        async def ainvoke(self, value):
+            self.input = value
+            return FeedbackResult(overall_score=70.0)
+
+    chain = _FakeChain()
+    generator = LlmFeedbackGenerator(chain)
+
+    await generator.generate(
+        job_category="BACKEND",
+        mode="TECHNICAL",
+        total_question_count=1,
+        end_reason="USER_REQUEST",
+        transcript="answer",
+        rag_context="(none)",
+        voice_analysis_summary="Average speaking rate: 132.5 WPM",
+    )
+
+    assert chain.input["voice_analysis_summary"] == "Average speaking rate: 132.5 WPM"
+    assert "voice_analysis_summary" in HUMAN_PROMPT
 
 
 @pytest.mark.asyncio

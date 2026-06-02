@@ -20,6 +20,13 @@ SYSTEM_PROMPT = (
     "- 응답은 반드시 지정된 JSON 스키마를 따릅니다."
 )
 
+SYSTEM_PROMPT += (
+    "\n- Voice analysis guidance:\n"
+    "  - Use speaking rate, silence duration, and filler word counts when judging communication_score.\n"
+    "  - Mention notable pacing, long pauses, or repeated filler words in strengths_summary or weaknesses_summary when relevant.\n"
+    "  - If voice analysis is absent or sparse, do not invent voice-related findings.\n"
+)
+
 HUMAN_PROMPT = (
     "직군: {job_category}\n"
     "면접 모드: {mode}\n"
@@ -29,5 +36,7 @@ HUMAN_PROMPT = (
     "{transcript}\n\n"
     "=== RAG 컨텍스트 청크 (참고용, 직접 인용 금지) ===\n"
     "{rag_context}\n\n"
+    "=== Voice Analysis Summary ===\n"
+    "{voice_analysis_summary}\n\n"
     "{format_instructions}"
 )

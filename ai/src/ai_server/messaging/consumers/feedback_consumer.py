@@ -14,6 +14,7 @@ from ai_server.model.messages.feedback import (
     FeedbackCallbackPayload,
     FeedbackMessageItem,
     GenerateFeedbackRequest,
+    VoiceAnalysisSummary,
 )
 from ai_server.rag.embedder import EmbeddingProvider
 
@@ -84,6 +85,9 @@ class FeedbackConsumer:
 
             transcript = _build_transcript(req.messages)
             rag_context = await self._build_rag_context(req)
+            voice_analysis_summary = _build_voice_analysis_summary(
+                req.voice_analysis_summary
+            )
 
             result = await self._generator.generate(
                 job_category=req.job_category,
@@ -92,6 +96,7 @@ class FeedbackConsumer:
                 end_reason=req.end_reason,
                 transcript=transcript,
                 rag_context=rag_context,
+                voice_analysis_summary=voice_analysis_summary,
             )
 
             payload = FeedbackCallbackPayload(
@@ -142,7 +147,9 @@ class FeedbackConsumer:
             return "(none)"
         if not hits:
             return "(none)"
-        return "\n---\n".join(f"[doc#{h.document_id} chunk#{h.chunk_index}] {h.chunk_text}" for h in hits)
+        return "\n---\n".join(
+            f"[doc#{h.document_id} chunk#{h.chunk_index}] {h.chunk_text}" for h in hits
+        )
 
 
 def _build_transcript(messages: list[FeedbackMessageItem]) -> str:
@@ -150,6 +157,35 @@ def _build_transcript(messages: list[FeedbackMessageItem]) -> str:
         return "(empty)"
     lines: list[str] = []
     for m in messages:
-        speaker = "면접관" if m.role == "INTERVIEWER" else ("지원자" if m.role == "INTERVIEWEE" else m.role)
+        speaker = (
+            "면접관"
+            if m.role == "INTERVIEWER"
+            else ("지원자" if m.role == "INTERVIEWEE" else m.role)
+        )
         lines.append(f"[{m.sequence_number}] {speaker}: {m.content}")
     return "\n".join(lines)
+
+
+def _build_voice_analysis_summary(summary: VoiceAnalysisSummary | None) -> str:
+    if summary is None:
+        return "No voice analysis summary was provided."
+
+    lines: list[str] = []
+    if summary.analyzed_message_count is not None:
+        lines.append(f"Analyzed answer messages: {summary.analyzed_message_count}")
+    if summary.average_speaking_rate_wpm is not None:
+        lines.append(
+            f"Average speaking rate: {summary.average_speaking_rate_wpm:g} WPM"
+        )
+    if summary.total_silence_duration_sec is not None:
+        lines.append(
+            f"Total silence duration: {summary.total_silence_duration_sec:g} seconds"
+        )
+    if summary.filler_word_counts:
+        filler_words = ", ".join(
+            f"{word}: {count}"
+            for word, count in sorted(summary.filler_word_counts.items())
+        )
+        lines.append(f"Filler word counts: {filler_words}")
+
+    return "\n".join(lines) if lines else "No voice analysis summary was provided."
