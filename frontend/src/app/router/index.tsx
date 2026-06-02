@@ -7,6 +7,7 @@ import WorkspacePage from '@/pages/Workspace'
 import InterviewSetupPage from '@/pages/InterviewSetup'
 import InterviewSessionPage from '@/pages/InterviewSession'
 import SessionFeedbackPage from '@/pages/SessionFeedback'
+import HistoryPage from '@/pages/History'
 
 export const router = createBrowserRouter([
   { path: '/', element: <HomePage /> },
@@ -41,6 +42,14 @@ export const router = createBrowserRouter([
     element: (
       <RequireAuth>
         <SessionFeedbackPage />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/history',
+    element: (
+      <RequireAuth>
+        <HistoryPage />
       </RequireAuth>
     ),
   },

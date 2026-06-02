@@ -1,6 +1,6 @@
 import { StatusBadge } from '@/shared/ui/StatusBadge'
+import { ScoreBar } from '@/shared/ui/ScoreBar'
 import type { Feedback } from '../api/feedbackApi'
-import { ScoreBar } from './ScoreBar'
 
 export function FeedbackReport({ feedback }: { feedback: Feedback }) {
   const overall = feedback.overallScore
