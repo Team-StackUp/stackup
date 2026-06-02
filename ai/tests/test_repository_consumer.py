@@ -90,6 +90,7 @@ async def test_happy_path_publishes_analyzed_callback() -> None:
         default_branch="main",
         user_id=1,
         analyzed_document_id=88,
+        progress=None,
     )
     payload = _captured_payload(publisher)
     assert payload.status == "ANALYZED"

@@ -1,10 +1,11 @@
 import { isApiError } from '@/shared/api'
+import { useAnalysisProgress } from '@/shared/hooks'
 import { StatusBadge, type StatusTone } from '@/shared/ui'
 import {
   useDeleteRepository,
   useRegisteredRepositories,
 } from '../model/useRepositories'
-import type { RepositoryStatus } from '../model/types'
+import type { RegisteredRepository, RepositoryStatus } from '../model/types'
 
 const STATUS_META: Record<
   RepositoryStatus,
@@ -43,40 +44,59 @@ export function RepoList() {
 
   return (
     <ul className="flex flex-col gap-2">
-      {data.map((repo) => {
-        const meta = STATUS_META[repo.status]
-        return (
-          <li
-            key={repo.id}
-            className="flex items-center justify-between gap-4 rounded-xl border border-border bg-surface-raised px-4 py-3"
-          >
-            <div className="min-w-0">
-              <a
-                href={repo.repoUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-body text-fg-strong truncate hover:underline"
-              >
-                {repo.repoFullName}
-              </a>
-              <p className="text-caption text-fg-subtle mt-0.5">
-                {repo.defaultBranch ?? 'main'}
-              </p>
-            </div>
-            <div className="flex items-center gap-3 shrink-0">
-              <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
-              <button
-                type="button"
-                disabled={remove.isPending}
-                onClick={() => remove.mutate(repo.id)}
-                className="text-caption text-fg-muted hover:text-danger-700 disabled:opacity-60"
-              >
-                삭제
-              </button>
-            </div>
-          </li>
-        )
-      })}
+      {data.map((repo) => (
+        <RepoRow
+          key={repo.id}
+          repo={repo}
+          deleting={remove.isPending}
+          onDelete={() => remove.mutate(repo.id)}
+        />
+      ))}
     </ul>
+  )
+}
+
+function RepoRow({
+  repo,
+  deleting,
+  onDelete,
+}: {
+  repo: RegisteredRepository
+  deleting: boolean
+  onDelete: () => void
+}) {
+  const meta = STATUS_META[repo.status]
+  const progress = useAnalysisProgress('REPOSITORY', repo.id)
+  // 진행 문구는 분석 진행 중일 때만 의미 있다. 완료/실패 시 store 가 clear 되지만 방어적으로 가드.
+  const showProgress =
+    !!progress && (repo.status === 'ANALYZING' || repo.status === 'PENDING')
+
+  return (
+    <li className="flex items-center justify-between gap-4 rounded-xl border border-border bg-surface-raised px-4 py-3">
+      <div className="min-w-0">
+        <a
+          href={repo.repoUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="text-body text-fg-strong truncate hover:underline"
+        >
+          {repo.repoFullName}
+        </a>
+        <p className="text-caption text-fg-subtle mt-0.5">
+          {showProgress ? progress.message : (repo.defaultBranch ?? 'main')}
+        </p>
+      </div>
+      <div className="flex items-center gap-3 shrink-0">
+        <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
+        <button
+          type="button"
+          disabled={deleting}
+          onClick={onDelete}
+          className="text-caption text-fg-muted hover:text-danger-700 disabled:opacity-60"
+        >
+          삭제
+        </button>
+      </div>
+    </li>
   )
 }

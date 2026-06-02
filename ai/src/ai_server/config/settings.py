@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     ai_callback_routing_questions: str = "callback.questions"
     ai_callback_routing_feedback: str = "callback.feedback"
     ai_callback_routing_voice: str = "callback.voice"
+    # AI -> RealTime 직접 발행 (분석 단계 진행 상황). Core 를 거치지 않는 휘발성 알림.
+    ai_realtime_exchange: str = "stackup.realtime"
+    ai_realtime_routing_user: str = "realtime.user.notify"
     feedback_rag_top_k: int = 5
     # 질문 풀 초기 크기. Core 의 applyPool 이 questions[0] 만 INSERT 하므로 1 로 고정해 토큰 낭비 차단.
     # 후속 작업에서 풀 저장 도입 시 늘리기 (예: 5).
