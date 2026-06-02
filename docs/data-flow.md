@@ -83,6 +83,26 @@
   → [Core] 영속 후 RealtimeNotifyPublisher.publishToSession → [RealTime] WS/SSE → 다음 질문 push
 ```
 
+#### 3.2-1 음성 답변 — 실시간 스트리밍 분기 (RT3, Phase 2)
+
+배치 업로드(`POST .../messages/voice` multipart → `analyze.voice`) 대신, 마이크 오디오를 WS로 흘려 실시간 자막 + 즉시 다음 질문을 받는 저지연 경로.
+
+```
+[Frontend] POST /api/sessions/{id}/messages/voice/stream-begin
+  → [Core] placeholder voiceInterviewee("(transcribing)") INSERT → { messageId, parentMessageId } 반환
+[Frontend] WS /realtime/sessions/{id}/audio?access_token=&messageId=M
+  → [RealTime] WSAudioHandler: 브라우저 WS ↔ AI WS(/internal/voice/stream) 순수 오디오 프록시 (PG·MQ 미접근)
+  → [Frontend] 바이너리 오디오 프레임 업 ↕ AI가 transcript.partial/final JSON 다운
+[AI] DeepgramLive(또는 MockLive)로 부분 자막 실시간 반환
+  → [Frontend] {"type":"stop"} OR Deepgram UtteranceEnd → 발화 종료
+[AI] 최종 transcript + 메트릭(WPM/filler/silence) 계산
+  → RabbitMQ publish: stackup.ai-to-core / callback.voice { sessionId, interviewMessageId, transcript, metrics }
+[Core] VoiceCallbackService(무변경) → placeholder completeWithTranscript + message_voice_analyses INSERT
+  → AnswerSubmittedEvent → generate.followup → 기존 followup 파이프라인(다음 질문 + Phase1 TTS) 재사용
+```
+
+> `callback.voice` 이후는 배치 경로와 100% 동일(`VoiceCallbackService` 재사용). 신규는 "오디오가 AI에 닿는 경로(브라우저→RealTime WS→AI WS)" + Deepgram Live STT 뿐.
+
 ### 3.3 세션 종료
 
 ```

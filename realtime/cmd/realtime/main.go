@@ -41,7 +41,8 @@ func main() {
 	verifier := auth.NewStreamTokenVerifier(cfg.JWTSecret)
 	coreClient := core.NewClient(cfg.CoreBaseURL, cfg.InternalApiKey, cfg.WSWriteTimeout)
 	wsHandler := transport.NewWSHandler(registry, coreClient, cfg.WSWriteTimeout)
-	router := transport.NewRouter(sseHandler, wsHandler, verifier)
+	audioHandler := transport.NewWSAudioHandler(cfg.AIWSURL, cfg.InternalApiKey, cfg.WSWriteTimeout)
+	router := transport.NewRouter(sseHandler, wsHandler, audioHandler, verifier)
 
 	srv := &http.Server{
 		Addr:              cfg.ListenAddr,

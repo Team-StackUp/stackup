@@ -13,6 +13,7 @@ GET /realtime/stream/me                  # user 채널 SSE (userId는 토큰에�
 GET /realtime/stream/sessions/{sessionId} # session 채널 SSE (feedback.ready 등 비-라이브)
 GET /realtime/stream/documents/{documentId}
 WS  /realtime/sessions/{sessionId}        # RT1 라이브 텍스트 면접 (양방향)
+WS  /realtime/sessions/{sessionId}/audio  # RT3 실시간 음성 답변 스트림 (오디오 업/자막 다운)
 ```
 
 - 제공 주체: **RealTime Server (Go)**. Core는 직접 SSE를 서빙하지 않고 `stackup.realtime` exchange로 발행만 한다 (RealTime이 consume → fan-out).
@@ -24,6 +25,16 @@ WS  /realtime/sessions/{sessionId}        # RT1 라이브 텍스트 면접 (양�
 - 인증: 쿼리 토큰 `?access_token=<stream-token>` (EventSource/WS 헤더 한계 우회). RealTime `internal/auth`가 HS256(키=`SHA-256(JWT_SECRET)`)로 검증.
 - 권한 (리소스 스코프): 토큰은 `resourceType`(`USER`/`SESSION`)·`resourceId` claim을 담는다. 소유권은 **발급 시점**에 Core가 검증하고(USER=`POST /api/auth/stream-token` 본인, SESSION=`POST /api/sessions/{id}/stream-token` 소유권 체크 후 발급), RealTime은 path 리소스와 토큰 리소스의 일치만 확인한다(불일치 → 403). 이로써 RealTime은 PG 무접근으로 소유권을 판정한다. `documents/{id}` 채널 스코프는 MVP deferred(인증 토큰만).
 - 연결 유지: 약 30초마다 `: ping <unix-ts>` heartbeat 코멘트 송신 (`REALTIME_SSE_PING_INTERVAL`).
+
+### WS 실시간 음성 스트림 (RT3)
+- 경로 `WS /realtime/sessions/{id}/audio?access_token=<stream-token>&messageId=<placeholder messageId>`. 인증·리소스 스코프는 RT1과 동일(`SESSION` 토큰 ↔ path id 일치). `messageId`는 사전에 Core `POST /api/sessions/{id}/messages/voice/stream-begin`이 만든 placeholder 메시지 id.
+- RealTime은 **순수 오디오 양방향 프록시**다(오디오 내용을 해석하지 않음). 브라우저 WS ↔ AI WS(`/internal/voice/stream`)를 프레임 타입 보존하며 양방향 복사한다.
+- **업(클라→서버, 바이너리)**: 마이크 오디오 프레임(예: `audio/webm` opus). 프레임을 그대로 AI로 전달한다.
+- **다운(서버→클라, JSON)** — AI가 발행, RealTime이 그대로 전달:
+  - `{ "type": "transcript.partial", "text": "안녕하세" }` — 부분(interim) 자막
+  - `{ "type": "transcript.final", "text": "안녕하세요", "messageId": 50 }` — 발화(utterance) 확정 조각
+  - `{ "type": "error", "code": "..." }` — 처리 오류
+- **제어(클라→서버, 텍스트)**: `{ "type": "stop" }` — 발화 종료. AI가 남은 최종 transcript flush 후 메트릭(WPM/filler/silence)을 계산해 `callback.voice`를 발행하고 연결을 닫는다. 이후 기존 followup 파이프라인(다음 질문 생성)으로 이어진다.
 
 ---
 

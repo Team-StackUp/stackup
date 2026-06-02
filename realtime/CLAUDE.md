@@ -81,6 +81,7 @@ config는 cmd, internal/* 모두에서 import 가능
 - ❌ 비즈니스 로직 (질문 생성, 분석) — AI 또는 Core
 - ❌ RabbitMQ에 publish — Core를 통해서만 (`architecture.md §4.1`)
 - ❌ PostgreSQL 접근 — WS 답변도 Core 내부 REST(`POST /api/internal/sessions/{id}/messages`)로 프록시. RealTime은 PG·MQ publish 모두 미접근
+- ❌ AI WS 오디오 프록시(RT3) — 오디오 전용 순수 바이트 파이프, 비즈니스 로직 없음. 음성 인식·메트릭·콜백 발행은 모두 AI 책임. RealTime은 브라우저↔AI WS 양방향 복사만
 
 ---
 
@@ -93,10 +94,11 @@ config는 cmd, internal/* 모두에서 import 가능
 | RT2 | GET | `/realtime/stream/documents/{id}` | document 채널 SSE | 활성 |
 | RT2 | GET | `/realtime/stream/sessions/{id}` | session 채널 SSE (feedback.ready 등 비-라이브) | 활성 |
 | RT1 | WS | `/realtime/sessions/{id}` | 라이브 텍스트 면접 (서버→클라 push + 클라→서버 답변) | 활성 |
-| RT3 | WS | `/realtime/sessions/{id}/audio` | 음성 스트림 | **미구현** (US-Voice-01) |
+| RT3 | WS | `/realtime/sessions/{id}/audio` | 실시간 음성 답변 스트림 (오디오 업 ↔ 자막 다운, AI WS 프록시) | 활성 |
 
 > 모든 `/realtime/stream/*` (SSE) 및 `/realtime/sessions/{id}` (WS) 는 인증 필요 — `?access_token=<stream-token>` 쿼리로 Core 발급 토큰 검증 (EventSource/WS 헤더 한계 우회). `internal/auth` 미들웨어가 처리.
 > WS는 SSE(`/realtime/stream/*`)와 **다른 path**라 Upgrade 헤더 분기가 필요 없다. WS 핸들러(`coder/websocket`)는 session 채널 fan-out을 그대로 구독(서버→클라)하고, 수신한 답변(`{type:"answer",content,idempotencyKey?}`)을 `internal/core` 클라이언트로 Core 내부 REST(`POST /api/internal/sessions/{id}/messages`)에 프록시한다.
+> RT3(`/realtime/sessions/{id}/audio`)는 `WSAudioHandler`(`transport/ws_audio.go`)가 브라우저 WS를 AI WS(`REALTIME_AI_WS_URL` + `?sessionId=&messageId=`, `X-Internal-API-Key` 헤더)로 **양방향 프록시**한다. `messageId`는 사전에 Core `POST /api/sessions/{id}/messages/voice/stream-begin`이 만든 placeholder. 오디오 내용은 해석하지 않고 프레임 타입을 보존하며 복사만(`copyWS`).
 
 ---
 
@@ -154,6 +156,7 @@ Heartbeat (proxy keepalive):
 | `REALTIME_JWT_SECRET` | `local-development-jwt-secret-must-be-replaced` | **Core `JWT_SECRET`과 동일값 필수** (Stream 토큰 검증 키. 키=`SHA-256(secret)`, HS256). 불일치 시 SSE/WS 인증 401 |
 | `REALTIME_CORE_BASE_URL` | `http://localhost:38010` | Core 내부 REST base URL (WS 답변 프록시). compose 내부는 `http://backend:38010` |
 | `REALTIME_INTERNAL_API_KEY` | `local-development-internal-api-key` | **Core `CORE_INTERNAL_API_KEY`와 동일값 필수** (AI 서버도 공유). `X-Internal-API-Key` |
+| `REALTIME_AI_WS_URL` | `ws://localhost:8000/internal/voice/stream` | AI 음성 스트림 WS base URL (RT3 오디오 프록시 업스트림). compose 내부는 `ws://ai:8000/internal/voice/stream` |
 | `REALTIME_WS_WRITE_TIMEOUT` | `10s` | WS write 타임아웃 |
 
 ---
@@ -218,6 +221,7 @@ docker build -t stackup-realtime ./realtime
 - Stream 토큰 인증 활성 — `?access_token=` 검증 (`internal/auth`, Core와 동일 HS256 규약)
 - AMQP `q.realtime.session.notify` consumer 활성 — `messageType` 기반 채널 라우팅 → fan-out
 - WebSocket(RT1 라이브 면접) 활성 — `/realtime/sessions/{id}` 서버→클라 push + 클라→서버 답변 프록시(Core 내부 REST)
+- WebSocket(RT3 실시간 음성) 활성 — `/realtime/sessions/{id}/audio` 브라우저↔AI WS 오디오 프록시(`WSAudioHandler`, `REALTIME_AI_WS_URL`). 오디오 전용 순수 파이프, STT·메트릭·`callback.voice`는 AI 책임
 - 리소스 소유권 검증 미구현 — 현재 토큰 진위(userId)만 검증. 후속 플랜에서 리소스 스코프 토큰 또는 Core 조회로 강화
 - DLQ 활성 — handler 실패 메시지는 `dlq.q.realtime.session.notify` 로 격리
 - Prometheus 노출 미구현
