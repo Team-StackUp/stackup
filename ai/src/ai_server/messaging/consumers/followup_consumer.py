@@ -79,6 +79,8 @@ class FollowupConsumer:
                 previous_question=req.previous_question,
                 answer_text=req.answer_text,
                 context=await self._build_rag_context(req),
+                parent_category=req.parent_category or "UNKNOWN",
+                history=_format_history(req.history),
             )
 
             payload = FollowupCallbackPayload(
@@ -131,3 +133,12 @@ class FollowupConsumer:
         return "\n---\n".join(
             f"[doc#{h.document_id} chunk#{h.chunk_index}] {h.chunk_text}" for h in hits
         )
+
+
+def _format_history(history: list) -> str:
+    """대화 히스토리를 '화자: 내용' 라인으로. 비면 '(none)'."""
+    if not history:
+        return "(none)"
+    speaker = {"INTERVIEWER": "면접관", "INTERVIEWEE": "지원자"}
+    lines = [f"{speaker.get(h.role, h.role)}: {h.content}" for h in history]
+    return "\n".join(lines)

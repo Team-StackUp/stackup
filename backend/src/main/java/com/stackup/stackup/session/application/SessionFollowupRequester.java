@@ -4,10 +4,13 @@ import com.stackup.stackup.common.config.properties.RabbitMqProperties;
 import com.stackup.stackup.common.messaging.MessageContext;
 import com.stackup.stackup.common.messaging.RabbitMessagePublisher;
 import com.stackup.stackup.session.application.dto.GenerateFollowupPayload;
+import com.stackup.stackup.session.application.dto.GenerateFollowupPayload.HistoryItem;
 import com.stackup.stackup.session.application.event.AnswerSubmittedEvent;
 import com.stackup.stackup.session.domain.InterviewMessage;
 import com.stackup.stackup.session.domain.InterviewMessageRepository;
 import com.stackup.stackup.session.domain.InterviewSession;
+import com.stackup.stackup.session.domain.SessionContextRepository;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,9 +27,12 @@ public class SessionFollowupRequester {
 
     private static final Logger log = LoggerFactory.getLogger(SessionFollowupRequester.class);
 
+    private static final int HISTORY_MAX = 6;
+
     private final RabbitMessagePublisher publisher;
     private final RabbitMqProperties properties;
     private final InterviewMessageRepository messageRepository;
+    private final SessionContextRepository contextRepository;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -39,6 +45,20 @@ public class SessionFollowupRequester {
             return;
         }
         InterviewSession session = parent.getSession();
+
+        // RAG(자료 근거/correctness) 용 세션 컨텍스트 문서 — 피드백 발행부와 동일 패턴.
+        List<Long> contextDocumentIds = contextRepository.findBySession_Id(session.getId()).stream()
+            .map(c -> c.getDocument().getId())
+            .toList();
+
+        // 최근 대화 히스토리 (중복 질문 회피). 시퀀스 순 → 마지막 N개.
+        List<InterviewMessage> ordered =
+            messageRepository.findBySession_IdOrderBySequenceNumberAsc(session.getId());
+        List<HistoryItem> history = ordered.stream()
+            .skip(Math.max(0, ordered.size() - HISTORY_MAX))
+            .map(m -> new HistoryItem(m.getRole().name(), m.getContent()))
+            .toList();
+
         GenerateFollowupPayload payload = new GenerateFollowupPayload(
             session.getId(),
             parent.getId(),
@@ -46,7 +66,10 @@ public class SessionFollowupRequester {
             parent.getContent(),
             answer.getContent(),
             session.getMode(),
-            session.getJobCategory()
+            session.getJobCategory(),
+            contextDocumentIds,
+            parent.getCategory(),
+            history
         );
         publisher.publishToAi(
             properties.routingKeys().generateFollowup(),

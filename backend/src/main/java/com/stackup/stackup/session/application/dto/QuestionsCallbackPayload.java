@@ -31,7 +31,8 @@ public record QuestionsCallbackPayload(
     public record AnswerEvaluation(
         Double specificity,
         Double logic,
-        String structure
+        String structure,
+        Double correctness   // 자료 근거 사실성(0~5). RAG 컨텍스트 없으면 null.
     ) {
     }
 }

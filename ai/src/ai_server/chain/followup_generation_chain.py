@@ -28,6 +28,8 @@ class FollowupGenerator(Protocol):
         previous_question: str,
         answer_text: str,
         context: str = "(none)",
+        parent_category: str = "UNKNOWN",
+        history: str = "(none)",
     ) -> FollowupResult: ...
 
 
@@ -43,6 +45,8 @@ class LlmFollowupGenerator:
         previous_question: str,
         answer_text: str,
         context: str = "(none)",
+        parent_category: str = "UNKNOWN",
+        history: str = "(none)",
     ) -> FollowupResult:
         result = await self._chain.ainvoke(
             {
@@ -51,6 +55,8 @@ class LlmFollowupGenerator:
                 "previous_question": previous_question,
                 "answer_text": answer_text,
                 "context": context,
+                "parent_category": parent_category,
+                "history": history,
             }
         )
         if not isinstance(result, FollowupResult):
@@ -60,7 +66,9 @@ class LlmFollowupGenerator:
         return result
 
 
-def build_followup_generation_chain(settings: Settings, core_client: CoreClient | None = None) -> Runnable:
+def build_followup_generation_chain(
+    settings: Settings, core_client: CoreClient | None = None
+) -> Runnable:
     from langchain_openai import ChatOpenAI
 
     parser = PydanticOutputParser(pydantic_object=FollowupResult)
@@ -73,11 +81,13 @@ def build_followup_generation_chain(settings: Settings, core_client: CoreClient 
 
     callbacks = []
     if core_client is not None:
-        callbacks.append(CoreAiLogCallback(
-            core_client=core_client,
-            request_type="generate.followup",
-            default_model=settings.llm_flash_model,
-        ))
+        callbacks.append(
+            CoreAiLogCallback(
+                core_client=core_client,
+                request_type="generate.followup",
+                default_model=settings.llm_flash_model,
+            )
+        )
 
     llm = ChatOpenAI(
         model=settings.llm_flash_model,
