@@ -15,13 +15,15 @@
 | Language | TypeScript | 5.9.x |
 | Lint | ESLint 9 (flat config) + Prettier | |
 | Module | ESM (`"type": "module"`) | |
+| Router | React Router | 7.x (도입) |
+| Server State | TanStack Query | 5.x (도입) |
+| Styling | Tailwind CSS v4 (`@theme` 토큰) | 4.x (도입) |
+| API 타입 | openapi-typescript → `shared/api/generated.ts` | (도입, §7.1) |
+| 테스트 | Vitest + Testing Library (jsdom) | (도입) |
 
-### 미정 (Phase 1 도입 시점에 결정)
-- Router: 후보 — React Router v7 / TanStack Router
-- Server State: TanStack Query
-- Form: React Hook Form + Zod
-- Styling: CSS Variables 기반 + Tailwind 또는 vanilla-extract
-- 테스트: Vitest + Testing Library + Playwright(E2E)
+### 미정 (도입 시점에 결정)
+- Form: React Hook Form + Zod (현재 controlled `useState` 검증으로 충분 — 폼 복잡도 증가 시 도입)
+- E2E: Playwright
 
 > 신규 의존성 추가 시 [`/docs/coding-conventions.md §6`](../docs/coding-conventions.md) 절차를 따르고 본 표를 갱신.
 
@@ -274,8 +276,9 @@ npm run lint      # ESLint
 
 ---
 
-## 16. 현재 상태 메모 (2026-04 기준)
+## 16. 현재 상태 메모 (2026-06 기준)
 
-- `App.tsx`는 Vite 기본 데모 상태 → 첫 페이지(Login) 구현 시 교체 예정
-- 라이브러리 결정 전 (라우터, server state, styling) → 첫 PR 시 의사결정 + 본 문서 §1 갱신
-- 디자인 시스템 토큰 파일 미생성 → 디자인 시스템 첫 적용 PR에서 `app/styles/tokens.css` 생성
+- 라이브러리 결정 완료: React Router v7, TanStack Query v5, Tailwind v4, Vitest+Testing Library (§1).
+- 디자인 토큰 `app/styles/tokens.css` 생성됨. `shared/ui` 프리미티브: StatusBadge, Button, Spinner, TextArea, RadioCardGroup, Stepper.
+- **텍스트 면접 세션 구현됨**: `/sessions/new`(생성 설정), `/sessions/:id`(라이브 진행). `features/interview` + `domain/session`. 라이브는 WS(`useInterviewSocket`) 알림 + `GET messages` 쿼리 본문 소유 + 낙관적 답변 (`useLiveInterview`). TTS 재생·음성 답변(RT3)은 범위 밖.
+- **OpenAPI 타입 파이프라인**: 백엔드가 `OpenApiSpecExportTest`로 `backend/openapi.json` 산출·커밋 → 프론트 `npm run openapi`(= `openapi-typescript ../backend/openapi.json …`)로 `shared/api/generated.ts` 생성. 프론트는 백엔드 런타임에 무의존. 계약 변경 시 백엔드 테스트 재실행으로 갱신.

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { SiteNav } from '@/widgets/site-nav'
 import { SiteFooter } from '@/widgets/site-footer'
 import { WorkspaceProfileCard } from '@/widgets/workspace-profile-card'
@@ -5,6 +6,7 @@ import { WorkspaceSection } from '@/widgets/workspace-section'
 import { ResumeList, ResumeUploader } from '@/features/resume'
 import { RepoList, RepoPicker } from '@/features/repo'
 import { DocumentList } from '@/features/analysis'
+import { Button } from '@/shared/ui/Button'
 import { useWorkspaceAnalysisStream } from '../model/useWorkspaceAnalysisStream'
 
 export default function WorkspacePage() {
@@ -16,6 +18,20 @@ export default function WorkspacePage() {
       <SiteNav />
       <main className="flex-1 mx-auto w-full max-w-content px-6 lg:px-12 py-10 space-y-10">
         <WorkspaceProfileCard />
+
+        <WorkspaceSection
+          title="모의 면접"
+          description="분석된 이력서·레포를 바탕으로 맞춤 모의 면접을 시작하세요."
+          action={
+            <Link to="/sessions/new">
+              <Button size="lg">새 면접 시작</Button>
+            </Link>
+          }
+        >
+          <p className="text-body text-fg-muted">
+            면접 모드와 직군을 고르면 AI가 질문을 생성하고, 실시간으로 답변을 주고받습니다.
+          </p>
+        </WorkspaceSection>
 
         <WorkspaceSection
           title="내 이력서"
