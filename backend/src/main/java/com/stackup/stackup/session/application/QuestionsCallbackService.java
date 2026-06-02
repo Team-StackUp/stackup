@@ -114,6 +114,9 @@ public class QuestionsCallbackService {
             ? null
             : messageRepository.findById(payload.parentMessageId()).orElse(null);
 
+        // 답변 평가를 해당 답변 메시지에 영속 (피드백 롤업 재활용). 평가/대상 없으면 skip.
+        recordAnswerEvaluation(payload);
+
         long currentMsgs = messageRepository.countBySession_Id(session.getId());
         int nextSeq = (int) currentMsgs + 1;
 
@@ -157,6 +160,18 @@ public class QuestionsCallbackService {
     }
 
     public record SessionStateNotice(Long sessionId, String status, String reason) {
+    }
+
+    private void recordAnswerEvaluation(QuestionsCallbackPayload payload) {
+        QuestionsCallbackPayload.AnswerEvaluation eval = payload.answerEvaluation();
+        if (eval == null || payload.answerMessageId() == null) {
+            return;
+        }
+        messageRepository.findById(payload.answerMessageId()).ifPresent(answer -> {
+            answer.recordAnswerEvaluation(
+                eval.specificity(), eval.logic(), eval.structure(), eval.correctness());
+            messageRepository.save(answer);
+        });
     }
 
     private boolean isProcessed(String messageId) {

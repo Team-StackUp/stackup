@@ -21,7 +21,16 @@ public record GenerateFeedbackPayload(
         Integer sequenceNumber,
         String role,
         String content,
-        Long parentMessageId
+        Long parentMessageId,
+        MessageEvaluation evaluation   // INTERVIEWEE 답변에만(없으면 null)
+    ) {
+    }
+
+    public record MessageEvaluation(
+        Double specificity,
+        Double logic,
+        String structure,
+        Double correctness
     ) {
     }
 

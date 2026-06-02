@@ -6,6 +6,7 @@ import com.stackup.stackup.common.config.properties.RabbitMqProperties;
 import com.stackup.stackup.common.messaging.MessageContext;
 import com.stackup.stackup.common.messaging.RabbitMessagePublisher;
 import com.stackup.stackup.session.application.dto.GenerateFeedbackPayload;
+import com.stackup.stackup.session.application.dto.GenerateFeedbackPayload.MessageEvaluation;
 import com.stackup.stackup.session.application.dto.GenerateFeedbackPayload.MessageItem;
 import com.stackup.stackup.session.application.dto.GenerateFeedbackPayload.VoiceAnalysisSummary;
 import com.stackup.stackup.session.application.event.SessionEndedEvent;
@@ -89,12 +90,24 @@ public class SessionFeedbackRequester {
 
     private MessageItem toItem(InterviewMessage m) {
         Long parentId = m.getParentMessage() == null ? null : m.getParentMessage().getId();
+        MessageEvaluation evaluation = null;
+        boolean hasEval = m.getAnswerSpecificity() != null || m.getAnswerLogic() != null
+            || m.getAnswerStructure() != null || m.getAnswerCorrectness() != null;
+        if (m.getRole() == com.stackup.stackup.session.domain.MessageRole.INTERVIEWEE && hasEval) {
+            evaluation = new MessageEvaluation(
+                m.getAnswerSpecificity(),
+                m.getAnswerLogic(),
+                m.getAnswerStructure(),
+                m.getAnswerCorrectness()
+            );
+        }
         return new MessageItem(
             m.getId(),
             m.getSequenceNumber(),
             m.getRole().name(),
             m.getContent(),
-            parentId
+            parentId,
+            evaluation
         );
     }
 

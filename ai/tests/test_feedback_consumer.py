@@ -234,3 +234,29 @@ async def test_consumer_idempotent_skip():
     await consumer.handle(_StubMessage(_envelope()))
     generator.generate.assert_not_awaited()
     publisher.publish.assert_not_awaited()
+
+
+def test_build_transcript_annotates_interviewee_evaluation():
+    from ai_server.messaging.consumers.feedback_consumer import _build_transcript
+    from ai_server.model.messages.feedback import FeedbackMessageItem, MessageEvaluation
+
+    msgs = [
+        FeedbackMessageItem(
+            id=1, sequence_number=1, role="INTERVIEWER", content="질문?"
+        ),
+        FeedbackMessageItem(
+            id=2,
+            sequence_number=2,
+            role="INTERVIEWEE",
+            content="답변.",
+            evaluation=MessageEvaluation(
+                specificity=2.0, logic=3.0, structure="PARTIAL_STAR", correctness=1.0
+            ),
+        ),
+    ]
+    out = _build_transcript(msgs)
+    assert "답변평가:" in out
+    assert "specificity=2" in out
+    assert "correctness=1" in out
+    # 면접관 줄엔 평가 주석 없음
+    assert out.splitlines()[0].endswith("질문?")

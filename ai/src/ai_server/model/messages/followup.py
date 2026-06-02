@@ -51,5 +51,6 @@ class FollowupCallbackPayload(BaseModel):
     session_id: int
     kind: Literal["FOLLOWUP"] = "FOLLOWUP"
     parent_message_id: int
+    answer_message_id: int  # 평가가 달릴 답변 메시지 (Core 가 평가 영속에 사용)
     followup_question: str
     answer_evaluation: AnswerEvaluation | None = None

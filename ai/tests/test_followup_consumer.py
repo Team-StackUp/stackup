@@ -258,3 +258,27 @@ async def test_consumer_passes_parent_category_and_history_to_generator():
     assert kwargs["parent_category"] == "PROJECT_DEEP_DIVE"
     assert "이전 질문" in kwargs["history"]
     assert "면접관:" in kwargs["history"]
+
+
+@pytest.mark.asyncio
+async def test_callback_includes_answer_message_id():
+    generator = MagicMock()
+    generator.generate = AsyncMock(
+        return_value=FollowupResult(
+            followup_question="Q",
+            answer_evaluation=AnswerEvaluation(
+                specificity=2.0, logic=2.0, structure="NONE"
+            ),
+        )
+    )
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+    consumer = FollowupConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.questions",
+    )
+    await consumer.handle(_StubMessage(_envelope()))
+    payload = publisher.publish.await_args.kwargs["payload"]
+    assert payload.answer_message_id == 502  # _envelope 의 answerMessageId

@@ -89,6 +89,19 @@ public class InterviewMessage extends BaseTimeEntity {
     @Column(name = "expected_signal", columnDefinition = "text")
     private String expectedSignal;
 
+    // 답변 평가 (INTERVIEWEE 메시지에만 채워짐). 꼬리질문 단계 채점값 → 피드백 롤업에 재사용.
+    @Column(name = "answer_specificity")
+    private Double answerSpecificity;
+
+    @Column(name = "answer_logic")
+    private Double answerLogic;
+
+    @Column(name = "answer_structure", length = 20)
+    private String answerStructure;
+
+    @Column(name = "answer_correctness")
+    private Double answerCorrectness;
+
     private InterviewMessage(InterviewSession session, Integer sequenceNumber, MessageRole role,
                              String content, InterviewMessage parentMessage,
                              MessageStatus initialStatus, String idempotencyKey) {
@@ -153,6 +166,15 @@ public class InterviewMessage extends BaseTimeEntity {
         if (newStatus != null) {
             this.status = newStatus;
         }
+    }
+
+    // 꼬리질문 콜백의 답변 평가를 이 답변 메시지에 기록 (피드백 재활용용).
+    public void recordAnswerEvaluation(Double specificity, Double logic,
+                                       String structure, Double correctness) {
+        this.answerSpecificity = specificity;
+        this.answerLogic = logic;
+        this.answerStructure = structure;
+        this.answerCorrectness = correctness;
     }
 
     public void attachAudio(String audioFilePath) {

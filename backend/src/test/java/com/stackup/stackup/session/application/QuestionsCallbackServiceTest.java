@@ -123,16 +123,46 @@ class QuestionsCallbackServiceTest {
         verify(messageRepository, never()).save(any(InterviewMessage.class));
     }
 
+    @Test
+    void apply_followupPersistsAnswerEvaluationOntoAnswerMessage() {
+        InterviewSession session = sessionFixture(11L, SessionStatus.IN_PROGRESS);
+        InterviewMessage answer =
+            InterviewMessage.interviewee(session, 2, "내 답변", null, "idem-1");
+        ReflectionTestUtils.setField(answer, "id", 600L);
+
+        QuestionsCallbackPayload payload = new QuestionsCallbackPayload(
+            11L, "FOLLOWUP", null, 500L, 600L, "다음 질문?",
+            new QuestionsCallbackPayload.AnswerEvaluation(2.0, 3.0, "PARTIAL_STAR", 1.5)
+        );
+        QuestionsCallbackEnvelope env = new QuestionsCallbackEnvelope(
+            "m-eval", "callback.questions", "1", "t", null, "ai", payload, null);
+
+        when(processedMessageRepository.existsById("m-eval")).thenReturn(false);
+        when(sessionRepository.findById(11L)).thenReturn(Optional.of(session));
+        when(messageRepository.findById(500L)).thenReturn(Optional.empty());
+        when(messageRepository.findById(600L)).thenReturn(Optional.of(answer));
+        when(messageRepository.countBySession_Id(11L)).thenReturn(2L);
+        when(messageRepository.save(any(InterviewMessage.class)))
+            .thenAnswer(inv -> inv.getArgument(0));
+
+        service.apply(env);
+
+        assertThat(answer.getAnswerSpecificity()).isEqualTo(2.0);
+        assertThat(answer.getAnswerLogic()).isEqualTo(3.0);
+        assertThat(answer.getAnswerStructure()).isEqualTo("PARTIAL_STAR");
+        assertThat(answer.getAnswerCorrectness()).isEqualTo(1.5);
+    }
+
     private QuestionsCallbackEnvelope poolEnvelope(Long sessionId, List<GeneratedQuestion> questions) {
         QuestionsCallbackPayload payload = new QuestionsCallbackPayload(
-            sessionId, "POOL", questions, null, null, null
+            sessionId, "POOL", questions, null, null, null, null
         );
         return new QuestionsCallbackEnvelope("m-1", "callback.questions", "1", "t", null, "ai", payload, null);
     }
 
     private QuestionsCallbackEnvelope followupEnvelope(Long sessionId, Long parentId, String followup) {
         QuestionsCallbackPayload payload = new QuestionsCallbackPayload(
-            sessionId, "FOLLOWUP", null, parentId, followup, null
+            sessionId, "FOLLOWUP", null, parentId, null, followup, null
         );
         return new QuestionsCallbackEnvelope("m-2", "callback.questions", "1", "t", null, "ai", payload, null);
     }
