@@ -79,6 +79,16 @@ public class InterviewMessage extends BaseTimeEntity {
     @Column(name = "idempotency_key", length = 64)
     private String idempotencyKey;
 
+    // 질문 메타데이터 (초기 질문에만 채워짐). category/targetEvidence 는 노출, expectedSignal 은 내부용.
+    @Column(length = 30)
+    private String category;
+
+    @Column(name = "target_evidence", columnDefinition = "text")
+    private String targetEvidence;
+
+    @Column(name = "expected_signal", columnDefinition = "text")
+    private String expectedSignal;
+
     private InterviewMessage(InterviewSession session, Integer sequenceNumber, MessageRole role,
                              String content, InterviewMessage parentMessage,
                              MessageStatus initialStatus, String idempotencyKey) {
@@ -101,8 +111,17 @@ public class InterviewMessage extends BaseTimeEntity {
     }
 
     public static InterviewMessage interviewer(InterviewSession session, int seq, String content) {
+        return interviewer(session, seq, content, null, null, null);
+    }
+
+    public static InterviewMessage interviewer(InterviewSession session, int seq, String content,
+                                               String category, String targetEvidence,
+                                               String expectedSignal) {
         InterviewMessage m = new InterviewMessage(session, seq, MessageRole.INTERVIEWER, content, null,
             MessageStatus.CREATED, null);
+        m.category = category;
+        m.targetEvidence = targetEvidence;
+        m.expectedSignal = expectedSignal;
         m.markTtsPending();
         return m;
     }

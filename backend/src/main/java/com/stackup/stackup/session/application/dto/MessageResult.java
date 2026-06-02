@@ -18,7 +18,10 @@ public record MessageResult(
     Double ttsDurationSec,
     Long parentMessageId,
     MessageStatus status,
-    Instant createdAt
+    Instant createdAt,
+    String category,
+    String targetEvidence
+    // expectedSignal 은 의도적으로 제외 — 정답 유출 방지(라이브 비노출).
 ) {
     public static MessageResult of(InterviewMessage m) {
         return new MessageResult(
@@ -33,7 +36,9 @@ public record MessageResult(
             m.getTtsDurationSec(),
             m.getParentMessage() == null ? null : m.getParentMessage().getId(),
             m.getStatus(),
-            m.getCreatedAt()
+            m.getCreatedAt(),
+            m.getCategory(),
+            m.getTargetEvidence()
         );
     }
 }

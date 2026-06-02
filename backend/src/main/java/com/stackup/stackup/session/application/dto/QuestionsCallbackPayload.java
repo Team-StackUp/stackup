@@ -22,7 +22,9 @@ public record QuestionsCallbackPayload(
 
     public record GeneratedQuestion(
         String category,
-        String question
+        String question,
+        String targetEvidence,   // 질문 근거(자료 인용). 라이브 노출.
+        String expectedSignal    // 좋은 답이 드러낼 것. 내부 저장만(라이브 비노출).
     ) {
     }
 

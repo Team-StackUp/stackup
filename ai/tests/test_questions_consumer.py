@@ -56,8 +56,12 @@ async def test_consumer_generates_questions_and_publishes_callback():
     generator.generate = AsyncMock(
         return_value=GeneratedQuestionPool(
             questions=[
-                GeneratedQuestion(category="CS_FUNDAMENTAL", question="DB 트랜잭션 격리수준?"),
-                GeneratedQuestion(category="PROJECT_DEEP_DIVE", question="결제 outbox 어떻게 보장?"),
+                GeneratedQuestion(
+                    category="CS_FUNDAMENTAL", question="DB 트랜잭션 격리수준?"
+                ),
+                GeneratedQuestion(
+                    category="PROJECT_DEEP_DIVE", question="결제 outbox 어떻게 보장?"
+                ),
             ]
         )
     )
@@ -237,7 +241,14 @@ async def test_consumer_injects_initial_rag_chunks_when_available():
                     "summary": "outbox 구현",
                     "techStack": ["Spring"],
                     "markdown": "transactional publisher",
-                }
+                },
+                {
+                    "documentId": 2,
+                    "sourceType": "RESUME",
+                    "summary": "백엔드 3년",
+                    "techStack": ["Java"],
+                    "markdown": "결제 시스템",
+                },
             ],
             "initialQuestionCount": 1,
             "maxQuestions": 5,
@@ -245,15 +256,61 @@ async def test_consumer_injects_initial_rag_chunks_when_available():
     )
     await consumer.handle(_StubMessage(body))
 
+    # 문서 2개 → Retrieve 경로(RAG 검색 발동)
     embedder.embed.assert_awaited_once()
     call = core.search_embeddings.await_args
     assert call.kwargs["query_embedding"] == [0.1, 0.2]
-    assert call.kwargs["document_ids"] == [1]
+    assert call.kwargs["document_ids"] == [1, 2]
     assert call.kwargs["top_k"] == 20  # candidate_k (리랭크 후보 수)
     assert call.kwargs["query_text"]  # 하이브리드 검색: 쿼리 텍스트 동봉
     context = generator.generate.await_args.kwargs["context"]
     assert "Outbox table uses status and retry count" in context
     assert "outbox 구현" in context
+
+
+@pytest.mark.asyncio
+async def test_single_document_skips_rag_plan_mode():
+    # 문서 1개 → PLAN: markdown 이 이미 컨텍스트에 있으니 검색 생략
+    generator = MagicMock()
+    generator.generate = AsyncMock(return_value=GeneratedQuestionPool(questions=[]))
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+    core = MagicMock()
+    core.search_embeddings = AsyncMock()
+    embedder = MagicMock()
+    embedder.embed = AsyncMock()
+
+    consumer = QuestionsConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.questions",
+        core_client=core,
+        embedder=embedder,
+    )
+    body = _envelope(
+        {
+            "sessionId": 1,
+            "mode": "TECHNICAL",
+            "jobCategory": "BACKEND",
+            "documents": [
+                {
+                    "documentId": 1,
+                    "sourceType": "RESUME",
+                    "summary": "백엔드",
+                    "techStack": ["Java"],
+                    "markdown": "결제 시스템 구현",
+                }
+            ],
+            "maxQuestions": 5,
+        }
+    )
+    await consumer.handle(_StubMessage(body))
+
+    core.search_embeddings.assert_not_awaited()
+    embedder.embed.assert_not_awaited()
+    context = generator.generate.await_args.kwargs["context"]
+    assert "결제 시스템 구현" in context  # base context 사용
 
 
 @pytest.mark.asyncio
@@ -327,3 +384,23 @@ def test_build_context_joins_doc_blocks():
     assert "본문1" in text
     assert "문서 #2 (REPOSITORY)" in text
     assert "readme" in text
+
+
+def test_generated_question_parses_evidence_and_signal():
+    from ai_server.model.messages.questions import GeneratedQuestion
+
+    q = GeneratedQuestion.model_validate(
+        {
+            "category": "PROJECT_DEEP_DIVE",
+            "question": "결제 동시성 어떻게 처리했나요?",
+            "targetEvidence": "결제 시스템에서 분산락 도입",
+            "expectedSignal": "동시성 제어 trade-off 이해",
+        }
+    )
+    assert q.target_evidence == "결제 시스템에서 분산락 도입"
+    assert q.expected_signal == "동시성 제어 trade-off 이해"
+
+    # 하위호환: 신규 필드 없어도 기본값
+    q2 = GeneratedQuestion.model_validate({"category": "BEHAVIORAL", "question": "Q?"})
+    assert q2.target_evidence == ""
+    assert q2.expected_signal == ""

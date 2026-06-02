@@ -45,8 +45,9 @@ class QuestionsCallbackServiceTest {
     void apply_poolCallbackStoresOnlyInitialQuestionAndPushesSse() {
         InterviewSession session = sessionFixture(11L, SessionStatus.READY);
         QuestionsCallbackEnvelope env = poolEnvelope(11L, List.of(
-            new GeneratedQuestion("INTRO", "Introduce yourself"),
-            new GeneratedQuestion("TECH", "JPA?")
+            new GeneratedQuestion("PROJECT_DEEP_DIVE", "Introduce yourself",
+                "이력서: 결제 시스템", "협업/문제해결 깊이"),
+            new GeneratedQuestion("TECH", "JPA?", null, null)
         ));
         when(processedMessageRepository.existsById("m-1")).thenReturn(false);
         when(sessionRepository.findById(11L)).thenReturn(Optional.of(session));
@@ -62,6 +63,10 @@ class QuestionsCallbackServiceTest {
         verify(messageRepository).save(messageCaptor.capture());
         assertThat(messageCaptor.getValue().getContent()).isEqualTo("Introduce yourself");
         assertThat(messageCaptor.getValue().getSequenceNumber()).isEqualTo(1);
+        // 질문 메타데이터가 첫 질문에서 영속됨
+        assertThat(messageCaptor.getValue().getCategory()).isEqualTo("PROJECT_DEEP_DIVE");
+        assertThat(messageCaptor.getValue().getTargetEvidence()).isEqualTo("이력서: 결제 시스템");
+        assertThat(messageCaptor.getValue().getExpectedSignal()).isEqualTo("협업/문제해결 깊이");
 
         ArgumentCaptor<Object> ev = ArgumentCaptor.forClass(Object.class);
         verify(events, atLeastOnce()).publishEvent(ev.capture());
@@ -108,7 +113,8 @@ class QuestionsCallbackServiceTest {
 
     @Test
     void apply_skipsDuplicateMessageId() {
-        QuestionsCallbackEnvelope env = poolEnvelope(11L, List.of(new GeneratedQuestion("X", "Q")));
+        QuestionsCallbackEnvelope env =
+            poolEnvelope(11L, List.of(new GeneratedQuestion("X", "Q", null, null)));
         when(processedMessageRepository.existsById("m-1")).thenReturn(true);
 
         service.apply(env);

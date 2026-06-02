@@ -123,6 +123,11 @@ class QuestionsConsumer:
         if not document_ids:
             return base_context
 
+        # PLAN vs Retrieve: 문서가 1개면 markdown 전체가 이미 base_context 에 들어 있어
+        # 검색이 중복이다 → 검색 생략(PLAN). 여러 문서일 때만 RAG 로 관련 청크를 추린다.
+        if len(document_ids) <= 1:
+            return base_context
+
         query = _build_initial_rag_query(req)
         try:
             query_vec = (
