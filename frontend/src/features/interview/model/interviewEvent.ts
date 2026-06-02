@@ -6,11 +6,11 @@ export type InterviewAction =
 
 export function interviewEventAction(event: string): InterviewAction {
   switch (event) {
-    case 'session.message':
+    case 'SESSION_MESSAGE':
       return { kind: 'refetch-messages' }
-    case 'session.state':
+    case 'SESSION_STATE':
       return { kind: 'refetch-session' }
-    case 'feedback.ready':
+    case 'FEEDBACK_READY':
       return { kind: 'redirect-feedback' }
     default:
       return { kind: 'ignore' }

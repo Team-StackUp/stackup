@@ -20,7 +20,7 @@ WS  /realtime/sessions/{sessionId}/audio  # RT3 실시간 음성 답변 스트�
 
 ### WS 라이브 면접 (RT1)
 - 경로 `WS /realtime/sessions/{id}` (SSE `/realtime/stream/*` 와 다른 path → Upgrade 분기 없음). 인증 동일 `?access_token=`.
-- 서버→클라 프레임(JSON): `{ "id": <messageId>, "event": <eventType>, "data": <payload> }` (session 채널 fan-out을 그대로 전달 — 질문/꼬리질문/세션상태).
+- 서버→클라 프레임(JSON): `{ "id": <eventId>, "event": "<SseEventType 대문자>", "data": {"data": <payload>, "traceId": "..."} }` (session 채널 fan-out을 그대로 전달 — 질문/꼬리질문/세션상태). `event` 는 enum 이름(`SESSION_MESSAGE`/`SESSION_STATE`/`FEEDBACK_READY`), **소문자 `session.message` 아님**. `SESSION_MESSAGE` 의 payload 는 **messageId 뿐** → 본문은 `GET …/messages` 로 조회(§3.3).
 - 클라→서버: `{ "type": "answer", "content": "...", "idempotencyKey"?: "..." }`. RealTime이 Core 내부 REST(`POST /api/internal/sessions/{id}/messages`)로 프록시 → 답변 INSERT + `generate.followup` 발행.
 - 인증: 쿼리 토큰 `?access_token=<stream-token>` (EventSource/WS 헤더 한계 우회). RealTime `internal/auth`가 HS256(키=`SHA-256(JWT_SECRET)`)로 검증.
 - 권한 (리소스 스코프): 토큰은 `resourceType`(`USER`/`SESSION`)·`resourceId` claim을 담는다. 소유권은 **발급 시점**에 Core가 검증하고(USER=`POST /api/auth/stream-token` 본인, SESSION=`POST /api/sessions/{id}/stream-token` 소유권 체크 후 발급), RealTime은 path 리소스와 토큰 리소스의 일치만 확인한다(불일치 → 403). 이로써 RealTime은 PG 무접근으로 소유권을 판정한다. `documents/{id}` 채널 스코프는 MVP deferred(인증 토큰만).
@@ -40,29 +40,25 @@ WS  /realtime/sessions/{sessionId}/audio  # RT3 실시간 음성 답변 스트�
 
 ## 2. 이벤트 포맷
 
+> - `event` 이름은 **`SseEventType` enum 이름(대문자)**: `DOC_STATE`·`REPO_STATE`·`SESSION_MESSAGE`·`SESSION_STATE`·`FEEDBACK_READY`·`ERROR`·`KEEP_ALIVE` (+ AI 가 직접 발행하는 `ANALYSIS_PROGRESS`). **`session.message` 같은 소문자 점표기가 아니다.** (RealTime `bridge/dispatcher.go` `Type: env.Payload.EventType` → `sse.go`/`ws.go` 가 그대로 전달.)
+> - `data` 봉투는 `{"data": <payload>, "traceId": "..."}` 다 (`realtime/CLAUDE.md §8`). payload 필드는 camelCase.
+> - 클라는 SSE `addEventListener(<ENUM_NAME>, …)` / WS `frame.event === '<ENUM_NAME>'` 로 매칭한다.
+
 표준 SSE 프레임:
 ```
-event: <eventName>
+event: SESSION_MESSAGE
 id: <eventId>
-data: <JSON>
+data: {"data": <payload>, "traceId": "..."}
 
 ```
 
-`<JSON>`:
-```json
-{
-  "type": "DOC_STATE",
-  "payload": { ... },
-  "timestamp": "2026-04-28T15:00:00Z",
-  "traceId": "..."
-}
-```
+WS(RT1)는 같은 내용을 JSON 한 줄 프레임으로: `{ "id": <eventId>, "event": "SESSION_MESSAGE", "data": {"data": <payload>, "traceId": "..."} }`.
 
 ---
 
 ## 3. 이벤트 카탈로그
 
-### 3.1 분석 상태 (`event: doc.state`)
+### 3.1 분석 상태 (`event: DOC_STATE`)
 ```json
 {
   "type": "DOC_STATE",
@@ -78,7 +74,7 @@ data: <JSON>
 - `state` ∈ `QUEUED | PROCESSING | COMPLETED | FAILED`
 - `progress` 0.0~1.0 (옵션)
 
-### 3.2 레포 분석 (`event: repo.state`)
+### 3.2 레포 분석 (`event: REPO_STATE`)
 ```json
 {
   "type": "REPO_STATE",
@@ -112,22 +108,15 @@ data: <JSON>
 - **발행 경로**: AI 서버 → (`stackup.realtime` exchange, `realtime.user.notify`) → RealTime → user 채널 SSE. Core 를 거치지 않는다(진행 정보는 영속 대상이 아님). 종료 상태만 기존대로 AI → Core 콜백 → REPO_STATE/DOC_STATE 로 전달.
 - 프론트는 `ANALYSIS_PROGRESS` 수신 시 진행 store 갱신(쿼리 무효화 X), `REPO_STATE`/`DOC_STATE`(종료) 수신 시 진행 store clear + 목록 쿼리 무효화.
 
-### 3.3 세션 메시지 푸시 (`event: session.message`)
+### 3.3 세션 메시지 푸시 (`event: SESSION_MESSAGE`)
+
+**`data` 는 변경된 메시지 본문이 아니라 messageId(숫자)만 담는 "변경 알림"이다.** Core `QuestionsCallbackService` 가 `RealtimeNotifyEvent.session(id, SESSION_MESSAGE, message.getId())` 로 발행하기 때문. 클라는 이 이벤트를 받으면 `GET /api/sessions/{id}/messages` 로 본문을 조회한다(Workspace 의 분석 SSE→쿼리 무효화와 동일 패턴). 질문·꼬리질문·STT transcript 반영 등 메시지 시퀀스가 바뀔 때마다 발행.
+
 ```json
-{
-  "type": "SESSION_MESSAGE",
-  "payload": {
-    "sessionId": 99,
-    "messageId": 503,
-    "role": "INTERVIEWER",
-    "content": "왜 그 시점에 ...",
-    "parentMessageId": 502,
-    "sequenceNumber": 7
-  }
-}
+{ "data": 503, "traceId": "..." }
 ```
 
-### 3.4 세션 상태 (`event: session.state`)
+### 3.4 세션 상태 (`event: SESSION_STATE`)
 ```json
 {
   "type": "SESSION_STATE",
@@ -139,7 +128,7 @@ data: <JSON>
 }
 ```
 
-### 3.5 피드백 생성 완료 (`event: feedback.ready`)
+### 3.5 피드백 생성 완료 (`event: FEEDBACK_READY`)
 ```json
 {
   "type": "FEEDBACK_READY",
@@ -151,7 +140,8 @@ data: <JSON>
 }
 ```
 
-### 3.6 에러 (`event: error`)
+### 3.6 에러 (`event: ERROR`)
+> WS 전송 계층 에러는 `event: "error"`(소문자) 프레임으로도 올 수 있다(`ws.go writeError`). 도메인 ERROR 이벤트는 `ERROR`.
 ```json
 {
   "type": "ERROR",
