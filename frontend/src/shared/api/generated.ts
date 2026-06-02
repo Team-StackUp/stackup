@@ -865,6 +865,7 @@ export interface components {
         };
         SearchRequest: {
             queryEmbedding: number[];
+            queryText?: string;
             documentIds?: number[];
             /** Format: int32 */
             topK?: number;

@@ -39,6 +39,7 @@ public class InternalEmbeddingSearchController {
     public SearchResponse search(@Valid @RequestBody SearchRequest request) {
         List<SearchHit> hits = embeddingService.search(
             request.queryEmbedding(),
+            request.queryText(),
             request.documentIds() == null ? List.of() : request.documentIds(),
             request.topK() == null ? 5 : request.topK()
         );
@@ -47,6 +48,8 @@ public class InternalEmbeddingSearchController {
 
     public record SearchRequest(
         @NotNull float[] queryEmbedding,
+        // 선택. 주어지면 벡터 + full-text(BM25) RRF 하이브리드 검색.
+        String queryText,
         List<Long> documentIds,
         @Positive Integer topK
     ) {

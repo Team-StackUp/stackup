@@ -31,8 +31,8 @@ public class DocumentEmbeddingService {
     }
 
     public List<DocumentEmbeddingRepository.SearchHit> search(
-        float[] queryEmbedding, List<Long> documentIds, int topK
+        float[] queryEmbedding, String queryText, List<Long> documentIds, int topK
     ) {
-        return embeddingRepository.search(queryEmbedding, documentIds, topK);
+        return embeddingRepository.search(queryEmbedding, queryText, documentIds, topK);
     }
 }

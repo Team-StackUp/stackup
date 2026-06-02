@@ -144,6 +144,7 @@ class RepositoryAnalyzer:
                 chunker=self._chunker,
                 embedder=self._embedder,
                 core_client=self._core_client,
+                summary=analysis.summary,
                 log_prefix="repository",
             )
         except EmbeddingStepError as err:

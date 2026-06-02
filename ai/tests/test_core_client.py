@@ -310,6 +310,23 @@ async def test_search_embeddings_uses_latest_core_contract() -> None:
     )
 
 
+@pytest.mark.asyncio
+async def test_search_embeddings_includes_query_text_for_hybrid() -> None:
+    client = _make_post_client(json_body={"hits": []})
+    core = HttpCoreClient(base_url="http://core:38010", api_key="k", client=client)
+
+    await core.search_embeddings(
+        query_embedding=[0.1],
+        query_text="gRPC 동시성 처리",
+        document_ids=[7],
+        top_k=20,
+    )
+
+    body = client.post.await_args.kwargs["json"]
+    assert body["queryText"] == "gRPC 동시성 처리"
+    assert body["topK"] == 20
+
+
 @pytest.mark.parametrize("status", [400, 401, 403, 404, 500])
 @pytest.mark.asyncio
 async def test_search_embeddings_non_2xx_returns_empty(status: int) -> None:

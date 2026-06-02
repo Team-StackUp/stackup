@@ -120,6 +120,37 @@ async def test_gemini_embed_returns_vector_list_from_sdk_response() -> None:
 
 
 @pytest.mark.asyncio
+async def test_gemini_embed_task_type_defaults_to_document_and_overrides_to_query() -> None:
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from ai_server.rag.embedder import GeminiEmbeddingProvider
+
+    fake_resp = SimpleNamespace(embeddings=[SimpleNamespace(values=[0.1, 0.2])])
+    fake_aio = MagicMock()
+    fake_aio.models.embed_content = AsyncMock(return_value=fake_resp)
+    fake_client = MagicMock()
+    fake_client.aio = fake_aio
+
+    with patch("google.genai.Client", return_value=fake_client):
+        emb = GeminiEmbeddingProvider(api_key="fake", model="m", dim=2)
+
+    # 기본: 인덱싱 → RETRIEVAL_DOCUMENT
+    await emb.embed(["doc"])
+    assert (
+        fake_aio.models.embed_content.await_args.kwargs["config"].task_type
+        == "RETRIEVAL_DOCUMENT"
+    )
+
+    # 검색: RETRIEVAL_QUERY 로 전달됨
+    await emb.embed(["query"], task_type="RETRIEVAL_QUERY")
+    assert (
+        fake_aio.models.embed_content.await_args.kwargs["config"].task_type
+        == "RETRIEVAL_QUERY"
+    )
+
+
+@pytest.mark.asyncio
 async def test_gemini_embed_empty_input_returns_empty_without_sdk_call() -> None:
     from unittest.mock import MagicMock, patch
 

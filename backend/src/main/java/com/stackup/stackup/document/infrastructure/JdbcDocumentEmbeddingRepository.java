@@ -65,12 +65,22 @@ public class JdbcDocumentEmbeddingRepository implements DocumentEmbeddingReposit
     }
 
     @Override
-    public List<SearchHit> search(float[] queryEmbedding, List<Long> documentIds, int topK) {
+    public List<SearchHit> search(
+        float[] queryEmbedding, String queryText, List<Long> documentIds, int topK) {
         if (queryEmbedding == null || queryEmbedding.length == 0) {
             return List.of();
         }
         int limit = topK <= 0 ? 5 : topK;
         boolean filterByDoc = documentIds != null && !documentIds.isEmpty();
+        boolean hybrid = queryText != null && !queryText.isBlank();
+
+        return hybrid
+            ? searchHybrid(queryEmbedding, queryText, documentIds, filterByDoc, limit)
+            : searchVectorOnly(queryEmbedding, documentIds, filterByDoc, limit);
+    }
+
+    private List<SearchHit> searchVectorOnly(
+        float[] queryEmbedding, List<Long> documentIds, boolean filterByDoc, int limit) {
         StringBuilder sql = new StringBuilder(
             "SELECT document_id, chunk_index, chunk_text, (embedding <=> CAST(:qvec AS vector)) AS distance "
             + "FROM document_embeddings ");
@@ -83,13 +93,72 @@ public class JdbcDocumentEmbeddingRepository implements DocumentEmbeddingReposit
         sql.append("ORDER BY embedding <=> CAST(:qvec AS vector) LIMIT :limit");
         params.put("limit", limit);
 
-        return namedJdbc.query(sql.toString(), params, (rs, rowNum) -> new SearchHit(
+        return namedJdbc.query(sql.toString(), params, ROW_MAPPER);
+    }
+
+    // 벡터(코사인) 랭킹과 full-text(ts_rank_cd) 랭킹을 각각 구한 뒤
+    // RRF(Reciprocal Rank Fusion, k=60): score = 1/(k+rank) 합으로 융합한다.
+    // 점수 스케일이 다른 두 랭킹을 "순위"만으로 합치므로 가중치 튜닝이 불필요.
+    private List<SearchHit> searchHybrid(
+        float[] queryEmbedding,
+        String queryText,
+        List<Long> documentIds,
+        boolean filterByDoc,
+        int limit) {
+        String docFilterVec = filterByDoc ? "WHERE document_id IN (:documentIds) " : "";
+        String docFilterFts = filterByDoc ? "AND document_id IN (:documentIds) " : "";
+
+        String sql = """
+            WITH v AS (
+                SELECT document_id, chunk_index, chunk_text,
+                       (embedding <=> CAST(:qvec AS vector)) AS distance,
+                       ROW_NUMBER() OVER (ORDER BY embedding <=> CAST(:qvec AS vector)) AS rnk
+                FROM document_embeddings
+                %s
+                ORDER BY embedding <=> CAST(:qvec AS vector)
+                LIMIT :cand
+            ),
+            t AS (
+                SELECT document_id, chunk_index, chunk_text,
+                       ROW_NUMBER() OVER (
+                           ORDER BY ts_rank_cd(chunk_text_tsv, plainto_tsquery('simple', :qtext)) DESC
+                       ) AS rnk
+                FROM document_embeddings
+                WHERE chunk_text_tsv @@ plainto_tsquery('simple', :qtext)
+                %s
+                ORDER BY ts_rank_cd(chunk_text_tsv, plainto_tsquery('simple', :qtext)) DESC
+                LIMIT :cand
+            )
+            SELECT COALESCE(v.document_id, t.document_id) AS document_id,
+                   COALESCE(v.chunk_index, t.chunk_index) AS chunk_index,
+                   COALESCE(v.chunk_text, t.chunk_text)   AS chunk_text,
+                   COALESCE(v.distance, 1.0)              AS distance,
+                   COALESCE(1.0 / (60 + v.rnk), 0) + COALESCE(1.0 / (60 + t.rnk), 0) AS rrf
+            FROM v
+            FULL OUTER JOIN t
+              ON v.document_id = t.document_id AND v.chunk_index = t.chunk_index
+            ORDER BY rrf DESC
+            LIMIT :limit
+            """.formatted(docFilterVec, docFilterFts);
+
+        Map<String, Object> params = new HashMap<>();
+        params.put("qvec", toVectorLiteral(queryEmbedding));
+        params.put("qtext", queryText);
+        params.put("cand", limit);
+        params.put("limit", limit);
+        if (filterByDoc) {
+            params.put("documentIds", documentIds);
+        }
+        return namedJdbc.query(sql, params, ROW_MAPPER);
+    }
+
+    private static final org.springframework.jdbc.core.RowMapper<SearchHit> ROW_MAPPER =
+        (rs, rowNum) -> new SearchHit(
             rs.getLong("document_id"),
             rs.getInt("chunk_index"),
             rs.getString("chunk_text"),
             rs.getDouble("distance")
-        ));
-    }
+        );
 
     private static String toVectorLiteral(float[] embedding) {
         StringBuilder sb = new StringBuilder(embedding.length * 8 + 2);
