@@ -96,6 +96,7 @@ class WebResumeAnalyzer:
                 chunker=self._chunker,
                 embedder=self._embedder,
                 core_client=self._core_client,
+                summary=analysis.summary,
                 log_prefix="web_resume",
             )
         except EmbeddingStepError as err:

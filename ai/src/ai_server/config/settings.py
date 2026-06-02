@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     ai_realtime_exchange: str = "stackup.realtime"
     ai_realtime_routing_user: str = "realtime.user.notify"
     feedback_rag_top_k: int = 5
+    # 리랭킹: 하이브리드 검색으로 후보 N개(candidate_k)를 가져와 LLM 으로 재정렬 후 top_k 주입.
+    rerank_enabled: bool = True
+    rerank_candidate_k: int = 20
     # 질문 풀 초기 크기. Core 의 applyPool 이 questions[0] 만 INSERT 하므로 1 로 고정해 토큰 낭비 차단.
     # 후속 작업에서 풀 저장 도입 시 늘리기 (예: 5).
     questions_initial_pool_size: int = 1
@@ -51,16 +54,16 @@ class Settings(BaseSettings):
     whisper_timeout_sec: float = 60.0
     deepgram_api_key: str = ""
     deepgram_base_url: str = "https://api.deepgram.com/v1"
-    deepgram_model: str = "whisper-large"   # 한국어 정확도 우선; 저비용 우선 시 nova-2.
+    deepgram_model: str = "whisper-large"  # 한국어 정확도 우선; 저비용 우선 시 nova-2.
     deepgram_language: str = "ko"
     deepgram_timeout_sec: float = 60.0
 
     # 스트리밍 STT (실시간 음성 답변). "auto" 면 DEEPGRAM_API_KEY 보유 시 deepgram_live, 없으면 mock.
     live_stt_provider: Literal["auto", "mock", "deepgram_live"] = "auto"
     deepgram_live_url: str = "wss://api.deepgram.com/v1/listen"
-    deepgram_live_model: str = "nova-2"          # 스트리밍은 nova-2(저지연). 한국어 지원.
+    deepgram_live_model: str = "nova-2"  # 스트리밍은 nova-2(저지연). 한국어 지원.
     deepgram_live_language: str = "ko"
-    deepgram_live_endpointing_ms: int = 800      # 무음 800ms → utterance end
+    deepgram_live_endpointing_ms: int = 800  # 무음 800ms → utterance end
     voice_stream_internal_path: str = "/internal/voice/stream"
 
     # TTS (질문 음성화). "auto" 면 openai 키 보유 시 openai, 없으면 mock.
@@ -125,7 +128,7 @@ class Settings(BaseSettings):
     embedding_dim: int = 1536
     embedding_chunk_size: int = 1000
     embedding_chunk_overlap: int = 200
-    embedding_batch_size: int = 32 
+    embedding_batch_size: int = 32
 
     gemini_api_key: str = ""
 

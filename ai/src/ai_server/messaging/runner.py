@@ -30,6 +30,7 @@ from ai_server.core.client import HttpCoreClient
 from ai_server.messaging.connection import RabbitConnection
 from ai_server.rag.chunker import MarkdownChunker
 from ai_server.rag.embedder import build_embedding_provider
+from ai_server.rag.reranker import build_reranker
 from ai_server.messaging.consumers.feedback_consumer import FeedbackConsumer
 from ai_server.messaging.consumers.followup_consumer import FollowupConsumer
 from ai_server.messaging.consumers.questions_consumer import QuestionsConsumer
@@ -95,6 +96,7 @@ class MessagingRuntime:
             model=settings.embedding_model,
             gemini_api_key=settings.gemini_api_key,
         )
+        reranker = build_reranker(settings, core_client=core_client)
 
         # 이력서 PDF
         resume_analyzer = ResumeAnalyzer(
@@ -171,6 +173,8 @@ class MessagingRuntime:
             initial_pool_size=settings.questions_initial_pool_size,
             core_client=core_client,
             embedder=embedder,
+            reranker=reranker,
+            candidate_k=settings.rerank_candidate_k,
         )
 
         # 꼬리질문 생성 (US-19)
@@ -184,6 +188,8 @@ class MessagingRuntime:
             callback_routing_key=settings.ai_callback_routing_questions,
             core_client=core_client,
             embedder=embedder,
+            reranker=reranker,
+            candidate_k=settings.rerank_candidate_k,
         )
 
         # 종합 피드백 생성 (US-24)
@@ -197,6 +203,8 @@ class MessagingRuntime:
             callback_routing_key=settings.ai_callback_routing_feedback,
             core_client=core_client,
             embedder=embedder,
+            reranker=reranker,
+            candidate_k=settings.rerank_candidate_k,
             rag_top_k=settings.feedback_rag_top_k,
         )
 

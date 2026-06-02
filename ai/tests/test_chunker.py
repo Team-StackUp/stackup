@@ -46,3 +46,38 @@ def test_chunk_indices_are_sequential() -> None:
     chunks = chunker.split("abc " * 200)
     indices = [c.index for c in chunks]
     assert indices == list(range(len(chunks)))
+
+
+def test_heading_path_is_captured_from_markdown_headers() -> None:
+    md = (
+        "# 이력서\n"
+        "## 주요 경험\n"
+        "### 결제 시스템\n"
+        "분산 락으로 동시성을 해결했다.\n"
+        "## 기술\n"
+        "Kafka 를 사용했다.\n"
+    )
+    chunker = MarkdownChunker(chunk_size=500, chunk_overlap=50)
+    chunks = chunker.split(md)
+    paths = {c.heading_path for c in chunks}
+    # 헤딩 경로가 섹션별로 부여됨
+    assert any("결제 시스템" in p for p in paths)
+    assert any("기술" in p for p in paths)
+    # 헤딩 경로는 상위>하위 형태
+    deep = next(c for c in chunks if "결제 시스템" in c.heading_path)
+    assert deep.heading_path.startswith("이력서 > 주요 경험")
+
+
+def test_no_headers_yields_empty_heading_path() -> None:
+    chunker = MarkdownChunker(chunk_size=200, chunk_overlap=20)
+    chunks = chunker.split("헤딩 없는 평범한 본문 문장입니다.")
+    assert len(chunks) == 1
+    assert chunks[0].heading_path == ""
+
+
+def test_chunk_indices_sequential_across_multiple_sections() -> None:
+    md = "## A\n" + ("문장. " * 100) + "\n## B\n" + ("다른. " * 100)
+    chunker = MarkdownChunker(chunk_size=150, chunk_overlap=30)
+    chunks = chunker.split(md)
+    assert len(chunks) >= 2
+    assert [c.index for c in chunks] == list(range(len(chunks)))

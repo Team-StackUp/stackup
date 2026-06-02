@@ -2654,6 +2654,9 @@
               "format" : "float"
             }
           },
+          "queryText" : {
+            "type" : "string"
+          },
           "documentIds" : {
             "type" : "array",
             "items" : {

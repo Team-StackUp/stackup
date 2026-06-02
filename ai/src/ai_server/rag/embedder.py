@@ -21,7 +21,9 @@ class EmbeddingProvider(Protocol):
     @property
     def model(self) -> str: ...
 
-    async def embed(self, texts: list[str]) -> list[list[float]]: ...
+    async def embed(
+        self, texts: list[str], *, task_type: str = "RETRIEVAL_DOCUMENT"
+    ) -> list[list[float]]: ...
 
 
 # 우선 mock 구현체
@@ -40,7 +42,10 @@ class MockEmbeddingProvider:
     def model(self) -> str:
         return self._model
 
-    async def embed(self, texts: list[str]) -> list[list[float]]:
+    async def embed(
+        self, texts: list[str], *, task_type: str = "RETRIEVAL_DOCUMENT"
+    ) -> list[list[float]]:
+        # mock 은 task_type 을 무시한다 (시그니처 호환만 유지).
         return [self._embed_one(t) for t in texts]
 
     def _embed_one(self, text: str) -> list[float]:
@@ -53,8 +58,8 @@ class MockEmbeddingProvider:
         return [v * scale - 1.0 for v in ints]
 
 
-# Gemini Embedding 을 사용합니다. 
-# 이건 충대키로 안되니 키 발급 필요함 
+# Gemini Embedding 을 사용합니다.
+# 이건 충대키로 안되니 키 발급 필요함
 class GeminiEmbeddingProvider:
     def __init__(self, *, api_key: str, model: str, dim: int) -> None:
         if not api_key:
@@ -75,7 +80,9 @@ class GeminiEmbeddingProvider:
     def model(self) -> str:
         return self._model
 
-    async def embed(self, texts: list[str]) -> list[list[float]]:
+    async def embed(
+        self, texts: list[str], *, task_type: str = "RETRIEVAL_DOCUMENT"
+    ) -> list[list[float]]:
         if not texts:
             return []
         from google.genai import types as genai_types
@@ -85,7 +92,9 @@ class GeminiEmbeddingProvider:
                 model=self._model,
                 contents=texts,
                 config=genai_types.EmbedContentConfig(
-                    task_type="RETRIEVAL_DOCUMENT",
+                    # 인덱싱은 RETRIEVAL_DOCUMENT, 검색 쿼리는 RETRIEVAL_QUERY 로
+                    # 분리해야 Gemini embedding 의 코사인 정합도가 최적화된다.
+                    task_type=task_type,
                     output_dimensionality=self._dim,
                 ),
             )

@@ -127,11 +127,11 @@ async def test_consumer_injects_followup_rag_context_when_available():
     await consumer.handle(_StubMessage(_envelope()))
 
     embedder.embed.assert_awaited_once()
-    core.search_embeddings.assert_awaited_once_with(
-        query_embedding=[0.1, 0.2, 0.3],
-        document_ids=[7],
-        top_k=3,
-    )
+    call = core.search_embeddings.await_args
+    assert call.kwargs["query_embedding"] == [0.1, 0.2, 0.3]
+    assert call.kwargs["document_ids"] == [7]
+    assert call.kwargs["top_k"] == 20  # candidate_k (리랭크 후보 수)
+    assert call.kwargs["query_text"]  # 하이브리드 검색: 쿼리 텍스트 동봉
     context = generator.generate.await_args.kwargs["context"]
     assert "Outbox rows are inserted in the same transaction" in context
 
