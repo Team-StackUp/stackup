@@ -23,6 +23,7 @@ import com.stackup.stackup.session.domain.SessionMode;
 import com.stackup.stackup.session.domain.TtsStatus;
 import com.stackup.stackup.user.domain.User;
 import java.util.Optional;
+import java.util.function.Predicate;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -58,9 +59,9 @@ class TtsCallbackServiceTest {
         assertThat(question.getTtsAudioPath()).isEqualTo("interview/tts/50/100.mp3");
         assertThat(question.getTtsDurationSec()).isEqualTo(2.4);
         assertThat(MessageResult.of(question).ttsAudioPath()).isEqualTo("interview/tts/50/100.mp3");
-        verify(events).publishEvent(argThat(event ->
+        verify(events).publishEvent(argThatObject(event ->
             isNotice(event, RealtimeNotifyEvent.Channel.SESSION, 50L)));
-        verify(events).publishEvent(argThat(event ->
+        verify(events).publishEvent(argThatObject(event ->
             isNotice(event, RealtimeNotifyEvent.Channel.USER, 1L)));
         verify(processedMessageRepository).save(any(ProcessedMessage.class));
     }
@@ -81,7 +82,7 @@ class TtsCallbackServiceTest {
         assertThat(question.getTtsStatus()).isEqualTo(TtsStatus.FAILED);
         assertThat(question.getContent()).isEqualTo("Q?");
         assertThat(question.getTtsAudioPath()).isNull();
-        verify(events).publishEvent(argThat(event ->
+        verify(events).publishEvent(argThatObject(event ->
             isNotice(event, RealtimeNotifyEvent.Channel.SESSION, 50L)));
         verify(processedMessageRepository).save(any(ProcessedMessage.class));
     }
@@ -143,6 +144,10 @@ class TtsCallbackServiceTest {
         return realtimeNotifyEvent.channel() == channel
             && realtimeNotifyEvent.id().equals(id)
             && realtimeNotifyEvent.type() == SseEventType.SESSION_MESSAGE;
+    }
+
+    private Object argThatObject(Predicate<Object> predicate) {
+        return argThat(predicate::test);
     }
 
     private InterviewSession sessionFixture(Long id) {

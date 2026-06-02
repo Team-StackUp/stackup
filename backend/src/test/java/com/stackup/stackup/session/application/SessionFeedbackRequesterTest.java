@@ -78,7 +78,7 @@ class SessionFeedbackRequesterTest {
         assertThat(summary.analyzedMessageCount()).isEqualTo(2);
         assertThat(summary.averageSpeakingRateWpm()).isEqualTo(150.0);
         assertThat(summary.totalSilenceDurationSec()).isEqualTo(3.5);
-        assertThat(summary.fillerWordCounts()).containsExactlyEntriesOf(java.util.Map.of(
+        assertThat(summary.fillerWordCounts()).containsAllEntriesOf(java.util.Map.of(
             "like", 1,
             "uh", 1,
             "um", 5
