@@ -1,0 +1,20 @@
+import { Link } from 'react-router-dom'
+import { Button } from '@/shared/ui/Button'
+import type { SessionStatus } from '@/domain/session'
+
+const messageByStatus: Partial<Record<SessionStatus, string>> = {
+  COMPLETED: '면접이 종료되었습니다. 피드백을 준비 중입니다.',
+  INTERRUPTED: '면접이 중단되었습니다.',
+  CANCELLED: '면접이 취소되었습니다.',
+}
+
+export function SessionEndedPanel({ status }: { status: SessionStatus }) {
+  return (
+    <div className="flex flex-col items-center gap-4 px-4 py-16 text-center">
+      <p className="text-rich text-fg">{messageByStatus[status] ?? '면접이 종료되었습니다.'}</p>
+      <Link to="/workspace">
+        <Button variant="secondary">워크스페이스로</Button>
+      </Link>
+    </div>
+  )
+}
