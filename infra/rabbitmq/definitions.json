@@ -121,6 +121,16 @@
       }
     },
     {
+      "name": "ai.generate.tts",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "stackup.dlx",
+        "x-dead-letter-routing-key": "dlq.ai.generate.tts"
+      }
+    },
+    {
       "name": "core.callback.analysis",
       "vhost": "/",
       "durable": true,
@@ -230,6 +240,13 @@
       "arguments": {}
     },
     {
+      "name": "dlq.ai.generate.tts",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
       "name": "dlq.core.callback.analysis",
       "vhost": "/",
       "durable": true,
@@ -321,6 +338,13 @@
       "destination": "ai.analyze.voice",
       "destination_type": "queue",
       "routing_key": "analyze.voice"
+    },
+    {
+      "source": "stackup.core-to-ai",
+      "vhost": "/",
+      "destination": "ai.generate.tts",
+      "destination_type": "queue",
+      "routing_key": "generate.tts"
     },
     {
       "source": "stackup.ai-to-core",
@@ -426,6 +450,13 @@
       "destination": "dlq.ai.analyze.voice",
       "destination_type": "queue",
       "routing_key": "dlq.ai.analyze.voice"
+    },
+    {
+      "source": "stackup.dlx",
+      "vhost": "/",
+      "destination": "dlq.ai.generate.tts",
+      "destination_type": "queue",
+      "routing_key": "dlq.ai.generate.tts"
     },
     {
       "source": "stackup.dlx",
