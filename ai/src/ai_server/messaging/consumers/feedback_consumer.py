@@ -171,8 +171,24 @@ def _build_transcript(messages: list[FeedbackMessageItem]) -> str:
             if m.role == "INTERVIEWER"
             else ("지원자" if m.role == "INTERVIEWEE" else m.role)
         )
-        lines.append(f"[{m.sequence_number}] {speaker}: {m.content}")
+        line = f"[{m.sequence_number}] {speaker}: {m.content}"
+        if m.role == "INTERVIEWEE" and m.evaluation is not None:
+            line += f"\n    └ 답변평가: {_format_evaluation(m.evaluation)}"
+        lines.append(line)
     return "\n".join(lines)
+
+
+def _format_evaluation(e) -> str:
+    parts: list[str] = []
+    if e.specificity is not None:
+        parts.append(f"specificity={e.specificity:g}")
+    if e.logic is not None:
+        parts.append(f"logic={e.logic:g}")
+    if e.structure:
+        parts.append(f"structure={e.structure}")
+    if e.correctness is not None:
+        parts.append(f"correctness={e.correctness:g}")
+    return ", ".join(parts) if parts else "(없음)"
 
 
 def _build_voice_analysis_summary(summary: VoiceAnalysisSummary | None) -> str:

@@ -7,6 +7,17 @@ from ai_server.model._config import camel_config
 InterviewMode = Literal["PERSONALITY", "TECHNICAL", "INTEGRATED"]
 
 
+class MessageEvaluation(BaseModel):
+    """답변별 평가 (꼬리질문 단계에서 채점·영속된 값). 피드백에서 롤업 재활용."""
+
+    model_config = camel_config()
+
+    specificity: float | None = None
+    logic: float | None = None
+    structure: str | None = None
+    correctness: float | None = None
+
+
 class FeedbackMessageItem(BaseModel):
     """세션 시퀀스 한 줄 (Core 가 통째로 동봉)."""
 
@@ -17,6 +28,8 @@ class FeedbackMessageItem(BaseModel):
     role: Literal["INTERVIEWER", "INTERVIEWEE", "SYSTEM"]
     content: str
     parent_message_id: int | None = None
+    # 답변(INTERVIEWEE) 메시지에만 채워짐. 피드백 종합 채점의 근거.
+    evaluation: MessageEvaluation | None = None
 
 
 class VoiceAnalysisSummary(BaseModel):

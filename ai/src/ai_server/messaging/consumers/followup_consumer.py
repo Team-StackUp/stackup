@@ -87,6 +87,7 @@ class FollowupConsumer:
                 session_id=req.session_id,
                 kind="FOLLOWUP",
                 parent_message_id=req.parent_message_id,
+                answer_message_id=req.answer_message_id,
                 followup_question=result.followup_question,
                 answer_evaluation=result.answer_evaluation,
             )

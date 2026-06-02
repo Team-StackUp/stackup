@@ -8,7 +8,8 @@ public record QuestionsCallbackPayload(
     Long sessionId,
     String kind,                       // POOL | FOLLOWUP
     List<GeneratedQuestion> questions, // POOL legacy kind: initial question result
-    Long parentMessageId,              // FOLLOWUP 시 사용
+    Long parentMessageId,              // FOLLOWUP 시 사용 (직전 질문)
+    Long answerMessageId,              // FOLLOWUP 시 평가 대상 답변 메시지
     String followupQuestion,           // FOLLOWUP 시 사용
     AnswerEvaluation answerEvaluation  // FOLLOWUP 시 옵션
 ) {
