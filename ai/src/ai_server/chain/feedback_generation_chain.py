@@ -33,6 +33,7 @@ class FeedbackGenerator(Protocol):
         end_reason: str | None,
         transcript: str,
         rag_context: str,
+        voice_analysis_summary: str,
     ) -> FeedbackResult: ...
 
 
@@ -49,6 +50,7 @@ class LlmFeedbackGenerator:
         end_reason: str | None,
         transcript: str,
         rag_context: str,
+        voice_analysis_summary: str = "",
     ) -> FeedbackResult:
         result = await self._chain.ainvoke(
             {
@@ -58,6 +60,8 @@ class LlmFeedbackGenerator:
                 "end_reason": end_reason or "USER_REQUEST",
                 "transcript": transcript,
                 "rag_context": rag_context or "(none)",
+                "voice_analysis_summary": voice_analysis_summary
+                or "No voice analysis summary was provided.",
             }
         )
         if not isinstance(result, FeedbackResult):

@@ -9,6 +9,7 @@ InterviewMode = Literal["PERSONALITY", "TECHNICAL", "INTEGRATED"]
 
 class FeedbackMessageItem(BaseModel):
     """세션 시퀀스 한 줄 (Core 가 통째로 동봉)."""
+
     model_config = camel_config()
 
     id: int
@@ -18,8 +19,20 @@ class FeedbackMessageItem(BaseModel):
     parent_message_id: int | None = None
 
 
+class VoiceAnalysisSummary(BaseModel):
+    """Aggregated voice metrics supplied by Core in generate.feedback."""
+
+    model_config = camel_config()
+
+    analyzed_message_count: int | None = None
+    average_speaking_rate_wpm: float | None = None
+    total_silence_duration_sec: float | None = None
+    filler_word_counts: dict[str, int] = Field(default_factory=dict)
+
+
 class GenerateFeedbackRequest(BaseModel):
     """Core 가 세션 COMPLETED commit 후 발행."""
+
     model_config = camel_config()
 
     session_id: int
@@ -29,10 +42,12 @@ class GenerateFeedbackRequest(BaseModel):
     end_reason: Literal["USER_REQUEST", "MAX_QUESTIONS_REACHED"] | None = None
     messages: list[FeedbackMessageItem] = Field(default_factory=list)
     context_document_ids: list[int] = Field(default_factory=list)
+    voice_analysis_summary: VoiceAnalysisSummary | None = None
 
 
 class FeedbackCallbackPayload(BaseModel):
     """AI → Core 종합 피드백. 점수는 0~100 (NULL 허용)."""
+
     model_config = camel_config()
 
     session_id: int
