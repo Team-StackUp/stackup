@@ -24,6 +24,7 @@
 | `ai.analyze.web` | `stackup.core-to-ai` | `analyze.web` | AI Server |
 | `ai.generate.questions` | `stackup.core-to-ai` | `generate.questions` | AI Server |
 | `ai.generate.followup` | `stackup.core-to-ai` | `generate.followup` | AI Server |
+| `ai.generate.tts` | `stackup.core-to-ai` | `generate.tts` | AI Server |
 | `core.callback.analysis` | `stackup.ai-to-core` | `callback.analysis` | Core Server |
 | `core.callback.questions` | `stackup.ai-to-core` | `callback.questions` | Core Server |
 | `q.realtime.session.notify` | `stackup.realtime` | `realtime.session.*` · `realtime.user.*` · `realtime.document.*` | RealTime Server |
@@ -40,6 +41,7 @@
 | `dlq.ai.analyze.web` | `stackup.dlx` | `dlq.ai.analyze.web` | `ai.analyze.web` 처리 실패 |
 | `dlq.ai.generate.questions` | `stackup.dlx` | `dlq.ai.generate.questions` | `ai.generate.questions` 처리 실패 |
 | `dlq.ai.generate.followup` | `stackup.dlx` | `dlq.ai.generate.followup` | `ai.generate.followup` 처리 실패 |
+| `dlq.ai.generate.tts` | `stackup.dlx` | `dlq.ai.generate.tts` | `ai.generate.tts` 처리 실패 |
 | `dlq.core.callback.analysis` | `stackup.dlx` | `dlq.core.callback.analysis` | `core.callback.analysis` 처리 실패 |
 | `dlq.core.callback.questions` | `stackup.dlx` | `dlq.core.callback.questions` | `core.callback.questions` 처리 실패 |
 | `dlq.q.realtime.session.notify` | `stackup.dlx` | `dlq.q.realtime.session.notify` | `q.realtime.session.notify` 처리 실패 |
@@ -60,7 +62,7 @@
 ```
 
 `action` ∈ `analyze | generate | callback | realtime`
-`aggregate` ∈ `resume | repository | web | questions | followup | analysis | feedback | session`
+`aggregate` ∈ `resume | repository | web | questions | followup | tts | analysis | feedback | session`
 
 새 routing key 추가 시 본 패턴 유지.
 
@@ -121,6 +123,7 @@
 | 레포 분석 (US-10) | `analyze.repository` | `callback.analysis` | `core.callback.analysis` |
 | 질문 풀 생성 (US-18) | `generate.questions` | `callback.questions` | `core.callback.questions` |
 | 꼬리질문 생성 (US-19) | `generate.followup` | `callback.questions` | `core.callback.questions` |
+| 질문 TTS 합성 | `generate.tts` | `callback.tts` | `core.callback.tts` |
 | 피드백 생성 (US-24) | `generate.feedback` *(예정)* | `callback.feedback` *(예정)* | `core.callback.feedback` *(예정)* |
 | 세션 알림 (RT2 SSE) | `realtime.session.notify` | (없음 — 단방향 push) | `q.realtime.session.notify` |
 
@@ -282,6 +285,40 @@
 ```
 
 > `callback.questions` 큐는 두 종류(`POOL`, `FOLLOWUP`)를 받으므로 consumer는 `payload.kind`로 분기.
+
+### 5.9a `generate.tts`
+```json
+{
+  "messageType": "generate.tts",
+  "payload": {
+    "sessionId": 99,
+    "messageId": 502,
+    "text": "당신의 프로젝트에서 가장 어려웠던 점은 무엇인가요?",
+    "mode": "TECHNICAL",
+    "jobCategory": "BACKEND"
+  },
+  "context": { "userId": 123, "sessionId": 99 }
+}
+```
+
+> 질문(INTERVIEWER) 메시지 영속 후 Core 가 발행. `messageId` 는 `interview_messages.id`. AI 가 `text` 를 TTS 합성 → S3 PUT → `callback.tts` 회신.
+
+### 5.9b `callback.tts`
+```json
+{
+  "messageType": "callback.tts",
+  "payload": {
+    "sessionId": 99,
+    "messageId": 502,
+    "status": "SUCCEEDED",
+    "audioKey": "interview/tts/99/502.mp3",
+    "durationSec": 4.2,
+    "errorCode": null
+  }
+}
+```
+
+> 실패 시 `status: "FAILED"` + `errorCode`(`TTS_API_ERROR`/`TTS_STORAGE_FAILED` 등), `audioKey`/`durationSec` 는 null. OpenAI TTS 는 duration 을 주지 않으므로 `durationSec` 는 null 일 수 있다.
 
 ### 5.10 `generate.feedback` *(예정)*
 ```json

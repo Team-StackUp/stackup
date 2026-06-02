@@ -95,6 +95,7 @@ ai/
 | `ai.analyze.web` | `analyze.web` | 본 구현 (URL → trafilatura) |
 | `ai.generate.questions` | `generate.questions` | 본 구현 (Pro 모델, 질문 풀 생성, US-18) |
 | `ai.generate.followup` | `generate.followup` | 본 구현 (Flash 모델, 답변 평가+꼬리질문, US-19) |
+| `ai.generate.tts` | `generate.tts` | 본 구현 (질문 음성화, OpenAI TTS → S3 → `callback.tts`) |
 
 콜백 발행: `ai.callback.{type}` 익스체인지.
 상세 envelope/스키마/재시도: [`/docs/messaging.md`](../docs/messaging.md).
@@ -188,8 +189,8 @@ chain = prompt | llm | PydanticOutputParser(pydantic_object=...)
   - 비용: $0.006 / 분 (1시간 면접 ≈ ₩500 / USD ≈ $0.36)
   - 셀프호스팅 옵션: `whisper.cpp` 또는 `faster-whisper` (GPU 권장, 비용 ↓ but 운영 부담 ↑)
   - 브라우저 내장 SpeechRecognition API는 정확도 부족으로 채택 안 함
-- TTS 제공자 미정 → 도입 시 본 섹션 갱신
-- 추상화 계층 두기: `voice/stt/base.py` (interface), `voice/stt/whisper_api.py`, `voice/tts/{provider}.py`
+- **TTS: OpenAI TTS 채택** (`voice/tts/`) — 질문(INTERVIEWER) 메시지 음성화. `TtsProvider` 추상화 + `OpenAiTtsProvider`(`gpt-4o-mini-tts`, mp3)/`MockTtsProvider`, `build_tts_provider` factory(`TTS_PROVIDER=auto`면 OPENAI_API_KEY 보유 시 openai). `generate.tts` consumer 가 합성 → S3 PUT → `callback.tts` 발행.
+- 추상화 계층 두기: `voice/stt/base.py` (interface), `voice/stt/whisper_api.py`, `voice/tts/base.py` + `voice/tts/{provider}.py`
 - 분석:
   - WPM = words / minutes
   - 간투어: 한국어 정규식 `r"\b(음+|어+|그+)\b"` 카운트
@@ -324,6 +325,8 @@ docker run --env-file .env -p 8000:8000 stackup-ai
 - **스토리지 추상화** (`storage/`): `S3Storage`(기본) / `LocalFilesystemStorage`. `STORAGE_BACKEND` 토글.
 - **LLM 호출 로깅 본 구현** (`observability/llm_logging_callback.py`, US-30):
   LangChain `AsyncCallbackHandler` 가 토큰/latency 측정 → Core `/api/internal/ai-logs` POST.
-- 음성 모듈은 Phase 2
+- **질문 TTS consumer 본 구현** (`messaging/consumers/tts_consumer.py`, `voice/tts/`):
+  `generate.tts` 수신 → OpenAI TTS 합성(`OpenAiTtsProvider`, mock fallback) → S3 PUT(`interview/tts/{sessionId}/{messageId}.mp3`) → `callback.tts` 발행.
+- 음성 분석(STT/WPM/filler) 모듈은 Phase 2
 
 각 도입 시 본 문서 갱신.

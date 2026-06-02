@@ -26,12 +26,14 @@ class Settings(BaseSettings):
     ai_queue_followup: str = "ai.generate.followup"
     ai_queue_feedback: str = "ai.generate.feedback"
     ai_queue_voice: str = "ai.analyze.voice"
+    ai_queue_tts: str = "ai.generate.tts"
     ai_queue_prefetch: int = 10
     ai_callback_exchange: str = "stackup.ai-to-core"
     ai_callback_routing_analysis: str = "callback.analysis"
     ai_callback_routing_questions: str = "callback.questions"
     ai_callback_routing_feedback: str = "callback.feedback"
     ai_callback_routing_voice: str = "callback.voice"
+    ai_callback_routing_tts: str = "callback.tts"
     # AI -> RealTime 직접 발행 (분석 단계 진행 상황). Core 를 거치지 않는 휘발성 알림.
     ai_realtime_exchange: str = "stackup.realtime"
     ai_realtime_routing_user: str = "realtime.user.notify"
@@ -52,6 +54,13 @@ class Settings(BaseSettings):
     deepgram_model: str = "whisper-large"   # 한국어 정확도 우선; 저비용 우선 시 nova-2.
     deepgram_language: str = "ko"
     deepgram_timeout_sec: float = 60.0
+
+    # TTS (질문 음성화). "auto" 면 openai 키 보유 시 openai, 없으면 mock.
+    tts_provider: Literal["auto", "mock", "openai"] = "auto"
+    openai_tts_model: str = "gpt-4o-mini-tts"
+    openai_tts_voice: str = "alloy"
+    openai_tts_timeout_sec: float = 30.0
+    tts_audio_key_template: str = "interview/tts/{session_id}/{message_id}.mp3"
     # 음성 분석
     voice_filler_pattern: str = r"(?:음+|어+|그+|아+)"
     ai_publisher_name: str = "ai-server"
