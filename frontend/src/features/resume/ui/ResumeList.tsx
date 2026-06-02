@@ -1,8 +1,9 @@
 import { isApiError } from '@/shared/api'
+import { useAnalysisProgress } from '@/shared/hooks'
 import { StatusBadge, type StatusTone } from '@/shared/ui'
 import { useDeleteResume, useResumes } from '../model/useResumes'
 import { formatFileSize } from '../lib/format'
-import type { ResumeStatus } from '../model/types'
+import type { Resume, ResumeStatus } from '../model/types'
 
 const STATUS_META: Record<ResumeStatus, { tone: StatusTone; label: string }> = {
   PENDING: { tone: 'info', label: '대기 중' },
@@ -38,35 +39,54 @@ export function ResumeList() {
 
   return (
     <ul className="flex flex-col gap-2">
-      {data.map((resume) => {
-        const meta = STATUS_META[resume.status]
-        return (
-          <li
-            key={resume.id}
-            className="flex items-center justify-between gap-4 rounded-xl border border-border bg-surface-raised px-4 py-3"
-          >
-            <div className="min-w-0">
-              <p className="text-body text-fg-strong truncate">
-                {resume.originalFilename}
-              </p>
-              <p className="text-caption text-fg-subtle mt-0.5">
-                {formatFileSize(resume.fileSize)}
-              </p>
-            </div>
-            <div className="flex items-center gap-3 shrink-0">
-              <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
-              <button
-                type="button"
-                disabled={remove.isPending}
-                onClick={() => remove.mutate(resume.id)}
-                className="text-caption text-fg-muted hover:text-danger-700 disabled:opacity-60"
-              >
-                삭제
-              </button>
-            </div>
-          </li>
-        )
-      })}
+      {data.map((resume) => (
+        <ResumeRow
+          key={resume.id}
+          resume={resume}
+          deleting={remove.isPending}
+          onDelete={() => remove.mutate(resume.id)}
+        />
+      ))}
     </ul>
+  )
+}
+
+function ResumeRow({
+  resume,
+  deleting,
+  onDelete,
+}: {
+  resume: Resume
+  deleting: boolean
+  onDelete: () => void
+}) {
+  const meta = STATUS_META[resume.status]
+  const progress = useAnalysisProgress('RESUME', resume.id)
+  const showProgress =
+    !!progress &&
+    (resume.status === 'ANALYZING' || resume.status === 'PENDING')
+
+  return (
+    <li className="flex items-center justify-between gap-4 rounded-xl border border-border bg-surface-raised px-4 py-3">
+      <div className="min-w-0">
+        <p className="text-body text-fg-strong truncate">
+          {resume.originalFilename}
+        </p>
+        <p className="text-caption text-fg-subtle mt-0.5">
+          {showProgress ? progress.message : formatFileSize(resume.fileSize)}
+        </p>
+      </div>
+      <div className="flex items-center gap-3 shrink-0">
+        <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
+        <button
+          type="button"
+          disabled={deleting}
+          onClick={onDelete}
+          className="text-caption text-fg-muted hover:text-danger-700 disabled:opacity-60"
+        >
+          삭제
+        </button>
+      </div>
+    </li>
   )
 }

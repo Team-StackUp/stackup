@@ -1,3 +1,5 @@
 export { useTypewriter } from './useTypewriter'
 export type { UseTypewriterOptions } from './useTypewriter'
 export { useEventStream } from './useEventStream'
+export { useAnalysisProgress, analysisProgress } from './useAnalysisProgress'
+export type { AnalysisProgress } from './useAnalysisProgress'

@@ -8,6 +8,7 @@ from ai_server.analyzer.repository_analyzer import (
     RepositoryAnalyzer,
 )
 from ai_server.messaging.idempotency import LruIdempotencyStore
+from ai_server.messaging.progress import AnalysisProgressNotifier
 from ai_server.messaging.publisher import CallbackPublisher
 from ai_server.model.envelope import Envelope
 from ai_server.model.messages.analyze import (
@@ -26,11 +27,13 @@ class RepositoryConsumer:
         publisher: CallbackPublisher,
         idempotency: LruIdempotencyStore,
         callback_routing_key: str,
+        progress_notifier: AnalysisProgressNotifier | None = None,
     ) -> None:
         self._analyzer = analyzer
         self._publisher = publisher
         self._idempotency = idempotency
         self._callback_routing_key = callback_routing_key
+        self._progress = progress_notifier
 
     async def handle(self, message: AbstractIncomingMessage) -> None:
         async with message.process(requeue=False):
@@ -92,6 +95,16 @@ class RepositoryConsumer:
         user_id: int | None,
         trace_id: str,
     ) -> AnalysisCallbackPayload:
+        progress = (
+            self._progress.emitter_for(
+                user_id=user_id,
+                target_type="REPOSITORY",
+                target_id=req.repository_id,
+                trace_id=trace_id,
+            )
+            if self._progress is not None
+            else None
+        )
         try:
             result = await self._analyzer.analyze(
                 repository_id=req.repository_id,
@@ -99,6 +112,7 @@ class RepositoryConsumer:
                 default_branch=req.default_branch,
                 user_id=user_id,
                 analyzed_document_id=req.analyzed_document_id,
+                progress=progress,
             )
         except RepositoryAnalyzeError as err:
             log.warning(

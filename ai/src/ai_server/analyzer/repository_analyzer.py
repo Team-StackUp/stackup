@@ -8,6 +8,7 @@ from ai_server.analyzer._embedding_step import (
     EmbeddingStepError,
     chunk_embed_and_upsert,
 )
+from ai_server.analyzer._progress import ProgressEmitter
 from ai_server.analyzer.sources.github_repo import (
     GitHubRepoSourceExtractor,
     RepositoryFetchError,
@@ -66,7 +67,12 @@ class RepositoryAnalyzer:
         default_branch: str = "main",
         user_id: int | None,
         analyzed_document_id: int,
+        progress: ProgressEmitter | None = None,
     ) -> RepositoryAnalysisResult:
+        async def emit(phase: str, message: str) -> None:
+            if progress is not None:
+                await progress(phase, message)
+
         if user_id is None:
             raise RepositoryAnalyzeError(
                 code="MISSING_USER_ID",
@@ -86,6 +92,7 @@ class RepositoryAnalyzer:
                 code=err.code, message=err.message, retriable=err.retriable
             ) from err
 
+        await emit("EXTRACTING", "레포지토리 코드를 가져오는 중…")
         log.info(
             "repository.extract.start",
             repository_id=repository_id,
@@ -109,6 +116,7 @@ class RepositoryAnalyzer:
                 retriable=False,
             )
 
+        await emit("SUMMARIZING", "AI가 코드를 분석·요약하는 중…")
         log.info(
             "repository.llm.start",
             repository_id=repository_id,
@@ -128,6 +136,7 @@ class RepositoryAnalyzer:
             md_chars=len(analysis.markdown),
         )
 
+        await emit("EMBEDDING", "분석 결과를 임베딩하는 중…")
         try:
             chunk_count = await chunk_embed_and_upsert(
                 document_id=analyzed_document_id,

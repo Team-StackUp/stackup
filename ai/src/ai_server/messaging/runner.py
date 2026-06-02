@@ -39,6 +39,7 @@ from ai_server.messaging.consumers.repository_consumer import RepositoryConsumer
 from ai_server.messaging.consumers.resume_consumer import ResumeConsumer
 from ai_server.messaging.consumers.web_consumer import WebResumeConsumer
 from ai_server.messaging.idempotency import LruIdempotencyStore
+from ai_server.messaging.progress import AnalysisProgressNotifier
 from ai_server.messaging.publisher import CallbackPublisher
 from ai_server.storage.factory import build_storage
 
@@ -58,6 +59,16 @@ class MessagingRuntime:
             connection=self._connection,
             exchange_name=settings.ai_callback_exchange,
             publisher_name=settings.ai_publisher_name,
+        )
+        # AI -> RealTime 직접 발행용 (분석 단계 진행 상황). Core 콜백 익스체인지와 별개.
+        self._realtime_publisher = CallbackPublisher(
+            connection=self._connection,
+            exchange_name=settings.ai_realtime_exchange,
+            publisher_name=settings.ai_publisher_name,
+        )
+        self._progress_notifier = AnalysisProgressNotifier(
+            publisher=self._realtime_publisher,
+            routing_key=settings.ai_realtime_routing_user,
         )
         self._idempotency = LruIdempotencyStore(
             max_size=settings.ai_idempotency_lru_size,
@@ -130,12 +141,14 @@ class MessagingRuntime:
             publisher=self._publisher,
             idempotency=self._idempotency,
             callback_routing_key=settings.ai_callback_routing_analysis,
+            progress_notifier=self._progress_notifier,
         )
         self._repository_consumer = RepositoryConsumer(
             analyzer=repo_analyzer,
             publisher=self._publisher,
             idempotency=self._idempotency,
             callback_routing_key=settings.ai_callback_routing_analysis,
+            progress_notifier=self._progress_notifier,
         )
         self._web_consumer = WebResumeConsumer(
             analyzer=web_analyzer,
@@ -202,6 +215,7 @@ class MessagingRuntime:
     async def start(self) -> None:
         await self._connection.open()
         await self._publisher.open()
+        await self._realtime_publisher.open()
 
         channel = self._connection.channel
 

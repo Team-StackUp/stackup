@@ -12,7 +12,7 @@
 |----------|------|------|
 | `stackup.core-to-ai` | topic | Core → AI 작업 요청 |
 | `stackup.ai-to-core` | topic | AI → Core 결과 회신 |
-| `stackup.realtime` | topic | Core → RealTime 세션 알림 |
+| `stackup.realtime` | topic | Core·AI → RealTime 알림 (세션/상태, AI 분석 진행) |
 | `stackup.dlx` | direct | 처리 실패 메시지 격리 (Dead Letter Exchange) |
 
 ### Queues (durable)
@@ -337,6 +337,14 @@
 - RealTime 측은 envelope `messageType`(`realtime.{kind}.notify`)으로 채널을 판별해 해당 채널 구독자에게 fan-out.
 
 > 단일 큐 `q.realtime.session.notify` 가 세 라우팅 키(`realtime.session.*`/`realtime.user.*`/`realtime.document.*`)를 모두 바인딩한다.
+
+#### AI → RealTime 직접 발행 (분석 단계 진행)
+
+분석 **종료** 상태(`ANALYZED`/`FAILED`)는 AI→Core 콜백(`callback.analysis`) → Core 가 `REPO_STATE`/`DOC_STATE` 로 RealTime 에 전달한다. 반면 분석 **진행 중** 단계(휘발성, DB 영속 불필요)는 AI 서버가 `stackup.realtime` exchange 의 `realtime.user.notify` 로 **직접** 발행해 user 채널 SSE 로 흘린다(Core 미경유).
+
+- 발행: AI `AnalysisProgressNotifier` (envelope 구조는 Core `RealtimeNotifyPublisher` 와 동일 — `payload.eventType` + `context.userId`).
+- `payload.eventType` = `ANALYSIS_PROGRESS`, `payload.data` = `{ targetType, targetId, phase, message }`. phase ∈ `EXTRACTING | SUMMARIZING | EMBEDDING`.
+- 상세 SSE 스펙: [`event-stream.md §3.2-1`](./event-stream.md).
 
 ---
 

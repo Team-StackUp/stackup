@@ -5,6 +5,7 @@ from aio_pika.abc import AbstractIncomingMessage
 
 from ai_server.analyzer.resume_analyzer import ResumeAnalyzeError, ResumeAnalyzer
 from ai_server.messaging.idempotency import LruIdempotencyStore
+from ai_server.messaging.progress import AnalysisProgressNotifier
 from ai_server.messaging.publisher import CallbackPublisher
 from ai_server.model.envelope import Envelope
 from ai_server.model.messages.analyze import (
@@ -23,11 +24,13 @@ class ResumeConsumer:
         publisher: CallbackPublisher,
         idempotency: LruIdempotencyStore,
         callback_routing_key: str,
+        progress_notifier: AnalysisProgressNotifier | None = None,
     ) -> None:
         self._analyzer = analyzer
         self._publisher = publisher
         self._idempotency = idempotency
         self._callback_routing_key = callback_routing_key
+        self._progress = progress_notifier
 
     async def handle(self, message: AbstractIncomingMessage) -> None:
         async with message.process(requeue=False):
@@ -59,7 +62,9 @@ class ResumeConsumer:
                 trace_id=envelope.trace_id,
             )
 
-            payload = await self._run_and_build_payload(req, envelope.trace_id)
+            payload = await self._run_and_build_payload(
+                req, envelope.trace_id, user_id=envelope.context.user_id
+            )
 
             await self._publisher.publish(
                 routing_key=self._callback_routing_key,
@@ -81,12 +86,25 @@ class ResumeConsumer:
         self,
         req: ResumeAnalyzeRequest,
         trace_id: str,
+        *,
+        user_id: int | None,
     ) -> AnalysisCallbackPayload:
+        progress = (
+            self._progress.emitter_for(
+                user_id=user_id,
+                target_type="RESUME",
+                target_id=req.resume_id,
+                trace_id=trace_id,
+            )
+            if self._progress is not None
+            else None
+        )
         try:
             result = await self._analyzer.analyze(
                 resume_id=req.resume_id,
                 file_path=req.file_path,
                 analyzed_document_id=req.analyzed_document_id,
+                progress=progress,
             )
         except ResumeAnalyzeError as err:
             log.warning(

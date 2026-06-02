@@ -89,7 +89,10 @@ async def test_happy_path_publishes_analyzed_callback() -> None:
     await consumer.handle(_incoming_message(_request_envelope()))
 
     analyzer.analyze.assert_awaited_once_with(
-        resume_id=42, file_path="resumes/raw/123/abc.pdf", analyzed_document_id=77
+        resume_id=42,
+        file_path="resumes/raw/123/abc.pdf",
+        analyzed_document_id=77,
+        progress=None,
     )
     payload = _captured_payload(publisher)
     assert payload.status == "ANALYZED"

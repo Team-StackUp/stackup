@@ -79,6 +79,28 @@ data: <JSON>
 }
 ```
 
+### 3.2-1 분석 단계 진행 (`event: ANALYSIS_PROGRESS`)
+
+분석이 끝나기 전, 진행 단계를 사용자에게 보여주기 위한 **휘발성** 이벤트.
+종료 상태(`DOC_STATE`/`REPO_STATE`)와 달리 DB/쿼리 캐시를 건드리지 않고 화면의 진행 문구만 갱신한다.
+
+```json
+{
+  "data": {
+    "targetType": "REPOSITORY",
+    "targetId": 4,
+    "phase": "EMBEDDING",
+    "message": "분석 결과를 임베딩하는 중…"
+  },
+  "traceId": "…"
+}
+```
+
+- `targetType` ∈ `REPOSITORY | RESUME`
+- `phase` ∈ `EXTRACTING | SUMMARIZING | EMBEDDING`
+- **발행 경로**: AI 서버 → (`stackup.realtime` exchange, `realtime.user.notify`) → RealTime → user 채널 SSE. Core 를 거치지 않는다(진행 정보는 영속 대상이 아님). 종료 상태만 기존대로 AI → Core 콜백 → REPO_STATE/DOC_STATE 로 전달.
+- 프론트는 `ANALYSIS_PROGRESS` 수신 시 진행 store 갱신(쿼리 무효화 X), `REPO_STATE`/`DOC_STATE`(종료) 수신 시 진행 store clear + 목록 쿼리 무효화.
+
 ### 3.3 세션 메시지 푸시 (`event: session.message`)
 ```json
 {

@@ -8,6 +8,7 @@ from ai_server.analyzer._embedding_step import (
     EmbeddingStepError,
     chunk_embed_and_upsert,
 )
+from ai_server.analyzer._progress import ProgressEmitter
 from ai_server.analyzer.sources.base import SourceExtractor
 from ai_server.chain.document_analysis_chain import DocumentAnalyzer
 from ai_server.core.client import CoreClient
@@ -61,7 +62,13 @@ class ResumeAnalyzer:
         resume_id: int,
         file_path: str,
         analyzed_document_id: int,
+        progress: ProgressEmitter | None = None,
     ) -> ResumeAnalysisResult:
+        async def emit(phase: str, message: str) -> None:
+            if progress is not None:
+                await progress(phase, message)
+
+        await emit("EXTRACTING", "이력서 텍스트를 추출하는 중…")
         log.info(
             "resume.extract.start",
             resume_id=resume_id,
@@ -76,6 +83,7 @@ class ResumeAnalyzer:
                 retriable=False,
             )
 
+        await emit("SUMMARIZING", "AI가 이력서를 분석·요약하는 중…")
         log.info(
             "resume.llm.start",
             resume_id=resume_id,
@@ -96,6 +104,7 @@ class ResumeAnalyzer:
             md_chars=len(analysis.markdown),
         )
 
+        await emit("EMBEDDING", "분석 결과를 임베딩하는 중…")
         try:
             chunk_count = await chunk_embed_and_upsert(
                 document_id=analyzed_document_id,
