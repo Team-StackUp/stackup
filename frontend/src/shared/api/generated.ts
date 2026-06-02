@@ -809,6 +809,8 @@ export interface components {
             status?: "CREATED" | "COMPLETED" | "FAILED";
             /** Format: date-time */
             createdAt?: string;
+            category?: string;
+            targetEvidence?: string;
         };
         VoiceStreamBeginResponse: {
             /** Format: int64 */

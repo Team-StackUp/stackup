@@ -86,7 +86,10 @@ public class QuestionsCallbackService {
                 session.getId(), questions.size() - 1);
         }
         InterviewMessage message = messageRepository.save(
-            InterviewMessage.interviewer(session, 1, first.question())
+            InterviewMessage.interviewer(
+                session, 1, first.question(),
+                first.category(), first.targetEvidence(), first.expectedSignal()
+            )
         );
         session.incrementQuestionCount();
         events.publishEvent(new QuestionPersistedEvent(

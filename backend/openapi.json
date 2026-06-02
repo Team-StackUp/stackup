@@ -2517,6 +2517,12 @@
           "createdAt" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "category" : {
+            "type" : "string"
+          },
+          "targetEvidence" : {
+            "type" : "string"
           }
         }
       },

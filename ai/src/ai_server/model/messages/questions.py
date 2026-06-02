@@ -17,6 +17,7 @@ CallbackKind = Literal["POOL", "FOLLOWUP"]
 
 class DocumentContext(BaseModel):
     """Core 가 generate.questions envelope 에 담아 보내는 문서 컨텍스트."""
+
     model_config = camel_config()
 
     document_id: int
@@ -39,10 +40,15 @@ class GenerateQuestionsRequest(BaseModel):
 
 class GeneratedQuestion(BaseModel):
     """LLM 응답 단위. category 는 Spring 측 enum 과 동기."""
+
     model_config = camel_config()
 
     category: QuestionCategory
     question: str
+    # 질문이 근거한 자료 인용(PROJECT/TECH 는 필수). 라이브 화면에 힌트로 노출.
+    target_evidence: str = ""
+    # 좋은 답이 드러내야 할 것 — 내부 평가용. 라이브 비노출(정답 유출 방지).
+    expected_signal: str = ""
 
 
 class QuestionPoolCallbackPayload(BaseModel):

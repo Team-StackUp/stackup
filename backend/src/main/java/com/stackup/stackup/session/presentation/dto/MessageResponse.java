@@ -18,7 +18,10 @@ public record MessageResponse(
     Double ttsDurationSec,
     Long parentMessageId,
     MessageStatus status,
-    Instant createdAt
+    Instant createdAt,
+    String category,
+    String targetEvidence
+    // expectedSignal 은 노출하지 않음 — 자기연습 시 정답 유출 방지.
 ) {
     public static MessageResponse from(MessageResult r) {
         return new MessageResponse(
@@ -33,7 +36,9 @@ public record MessageResponse(
             r.ttsDurationSec(),
             r.parentMessageId(),
             r.status(),
-            r.createdAt()
+            r.createdAt(),
+            r.category(),
+            r.targetEvidence()
         );
     }
 }
