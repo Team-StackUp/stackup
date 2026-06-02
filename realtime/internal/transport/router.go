@@ -12,7 +12,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-func NewRouter(sse *SSEHandler, ws *WSHandler, verifier *auth.StreamTokenVerifier) http.Handler {
+func NewRouter(sse *SSEHandler, ws *WSHandler, audio *WSAudioHandler, verifier *auth.StreamTokenVerifier) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
 	r.Use(trace.Middleware)
@@ -57,6 +57,19 @@ func NewRouter(sse *SSEHandler, ws *WSHandler, verifier *auth.StreamTokenVerifie
 				return
 			}
 			ws.ServeWS(w, req)
+		})
+		pr.Get("/realtime/sessions/{id}/audio", func(w http.ResponseWriter, req *http.Request) {
+			id, err := strconv.ParseInt(chi.URLParam(req, "id"), 10, 64)
+			if err != nil || id <= 0 {
+				http.Error(w, "invalid id", http.StatusBadRequest)
+				return
+			}
+			c, _ := auth.ClaimsFromContext(req.Context())
+			if c.ResourceType != "SESSION" || c.ResourceID != id {
+				http.Error(w, "token resource mismatch", http.StatusForbidden)
+				return
+			}
+			audio.ServeAudioWS(w, req)
 		})
 	})
 

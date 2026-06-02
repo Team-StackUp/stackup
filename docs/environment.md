@@ -150,6 +150,14 @@ TTS_PROVIDER=auto                 # auto | mock | openai (auto=OPENAI_API_KEY �
 OPENAI_TTS_MODEL=gpt-4o-mini-tts  # OpenAI TTS 모델 (질문 음성화)
 OPENAI_TTS_VOICE=alloy            # TTS 보이스
 OPENAI_TTS_TIMEOUT_SEC=30         # TTS HTTP 타임아웃(초)
+
+# ===== 실시간 스트리밍 STT (RT3 음성 답변, Phase 2) =====
+LIVE_STT_PROVIDER=auto                          # auto | mock | deepgram_live (auto=DEEPGRAM_API_KEY 보유 시 deepgram_live, 없으면 mock)
+DEEPGRAM_API_KEY=                               # Deepgram streaming API 키 (live STT)
+DEEPGRAM_LIVE_URL=wss://api.deepgram.com/v1/listen  # Deepgram Live WS 엔드포인트
+DEEPGRAM_LIVE_MODEL=nova-2                       # 스트리밍 모델 (저지연, 한국어 지원)
+DEEPGRAM_LIVE_LANGUAGE=ko                        # 인식 언어
+DEEPGRAM_LIVE_ENDPOINTING_MS=800                 # 무음 N ms → utterance end
 ```
 
 ---
@@ -181,6 +189,7 @@ VITE_SENTRY_DSN=                    # 옵션
 | `REALTIME_SSE_PING_INTERVAL` | `30s` | SSE heartbeat 주기 |
 | `REALTIME_SSE_SLOW_CONSUMER_TIMEOUT` | `5s` | 구독자 send timeout |
 | `REALTIME_SSE_BUFFER_SIZE` | `16` | 구독자별 채널 버퍼 |
+| `REALTIME_AI_WS_URL` | `ws://localhost:8000/internal/voice/stream` | AI 음성 스트림 WS base URL (RT3 오디오 프록시 업스트림). compose 내부는 `ws://ai:8000/internal/voice/stream` |
 
 루트 `.env.example`은 `REALTIME_PORT`, `REALTIME_LOG_LEVEL` 만 노출 (compose에서 매핑).
 

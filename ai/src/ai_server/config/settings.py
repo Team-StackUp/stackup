@@ -55,6 +55,14 @@ class Settings(BaseSettings):
     deepgram_language: str = "ko"
     deepgram_timeout_sec: float = 60.0
 
+    # 스트리밍 STT (실시간 음성 답변). "auto" 면 DEEPGRAM_API_KEY 보유 시 deepgram_live, 없으면 mock.
+    live_stt_provider: Literal["auto", "mock", "deepgram_live"] = "auto"
+    deepgram_live_url: str = "wss://api.deepgram.com/v1/listen"
+    deepgram_live_model: str = "nova-2"          # 스트리밍은 nova-2(저지연). 한국어 지원.
+    deepgram_live_language: str = "ko"
+    deepgram_live_endpointing_ms: int = 800      # 무음 800ms → utterance end
+    voice_stream_internal_path: str = "/internal/voice/stream"
+
     # TTS (질문 음성화). "auto" 면 openai 키 보유 시 openai, 없으면 mock.
     tts_provider: Literal["auto", "mock", "openai"] = "auto"
     openai_tts_model: str = "gpt-4o-mini-tts"

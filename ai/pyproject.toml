@@ -24,6 +24,7 @@ dependencies = [
     "langchain-community>=0.4.1",
     "langchain-openai>=0.3.0",
     "structlog>=25.5.0",
+    "websockets>=13",
 ]
 
 [project.optional-dependencies]

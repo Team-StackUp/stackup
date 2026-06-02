@@ -17,6 +17,7 @@
 | 스키마 | Pydantic 2.x + pydantic-settings |
 | HTTP | httpx |
 | MQ | aio-pika (async AMQP) |
+| WebSocket | FastAPI WS (서버) + `websockets` (Deepgram Live 클라이언트) |
 | 객체 스토리지 | boto3 (S3 호환) |
 | LLM | LangChain 1.x (core + community) |
 | 로깅 | structlog |
@@ -190,6 +191,8 @@ chain = prompt | llm | PydanticOutputParser(pydantic_object=...)
   - 셀프호스팅 옵션: `whisper.cpp` 또는 `faster-whisper` (GPU 권장, 비용 ↓ but 운영 부담 ↑)
   - 브라우저 내장 SpeechRecognition API는 정확도 부족으로 채택 안 함
 - **TTS: OpenAI TTS 채택** (`voice/tts/`) — 질문(INTERVIEWER) 메시지 음성화. `TtsProvider` 추상화 + `OpenAiTtsProvider`(`gpt-4o-mini-tts`, mp3)/`MockTtsProvider`, `build_tts_provider` factory(`TTS_PROVIDER=auto`면 OPENAI_API_KEY 보유 시 openai). `generate.tts` consumer 가 합성 → S3 PUT → `callback.tts` 발행.
+- **스트리밍 STT (실시간 음성 답변, RT3): Deepgram Live** (`voice/stt/deepgram_live.py`) — `websockets`로 Deepgram WS(`wss://api.deepgram.com/v1/listen`, nova-2)에 연결, interim/final 자막을 실시간 반환. `voice/stt/live.py`(`LiveSttProvider`/`LiveSttSession` 추상) + `voice/stt/mock_live.py`(키 없을 때 fallback) + `voice/stt/live_factory.py`(`LIVE_STT_PROVIDER=auto`면 DEEPGRAM_API_KEY 보유 시 deepgram_live).
+  - FastAPI WS 엔드포인트 `/internal/voice/stream`(`api/voice_stream.py`): RealTime이 프록시한 오디오를 받아 부분/최종 자막을 다운 프레임(`transcript.partial`/`transcript.final`)으로 보내고, 발화 종료(`stop` 또는 UtteranceEnd) 시 메트릭 계산 후 `callback.voice` 발행 → 기존 followup 파이프라인 재사용.
 - 추상화 계층 두기: `voice/stt/base.py` (interface), `voice/stt/whisper_api.py`, `voice/tts/base.py` + `voice/tts/{provider}.py`
 - 분석:
   - WPM = words / minutes
@@ -327,6 +330,8 @@ docker run --env-file .env -p 8000:8000 stackup-ai
   LangChain `AsyncCallbackHandler` 가 토큰/latency 측정 → Core `/api/internal/ai-logs` POST.
 - **질문 TTS consumer 본 구현** (`messaging/consumers/tts_consumer.py`, `voice/tts/`):
   `generate.tts` 수신 → OpenAI TTS 합성(`OpenAiTtsProvider`, mock fallback) → S3 PUT(`interview/tts/{sessionId}/{messageId}.mp3`) → `callback.tts` 발행.
-- 음성 분석(STT/WPM/filler) 모듈은 Phase 2
+- **실시간 스트리밍 음성 답변 본 구현** (RT3, `api/voice_stream.py`, `voice/stt/{live,mock_live,deepgram_live,live_factory}.py`):
+  FastAPI WS `/internal/voice/stream` 수신(RealTime 프록시 경유) → Deepgram Live(`deepgram_live.py`, mock fallback)로 부분/최종 자막 다운 → 발화 종료 시 메트릭 계산 후 `callback.voice` 발행. `VoiceCallbackService`/followup 무변경 재사용. 신규 의존성 `websockets`.
+- 배치 음성 분석(STT/WPM/filler) 모듈은 `voice/stt/whisper_api.py`(+ Deepgram) + `voice/analysis/metrics.py`로 본 구현(`analyze.voice` consumer)
 
 각 도입 시 본 문서 갱신.

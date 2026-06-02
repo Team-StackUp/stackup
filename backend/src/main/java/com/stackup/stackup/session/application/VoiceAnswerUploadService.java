@@ -41,19 +41,24 @@ public class VoiceAnswerUploadService {
     private final RabbitMessagePublisher publisher;
     private final RabbitMqProperties properties;
 
+    // 스트리밍/배치 음성 답변이 공유하는 placeholder 생성 결과.
+    public record VoicePlaceholder(InterviewSession session, InterviewMessage placeholder,
+                                   InterviewMessage parentQuestion) {}
+
+    // 세션 조회 → idempotency → 상태/직전메시지 검증 → placeholder save.
+    // 배치 업로드(submit)와 스트리밍 시작(VoiceStreamService) 양쪽에서 재사용한다.
     @Transactional
-    public MessageResult submit(Long userId, Long sessionId, VoiceAnswerUploadCommand cmd) {
-        validate(cmd);
+    public VoicePlaceholder createVoicePlaceholder(Long userId, Long sessionId, String idempotencyKey) {
         InterviewSession session = sessionRepository.findByIdAndUser_IdAndDeletedFalse(sessionId, userId)
             .orElseThrow(() -> new DomainException(ApiErrorCode.SESSION_NOT_FOUND));
 
-        if (cmd.idempotencyKey() != null && !cmd.idempotencyKey().isBlank()) {
-            var existing = messageRepository.findBySession_IdAndIdempotencyKey(sessionId, cmd.idempotencyKey());
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            var existing = messageRepository.findBySession_IdAndIdempotencyKey(sessionId, idempotencyKey);
             if (existing.isPresent()) {
-                return MessageResult.of(existing.get());
+                InterviewMessage m = existing.get();
+                return new VoicePlaceholder(session, m, m.getParentMessage());
             }
         }
-
         if (session.getStatus() != SessionStatus.IN_PROGRESS) {
             throw new DomainException(ApiErrorCode.SESSION_INVALID_STATE);
         }
@@ -64,13 +69,22 @@ public class VoiceAnswerUploadService {
             throw new DomainException(ApiErrorCode.SESSION_INVALID_STATE);
         }
         int nextSeq = latest.getSequenceNumber() + 1;
-
-        // 메시지 ID 없이도 키를 만들어야 하므로 먼저 INSERT 후 key 갱신은 ID 의존. 단순화: 임시키로 PUT 후 INSERT.
-        // 더 안전한 패턴: messageRepository.save 먼저 (id 채번) → key 결정 → S3 PUT → audio_file_path 갱신.
         InterviewMessage placeholder = messageRepository.save(
             InterviewMessage.voiceInterviewee(session, nextSeq, latest,
-                cmd.idempotencyKey() != null && !cmd.idempotencyKey().isBlank() ? cmd.idempotencyKey() : null)
+                idempotencyKey != null && !idempotencyKey.isBlank() ? idempotencyKey : null)
         );
+        return new VoicePlaceholder(session, placeholder, latest);
+    }
+
+    @Transactional
+    public MessageResult submit(Long userId, Long sessionId, VoiceAnswerUploadCommand cmd) {
+        validate(cmd);
+        VoicePlaceholder vp = createVoicePlaceholder(userId, sessionId, cmd.idempotencyKey());
+        // idempotency 재호출이면 이미 완료된 메시지일 수 있음 — 기존 동작 유지: 그대로 반환.
+        InterviewMessage placeholder = vp.placeholder();
+        if (placeholder.getAudioFilePath() != null) {
+            return MessageResult.of(placeholder);  // 이미 업로드됨(중복)
+        }
         String key = buildKey(sessionId, placeholder.getId(), cmd.contentType());
         storage.put(key, cmd.content(), cmd.size(), cmd.contentType());
         placeholder.attachAudio(key);
@@ -78,12 +92,12 @@ public class VoiceAnswerUploadService {
         AnalyzeVoicePayload payload = new AnalyzeVoicePayload(
             sessionId,
             placeholder.getId(),
-            latest.getId(),
+            vp.parentQuestion().getId(),
             key,
             cmd.contentType(),
-            latest.getContent(),
-            session.getMode().name(),
-            session.getJobCategory().name()
+            vp.parentQuestion().getContent(),
+            vp.session().getMode().name(),
+            vp.session().getJobCategory().name()
         );
         publisher.publishToAi(
             properties.routingKeys().analyzeVoice(),

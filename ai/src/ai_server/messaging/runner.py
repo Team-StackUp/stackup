@@ -226,6 +226,10 @@ class MessagingRuntime:
 
         self._consumers: list[tuple[AbstractRobustQueue, str]] = []
 
+    @property
+    def publisher(self) -> CallbackPublisher:
+        return self._publisher
+
     async def start(self) -> None:
         await self._connection.open()
         await self._publisher.open()

@@ -2,9 +2,11 @@ package com.stackup.stackup.session.presentation;
 
 import com.stackup.stackup.common.security.UserPrincipal;
 import com.stackup.stackup.session.application.VoiceAnswerUploadService;
+import com.stackup.stackup.session.application.VoiceStreamService;
 import com.stackup.stackup.session.application.dto.MessageResult;
 import com.stackup.stackup.session.application.dto.VoiceAnswerUploadCommand;
 import com.stackup.stackup.session.presentation.dto.MessageResponse;
+import com.stackup.stackup.session.presentation.dto.VoiceStreamBeginResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -29,6 +31,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class VoiceAnswerController {
 
     private final VoiceAnswerUploadService uploadService;
+    private final VoiceStreamService streamService;
 
     @Operation(
         operationId = "submitVoiceAnswer",
@@ -60,5 +63,26 @@ public class VoiceAnswerController {
         );
         MessageResult result = uploadService.submit(principal.userId(), sessionId, cmd);
         return MessageResponse.from(result);
+    }
+
+    @Operation(
+        operationId = "beginVoiceStream",
+        summary = "실시간 음성 답변 시작 (placeholder 생성)",
+        description = "WS 오디오 스트림 전에 호출. placeholder 메시지를 만들고 messageId 를 반환. "
+            + "이 messageId 를 WS 쿼리로 넘긴다."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "placeholder 생성"),
+        @ApiResponse(responseCode = "404", description = "세션 없음"),
+        @ApiResponse(responseCode = "422", description = "세션 상태/직전 메시지 조건 불만족")
+    })
+    @PostMapping("/stream-begin")
+    @ResponseStatus(HttpStatus.CREATED)
+    public VoiceStreamBeginResponse beginStream(
+        @AuthenticationPrincipal UserPrincipal principal,
+        @PathVariable Long sessionId,
+        @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey
+    ) {
+        return VoiceStreamBeginResponse.from(streamService.begin(principal.userId(), sessionId, idempotencyKey));
     }
 }

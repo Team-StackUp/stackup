@@ -14,6 +14,7 @@ type Config struct {
 	JWTSecret              string        `env:"REALTIME_JWT_SECRET" envDefault:"local-development-jwt-secret-must-be-replaced"`
 	CoreBaseURL            string        `env:"REALTIME_CORE_BASE_URL" envDefault:"http://localhost:38010"`
 	InternalApiKey         string        `env:"REALTIME_INTERNAL_API_KEY" envDefault:"local-development-internal-api-key"`
+	AIWSURL                string        `env:"REALTIME_AI_WS_URL" envDefault:"ws://localhost:8000/internal/voice/stream"`
 	WSWriteTimeout         time.Duration `env:"REALTIME_WS_WRITE_TIMEOUT" envDefault:"10s"`
 	SSEPingInterval        time.Duration `env:"REALTIME_SSE_PING_INTERVAL" envDefault:"30s"`
 	SSESlowConsumerTimeout time.Duration `env:"REALTIME_SSE_SLOW_CONSUMER_TIMEOUT" envDefault:"5s"`
