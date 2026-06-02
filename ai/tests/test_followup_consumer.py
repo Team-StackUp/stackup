@@ -185,3 +185,76 @@ async def test_consumer_idempotent_skip():
     await consumer.handle(_StubMessage(_envelope()))
     generator.generate.assert_not_awaited()
     publisher.publish.assert_not_awaited()
+
+
+def test_format_history_formats_and_empty():
+    from ai_server.messaging.consumers.followup_consumer import _format_history
+    from ai_server.model.messages.followup import HistoryItem
+
+    assert _format_history([]) == "(none)"
+    out = _format_history(
+        [
+            HistoryItem(role="INTERVIEWER", content="Q1?"),
+            HistoryItem(role="INTERVIEWEE", content="A1"),
+        ]
+    )
+    assert out == "면접관: Q1?\n지원자: A1"
+
+
+def test_answer_evaluation_correctness_defaults_none_and_parses():
+    e1 = AnswerEvaluation(specificity=1.0, logic=2.0, structure="NONE")
+    assert e1.correctness is None
+    e2 = AnswerEvaluation.model_validate(
+        {"specificity": 4, "logic": 4, "structure": "FULL_STAR", "correctness": 3.5}
+    )
+    assert e2.correctness == 3.5
+
+
+@pytest.mark.asyncio
+async def test_consumer_passes_parent_category_and_history_to_generator():
+    generator = MagicMock()
+    generator.generate = AsyncMock(
+        return_value=FollowupResult(
+            followup_question="새 각도 질문",
+            answer_evaluation=AnswerEvaluation(
+                specificity=2.0, logic=2.0, structure="NONE"
+            ),
+        )
+    )
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+    consumer = FollowupConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.questions",
+    )
+    env = {
+        "messageId": "m-9",
+        "messageType": "generate.followup",
+        "version": "v1",
+        "traceId": "t-9",
+        "publishedAt": "2026-05-29T00:00:00Z",
+        "publisher": "core-server",
+        "payload": {
+            "sessionId": 99,
+            "parentMessageId": 501,
+            "answerMessageId": 502,
+            "previousQuestion": "Q?",
+            "answerText": "A.",
+            "mode": "TECHNICAL",
+            "jobCategory": "BACKEND",
+            "parentCategory": "PROJECT_DEEP_DIVE",
+            "history": [
+                {"role": "INTERVIEWER", "content": "이전 질문"},
+                {"role": "INTERVIEWEE", "content": "이전 답변"},
+            ],
+        },
+        "context": {"userId": 42, "sessionId": 99},
+    }
+    await consumer.handle(_StubMessage(json.dumps(env).encode()))
+
+    kwargs = generator.generate.await_args.kwargs
+    assert kwargs["parent_category"] == "PROJECT_DEEP_DIVE"
+    assert "이전 질문" in kwargs["history"]
+    assert "면접관:" in kwargs["history"]
