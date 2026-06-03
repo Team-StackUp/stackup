@@ -9,11 +9,18 @@ from ai_server.chain.feedback_generation_chain import (
     FeedbackResult,
     LlmFeedbackGenerator,
 )
-from ai_server.chain.prompts.feedback_generation import HUMAN_PROMPT
+from ai_server.chain.prompts.feedback_generation import HUMAN_PROMPT, SYSTEM_PROMPT
 from ai_server.core.client import EmbeddingSearchHit
-from ai_server.messaging.consumers.feedback_consumer import FeedbackConsumer
+from ai_server.messaging.consumers.feedback_consumer import (
+    FeedbackConsumer,
+    _build_score_basis,
+)
 from ai_server.messaging.idempotency import LruIdempotencyStore
-from ai_server.model.messages.feedback import FeedbackCallbackPayload
+from ai_server.model.messages.feedback import (
+    FeedbackCallbackPayload,
+    FeedbackMessageItem,
+    MessageEvaluation,
+)
 
 VOICE_SUMMARY = {
     "analyzedMessageCount": 2,
@@ -186,6 +193,48 @@ async def test_consumer_accepts_voice_summary_and_passes_it_to_generator():
 
     payload: FeedbackCallbackPayload = publisher.publish.await_args.kwargs["payload"]
     assert not hasattr(payload, "voice_analysis_summary")
+
+
+def _answer(seq: int, *, spec=None, logic=None, structure=None, correctness=None):
+    return FeedbackMessageItem(
+        id=seq,
+        sequence_number=seq,
+        role="INTERVIEWEE",
+        content="답변",
+        evaluation=MessageEvaluation(
+            specificity=spec, logic=logic, structure=structure, correctness=correctness
+        ),
+    )
+
+
+def test_build_score_basis_aggregates_to_0_100():
+    msgs = [
+        _answer(2, spec=4.0, logic=3.0, structure="FULL_STAR", correctness=3.0),
+        _answer(4, spec=2.0, logic=4.0, structure="PARTIAL_STAR", correctness=2.0),
+    ]
+    basis = _build_score_basis(msgs)
+    # correctness 평균 2.5 → technical_accuracy ≈ 50
+    assert "technical_accuracy ≈ 50" in basis
+    # logic 평균 3.5 → 70
+    assert "logic_score ≈ 70" in basis
+    assert "채점된 답변 수: 2" in basis
+
+
+def test_build_score_basis_marks_correctness_absent_without_rag():
+    # correctness 가 전부 null(참고문서 미선택) → technical_accuracy 근거 없음.
+    msgs = [_answer(2, spec=3.0, logic=3.0, structure="NONE", correctness=None)]
+    basis = _build_score_basis(msgs)
+    assert "technical_accuracy: 근거 없음" in basis
+
+
+def test_build_score_basis_empty_when_no_evaluations():
+    assert "per-answer 평가 없음" in _build_score_basis([])
+
+
+def test_feedback_prompt_has_score_anchor_and_slot():
+    assert "점수 앵커" in SYSTEM_PROMPT
+    assert "±15" in SYSTEM_PROMPT
+    assert "{score_basis}" in HUMAN_PROMPT
 
 
 @pytest.mark.asyncio

@@ -34,6 +34,7 @@ class FeedbackGenerator(Protocol):
         transcript: str,
         rag_context: str,
         voice_analysis_summary: str,
+        score_basis: str = "(없음)",
     ) -> FeedbackResult: ...
 
 
@@ -51,6 +52,7 @@ class LlmFeedbackGenerator:
         transcript: str,
         rag_context: str,
         voice_analysis_summary: str = "",
+        score_basis: str = "(없음)",
     ) -> FeedbackResult:
         result = await self._chain.ainvoke(
             {
@@ -59,6 +61,7 @@ class LlmFeedbackGenerator:
                 "total_question_count": total_question_count or 0,
                 "end_reason": end_reason or "USER_REQUEST",
                 "transcript": transcript,
+                "score_basis": score_basis or "(없음)",
                 "rag_context": rag_context or "(none)",
                 "voice_analysis_summary": voice_analysis_summary
                 or "No voice analysis summary was provided.",
