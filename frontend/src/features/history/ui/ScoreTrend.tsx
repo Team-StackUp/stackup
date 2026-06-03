@@ -8,7 +8,7 @@ export function ScoreTrend({ stats }: { stats: UserStats }) {
 
   if (points.length === 0) {
     return (
-      <section className="flex flex-col gap-2 rounded-lg border border-border bg-surface-raised p-5">
+      <section className="flex flex-col gap-2 rounded-2xl border border-border bg-surface-raised p-5 shadow-sm">
         <span className="text-caption text-fg-muted">점수 추이</span>
         <p className="text-body text-fg-muted">아직 채점된 면접이 없어요.</p>
       </section>
@@ -16,7 +16,7 @@ export function ScoreTrend({ stats }: { stats: UserStats }) {
   }
 
   return (
-    <section className="flex flex-col gap-3 rounded-lg border border-border bg-surface-raised p-5">
+    <section className="flex flex-col gap-3 rounded-2xl border border-border bg-surface-raised p-5 shadow-sm">
       <span className="text-caption text-fg-muted">종합 점수 추이 (최근 {points.length}회)</span>
       <div className="flex h-32 items-end gap-2">
         {points.map((r) => {

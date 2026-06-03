@@ -325,6 +325,8 @@ docker run --env-file .env -p 8000:8000 stackup-ai
   - 콜백: `callback.questions` (`kind=POOL|FOLLOWUP`)
 - **임베딩 본 구현** (`rag/`): `MarkdownChunker` + `GeminiEmbeddingProvider` (1536d, `gemini-embedding-001`).
   운영/개발 default 는 gemini, 테스트는 `MockEmbeddingProvider`.
+  - 청크를 `EMBEDDING_BATCH_SIZE`(기본 32) 단위로 쪼개 순차 호출 — 한 요청에 몰면 분당 토큰 한도(429 `RESOURCE_EXHAUSTED`)에 걸린다.
+  - 429 는 지수 백오프(`EMBEDDING_MAX_RETRIES`/`EMBEDDING_RETRY_BASE_DELAY_SEC`, 상한 30s)로 재시도. 소진 시 `GEMINI_RATE_LIMITED`(retriable), 그 외 오류는 `GEMINI_FAILED`(retriable)로 즉시 실패.
 - **스토리지 추상화** (`storage/`): `S3Storage`(기본) / `LocalFilesystemStorage`. `STORAGE_BACKEND` 토글.
 - **LLM 호출 로깅 본 구현** (`observability/llm_logging_callback.py`, US-30):
   LangChain `AsyncCallbackHandler` 가 토큰/latency 측정 → Core `/api/internal/ai-logs` POST.

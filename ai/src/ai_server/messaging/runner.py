@@ -96,6 +96,9 @@ class MessagingRuntime:
             dim=settings.embedding_dim,
             model=settings.embedding_model,
             gemini_api_key=settings.gemini_api_key,
+            batch_size=settings.embedding_batch_size,
+            max_retries=settings.embedding_max_retries,
+            retry_base_delay_sec=settings.embedding_retry_base_delay_sec,
         )
         reranker = build_reranker(settings, core_client=core_client)
         vision_pdf_reader = build_vision_pdf_reader(settings, core_client=core_client)

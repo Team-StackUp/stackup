@@ -41,8 +41,9 @@
 
   --color-fg: var(--color-sage-950);
   --color-fg-strong: var(--color-sage-800);
-  --color-fg-muted: var(--color-sage-400);
-  --color-fg-subtle: var(--color-sage-300);
+  /* 본문 위 보조 텍스트가 밝은 표면에서 충분히 읽히도록 한 단계씩 진하게 (WCAG AA). */
+  --color-fg-muted: var(--color-sage-500);
+  --color-fg-subtle: var(--color-sage-400);
   --color-fg-disabled: var(--color-sage-200);
   --color-fg-on-primary: var(--color-white);
 
