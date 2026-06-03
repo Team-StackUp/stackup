@@ -3,6 +3,7 @@ import { SiteNav } from '@/widgets/site-nav'
 import { SiteFooter } from '@/widgets/site-footer'
 import { Button } from '@/shared/ui/Button'
 import { FeedbackReport, useFeedback } from '@/features/feedback'
+import { InterviewTranscript } from '@/features/interview'
 
 export default function SessionFeedbackPage() {
   const { id } = useParams<{ id: string }>()
@@ -38,7 +39,12 @@ export default function SessionFeedbackPage() {
           </div>
         )}
 
-        {data && <FeedbackReport feedback={data} shareable />}
+        {data && (
+          <>
+            <FeedbackReport feedback={data} shareable />
+            <InterviewTranscript sessionId={sessionId} />
+          </>
+        )}
       </main>
       <SiteFooter />
     </div>
