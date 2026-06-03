@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useGetStartedTarget } from '@/features/auth'
 
 // 단순 뷰 섹션 widgets 에선 굳이 나누지 않는게 좋다고 판단했습니다.
 // 상수, 메세지 등 마찬가지
@@ -33,6 +34,7 @@ const columns: { title: string; links: FooterLink[] }[] = [
 ]
 
 export function SiteFooter() {
+  const getStartedTo = useGetStartedTarget()
   return (
     <footer
       id="footer"
@@ -48,7 +50,7 @@ export function SiteFooter() {
             One smart step
           </h2>
           <Link
-            to="/#cta"
+            to={getStartedTo}
             className="inline-flex self-start lg:self-end items-center gap-2 pl-5 pr-2 py-2.5 rounded-pill bg-[#e6dfd4] text-sage-900 text-button hover:bg-white transition-colors duration-fast"
           >
             Get Started

@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+import { useGetStartedTarget } from '@/features/auth'
 import { useTypewriter } from '@/shared/hooks'
 
 const TYPED_TEXT = 'Stack Up'
@@ -7,6 +9,7 @@ export function ScreenContent() {
     startDelayMs: 850,
     stepMs: 130,
   })
+  const getStartedTo = useGetStartedTarget()
 
   return (
     <div className="relative text-center w-full">
@@ -42,8 +45,8 @@ export function ScreenContent() {
       </h1>
 
       <div className="anim-hero-rise mt-4 sm:mt-6 [animation-delay:2.0s]">
-        <a
-          href="#cta"
+        <Link
+          to={getStartedTo}
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-pill bg-sage-700 text-white text-button hover:bg-sage-800 transition-colors duration-fast"
         >
           Get Started
@@ -53,7 +56,7 @@ export function ScreenContent() {
           >
             →
           </span>
-        </a>
+        </Link>
       </div>
     </div>
   )

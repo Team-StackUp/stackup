@@ -1,4 +1,8 @@
+import { Link } from 'react-router-dom'
+import { useGetStartedTarget } from '@/features/auth'
+
 export function HomeCta() {
+  const getStartedTo = useGetStartedTarget()
   return (
     <section id="cta" className="bg-bg">
       <div className="mx-auto max-w-content px-6 lg:px-12 pb-24 lg:pb-32">
@@ -31,8 +35,8 @@ export function HomeCta() {
               지금 GitHub 계정만 연결하면, 30초 안에 첫 모의면접이 시작됩니다.
             </p>
 
-            <a
-              href="#login"
+            <Link
+              to={getStartedTo}
               className="mt-10 inline-flex items-center gap-2 pl-5 pr-2 py-2.5 rounded-pill bg-[#e6dfd4] text-sage-900 text-button hover:bg-white transition-colors duration-fast"
             >
               Get Started
@@ -42,7 +46,7 @@ export function HomeCta() {
               >
                 →
               </span>
-            </a>
+            </Link>
           </div>
         </div>
       </div>
