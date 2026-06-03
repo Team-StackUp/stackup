@@ -3,9 +3,9 @@ import { Link } from 'react-router-dom'
 import { useAuth, useLogout } from '@/features/auth'
 
 const items = [
-  { href: '#services', label: 'Services' },
-  { href: '#quote', label: 'About' },
-  { href: '#faq', label: 'FAQ' },
+  { to: '/#services', label: 'Services' },
+  { to: '/#quote', label: 'About' },
+  { to: '/#faq', label: 'FAQ' },
 ]
 
 export function SiteNav() {
@@ -31,22 +31,22 @@ export function SiteNav() {
       style={{ zIndex: 'var(--z-sticky)' }}
     >
       <div className="mx-auto max-w-content px-6 lg:px-12 h-16 flex items-center justify-between">
-        <a
-          href="#top"
+        <Link
+          to="/#top"
           className="font-heading font-extrabold tracking-[0.04em] text-sage-900 text-[15px] uppercase"
         >
           Stack Up
-        </a>
+        </Link>
 
         <nav aria-label="Primary" className="hidden md:flex items-center gap-1">
           {items.map((it) => (
-            <a
-              key={it.href}
-              href={it.href}
+            <Link
+              key={it.to}
+              to={it.to}
               className="px-3 py-2 text-button text-fg-strong/80 hover:text-fg-strong transition-colors duration-fast"
             >
               {it.label}
-            </a>
+            </Link>
           ))}
         </nav>
 
