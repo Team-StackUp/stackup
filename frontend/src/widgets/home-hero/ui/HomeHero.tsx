@@ -29,7 +29,7 @@ export function HomeHero() {
         <p className="anim-hero-rise mt-6 lg:mt-8 text-button font-mono uppercase tracking-[0.22em] text-fg-muted [animation-delay:2.2s]">
           <span className="inline-flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-success" aria-hidden />
-            Phase 1 · MVP · 2026
+            Now Live · AI Based Interview
           </span>
         </p>
       </div>

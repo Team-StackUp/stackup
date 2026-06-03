@@ -1,31 +1,33 @@
+import { Link } from 'react-router-dom'
+
 // 단순 뷰 섹션 widgets 에선 굳이 나누지 않는게 좋다고 판단했습니다.
 // 상수, 메세지 등 마찬가지
-const columns = [
+// to: 앱 내부 라우트/해시(react-router Link). href: 외부 링크(<a> 새 탭).
+type FooterLink = { label: string; to?: string; href?: string }
+
+const columns: { title: string; links: FooterLink[] }[] = [
   {
     title: 'Company',
     links: [
-      { label: 'Home', href: '#top' },
-      { label: 'About', href: '#quote' },
-      { label: 'FAQ', href: '#faq' },
-      { label: 'Team', href: '#quote' },
+      { label: 'Home', to: '/#top' },
+      { label: 'About', to: '/#quote' },
+      { label: 'FAQ', to: '/#faq' },
     ],
   },
   {
     title: 'Services',
     links: [
-      { label: 'Frontend Interview', href: '#services' },
-      { label: 'Backend Interview', href: '#services' },
-      { label: 'CS / Full Stack', href: '#services' },
-      { label: 'Reports', href: '#services' },
+      { label: '이력서 심층 면접', to: '/sessions/new' },
+      { label: '직무 기술 면접', to: '/practice/role' },
+      { label: 'CS 전공 면접', to: '/practice/cs' },
     ],
   },
   {
-    title: 'Other',
+    title: 'Resources',
     links: [
-      { label: 'Design System', href: '/design-system' },
-      { label: 'GitHub', href: '#' },
-      { label: 'Privacy', href: '#' },
-      { label: 'Get Started', href: '#cta' },
+      { label: 'Workspace', to: '/workspace' },
+      { label: 'Design System', to: '/design-system' },
+      { label: 'GitHub', href: 'https://github.com/Team-StackUp/stackup' },
     ],
   },
 ]
@@ -45,8 +47,8 @@ export function SiteFooter() {
           >
             One smart step
           </h2>
-          <a
-            href="#cta"
+          <Link
+            to="/#cta"
             className="inline-flex self-start lg:self-end items-center gap-2 pl-5 pr-2 py-2.5 rounded-pill bg-[#e6dfd4] text-sage-900 text-button hover:bg-white transition-colors duration-fast"
           >
             Get Started
@@ -56,7 +58,7 @@ export function SiteFooter() {
             >
               →
             </span>
-          </a>
+          </Link>
         </div>
 
         <div className="mt-12 h-px bg-sage-600/70" />
@@ -84,12 +86,23 @@ export function SiteFooter() {
                 <ul className="mt-4 space-y-3">
                   {col.links.map((l) => (
                     <li key={l.label}>
-                      <a
-                        href={l.href}
-                        className="text-white/90 hover:text-white transition-colors duration-fast"
-                      >
-                        {l.label}
-                      </a>
+                      {l.href ? (
+                        <a
+                          href={l.href}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="text-white/90 hover:text-white transition-colors duration-fast"
+                        >
+                          {l.label}
+                        </a>
+                      ) : (
+                        <Link
+                          to={l.to ?? '/'}
+                          className="text-white/90 hover:text-white transition-colors duration-fast"
+                        >
+                          {l.label}
+                        </Link>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -103,8 +116,21 @@ export function SiteFooter() {
             © 2026 StackUp · CNU 종합설계. All rights reserved.
           </div>
           <ul className="flex gap-6 text-caption text-sage-300">
-            <li><a href="#" className="hover:text-white transition-colors duration-fast">Privacy</a></li>
-            <li><a href="#" className="hover:text-white transition-colors duration-fast">Terms</a></li>
+            <li>
+              <a
+                href="https://github.com/Team-StackUp/stackup"
+                target="_blank"
+                rel="noreferrer noopener"
+                className="hover:text-white transition-colors duration-fast"
+              >
+                GitHub
+              </a>
+            </li>
+            <li>
+              <Link to="/design-system" className="hover:text-white transition-colors duration-fast">
+                Design System
+              </Link>
+            </li>
           </ul>
         </div>
       </div>

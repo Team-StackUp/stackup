@@ -1,24 +1,30 @@
+import { Link } from 'react-router-dom'
+
 type ServiceCard = {
   tag: string
   title: string
   image: string
+  to: string
 }
 
 const services: ServiceCard[] = [
   {
-    tag: 'Service',
-    title: 'Frontend Interview',
+    tag: 'Pro Plan',
+    title: '이력서 심층 면접\nExperience Interview',
     image: '/second-section-frontend-interview.png',
+    to: '/sessions/new',
   },
   {
-    tag: 'Service',
-    title: 'Backend Interview',
+    tag: 'Free Plan',
+    title: '직무 기술 면접\nRole-based Interview',
     image: '/second-section-backend-interview.avif',
+    to: '/practice/role',
   },
   {
-    tag: 'Service',
-    title: 'CS / Full Stack',
+    tag: 'Free Plan',
+    title: 'CS 전공 지식 면접\nCS Core Interview',
     image: '/second-section-cs-interview.avif',
+    to: '/practice/cs',
   },
 ]
 
@@ -35,9 +41,9 @@ export function HomeServices() {
 
         <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
           {services.map((s) => (
-            <a
+            <Link
               key={s.title}
-              href="#cta"
+              to={s.to}
               className="group relative block rounded-2xl overflow-hidden aspect-[3/4] bg-sage-800"
             >
               <img
@@ -61,7 +67,7 @@ export function HomeServices() {
               </span>
 
               <div className="absolute inset-x-5 bottom-5 flex items-end justify-between gap-4 text-white">
-                <h3 className="font-heading font-semibold text-[26px] lg:text-[28px] leading-tight text-white">
+                <h3 className="whitespace-pre-line font-heading font-semibold text-[26px] lg:text-[28px] leading-tight text-white">
                   {s.title}
                 </h3>
                 <span
@@ -71,7 +77,7 @@ export function HomeServices() {
                   →
                 </span>
               </div>
-            </a>
+            </Link>
           ))}
         </div>
       </div>
