@@ -1,4 +1,5 @@
 export { LiveInterview } from './ui/live/LiveInterview'
+export { InterviewTranscript } from './ui/InterviewTranscript'
 export { InterviewSetupForm } from './ui/setup/InterviewSetupForm'
 export type { DocOption } from './ui/setup/ContextDocumentPicker'
 export { useCreateSession } from './model/useCreateSession'
