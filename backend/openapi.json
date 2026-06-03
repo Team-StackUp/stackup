@@ -2679,6 +2679,9 @@
           },
           "audioFileUrl" : {
             "type" : "string"
+          },
+          "expectedSignal" : {
+            "type" : "string"
           }
         }
       },

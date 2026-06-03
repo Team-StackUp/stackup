@@ -23,14 +23,21 @@ public record MessageResult(
     String targetEvidence,
     // 재생용 presigned URL. 조회(list) 경로에서만 채우고, 그 외에는 null.
     String ttsAudioUrl,
-    String audioFileUrl
-    // expectedSignal 은 의도적으로 제외 — 정답 유출 방지(라이브 비노출).
+    String audioFileUrl,
+    // 질문이 기대한 핵심(평가 관점). 라이브 중엔 null(정답 유출 방지),
+    // 종료된 세션 조회에서만 채워 피드백 학습용으로 노출.
+    String expectedSignal
 ) {
     public static MessageResult of(InterviewMessage m) {
-        return of(m, null, null);
+        return of(m, null, null, null);
     }
 
     public static MessageResult of(InterviewMessage m, String ttsAudioUrl, String audioFileUrl) {
+        return of(m, ttsAudioUrl, audioFileUrl, null);
+    }
+
+    public static MessageResult of(
+        InterviewMessage m, String ttsAudioUrl, String audioFileUrl, String expectedSignal) {
         return new MessageResult(
             m.getId(),
             m.getSession().getId(),
@@ -47,7 +54,8 @@ public record MessageResult(
             m.getCategory(),
             m.getTargetEvidence(),
             ttsAudioUrl,
-            audioFileUrl
+            audioFileUrl,
+            expectedSignal
         );
     }
 }

@@ -39,19 +39,24 @@ public class InterviewMessageService {
     private final ApplicationEventPublisher events;
 
     public List<MessageResult> list(Long userId, Long sessionId) {
-        ownedSession(userId, sessionId);
+        InterviewSession session = ownedSession(userId, sessionId);
+        // 종료된 세션에서만 expected_signal 노출(라이브/대기 중엔 정답 유출 방지).
+        boolean revealExpectedSignal =
+            session.getStatus() != SessionStatus.IN_PROGRESS
+                && session.getStatus() != SessionStatus.READY;
         return messageRepository.findBySession_IdOrderBySequenceNumberAsc(sessionId).stream()
-            .map(this::toResultWithAudioUrls)
+            .map(m -> toResultWithAudioUrls(m, revealExpectedSignal))
             .toList();
     }
 
     // 재생용 presigned URL 동봉: 질문 TTS(SUCCEEDED) + 음성 답변 원본.
     // presign 실패가 메시지 조회 전체를 깨뜨리지 않도록 개별 try/catch.
-    private MessageResult toResultWithAudioUrls(InterviewMessage m) {
+    private MessageResult toResultWithAudioUrls(InterviewMessage m, boolean revealExpectedSignal) {
         String ttsUrl = m.getTtsStatus() == TtsStatus.SUCCEEDED
             ? presign(m.getTtsAudioPath()) : null;
         String audioUrl = presign(m.getAudioFilePath());
-        return MessageResult.of(m, ttsUrl, audioUrl);
+        String expectedSignal = revealExpectedSignal ? m.getExpectedSignal() : null;
+        return MessageResult.of(m, ttsUrl, audioUrl, expectedSignal);
     }
 
     private String presign(String key) {

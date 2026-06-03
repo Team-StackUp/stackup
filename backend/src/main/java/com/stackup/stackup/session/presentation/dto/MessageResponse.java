@@ -23,8 +23,9 @@ public record MessageResponse(
     String targetEvidence,
     // 재생용 presigned URL (질문 TTS / 음성 답변 원본). 조회 응답에서만 채움.
     String ttsAudioUrl,
-    String audioFileUrl
-    // expectedSignal 은 노출하지 않음 — 자기연습 시 정답 유출 방지.
+    String audioFileUrl,
+    // 질문이 기대한 핵심(평가 관점). 종료된 세션에서만 채워짐(라이브 중엔 null — 정답 유출 방지).
+    String expectedSignal
 ) {
     public static MessageResponse from(MessageResult r) {
         return new MessageResponse(
@@ -43,7 +44,8 @@ public record MessageResponse(
             r.category(),
             r.targetEvidence(),
             r.ttsAudioUrl(),
-            r.audioFileUrl()
+            r.audioFileUrl(),
+            r.expectedSignal()
         );
     }
 }
