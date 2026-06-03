@@ -14,6 +14,7 @@ from ai_server.core.client import EmbeddingSearchHit
 from ai_server.messaging.consumers.feedback_consumer import (
     FeedbackConsumer,
     _build_score_basis,
+    _build_transcript,
 )
 from ai_server.messaging.idempotency import LruIdempotencyStore
 from ai_server.model.messages.feedback import (
@@ -229,6 +230,21 @@ def test_build_score_basis_marks_correctness_absent_without_rag():
 
 def test_build_score_basis_empty_when_no_evaluations():
     assert "per-answer 평가 없음" in _build_score_basis([])
+
+
+def test_transcript_includes_expected_signal_on_question():
+    msgs = [
+        FeedbackMessageItem(
+            id=1,
+            sequence_number=1,
+            role="INTERVIEWER",
+            content="동시성을 어떻게 제어하나요?",
+            expected_signal="DB 락/격리수준까지 설명하는지",
+        ),
+        _answer(2, spec=3.0, logic=3.0, structure="NONE"),
+    ]
+    transcript = _build_transcript(msgs)
+    assert "기대 신호(평가 기준): DB 락/격리수준까지 설명하는지" in transcript
 
 
 def test_feedback_prompt_has_score_anchor_and_slot():

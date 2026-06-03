@@ -22,6 +22,7 @@ public record GenerateFeedbackPayload(
         String role,
         String content,
         Long parentMessageId,
+        String expectedSignal,         // INTERVIEWER 질문에만(평가 기준). 답변은 null
         MessageEvaluation evaluation   // INTERVIEWEE 답변에만(없으면 null)
     ) {
     }

@@ -174,6 +174,8 @@ def _build_transcript(messages: list[FeedbackMessageItem]) -> str:
             else ("지원자" if m.role == "INTERVIEWEE" else m.role)
         )
         line = f"[{m.sequence_number}] {speaker}: {m.content}"
+        if m.role == "INTERVIEWER" and m.expected_signal:
+            line += f"\n    └ 기대 신호(평가 기준): {m.expected_signal}"
         if m.role == "INTERVIEWEE" and m.evaluation is not None:
             line += f"\n    └ 답변평가: {_format_evaluation(m.evaluation)}"
         lines.append(line)

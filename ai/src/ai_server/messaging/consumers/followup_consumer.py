@@ -80,6 +80,7 @@ class FollowupConsumer:
                 answer_text=req.answer_text,
                 context=await self._build_rag_context(req),
                 parent_category=req.parent_category or "UNKNOWN",
+                expected_signal=req.parent_expected_signal or "(none)",
                 history=_format_history(req.history),
             )
 

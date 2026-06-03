@@ -30,6 +30,8 @@ class GenerateFollowupRequest(BaseModel):
     job_category: Literal["FRONTEND", "BACKEND", "INFRA", "DBA"]
     context_document_ids: list[int] = Field(default_factory=list)
     parent_category: str | None = None  # 직전 질문 카테고리 (루브릭 선택)
+    # 직전 질문이 기대하는 핵심(평가 관점). correctness/specificity 충족도 채점에 사용.
+    parent_expected_signal: str | None = None
     history: list[HistoryItem] = Field(default_factory=list)  # 최근 대화 (중복 회피)
 
 

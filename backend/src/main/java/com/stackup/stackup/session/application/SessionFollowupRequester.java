@@ -69,6 +69,7 @@ public class SessionFollowupRequester {
             session.getJobCategory(),
             contextDocumentIds,
             parent.getCategory(),
+            parent.getExpectedSignal(),
             history
         );
         publisher.publishToAi(

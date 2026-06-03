@@ -107,6 +107,7 @@ public class SessionFeedbackRequester {
             m.getRole().name(),
             m.getContent(),
             parentId,
+            m.getExpectedSignal(),
             evaluation
         );
     }
