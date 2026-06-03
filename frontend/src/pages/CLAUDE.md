@@ -40,7 +40,7 @@ pages/Workspace/
 | `Workspace` | `/workspace` | `features/resume`, `features/repo` (도입 예정) |
 | `Interview` | `/sessions/new`, `/sessions/:id` | `features/interview` |
 | `Interview (Feedback)` | `/sessions/:id/feedback` | `features/feedback` |
-| `History` | `/history`, `/history/:id` | `features/history` (도입 예정) |
+| `History` | `/workspace/history` (구 `/history` → 리다이렉트) | `features/history` |
 
 ---
 

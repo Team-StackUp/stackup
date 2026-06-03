@@ -24,9 +24,11 @@ const SOURCE_LABEL: Record<AnalysisSourceType, string> = {
 
 type Props = {
   filter?: DocumentFilter
+  // 클라이언트에서 소스 유형으로 한정 (탭별 분석 결과 분리용).
+  sourceType?: AnalysisSourceType
 }
 
-export function DocumentList({ filter = {} }: Props) {
+export function DocumentList({ filter = {}, sourceType }: Props) {
   const { data = [], isPending, isError, error } = useDocuments(filter)
 
   if (isPending) {
@@ -39,12 +41,18 @@ export function DocumentList({ filter = {} }: Props) {
       </p>
     )
   }
-  if (data.length === 0) {
+
+  const docs = sourceType
+    ? data.filter((doc) => doc.sourceType === sourceType)
+    : data
+
+  if (docs.length === 0) {
+    const subject = sourceType ? SOURCE_LABEL[sourceType] : '이력서·레포'
     return (
       <div className="rounded-xl border border-dashed border-border-strong bg-surface p-10 text-center">
         <p className="text-body text-fg-muted">아직 분석된 문서가 없습니다.</p>
         <p className="text-caption text-fg-subtle mt-2">
-          이력서·레포 분석이 완료되면 요약과 기술 스택이 여기에 표시됩니다.
+          {subject} 분석이 완료되면 요약과 기술 스택이 여기에 표시됩니다.
         </p>
       </div>
     )
@@ -52,7 +60,7 @@ export function DocumentList({ filter = {} }: Props) {
 
   return (
     <ul className="flex flex-col gap-3">
-      {data.map((doc) => (
+      {docs.map((doc) => (
         <DocumentRow key={doc.id} doc={doc} />
       ))}
     </ul>

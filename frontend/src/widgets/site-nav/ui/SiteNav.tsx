@@ -54,12 +54,6 @@ export function SiteNav() {
           {status === 'authenticated' ? (
             <>
               <Link
-                to="/history"
-                className="hidden sm:inline-flex items-center px-3 py-2 text-button text-fg-strong/80 hover:text-fg-strong transition-colors duration-fast"
-              >
-                히스토리
-              </Link>
-              <Link
                 to="/workspace"
                 className="hidden sm:inline-flex items-center gap-2 px-3 py-2 text-button text-fg-strong/80 hover:text-fg-strong transition-colors duration-fast"
               >
