@@ -867,6 +867,7 @@ export interface components {
             targetEvidence?: string;
             ttsAudioUrl?: string;
             audioFileUrl?: string;
+            expectedSignal?: string;
         };
         VoiceStreamBeginResponse: {
             /** Format: int64 */

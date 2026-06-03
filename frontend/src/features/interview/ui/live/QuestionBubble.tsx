@@ -102,6 +102,13 @@ export function QuestionBubble({
             </div>
           )}
         </div>
+        {/* expected_signal 은 종료된 세션에서만 내려옴(피드백 학습용). 라이브엔 비노출. */}
+        {message.expectedSignal && (
+          <div className="rounded-md border border-dashed border-border bg-surface px-3 py-2 text-caption text-fg-muted">
+            <span className="font-medium text-fg">이 질문이 본 핵심</span> ·{' '}
+            {message.expectedSignal}
+          </div>
+        )}
       </div>
     </div>
   )
