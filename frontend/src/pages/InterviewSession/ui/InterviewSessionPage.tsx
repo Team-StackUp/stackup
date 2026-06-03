@@ -13,8 +13,8 @@ export default function InterviewSessionPage() {
       <SiteNav />
       <main className="mx-auto w-full max-w-content flex-1 px-6 py-6 lg:px-12">
         {valid ? (
-          // 라이브 채팅은 고정 높이 카드로 — 내부에서 thread 스크롤 + composer 하단 고정.
-          <div className="flex h-[70svh] min-h-120 flex-col overflow-hidden rounded-xl border border-border bg-surface-raised shadow-sm">
+          // 라이브 면접은 몰입형 스테이지 — 배경 위에 현재 질문 집중 + composer 하단 고정.
+          <div className="flex h-[78svh] min-h-120 flex-col overflow-hidden rounded-xl border border-border bg-surface-raised shadow-sm">
             <LiveInterview sessionId={sessionId} />
           </div>
         ) : (
