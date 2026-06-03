@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Message } from '@/domain/session'
 import { StatusBadge } from '@/shared/ui/StatusBadge'
+import { useMessageAudio } from '../../lib/media/useMessageAudio'
 
 const CATEGORY_LABEL: Record<string, string> = {
   CS_FUNDAMENTAL: 'CS 기초',
@@ -17,29 +18,6 @@ function PlayIcon({ playing }: { playing: boolean }) {
   )
 }
 
-// ttsAudioUrl 이 생기면(최신 질문일 때) 한 번 자동재생 시도.
-// 브라우저 자동재생 차단 시 조용히 실패 → 사용자가 버튼으로 재생.
-function useTtsPlayer(url: string | undefined, autoPlay: boolean) {
-  const audioRef = useRef<HTMLAudioElement | null>(null)
-  const [playing, setPlaying] = useState(false)
-  const autoPlayedFor = useRef<string | null>(null)
-
-  useEffect(() => {
-    if (!url || !autoPlay || autoPlayedFor.current === url) return
-    autoPlayedFor.current = url
-    audioRef.current?.play().catch(() => {})
-  }, [url, autoPlay])
-
-  const toggle = () => {
-    const el = audioRef.current
-    if (!el) return
-    if (el.paused) el.play().catch(() => {})
-    else el.pause()
-  }
-
-  return { audioRef, playing, setPlaying, toggle }
-}
-
 export function QuestionBubble({
   message,
   autoPlay = false,
@@ -51,8 +29,41 @@ export function QuestionBubble({
     ? (CATEGORY_LABEL[message.category] ?? message.category)
     : null
   const hasMeta = Boolean(categoryLabel || message.targetEvidence)
-  const ttsUrl = message.ttsStatus === 'SUCCEEDED' ? message.ttsAudioUrl : undefined
-  const { audioRef, playing, setPlaying, toggle } = useTtsPlayer(ttsUrl, autoPlay)
+  const ttsReady = message.ttsStatus === 'SUCCEEDED'
+
+  const { url, load } = useMessageAudio(message.sessionId, message.id)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const [playing, setPlaying] = useState(false)
+  const wantPlay = useRef(false)
+  const autoTried = useRef(false)
+
+  // 최신 질문이면 오디오를 받아 자동재생 시도(차단 시 조용히 폴백).
+  useEffect(() => {
+    if (!autoPlay || !ttsReady || autoTried.current) return
+    autoTried.current = true
+    wantPlay.current = true
+    void load()
+  }, [autoPlay, ttsReady, load])
+
+  // object URL 이 준비되면 재생 요청을 반영.
+  useEffect(() => {
+    if (url && wantPlay.current) {
+      wantPlay.current = false
+      audioRef.current?.play().catch(() => {})
+    }
+  }, [url])
+
+  const toggle = async () => {
+    const el = audioRef.current
+    if (!url) {
+      wantPlay.current = true
+      await load()
+      return
+    }
+    if (!el) return
+    if (el.paused) el.play().catch(() => {})
+    else el.pause()
+  }
 
   return (
     <div className="flex justify-start">
@@ -67,7 +78,7 @@ export function QuestionBubble({
         )}
         <div className="rounded-lg rounded-tl-sm bg-surface-raised px-4 py-3 text-body text-fg shadow-sm">
           <p className="whitespace-pre-wrap">{message.content}</p>
-          {ttsUrl && (
+          {ttsReady && (
             <div className="mt-2 flex items-center gap-2 border-t border-border pt-2">
               <button
                 type="button"
@@ -78,14 +89,16 @@ export function QuestionBubble({
                 <PlayIcon playing={playing} />
                 {playing ? '일시정지' : '음성 듣기'}
               </button>
-              <audio
-                ref={audioRef}
-                src={ttsUrl}
-                preload="none"
-                onPlay={() => setPlaying(true)}
-                onPause={() => setPlaying(false)}
-                onEnded={() => setPlaying(false)}
-              />
+              {url && (
+                <audio
+                  ref={audioRef}
+                  src={url}
+                  preload="none"
+                  onPlay={() => setPlaying(true)}
+                  onPause={() => setPlaying(false)}
+                  onEnded={() => setPlaying(false)}
+                />
+              )}
             </div>
           )}
         </div>

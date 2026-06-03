@@ -4,14 +4,21 @@ import com.stackup.stackup.common.security.UserPrincipal;
 import com.stackup.stackup.session.application.InterviewMessageService;
 import com.stackup.stackup.session.presentation.dto.MessageResponse;
 import com.stackup.stackup.session.presentation.dto.MessageSubmitRequest;
+import com.stackup.stackup.session.application.InterviewMessageService.AudioStream;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.time.Duration;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -69,5 +76,29 @@ public class InterviewMessageController {
         return MessageResponse.from(
             messageService.submitAnswer(principal.userId(), sessionId, request.content(), idempotencyKey)
         );
+    }
+
+    @Operation(
+        operationId = "streamMessageAudio",
+        summary = "메시지 오디오 스트리밍 (질문 TTS / 음성 답변)",
+        description = "MinIO presigned URL 이 내부 호스트라 브라우저가 직접 접근 불가하므로 "
+            + "Core 가 인증을 거쳐 오디오 바이트를 스트리밍한다."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "오디오 바이트"),
+        @ApiResponse(responseCode = "401", description = "인증 실패"),
+        @ApiResponse(responseCode = "404", description = "세션/메시지/오디오 없음")
+    })
+    @GetMapping("/{messageId}/audio")
+    public ResponseEntity<Resource> audio(
+        @AuthenticationPrincipal UserPrincipal principal,
+        @PathVariable Long sessionId,
+        @PathVariable Long messageId
+    ) {
+        AudioStream audio = messageService.streamAudio(principal.userId(), sessionId, messageId);
+        return ResponseEntity.ok()
+            .contentType(MediaType.parseMediaType(audio.contentType()))
+            .cacheControl(CacheControl.maxAge(Duration.ofHours(1)).cachePrivate())
+            .body(new InputStreamResource(audio.stream()));
     }
 }

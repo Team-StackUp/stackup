@@ -1,9 +1,13 @@
 import { isTranscribing } from '@/domain/session'
 import type { Message } from '@/domain/session'
+import { useMessageAudio } from '../../lib/media/useMessageAudio'
 
 export function AnswerBubble({ message }: { message: Message }) {
   const transcribing = isTranscribing(message)
   const failed = transcribing && message.status === 'FAILED'
+  const hasVoice = Boolean(message.audioFilePath)
+
+  const { url, load } = useMessageAudio(message.sessionId, message.id)
 
   return (
     <div className="flex flex-col items-end gap-1">
@@ -23,9 +27,18 @@ export function AnswerBubble({ message }: { message: Message }) {
           </span>
         )}
       </div>
-      {message.audioFileUrl && (
-        <audio controls src={message.audioFileUrl} className="max-w-[80%]" preload="none" />
-      )}
+      {hasVoice &&
+        (url ? (
+          <audio controls src={url} autoPlay className="h-9 max-w-[80%]" />
+        ) : (
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="rounded-pill px-2.5 py-1 text-caption text-fg-muted transition-colors hover:bg-surface hover:text-fg"
+          >
+            ▶ 내 답변 듣기
+          </button>
+        ))}
     </div>
   )
 }

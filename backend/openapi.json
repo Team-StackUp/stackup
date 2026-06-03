@@ -1801,6 +1801,66 @@
         }
       }
     },
+    "/api/sessions/{sessionId}/messages/{messageId}/audio" : {
+      "get" : {
+        "tags" : [ "Session Messages" ],
+        "summary" : "메시지 오디오 스트리밍 (질문 TTS / 음성 답변)",
+        "description" : "MinIO presigned URL 이 내부 호스트라 브라우저가 직접 접근 불가하므로 Core 가 인증을 거쳐 오디오 바이트를 스트리밍한다.",
+        "operationId" : "streamMessageAudio",
+        "parameters" : [ {
+          "name" : "sessionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "messageId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "오디오 바이트",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "binary"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "binary"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "세션/메시지/오디오 없음",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "binary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/sessions/{sessionId}/feedback" : {
       "get" : {
         "tags" : [ "Session Feedback" ],
