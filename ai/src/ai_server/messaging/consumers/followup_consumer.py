@@ -91,6 +91,7 @@ class FollowupConsumer:
                 answer_message_id=req.answer_message_id,
                 followup_question=result.followup_question,
                 answer_evaluation=result.answer_evaluation,
+                answer_intent=result.answer_intent,
             )
 
             await self._publisher.publish(

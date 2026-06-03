@@ -101,8 +101,8 @@ public class SessionFollowupRequester {
     private int currentFollowupDepth(List<InterviewMessage> ordered) {
         int depth = 0;
         for (InterviewMessage m : ordered) {
-            if (m.getRole() != MessageRole.INTERVIEWER) {
-                continue;
+            if (m.getRole() != MessageRole.INTERVIEWER || m.isClarification()) {
+                continue;             // 부연 메시지는 깊이에 미반영
             }
             if (m.getParentMessage() == null) {
                 depth = 0;            // 일반질문 → 리셋

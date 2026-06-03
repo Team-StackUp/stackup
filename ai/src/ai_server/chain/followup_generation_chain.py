@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Literal, Protocol
 
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.prompts import ChatPromptTemplate
@@ -17,6 +17,8 @@ from ai_server.observability.llm_logging_callback import CoreAiLogCallback
 class FollowupResult(BaseModel):
     followup_question: str = Field(..., description="한국어 꼬리질문 1개")
     answer_evaluation: AnswerEvaluation
+    # 답변 의도. NORMAL=정상답변, DONT_KNOW=모름/포기, CLARIFICATION=질문 재설명 요청.
+    answer_intent: Literal["NORMAL", "DONT_KNOW", "CLARIFICATION"] = "NORMAL"
 
 
 class FollowupGenerator(Protocol):
