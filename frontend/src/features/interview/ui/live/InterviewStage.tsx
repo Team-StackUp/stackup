@@ -73,9 +73,11 @@ export function InterviewStage({
         className="absolute inset-0 bg-cover bg-center"
         style={{ backgroundImage: `url(${BG})` }}
       />
+      {/* 배경 사진이 보이도록 옅은 스크림만. 텍스트 가독성은 헤더·질문 카드·
+          컴포저가 각자 배경(반투명+blur / solid)으로 확보한다. */}
       <div
         aria-hidden
-        className="absolute inset-0 bg-gradient-to-b from-white/55 via-white/25 to-white/75"
+        className="absolute inset-0 bg-gradient-to-b from-white/30 via-white/10 to-white/45"
       />
 
       {/* 진행도 바 */}
