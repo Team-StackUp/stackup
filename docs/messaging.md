@@ -253,13 +253,21 @@
   "messageType": "generate.followup",
   "payload": {
     "sessionId": 99,
-    "questionMessageId": 501,
+    "parentMessageId": 501,
     "answerMessageId": 502,
+    "previousQuestion": "...",
     "answerText": "...",
-    "audioS3Key": "session/99/audio/502.webm"
+    "mode": "TECHNICAL",
+    "jobCategory": "BACKEND",
+    "contextDocumentIds": [12, 13],
+    "parentCategory": "PROJECT_DEEP_DIVE",
+    "parentExpectedSignal": "동시성 제어를 DB 레벨까지 설명하는지",
+    "history": [{ "role": "INTERVIEWER", "content": "..." }]
   }
 }
 ```
+
+> `parentExpectedSignal` = 직전 질문 생성 시 만든 기대 신호(평가 관점). AI 가 specificity/correctness 채점의 핵심 기준으로 사용(없으면 무시). `contextDocumentIds` 로 RAG 검색 → correctness 판정.
 
 ### 5.9 `callback.questions` (꼬리질문)
 ```json

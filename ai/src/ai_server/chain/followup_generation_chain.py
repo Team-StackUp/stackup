@@ -29,6 +29,7 @@ class FollowupGenerator(Protocol):
         answer_text: str,
         context: str = "(none)",
         parent_category: str = "UNKNOWN",
+        expected_signal: str = "(none)",
         history: str = "(none)",
     ) -> FollowupResult: ...
 
@@ -46,6 +47,7 @@ class LlmFollowupGenerator:
         answer_text: str,
         context: str = "(none)",
         parent_category: str = "UNKNOWN",
+        expected_signal: str = "(none)",
         history: str = "(none)",
     ) -> FollowupResult:
         result = await self._chain.ainvoke(
@@ -56,6 +58,7 @@ class LlmFollowupGenerator:
                 "answer_text": answer_text,
                 "context": context,
                 "parent_category": parent_category,
+                "expected_signal": expected_signal,
                 "history": history,
             }
         )

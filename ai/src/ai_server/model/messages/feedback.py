@@ -28,6 +28,8 @@ class FeedbackMessageItem(BaseModel):
     role: Literal["INTERVIEWER", "INTERVIEWEE", "SYSTEM"]
     content: str
     parent_message_id: int | None = None
+    # 질문(INTERVIEWER) 메시지에만 채워짐. 답변이 짚어야 할 핵심(평가 기준).
+    expected_signal: str | None = None
     # 답변(INTERVIEWEE) 메시지에만 채워짐. 피드백 종합 채점의 근거.
     evaluation: MessageEvaluation | None = None
 

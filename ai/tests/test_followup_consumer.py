@@ -245,6 +245,7 @@ async def test_consumer_passes_parent_category_and_history_to_generator():
             "mode": "TECHNICAL",
             "jobCategory": "BACKEND",
             "parentCategory": "PROJECT_DEEP_DIVE",
+            "parentExpectedSignal": "동시성 제어를 DB 레벨까지 설명하는지",
             "history": [
                 {"role": "INTERVIEWER", "content": "이전 질문"},
                 {"role": "INTERVIEWEE", "content": "이전 답변"},
@@ -256,6 +257,7 @@ async def test_consumer_passes_parent_category_and_history_to_generator():
 
     kwargs = generator.generate.await_args.kwargs
     assert kwargs["parent_category"] == "PROJECT_DEEP_DIVE"
+    assert kwargs["expected_signal"] == "동시성 제어를 DB 레벨까지 설명하는지"
     assert "이전 질문" in kwargs["history"]
     assert "면접관:" in kwargs["history"]
 

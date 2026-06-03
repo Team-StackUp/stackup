@@ -14,6 +14,7 @@ public record GenerateFollowupPayload(
     JobCategory jobCategory,
     List<Long> contextDocumentIds,  // RAG(자료 근거/correctness) 용
     String parentCategory,          // 직전 질문 카테고리 (루브릭 선택)
+    String parentExpectedSignal,    // 직전 질문이 기대하는 핵심(평가 관점) — 충족도 채점용
     List<HistoryItem> history       // 최근 대화 (중복 회피)
 ) {
     public record HistoryItem(String role, String content) {
