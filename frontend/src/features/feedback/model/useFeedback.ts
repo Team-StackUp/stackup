@@ -1,6 +1,6 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { isApiError } from '@/shared/api'
-import { getFeedback } from '../api/feedbackApi'
+import { enableShare, getFeedback, getSharedFeedback } from '../api/feedbackApi'
 
 export const feedbackKeys = {
   all: ['feedback'] as const,
@@ -19,5 +19,19 @@ export function useFeedback(sessionId: number) {
     queryFn: () => getFeedback(sessionId),
     retry: (count, err) => isFeedbackPending(err) && count < 40,
     retryDelay: 3000,
+  })
+}
+
+// 공유 토큰 발급(버튼 클릭).
+export function useShareFeedback(sessionId: number) {
+  return useMutation({ mutationFn: () => enableShare(sessionId) })
+}
+
+// 공개 페이지: 공유 토큰으로 피드백 조회(비인증, 재시도 없음).
+export function useSharedFeedback(token: string) {
+  return useQuery({
+    queryKey: [...feedbackKeys.all, 'shared', token],
+    queryFn: () => getSharedFeedback(token),
+    retry: false,
   })
 }

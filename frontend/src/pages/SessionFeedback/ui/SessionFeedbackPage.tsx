@@ -38,7 +38,7 @@ export default function SessionFeedbackPage() {
           </div>
         )}
 
-        {data && <FeedbackReport feedback={data} />}
+        {data && <FeedbackReport feedback={data} shareable />}
       </main>
       <SiteFooter />
     </div>

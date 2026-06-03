@@ -48,6 +48,9 @@
     "name" : "User Consents",
     "description" : "개인정보처리/이용약관/마케팅 동의 제출·이력·철회 (append-only audit)."
   }, {
+    "name" : "Public: Shared Feedback",
+    "description" : "공유 링크로 피드백 조회(비인증)"
+  }, {
     "name" : "Resumes",
     "description" : "이력서 업로드/관리. 업로드 시 분석 파이프라인이 자동 트리거되며 결과는 /realtime/stream/me (DOC_STATE) 로 통지됨."
   }, {
@@ -645,6 +648,54 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/VoiceStreamBeginResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sessions/{sessionId}/feedback/share" : {
+      "post" : {
+        "tags" : [ "Session Feedback" ],
+        "summary" : "피드백 공유 토큰 발급(멱등)",
+        "operationId" : "shareSessionFeedback",
+        "parameters" : [ {
+          "name" : "sessionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "공유 토큰",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ShareResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ShareResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "세션 또는 피드백 없음",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ShareResponse"
                 }
               }
             }
@@ -2010,6 +2061,43 @@
         }
       }
     },
+    "/api/public/feedbacks/{shareToken}" : {
+      "get" : {
+        "tags" : [ "Public: Shared Feedback" ],
+        "summary" : "공유 토큰으로 피드백 조회",
+        "operationId" : "getSharedFeedback",
+        "parameters" : [ {
+          "name" : "shareToken",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "피드백",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/FeedbackResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "공유된 피드백 없음",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/FeedbackResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/internal/users/{userId}/github-token" : {
       "get" : {
         "tags" : [ "Internal: GitHub Token Delegation" ],
@@ -2540,6 +2628,14 @@
           "sequenceNumber" : {
             "type" : "integer",
             "format" : "int32"
+          }
+        }
+      },
+      "ShareResponse" : {
+        "type" : "object",
+        "properties" : {
+          "shareToken" : {
+            "type" : "string"
           }
         }
       },

@@ -11,6 +11,8 @@ public interface SessionFeedbackRepository extends JpaRepository<SessionFeedback
 
     Optional<SessionFeedback> findBySession_Id(Long sessionId);
 
+    Optional<SessionFeedback> findByShareToken(String shareToken);
+
     boolean existsBySession_Id(Long sessionId);
 
     @Query("""

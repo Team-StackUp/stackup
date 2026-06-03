@@ -2,10 +2,19 @@ import { useRef, useState } from 'react'
 import { StatusBadge } from '@/shared/ui/StatusBadge'
 import { ScoreBar } from '@/shared/ui/ScoreBar'
 import { Button } from '@/shared/ui/Button'
+import { useCopyToClipboard } from '@/shared/hooks'
 import type { Feedback } from '../api/feedbackApi'
 import { downloadElementAsPdf } from '../lib/downloadPdf'
+import { useShareFeedback } from '../model/useFeedback'
 
-export function FeedbackReport({ feedback }: { feedback: Feedback }) {
+// shareable: 소유자 화면에서만 '공유' 버튼 노출(공개 페이지에선 false).
+export function FeedbackReport({
+  feedback,
+  shareable = false,
+}: {
+  feedback: Feedback
+  shareable?: boolean
+}) {
   const reportRef = useRef<HTMLDivElement>(null)
   const [downloading, setDownloading] = useState(false)
 
@@ -19,10 +28,26 @@ export function FeedbackReport({ feedback }: { feedback: Feedback }) {
     }
   }
 
+  const share = useShareFeedback(feedback.sessionId ?? 0)
+  const { copy, copied } = useCopyToClipboard()
+  const handleShare = async () => {
+    const token = await share.mutateAsync()
+    if (token) await copy(`${window.location.origin}/share/${token}`)
+  }
+
   const overall = feedback.overallScore
   return (
     <div className="flex w-full flex-col gap-4">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        {shareable && (
+          <Button
+            variant="secondary"
+            onClick={handleShare}
+            disabled={share.isPending}
+          >
+            {copied ? '링크 복사됨!' : share.isPending ? '공유 준비 중…' : '공유'}
+          </Button>
+        )}
         <Button variant="secondary" onClick={handleDownload} disabled={downloading}>
           {downloading ? 'PDF 생성 중…' : 'PDF 다운로드'}
         </Button>

@@ -55,6 +55,10 @@ public class SessionFeedback extends BaseSoftDeleteEntity {
     @Column(name = "report_file_path", length = 1000)
     private String reportFilePath;
 
+    // 공개 공유 토큰. null = 비공개. 공유 활성화 시 1회 발급(이후 유지).
+    @Column(name = "share_token", length = 64, unique = true)
+    private String shareToken;
+
     private SessionFeedback(InterviewSession session, Double overallScore, Double technicalAccuracy,
                             Double logicScore, Double communicationScore,
                             String strengthsSummary, String weaknessesSummary,
@@ -81,5 +85,13 @@ public class SessionFeedback extends BaseSoftDeleteEntity {
         return new SessionFeedback(session, overallScore, technicalAccuracy, logicScore,
             communicationScore, strengthsSummary, weaknessesSummary,
             improvementKeywordsJson, reportFilePath);
+    }
+
+    // 공유 토큰을 보장(없으면 발급)하고 현재 토큰 반환. 멱등.
+    public String enableShare(String token) {
+        if (this.shareToken == null) {
+            this.shareToken = token;
+        }
+        return this.shareToken;
     }
 }

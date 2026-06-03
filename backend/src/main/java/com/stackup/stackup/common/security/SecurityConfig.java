@@ -64,7 +64,8 @@ public class SecurityConfig {
                     "/api/v3/api-docs/**",
                     "/api/swagger-ui/**",
                     "/api/swagger-ui.html",
-                    "/actuator/**"
+                    "/actuator/**",
+                    "/api/public/**"
                 ).permitAll()
                 .requestMatchers("/api/internal/**").hasAuthority(InternalApiKeyAuthenticationFilter.AUTHORITY)
                 .requestMatchers("/api/**").authenticated()
