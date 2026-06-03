@@ -42,6 +42,7 @@ class SessionQuestionsRequesterTest {
             SessionMode.INTEGRATED,
             JobCategory.BACKEND,
             5,
+            3,
             List.of()
         ));
 
@@ -54,7 +55,8 @@ class SessionQuestionsRequesterTest {
         assertThat(payload.mode()).isEqualTo(SessionMode.INTEGRATED);
         assertThat(payload.jobCategory()).isEqualTo(JobCategory.BACKEND);
         assertThat(payload.documents()).isEmpty();
-        assertThat(payload.initialQuestionCount()).isEqualTo(1);
+        // generalQuestionCount(n) 만큼 생성 요청 (이벤트의 n=3).
+        assertThat(payload.initialQuestionCount()).isEqualTo(3);
         assertThat(payload.maxQuestions()).isEqualTo(5);
     }
 

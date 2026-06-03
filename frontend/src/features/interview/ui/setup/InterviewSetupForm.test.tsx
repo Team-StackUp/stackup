@@ -18,7 +18,9 @@ describe('InterviewSetupForm', () => {
     expect(onCreate).toHaveBeenCalledWith({
       mode: 'TECHNICAL',
       jobCategory: 'BACKEND',
-      maxQuestions: 5,
+      generalQuestionCount: 3,
+      maxFollowupsPerQuestion: 2,
+      maxQuestions: 10,
       contextDocumentIds: [],
     })
   })

@@ -127,7 +127,7 @@ class SessionFeedbackRequesterTest {
     private InterviewSession sessionFixture(Long id) {
         User user = User.createGithubUser(1L, "u", null, null, "t");
         ReflectionTestUtils.setField(user, "id", 1L);
-        InterviewSession s = InterviewSession.create(user, "t", null, SessionMode.TECHNICAL, JobCategory.BACKEND, 5, 30);
+        InterviewSession s = InterviewSession.create(user, "t", null, SessionMode.TECHNICAL, JobCategory.BACKEND, 5, 30, null, null);
         ReflectionTestUtils.setField(s, "id", id);
         return s;
     }

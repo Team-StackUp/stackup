@@ -17,6 +17,7 @@ import com.stackup.stackup.session.domain.InterviewSessionRepository;
 import com.stackup.stackup.session.domain.MessageVoiceAnalysisRepository;
 import com.stackup.stackup.session.domain.SessionContextRepository;
 import com.stackup.stackup.session.domain.SessionFeedbackRepository;
+import com.stackup.stackup.session.domain.SessionQuestionPoolRepository;
 import com.stackup.stackup.user.domain.UserRepository;
 import com.stackup.stackup.user.domain.consent.UserConsentRepository;
 import java.nio.charset.StandardCharsets;
@@ -62,6 +63,7 @@ class OpenApiSpecExportTest {
   @MockitoBean private InterviewMessageRepository interviewMessageRepository;
   @MockitoBean private SessionContextRepository sessionContextRepository;
   @MockitoBean private SessionFeedbackRepository sessionFeedbackRepository;
+  @MockitoBean private SessionQuestionPoolRepository sessionQuestionPoolRepository;
   @MockitoBean private MessageVoiceAnalysisRepository messageVoiceAnalysisRepository;
   @MockitoBean private AiRequestLogRepository aiRequestLogRepository;
 

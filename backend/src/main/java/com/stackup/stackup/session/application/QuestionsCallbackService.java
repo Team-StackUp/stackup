@@ -14,6 +14,9 @@ import com.stackup.stackup.session.domain.InterviewMessage;
 import com.stackup.stackup.session.domain.InterviewMessageRepository;
 import com.stackup.stackup.session.domain.InterviewSession;
 import com.stackup.stackup.session.domain.InterviewSessionRepository;
+import com.stackup.stackup.session.domain.SessionQuestionPool;
+import com.stackup.stackup.session.domain.SessionQuestionPoolRepository;
+import com.stackup.stackup.session.domain.SessionStatus;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -36,6 +39,7 @@ public class QuestionsCallbackService {
 
     private final InterviewSessionRepository sessionRepository;
     private final InterviewMessageRepository messageRepository;
+    private final SessionQuestionPoolRepository poolRepository;
     private final ProcessedMessageRepository processedMessageRepository;
     private final ApplicationEventPublisher events;
 
@@ -74,35 +78,83 @@ public class QuestionsCallbackService {
         markProcessed(envelope.messageId());
     }
 
+    // POOL 콜백: AI 가 만든 일반질문들을 풀에 저장하고 첫 질문을 삽입한다.
     private void applyInitialQuestion(InterviewSession session, QuestionsCallbackPayload payload) {
         List<GeneratedQuestion> questions = payload.questions();
         if (questions == null || questions.isEmpty()) {
             log.warn("callback.questions initial result with no questions. sessionId={}", session.getId());
             return;
         }
-        GeneratedQuestion first = questions.get(0);
-        if (questions.size() > 1) {
-            log.info("callback.questions initial result included extra questions; ignoring extras. sessionId={}, extra={}",
-                session.getId(), questions.size() - 1);
+        if (poolRepository.countBySessionId(session.getId()) > 0) {
+            log.info("callback.questions pool already seeded, skip. sessionId={}", session.getId());
+            return;
         }
+        int idx = 0;
+        for (GeneratedQuestion q : questions) {
+            poolRepository.save(SessionQuestionPool.of(
+                session.getId(), idx++, q.question(), q.category(), q.targetEvidence(), q.expectedSignal()));
+        }
+        poolRepository.findFirstBySessionIdAndUsedFalseOrderByIdxAsc(session.getId())
+            .ifPresent(first -> insertGeneralFromPool(session, first, "INITIAL_QUESTION_READY"));
+        log.info("callback.questions pool seeded. sessionId={}, poolSize={}", session.getId(), questions.size());
+    }
+
+    // 풀에서 다음 일반질문을 꺼내 삽입(꼬리질문 m개 소진 후 호출). 없으면 종료.
+    @Transactional
+    public void advanceToNextGeneral(Long sessionId) {
+        InterviewSession session = sessionRepository.findById(sessionId).orElse(null);
+        if (session == null || session.getStatus() != SessionStatus.IN_PROGRESS) {
+            return;
+        }
+        if (session.isMaxReached()) {
+            endSession(session, "MAX_QUESTIONS_REACHED");
+            return;
+        }
+        poolRepository.findFirstBySessionIdAndUsedFalseOrderByIdxAsc(sessionId).ifPresentOrElse(
+            next -> insertGeneralFromPool(session, next, "GENERAL_QUESTION_READY"),
+            () -> endSession(session, "POOL_EXHAUSTED"));
+    }
+
+    private void insertGeneralFromPool(InterviewSession session, SessionQuestionPool pool, String reason) {
+        pool.markUsed();
+        poolRepository.save(pool);
+        long currentMsgs = messageRepository.countBySession_Id(session.getId());
+        int nextSeq = (int) currentMsgs + 1;
         InterviewMessage message = messageRepository.save(
-            InterviewMessage.interviewer(
-                session, 1, first.question(),
-                first.category(), first.targetEvidence(), first.expectedSignal()
-            )
-        );
+            InterviewMessage.interviewer(session, nextSeq, pool.getQuestion(),
+                pool.getCategory(), pool.getTargetEvidence(), pool.getExpectedSignal()));
         session.incrementQuestionCount();
+        publishQuestionEvents(session, message, reason);
+        maybeAutoEnd(session);
+    }
+
+    private void publishQuestionEvents(InterviewSession session, InterviewMessage message, String reason) {
         events.publishEvent(new QuestionPersistedEvent(
             session.getUser().getId(), session.getId(), message.getId()));
         events.publishEvent(RealtimeNotifyEvent.session(session.getId(), SseEventType.SESSION_MESSAGE, message.getId()));
-        // 사용자 user 채널에도 알림 — frontend 가 documentId/sessionId 사전 인지 없이도 받을 수 있게
-        events.publishEvent(RealtimeNotifyEvent.user(
-            session.getUser().getId(),
-            SseEventType.SESSION_MESSAGE,
-            new SessionMessageNotice(session.getId(), message.getId(), "INITIAL_QUESTION_READY")
-        ));
-        log.info("callback.questions initial question processed. sessionId={}, ignored_extras={}",
-            session.getId(), Math.max(questions.size() - 1, 0));
+        events.publishEvent(RealtimeNotifyEvent.user(session.getUser().getId(), SseEventType.SESSION_MESSAGE,
+            new SessionMessageNotice(session.getId(), message.getId(), reason)));
+    }
+
+    private void maybeAutoEnd(InterviewSession session) {
+        if (session.isMaxReached()) {
+            endSession(session, "MAX_QUESTIONS_REACHED");
+        }
+    }
+
+    private void endSession(InterviewSession session, String reason) {
+        try {
+            session.end();
+            events.publishEvent(RealtimeNotifyEvent.session(session.getId(), SseEventType.SESSION_STATE,
+                new SessionStateNotice(session.getId(), session.getStatus().name(), reason)));
+            events.publishEvent(RealtimeNotifyEvent.user(session.getUser().getId(), SseEventType.SESSION_STATE,
+                new SessionStateNotice(session.getId(), session.getStatus().name(), reason)));
+            events.publishEvent(new SessionEndedEvent(session.getUser().getId(), session.getId(), reason));
+            log.info("session auto-completed. sessionId={}, reason={}", session.getId(), reason);
+        } catch (IllegalStateException e) {
+            log.warn("auto-end skipped — session not IN_PROGRESS. sessionId={}, status={}",
+                session.getId(), session.getStatus());
+        }
     }
 
     private void applyFollowup(InterviewSession session, QuestionsCallbackPayload payload) {
@@ -135,25 +187,8 @@ public class QuestionsCallbackService {
             new SessionMessageNotice(session.getId(), message.getId(), "FOLLOWUP_READY")
         ));
 
-        // maxQuestions 도달 시 자동 종료 (plan §A-4)
-        Integer max = session.getMaxQuestions();
-        if (max != null && session.getTotalQuestionCount() != null
-            && session.getTotalQuestionCount() >= max) {
-            try {
-                session.end();
-                events.publishEvent(RealtimeNotifyEvent.session(session.getId(), SseEventType.SESSION_STATE,
-                    new SessionStateNotice(session.getId(), session.getStatus().name(), "MAX_QUESTIONS_REACHED")));
-                events.publishEvent(RealtimeNotifyEvent.user(session.getUser().getId(), SseEventType.SESSION_STATE,
-                    new SessionStateNotice(session.getId(), session.getStatus().name(), "MAX_QUESTIONS_REACHED")));
-                events.publishEvent(new SessionEndedEvent(
-                    session.getUser().getId(), session.getId(), "MAX_QUESTIONS_REACHED"));
-                log.info("session auto-completed on max questions. sessionId={}, max={}",
-                    session.getId(), max);
-            } catch (IllegalStateException e) {
-                log.warn("auto-end skipped — session not IN_PROGRESS. sessionId={}, status={}",
-                    session.getId(), session.getStatus());
-            }
-        }
+        // maxQuestions(k) 도달 시 자동 종료.
+        maybeAutoEnd(session);
 
         log.info("callback.questions FOLLOWUP processed. sessionId={}, msg={}, totalQ={}",
             session.getId(), message.getId(), session.getTotalQuestionCount());

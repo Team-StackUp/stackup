@@ -37,12 +37,13 @@ class QuestionsCallbackServiceTest {
 
     @Mock InterviewSessionRepository sessionRepository;
     @Mock InterviewMessageRepository messageRepository;
+    @Mock com.stackup.stackup.session.domain.SessionQuestionPoolRepository poolRepository;
     @Mock ProcessedMessageRepository processedMessageRepository;
     @Mock org.springframework.context.ApplicationEventPublisher events;
     @InjectMocks QuestionsCallbackService service;
 
     @Test
-    void apply_poolCallbackStoresOnlyInitialQuestionAndPushesSse() {
+    void apply_poolCallbackSeedsPoolAndInsertsFirstQuestion() {
         InterviewSession session = sessionFixture(11L, SessionStatus.READY);
         QuestionsCallbackEnvelope env = poolEnvelope(11L, List.of(
             new GeneratedQuestion("PROJECT_DEEP_DIVE", "Introduce yourself",
@@ -51,6 +52,12 @@ class QuestionsCallbackServiceTest {
         ));
         when(processedMessageRepository.existsById("m-1")).thenReturn(false);
         when(sessionRepository.findById(11L)).thenReturn(Optional.of(session));
+        when(poolRepository.countBySessionId(11L)).thenReturn(0L);
+        // 풀 저장 후 첫(미사용) 질문을 꺼내 일반질문으로 삽입.
+        when(poolRepository.findFirstBySessionIdAndUsedFalseOrderByIdxAsc(11L)).thenReturn(
+            Optional.of(com.stackup.stackup.session.domain.SessionQuestionPool.of(
+                11L, 0, "Introduce yourself", "PROJECT_DEEP_DIVE",
+                "이력서: 결제 시스템", "협업/문제해결 깊이")));
         when(messageRepository.save(any(InterviewMessage.class))).thenAnswer(inv -> {
             InterviewMessage m = inv.getArgument(0);
             ReflectionTestUtils.setField(m, "id", 500L);
@@ -171,7 +178,7 @@ class QuestionsCallbackServiceTest {
         User user = User.createGithubUser(1L, "u", null, null, "t");
         ReflectionTestUtils.setField(user, "id", 1L);
         InterviewSession s = InterviewSession.create(
-            user, "t", null, SessionMode.TECHNICAL, JobCategory.BACKEND, 5, 30
+            user, "t", null, SessionMode.TECHNICAL, JobCategory.BACKEND, 5, 30, null, null
         );
         ReflectionTestUtils.setField(s, "id", id);
         if (status == SessionStatus.IN_PROGRESS || status == SessionStatus.COMPLETED) {

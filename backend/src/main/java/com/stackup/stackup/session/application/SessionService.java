@@ -50,7 +50,9 @@ public class SessionService {
             command.mode(),
             command.jobCategory(),
             command.maxQuestions(),
-            command.maxDurationMinutes()
+            command.maxDurationMinutes(),
+            command.generalQuestionCount(),
+            command.maxFollowupsPerQuestion()
         ));
 
         List<Long> linkedIds = linkContexts(session, userId, command.contextDocumentIds());
@@ -62,6 +64,7 @@ public class SessionService {
             session.getMode(),
             session.getJobCategory(),
             session.getMaxQuestions(),
+            session.getGeneralQuestionCount(),
             linkedIds
         ));
         return SessionResult.of(session, linkedIds);

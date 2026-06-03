@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { Button } from '@/shared/ui/Button'
+import { Stepper } from '@/shared/ui/Stepper'
 import type { JobCategory, SessionCreateRequest, SessionMode } from '@/domain/session'
 import { ModeSelector } from './ModeSelector'
 import { JobCategorySelector } from './JobCategorySelector'
-import { QuestionCountField } from './QuestionCountField'
 import { ContextDocumentPicker } from './ContextDocumentPicker'
 import type { DocOption } from './ContextDocumentPicker'
 
@@ -18,7 +18,9 @@ export function InterviewSetupForm({
 }) {
   const [mode, setMode] = useState<SessionMode | null>(null)
   const [jobCategory, setJobCategory] = useState<JobCategory | null>(null)
-  const [maxQuestions, setMaxQuestions] = useState(5)
+  const [generalQuestionCount, setGeneralQuestionCount] = useState(3)
+  const [maxFollowupsPerQuestion, setMaxFollowupsPerQuestion] = useState(2)
+  const [maxQuestions, setMaxQuestions] = useState(10)
   const [selected, setSelected] = useState<number[]>([])
 
   const toggle = (id: number) =>
@@ -28,7 +30,14 @@ export function InterviewSetupForm({
 
   const submit = () => {
     if (mode === null || jobCategory === null || !valid) return
-    onCreate({ mode, jobCategory, maxQuestions, contextDocumentIds: selected })
+    onCreate({
+      mode,
+      jobCategory,
+      generalQuestionCount,
+      maxFollowupsPerQuestion,
+      maxQuestions,
+      contextDocumentIds: selected,
+    })
   }
 
   return (
@@ -47,9 +56,47 @@ export function InterviewSetupForm({
         <h2 className="text-h6 text-fg">직군</h2>
         <JobCategorySelector value={jobCategory} onChange={setJobCategory} />
       </section>
-      <section className="flex flex-col gap-2">
-        <h2 className="text-h6 text-fg">질문 수</h2>
-        <QuestionCountField value={maxQuestions} onChange={setMaxQuestions} />
+      <section className="flex flex-col gap-3">
+        <h2 className="text-h6 text-fg">면접 구성</h2>
+        <div className="flex items-center justify-between">
+          <span className="text-body text-fg">
+            일반질문 수
+            <span className="ml-1 text-caption text-fg-muted">서로 다른 주제</span>
+          </span>
+          <Stepper
+            ariaLabel="일반질문 수"
+            value={generalQuestionCount}
+            onChange={setGeneralQuestionCount}
+            min={1}
+            max={15}
+          />
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-body text-fg">
+            질문당 꼬리질문
+            <span className="ml-1 text-caption text-fg-muted">깊이</span>
+          </span>
+          <Stepper
+            ariaLabel="질문당 최대 꼬리질문"
+            value={maxFollowupsPerQuestion}
+            onChange={setMaxFollowupsPerQuestion}
+            min={0}
+            max={10}
+          />
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-body text-fg">
+            총 질문 상한
+            <span className="ml-1 text-caption text-fg-muted">안전장치</span>
+          </span>
+          <Stepper
+            ariaLabel="총 질문 상한"
+            value={maxQuestions}
+            onChange={setMaxQuestions}
+            min={2}
+            max={30}
+          />
+        </div>
       </section>
       <section className="flex flex-col gap-2">
         <h2 className="text-h6 text-fg">참고 문서 (선택)</h2>

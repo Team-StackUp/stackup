@@ -38,7 +38,7 @@ public class SessionQuestionsRequester {
     private static final JsonMapper JSON = JsonMapper.builder().build();
     private static final TypeReference<List<String>> TECH_STACK_TYPE = new TypeReference<>() {};
     private static final long MAX_MARKDOWN_BYTES = 200_000L;  // envelope 비대화 방지
-    private static final int INITIAL_QUESTION_COUNT = 1;
+    private static final int DEFAULT_GENERAL_QUESTION_COUNT = 3;
 
     private final RabbitMessagePublisher publisher;
     private final RabbitMqProperties properties;
@@ -49,12 +49,14 @@ public class SessionQuestionsRequester {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onSessionCreated(SessionCreatedEvent event) {
         List<DocumentContext> documents = buildDocumentContexts(event.contextDocumentIds());
+        int generalCount = event.generalQuestionCount() != null
+            ? event.generalQuestionCount() : DEFAULT_GENERAL_QUESTION_COUNT;
         GenerateQuestionsPayload payload = new GenerateQuestionsPayload(
             event.sessionId(),
             event.mode(),
             event.jobCategory(),
             documents,
-            INITIAL_QUESTION_COUNT,
+            generalCount,
             event.maxQuestions()
         );
         publisher.publishToAi(
@@ -62,8 +64,8 @@ public class SessionQuestionsRequester {
             payload,
             new MessageContext(event.userId(), event.sessionId(), null, null)
         );
-        log.info("generate.questions published. sessionId={}, doc_count={}, initial_count={}, max={}",
-            event.sessionId(), documents.size(), INITIAL_QUESTION_COUNT, event.maxQuestions());
+        log.info("generate.questions published. sessionId={}, doc_count={}, general_count={}, max={}",
+            event.sessionId(), documents.size(), generalCount, event.maxQuestions());
     }
 
     private List<DocumentContext> buildDocumentContexts(List<Long> documentIds) {

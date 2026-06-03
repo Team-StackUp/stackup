@@ -806,6 +806,10 @@ export interface components {
             maxQuestions?: number;
             /** Format: int32 */
             maxDurationMinutes?: number;
+            /** Format: int32 */
+            generalQuestionCount?: number;
+            /** Format: int32 */
+            maxFollowupsPerQuestion?: number;
             contextDocumentIds?: number[];
         };
         SessionResponse: {
@@ -821,6 +825,10 @@ export interface components {
             maxQuestions?: number;
             /** Format: int32 */
             maxDurationMinutes?: number;
+            /** Format: int32 */
+            generalQuestionCount?: number;
+            /** Format: int32 */
+            maxFollowupsPerQuestion?: number;
             /** @enum {string} */
             status?: "READY" | "IN_PROGRESS" | "INTERRUPTED" | "COMPLETED" | "CANCELLED";
             /** Format: int32 */

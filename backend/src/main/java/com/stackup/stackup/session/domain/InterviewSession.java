@@ -60,6 +60,14 @@ public class InterviewSession extends BaseSoftDeleteEntity {
     @Column(name = "max_duration_minutes", nullable = false)
     private Integer maxDurationMinutes = 60;
 
+    // 일반질문 수(n). 서로 다른 주제로 풀에서 꺼내 묻는다.
+    @Column(name = "general_question_count", nullable = false)
+    private Integer generalQuestionCount = 3;
+
+    // 일반질문 1개당 최대 꼬리질문 수(m).
+    @Column(name = "max_followups_per_question", nullable = false)
+    private Integer maxFollowupsPerQuestion = 2;
+
     @Column(nullable = false, length = 20)
     @Enumerated(EnumType.STRING)
     private SessionStatus status = SessionStatus.READY;
@@ -75,7 +83,8 @@ public class InterviewSession extends BaseSoftDeleteEntity {
 
     private InterviewSession(User user, String title, String memo, SessionMode mode,
                              JobCategory jobCategory,
-                             Integer maxQuestions, Integer maxDurationMinutes) {
+                             Integer maxQuestions, Integer maxDurationMinutes,
+                             Integer generalQuestionCount, Integer maxFollowupsPerQuestion) {
         this.user = user;
         this.title = title;
         this.memo = memo;
@@ -87,18 +96,26 @@ public class InterviewSession extends BaseSoftDeleteEntity {
         if (maxDurationMinutes != null) {
             this.maxDurationMinutes = maxDurationMinutes;
         }
+        if (generalQuestionCount != null) {
+            this.generalQuestionCount = generalQuestionCount;
+        }
+        if (maxFollowupsPerQuestion != null) {
+            this.maxFollowupsPerQuestion = maxFollowupsPerQuestion;
+        }
     }
 
     public static InterviewSession create(User user, String title, String memo, SessionMode mode,
                                           JobCategory jobCategory,
-                                          Integer maxQuestions, Integer maxDurationMinutes) {
+                                          Integer maxQuestions, Integer maxDurationMinutes,
+                                          Integer generalQuestionCount, Integer maxFollowupsPerQuestion) {
         if (user == null) {
             throw new IllegalArgumentException("user must not be null");
         }
         if (mode == null || jobCategory == null) {
             throw new IllegalArgumentException("mode/jobCategory must not be null");
         }
-        return new InterviewSession(user, title, memo, mode, jobCategory, maxQuestions, maxDurationMinutes);
+        return new InterviewSession(user, title, memo, mode, jobCategory,
+            maxQuestions, maxDurationMinutes, generalQuestionCount, maxFollowupsPerQuestion);
     }
 
     public void start() {

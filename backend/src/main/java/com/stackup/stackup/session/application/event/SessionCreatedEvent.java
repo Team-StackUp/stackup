@@ -11,6 +11,7 @@ public record SessionCreatedEvent(
     SessionMode mode,
     JobCategory jobCategory,
     Integer maxQuestions,
+    Integer generalQuestionCount,
     List<Long> contextDocumentIds
 ) {
 }

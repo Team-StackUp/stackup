@@ -55,7 +55,7 @@ class SessionServiceTest {
 
         SessionResult result = service.create(1L, new SessionCreateCommand(
             "title", "memo", SessionMode.TECHNICAL, JobCategory.BACKEND,
-            5, 30, List.of()
+            5, 30, null, null, List.of()
         ));
 
         assertThat(result.id()).isEqualTo(100L);
@@ -77,7 +77,7 @@ class SessionServiceTest {
 
         SessionResult result = service.create(1L, new SessionCreateCommand(
             "t", null, SessionMode.TECHNICAL, JobCategory.BACKEND,
-            5, 30, List.of(7L, 7L)
+            5, 30, null, null, List.of(7L, 7L)
         ));
 
         assertThat(result.contextDocumentIds()).containsExactly(7L);
@@ -94,7 +94,7 @@ class SessionServiceTest {
 
         assertThatThrownBy(() -> service.create(1L, new SessionCreateCommand(
             "t", null, SessionMode.TECHNICAL, JobCategory.BACKEND,
-            5, 30, List.of(8L)
+            5, 30, null, null, List.of(8L)
         ))).isInstanceOf(DomainException.class);
     }
 
@@ -140,7 +140,7 @@ class SessionServiceTest {
 
     private InterviewSession sessionFixture(Long id) {
         InterviewSession s = InterviewSession.create(
-            userFixture(1L), "t", null, SessionMode.TECHNICAL, JobCategory.BACKEND, 5, 30
+            userFixture(1L), "t", null, SessionMode.TECHNICAL, JobCategory.BACKEND, 5, 30, null, null
         );
         ReflectionTestUtils.setField(s, "id", id);
         return s;
