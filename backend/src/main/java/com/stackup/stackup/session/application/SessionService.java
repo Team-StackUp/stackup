@@ -21,6 +21,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -65,11 +67,10 @@ public class SessionService {
         return SessionResult.of(session, linkedIds);
     }
 
-    public List<SessionResult> list(Long userId) {
+    public Page<SessionResult> listPaged(Long userId, Pageable pageable) {
         loadUser(userId);
-        return sessionRepository.findByUser_IdAndDeletedFalseOrderByIdDesc(userId).stream()
-            .map(s -> SessionResult.of(s, contextDocumentIds(s.getId())))
-            .toList();
+        return sessionRepository.findByUser_IdAndDeletedFalse(userId, pageable)
+            .map(s -> SessionResult.of(s, contextDocumentIds(s.getId())));
     }
 
     public SessionResult get(Long userId, Long sessionId) {

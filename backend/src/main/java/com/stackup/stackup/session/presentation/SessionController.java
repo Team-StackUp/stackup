@@ -1,5 +1,6 @@
 package com.stackup.stackup.session.presentation;
 
+import com.stackup.stackup.common.response.PageResponse;
 import com.stackup.stackup.common.security.UserPrincipal;
 import com.stackup.stackup.session.application.SessionService;
 import com.stackup.stackup.session.presentation.dto.SessionCreateRequest;
@@ -11,8 +12,10 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -60,10 +63,14 @@ public class SessionController {
         @ApiResponse(responseCode = "401", description = "인증 실패")
     })
     @GetMapping
-    public List<SessionResponse> list(@AuthenticationPrincipal UserPrincipal principal) {
-        return sessionService.list(principal.userId()).stream()
-            .map(SessionResponse::from)
-            .toList();
+    public PageResponse<SessionResponse> list(
+        @AuthenticationPrincipal UserPrincipal principal,
+        @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC)
+        Pageable pageable
+    ) {
+        return PageResponse.from(
+            sessionService.listPaged(principal.userId(), pageable).map(SessionResponse::from)
+        );
     }
 
     @Operation(operationId = "getSession", summary = "세션 상세 (US-16)")

@@ -2,7 +2,15 @@ import { useSessions } from '../model/useHistory'
 import { SessionCard } from './SessionCard'
 
 export function SessionHistoryList() {
-  const { data, isLoading, isError, refetch } = useSessions()
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useSessions()
 
   if (isLoading) {
     return <p className="py-8 text-center text-body text-fg-muted">불러오는 중…</p>
@@ -17,7 +25,9 @@ export function SessionHistoryList() {
       </div>
     )
   }
-  if (!data || data.length === 0) {
+
+  const sessions = data?.pages.flatMap((p) => p.content ?? []) ?? []
+  if (sessions.length === 0) {
     return (
       <p className="py-8 text-center text-body text-fg-muted">아직 진행한 면접이 없어요.</p>
     )
@@ -25,9 +35,18 @@ export function SessionHistoryList() {
 
   return (
     <div className="flex flex-col gap-3">
-      {data.map((s) => (
+      {sessions.map((s) => (
         <SessionCard key={s.id} session={s} />
       ))}
+      {hasNextPage && (
+        <button
+          className="mt-2 self-center text-caption text-fg-muted underline"
+          onClick={() => fetchNextPage()}
+          disabled={isFetchingNextPage}
+        >
+          {isFetchingNextPage ? '불러오는 중…' : '더 보기'}
+        </button>
+      )}
     </div>
   )
 }
