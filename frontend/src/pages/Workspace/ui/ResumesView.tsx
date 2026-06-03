@@ -4,13 +4,15 @@ import { DocumentList } from '@/features/analysis'
 
 export function ResumesView() {
   return (
-    <div className="space-y-10">
+    <div className="space-y-12">
       <WorkspaceSection
         title="내 이력서"
         description="PDF 이력서를 업로드하면 AI가 분석해 면접 질문 풀에 반영합니다."
-        action={<ResumeUploader />}
       >
-        <ResumeList />
+        <div className="space-y-6">
+          <ResumeUploader />
+          <ResumeList />
+        </div>
       </WorkspaceSection>
 
       <WorkspaceSection

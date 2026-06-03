@@ -37,9 +37,9 @@
 | `sage-50` | `#e8e7e1` | 가장 밝은 컴포넌트 배경 (= `surface`) |
 | `sage-100` | `#d4cfcb` | 분리선 / 보더 (= `border`) |
 | `sage-200` | `#c9ccc8` | 비활성 텍스트 / 보조 배경 (= `border-strong`, `fg-disabled`) |
-| `sage-300` | `#b4bdaf` | 보조 텍스트 (= `fg-subtle`) |
-| `sage-400` | `#a0a89d` | 보조 텍스트 강조 (= `fg-muted`) |
-| `sage-500` | `#626e5c` | **Primary**, 활성 / 포커스 |
+| `sage-300` | `#b4bdaf` | 비활성 보조 / placeholder |
+| `sage-400` | `#a0a89d` | 보조 텍스트 (= `fg-subtle`) |
+| `sage-500` | `#626e5c` | **Primary**, 활성 / 포커스, 본문 보조 텍스트 (= `fg-muted`) |
 | `sage-600` | `#3e4739` | Primary hover |
 | `sage-700` | `#2b3625` | Primary pressed / 강조 컴포넌트 |
 | `sage-800` | `#1f271b` | 주요 헤딩 (= `fg-strong`) |
@@ -61,8 +61,8 @@ Tailwind 사용: `bg-sage-{n}`, `text-sage-{n}`, `border-sage-{n}`.
 | `--color-border-strong` | `sage-200` | `border-border-strong` |
 | `--color-fg` | `sage-950` | `text-fg` |
 | `--color-fg-strong` | `sage-800` | `text-fg-strong` |
-| `--color-fg-muted` | `sage-400` | `text-fg-muted` |
-| `--color-fg-subtle` | `sage-300` | `text-fg-subtle` |
+| `--color-fg-muted` | `sage-500` | `text-fg-muted` |
+| `--color-fg-subtle` | `sage-400` | `text-fg-subtle` |
 | `--color-fg-disabled` | `sage-200` | `text-fg-disabled` |
 | `--color-fg-on-primary` | `white` | `text-fg-on-primary` |
 | `--color-primary` | `sage-500` | `bg-primary`, `text-primary` |
@@ -255,7 +255,7 @@ Tailwind v4 기본 `--spacing: 0.25rem` (= 4px) 사용. `p-4` = `16px`.
 
 ### Feedback
 - `Toast` — 4종 (success / info / warning / error), 우상단 stack, 4초 자동 dismiss, `z-toast`.
-- `Modal` — `sm / md / lg / fullscreen`, focus trap 필수, `z-modal` + `z-modal-backdrop`.
+- `Modal` ✅ — `shared/ui/Modal`. `title` + `children` + 옵션 `footer` 슬롯, Esc·백드롭 클릭으로 닫힘, `z-modal`, body 스크롤 잠금 + 포커스 복원. (전체 focus trap 은 추후)
 - `Drawer` — 우측 슬라이드, 세션 설정 등.
 - `Popover`, `Tooltip` — 키보드 접근 가능.
 - `ConfirmDialog` — 파괴적 액션(삭제, 회원 탈퇴) 전용.
@@ -281,7 +281,7 @@ Tailwind v4 기본 `--spacing: 0.25rem` (= 4px) 사용. `p-4` = `16px`.
 
 | 도메인 상태 | 시각 컬러 | 토큰 | 컴포넌트 예 |
 |---|---|---|---|
-| `READY` / `PENDING` / `QUEUED` | neutral | `text-fg-muted` (sage-400) | 회색 Badge |
+| `READY` / `PENDING` / `QUEUED` | neutral | `text-fg-muted` (sage-500) | 회색 Badge |
 | `IN_PROGRESS` / `PROCESSING` / `ANALYZING` | warning | `bg-warning-50 text-warning-700` | 노란 Badge + spinner |
 | `COMPLETED` / `ANALYZED` / `ACTIVE` | success | `bg-success-50 text-success-700` | 초록 Badge |
 | `INTERRUPTED` | warning | `bg-warning-50 text-warning-700` | 노란 Badge (느낌표 아이콘) |
