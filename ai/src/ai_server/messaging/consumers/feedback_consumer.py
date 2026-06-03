@@ -87,6 +87,7 @@ class FeedbackConsumer:
             )
 
             transcript = _build_transcript(req.messages)
+            score_basis = _build_score_basis(req.messages)
             rag_context = await self._build_rag_context(req)
             voice_analysis_summary = _build_voice_analysis_summary(
                 req.voice_analysis_summary
@@ -98,6 +99,7 @@ class FeedbackConsumer:
                 total_question_count=req.total_question_count,
                 end_reason=req.end_reason,
                 transcript=transcript,
+                score_basis=score_basis,
                 rag_context=rag_context,
                 voice_analysis_summary=voice_analysis_summary,
             )
@@ -189,6 +191,67 @@ def _format_evaluation(e) -> str:
     if e.correctness is not None:
         parts.append(f"correctness={e.correctness:g}")
     return ", ".join(parts) if parts else "(없음)"
+
+
+_STRUCTURE_SCORE = {"FULL_STAR": 5.0, "PARTIAL_STAR": 2.5, "NONE": 0.0}
+
+
+def _mean(values: list[float]) -> float | None:
+    vals = [v for v in values if v is not None]
+    return sum(vals) / len(vals) if vals else None
+
+
+def _to_100(x: float | None) -> int | None:
+    return None if x is None else round(x * 20)
+
+
+def _build_score_basis(messages: list[FeedbackMessageItem]) -> str:
+    """per-answer 평가(0~5)를 차원별 0~100 기준값으로 결정론적 집계(하이브리드).
+
+    이 값을 LLM 에 '기준값'으로 제시하고 ±15점 이내 산정하도록 제약 → 재현성·캘리브레이션.
+    correctness(RAG 기반)가 전부 null 이면 technical_accuracy 기준값은 '근거 없음'.
+    """
+    evals = [
+        m.evaluation
+        for m in messages
+        if m.role == "INTERVIEWEE" and m.evaluation is not None
+    ]
+    if not evals:
+        return "(per-answer 평가 없음 — 전사 내용으로만 산정. 과대평가 금지.)"
+
+    spec = _mean([e.specificity for e in evals])
+    logic = _mean([e.logic for e in evals])
+    corr = _mean([e.correctness for e in evals])  # null 은 자동 제외
+    struct = _mean([_STRUCTURE_SCORE.get(e.structure) for e in evals])
+
+    tech_100 = _to_100(corr)
+    logic_100 = _to_100(logic)
+    comm_src = _mean([v for v in (spec, struct) if v is not None])
+    comm_100 = _to_100(comm_src)
+    overall_src = [v for v in (tech_100, logic_100, comm_100) if v is not None]
+    overall_100 = round(sum(overall_src) / len(overall_src)) if overall_src else None
+
+    def fmt5(x: float | None) -> str:
+        return f"{x:.1f}/5" if x is not None else "없음"
+
+    corr_count = sum(1 for e in evals if e.correctness is not None)
+    lines = [
+        f"- 채점된 답변 수: {len(evals)} (correctness 산정 {corr_count}건)",
+        f"- specificity 평균: {fmt5(spec)}, logic 평균: {fmt5(logic)}, "
+        f"structure 평균: {fmt5(struct)}, correctness 평균: {fmt5(corr)}",
+        "[차원별 기준값(0~100)]",
+        (
+            f"- technical_accuracy ≈ {tech_100} (correctness=RAG 사실일치 기반)"
+            if tech_100 is not None
+            else "- technical_accuracy: 근거 없음(참고문서 미선택→correctness 미산정). "
+            "전사로 보수적으로 판단."
+        ),
+        f"- logic_score ≈ {logic_100 if logic_100 is not None else '근거 없음'}",
+        f"- communication_score ≈ {comm_100 if comm_100 is not None else '근거 없음'} "
+        "(specificity 명료성 + structure 구조화)",
+        f"- overall_score ≈ {overall_100 if overall_100 is not None else '근거 없음'}",
+    ]
+    return "\n".join(lines)
 
 
 def _build_voice_analysis_summary(summary: VoiceAnalysisSummary | None) -> str:

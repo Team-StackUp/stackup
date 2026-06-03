@@ -32,6 +32,21 @@ SYSTEM_PROMPT += (
     "  - If voice analysis is absent or sparse, do not invent voice-related findings.\n"
 )
 
+# 점수 앵커(캘리브레이션) + per-answer 집계 기준값 제약(하이브리드).
+SYSTEM_PROMPT += (
+    "\n- 점수 앵커 (0~100, 모든 차원 공통 기준):\n"
+    "  - 90~100: 정확하고 구체적이며 trade-off·근거까지 깊이 있음. 빈틈 거의 없음.\n"
+    "  - 70~89: 대체로 정확·구체적이나 일부 깊이/근거가 부족.\n"
+    "  - 50~69: 방향은 맞으나 추상적이거나 근거·구조가 미흡.\n"
+    "  - 30~49: 부분적으로만 타당하고 핵심 누락이 많음.\n"
+    "  - 0~29: 부정확하거나 거의 무응답.\n"
+    "- '점수 기준값' 섹션 (per-answer 평가를 집계한 차원별 기준값) 이 주어지면:\n"
+    "  - 각 차원 최종 점수는 그 기준값에서 **±15점 이내**로 산정한다.\n"
+    "  - ±15점을 넘겨야 한다면 그 사유를 strengths/weaknesses 에 반드시 명시한다.\n"
+    "  - 기준값이 '근거 없음'(예: 참고문서 미선택으로 correctness 미산정)인 차원은 "
+    "전사 내용으로 판단하되, 그 한계를 weaknesses 또는 점수 보수성(과대평가 금지)에 반영한다.\n"
+)
+
 HUMAN_PROMPT = (
     "직군: {job_category}\n"
     "면접 모드: {mode}\n"
@@ -39,6 +54,8 @@ HUMAN_PROMPT = (
     "종료 사유: {end_reason}\n\n"
     "=== 메시지 시퀀스 ===\n"
     "{transcript}\n\n"
+    "=== 점수 기준값 (per-answer 평가 집계 — 이 값을 기준으로 산정) ===\n"
+    "{score_basis}\n\n"
     "=== RAG 컨텍스트 청크 (참고용, 직접 인용 금지) ===\n"
     "{rag_context}\n\n"
     "=== Voice Analysis Summary ===\n"
