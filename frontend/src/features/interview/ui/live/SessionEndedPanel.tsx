@@ -8,13 +8,26 @@ const messageByStatus: Partial<Record<SessionStatus, string>> = {
   CANCELLED: '면접이 취소되었습니다.',
 }
 
-export function SessionEndedPanel({ status }: { status: SessionStatus }) {
+export function SessionEndedPanel({
+  status,
+  sessionId,
+}: {
+  status: SessionStatus
+  sessionId: number
+}) {
   return (
     <div className="flex flex-col items-center gap-4 px-4 py-16 text-center">
       <p className="text-rich text-fg">{messageByStatus[status] ?? '면접이 종료되었습니다.'}</p>
-      <Link to="/workspace">
-        <Button variant="secondary">워크스페이스로</Button>
-      </Link>
+      <div className="flex flex-wrap items-center justify-center gap-3">
+        {status === 'COMPLETED' && (
+          <Link to={`/sessions/${sessionId}/feedback`}>
+            <Button>피드백 보기</Button>
+          </Link>
+        )}
+        <Link to="/workspace">
+          <Button variant="secondary">워크스페이스로</Button>
+        </Link>
+      </div>
     </div>
   )
 }
