@@ -6,12 +6,14 @@ import AuthCallbackPage from '@/pages/AuthCallback'
 import WorkspacePage from '@/pages/Workspace'
 import InterviewSetupPage from '@/pages/InterviewSetup'
 import InterviewSessionPage from '@/pages/InterviewSession'
+import PracticePage from '@/pages/Practice'
 import SessionFeedbackPage from '@/pages/SessionFeedback'
 import SharedFeedbackPage from '@/pages/SharedFeedback'
 
 export const router = createBrowserRouter([
   { path: '/', element: <HomePage /> },
   { path: '/login', element: <LoginPage /> },
+  { path: '/practice/:track', element: <PracticePage /> },
   { path: '/share/:token', element: <SharedFeedbackPage /> },
   { path: '/auth/callback', element: <AuthCallbackPage /> },
   {
