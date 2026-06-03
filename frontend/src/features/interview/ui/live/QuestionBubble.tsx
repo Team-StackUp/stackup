@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import type { Message } from '@/domain/session'
 import { StatusBadge } from '@/shared/ui/StatusBadge'
 
@@ -8,11 +9,50 @@ const CATEGORY_LABEL: Record<string, string> = {
   BEHAVIORAL: '인성·행동',
 }
 
-export function QuestionBubble({ message }: { message: Message }) {
+function PlayIcon({ playing }: { playing: boolean }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      {playing ? <path d="M8 6h3v12H8zM13 6h3v12h-3z" /> : <path d="M8 5v14l11-7z" />}
+    </svg>
+  )
+}
+
+// ttsAudioUrl 이 생기면(최신 질문일 때) 한 번 자동재생 시도.
+// 브라우저 자동재생 차단 시 조용히 실패 → 사용자가 버튼으로 재생.
+function useTtsPlayer(url: string | undefined, autoPlay: boolean) {
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const [playing, setPlaying] = useState(false)
+  const autoPlayedFor = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!url || !autoPlay || autoPlayedFor.current === url) return
+    autoPlayedFor.current = url
+    audioRef.current?.play().catch(() => {})
+  }, [url, autoPlay])
+
+  const toggle = () => {
+    const el = audioRef.current
+    if (!el) return
+    if (el.paused) el.play().catch(() => {})
+    else el.pause()
+  }
+
+  return { audioRef, playing, setPlaying, toggle }
+}
+
+export function QuestionBubble({
+  message,
+  autoPlay = false,
+}: {
+  message: Message
+  autoPlay?: boolean
+}) {
   const categoryLabel = message.category
     ? (CATEGORY_LABEL[message.category] ?? message.category)
     : null
   const hasMeta = Boolean(categoryLabel || message.targetEvidence)
+  const ttsUrl = message.ttsStatus === 'SUCCEEDED' ? message.ttsAudioUrl : undefined
+  const { audioRef, playing, setPlaying, toggle } = useTtsPlayer(ttsUrl, autoPlay)
 
   return (
     <div className="flex justify-start">
@@ -21,14 +61,33 @@ export function QuestionBubble({ message }: { message: Message }) {
           <div className="flex flex-wrap items-center gap-2">
             {categoryLabel && <StatusBadge tone="info">{categoryLabel}</StatusBadge>}
             {message.targetEvidence && (
-              <span className="text-caption text-fg-muted">
-                근거: {message.targetEvidence}
-              </span>
+              <span className="text-caption text-fg-muted">근거: {message.targetEvidence}</span>
             )}
           </div>
         )}
-        <div className="whitespace-pre-wrap rounded-lg rounded-tl-sm bg-surface-raised px-4 py-3 text-body text-fg shadow-sm">
-          {message.content}
+        <div className="rounded-lg rounded-tl-sm bg-surface-raised px-4 py-3 text-body text-fg shadow-sm">
+          <p className="whitespace-pre-wrap">{message.content}</p>
+          {ttsUrl && (
+            <div className="mt-2 flex items-center gap-2 border-t border-border pt-2">
+              <button
+                type="button"
+                onClick={toggle}
+                aria-label={playing ? '음성 일시정지' : '질문 음성 재생'}
+                className="inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-caption text-fg-muted transition-colors hover:bg-surface hover:text-fg"
+              >
+                <PlayIcon playing={playing} />
+                {playing ? '일시정지' : '음성 듣기'}
+              </button>
+              <audio
+                ref={audioRef}
+                src={ttsUrl}
+                preload="none"
+                onPlay={() => setPlaying(true)}
+                onPause={() => setPlaying(false)}
+                onEnded={() => setPlaying(false)}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -8,8 +8,18 @@ import { SessionEndedPanel } from './SessionEndedPanel'
 import { InterviewLobby } from './InterviewLobby'
 
 export function LiveInterview({ sessionId }: { sessionId: number }) {
-  const { session, status, items, turn, connection, submitAnswer, endSession, isLoading } =
-    useLiveInterview(sessionId)
+  const {
+    session,
+    status,
+    items,
+    turn,
+    connection,
+    submitAnswer,
+    submitVoice,
+    voiceUploading,
+    endSession,
+    isLoading,
+  } = useLiveInterview(sessionId)
 
   if (isLoading || !session) {
     return (
@@ -36,6 +46,8 @@ export function LiveInterview({ sessionId }: { sessionId: number }) {
       <AnswerComposer
         disabled={turn !== 'AWAITING_ANSWER' || connection !== 'open'}
         onSubmit={submitAnswer}
+        onSubmitVoice={submitVoice}
+        voiceUploading={voiceUploading}
       />
     </div>
   )

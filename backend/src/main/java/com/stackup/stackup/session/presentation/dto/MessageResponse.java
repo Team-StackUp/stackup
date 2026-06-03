@@ -20,7 +20,10 @@ public record MessageResponse(
     MessageStatus status,
     Instant createdAt,
     String category,
-    String targetEvidence
+    String targetEvidence,
+    // 재생용 presigned URL (질문 TTS / 음성 답변 원본). 조회 응답에서만 채움.
+    String ttsAudioUrl,
+    String audioFileUrl
     // expectedSignal 은 노출하지 않음 — 자기연습 시 정답 유출 방지.
 ) {
     public static MessageResponse from(MessageResult r) {
@@ -38,7 +41,9 @@ public record MessageResponse(
             r.status(),
             r.createdAt(),
             r.category(),
-            r.targetEvidence()
+            r.targetEvidence(),
+            r.ttsAudioUrl(),
+            r.audioFileUrl()
         );
     }
 }
