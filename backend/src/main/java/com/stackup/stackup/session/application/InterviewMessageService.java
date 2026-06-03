@@ -2,6 +2,7 @@ package com.stackup.stackup.session.application;
 
 import com.stackup.stackup.common.exception.ApiErrorCode;
 import com.stackup.stackup.common.exception.DomainException;
+import com.stackup.stackup.common.storage.ObjectStorageClient;
 import com.stackup.stackup.session.application.dto.MessageResult;
 import com.stackup.stackup.session.application.event.AnswerSubmittedEvent;
 import com.stackup.stackup.session.domain.InterviewMessage;
@@ -11,8 +12,13 @@ import com.stackup.stackup.session.domain.InterviewSessionRepository;
 import com.stackup.stackup.session.domain.MessageRole;
 import com.stackup.stackup.session.domain.MessageStatus;
 import com.stackup.stackup.session.domain.SessionStatus;
+import com.stackup.stackup.session.domain.TtsStatus;
+import java.net.URI;
+import java.time.Duration;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,15 +30,41 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class InterviewMessageService {
 
+    private static final Logger log = LoggerFactory.getLogger(InterviewMessageService.class);
+    private static final Duration AUDIO_URL_TTL = Duration.ofMinutes(30);
+
     private final InterviewSessionRepository sessionRepository;
     private final InterviewMessageRepository messageRepository;
+    private final ObjectStorageClient storage;
     private final ApplicationEventPublisher events;
 
     public List<MessageResult> list(Long userId, Long sessionId) {
         ownedSession(userId, sessionId);
         return messageRepository.findBySession_IdOrderBySequenceNumberAsc(sessionId).stream()
-            .map(MessageResult::of)
+            .map(this::toResultWithAudioUrls)
             .toList();
+    }
+
+    // 재생용 presigned URL 동봉: 질문 TTS(SUCCEEDED) + 음성 답변 원본.
+    // presign 실패가 메시지 조회 전체를 깨뜨리지 않도록 개별 try/catch.
+    private MessageResult toResultWithAudioUrls(InterviewMessage m) {
+        String ttsUrl = m.getTtsStatus() == TtsStatus.SUCCEEDED
+            ? presign(m.getTtsAudioPath()) : null;
+        String audioUrl = presign(m.getAudioFilePath());
+        return MessageResult.of(m, ttsUrl, audioUrl);
+    }
+
+    private String presign(String key) {
+        if (key == null || key.isBlank()) {
+            return null;
+        }
+        try {
+            URI url = storage.createPresignedGetUrl(key, AUDIO_URL_TTL);
+            return url == null ? null : url.toString();
+        } catch (RuntimeException e) {
+            log.warn("presigned audio URL creation failed. key={}", key, e);
+            return null;
+        }
     }
 
     @Transactional

@@ -2613,6 +2613,12 @@
           },
           "targetEvidence" : {
             "type" : "string"
+          },
+          "ttsAudioUrl" : {
+            "type" : "string"
+          },
+          "audioFileUrl" : {
+            "type" : "string"
           }
         }
       },

@@ -20,10 +20,17 @@ public record MessageResult(
     MessageStatus status,
     Instant createdAt,
     String category,
-    String targetEvidence
+    String targetEvidence,
+    // 재생용 presigned URL. 조회(list) 경로에서만 채우고, 그 외에는 null.
+    String ttsAudioUrl,
+    String audioFileUrl
     // expectedSignal 은 의도적으로 제외 — 정답 유출 방지(라이브 비노출).
 ) {
     public static MessageResult of(InterviewMessage m) {
+        return of(m, null, null);
+    }
+
+    public static MessageResult of(InterviewMessage m, String ttsAudioUrl, String audioFileUrl) {
         return new MessageResult(
             m.getId(),
             m.getSession().getId(),
@@ -38,7 +45,9 @@ public record MessageResult(
             m.getStatus(),
             m.getCreatedAt(),
             m.getCategory(),
-            m.getTargetEvidence()
+            m.getTargetEvidence(),
+            ttsAudioUrl,
+            audioFileUrl
         );
     }
 }
