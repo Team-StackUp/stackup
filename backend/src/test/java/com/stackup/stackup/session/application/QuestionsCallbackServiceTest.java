@@ -139,7 +139,7 @@ class QuestionsCallbackServiceTest {
 
         QuestionsCallbackPayload payload = new QuestionsCallbackPayload(
             11L, "FOLLOWUP", null, 500L, 600L, "다음 질문?",
-            new QuestionsCallbackPayload.AnswerEvaluation(2.0, 3.0, "PARTIAL_STAR", 1.5)
+            new QuestionsCallbackPayload.AnswerEvaluation(2.0, 3.0, "PARTIAL_STAR", 1.5), "NORMAL"
         );
         QuestionsCallbackEnvelope env = new QuestionsCallbackEnvelope(
             "m-eval", "callback.questions", "1", "t", null, "ai", payload, null);
@@ -160,16 +160,41 @@ class QuestionsCallbackServiceTest {
         assertThat(answer.getAnswerCorrectness()).isEqualTo(1.5);
     }
 
+    @Test
+    void apply_clarificationReExplainsWithoutCountingQuestion() {
+        InterviewSession session = sessionFixture(11L, SessionStatus.IN_PROGRESS);
+        QuestionsCallbackPayload payload = new QuestionsCallbackPayload(
+            11L, "FOLLOWUP", null, 500L, 600L, "쉽게 다시 설명: 트랜잭션이란…",
+            null, "CLARIFICATION"
+        );
+        QuestionsCallbackEnvelope env = new QuestionsCallbackEnvelope(
+            "m-clar", "callback.questions", "1", "t", null, "ai", payload, null);
+
+        when(processedMessageRepository.existsById("m-clar")).thenReturn(false);
+        when(sessionRepository.findById(11L)).thenReturn(Optional.of(session));
+        when(messageRepository.findById(500L)).thenReturn(Optional.empty());
+        when(messageRepository.countBySession_Id(11L)).thenReturn(2L);
+        when(messageRepository.save(any(InterviewMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.apply(env);
+
+        ArgumentCaptor<InterviewMessage> cap = ArgumentCaptor.forClass(InterviewMessage.class);
+        verify(messageRepository).save(cap.capture());
+        assertThat(cap.getValue().isClarification()).isTrue();
+        // 부연은 질문 수(k)에 카운트되지 않는다.
+        assertThat(session.getTotalQuestionCount()).isEqualTo(0);
+    }
+
     private QuestionsCallbackEnvelope poolEnvelope(Long sessionId, List<GeneratedQuestion> questions) {
         QuestionsCallbackPayload payload = new QuestionsCallbackPayload(
-            sessionId, "POOL", questions, null, null, null, null
+            sessionId, "POOL", questions, null, null, null, null, null
         );
         return new QuestionsCallbackEnvelope("m-1", "callback.questions", "1", "t", null, "ai", payload, null);
     }
 
     private QuestionsCallbackEnvelope followupEnvelope(Long sessionId, Long parentId, String followup) {
         QuestionsCallbackPayload payload = new QuestionsCallbackPayload(
-            sessionId, "FOLLOWUP", null, parentId, null, followup, null
+            sessionId, "FOLLOWUP", null, parentId, null, followup, null, "NORMAL"
         );
         return new QuestionsCallbackEnvelope("m-2", "callback.questions", "1", "t", null, "ai", payload, null);
     }

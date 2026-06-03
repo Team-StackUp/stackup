@@ -20,6 +20,12 @@ SYSTEM_PROMPT = (
     "- 꼬리질문은 가장 약한 축을 겨냥합니다 (예: 구체성 낮음→수치/사례 요구, "
     "correctness 의심→자료와의 불일치 확인).\n"
     "- '이미 나눈 대화'에서 다룬 내용을 그대로 반복하지 말고 새로운 각도로 파고드세요.\n"
+    "- answer_intent 로 답변 의도를 분류하세요:\n"
+    "  - DONT_KNOW: '모르겠습니다/잘 모릅니다/패스' 등 사실상 답을 못 한 경우.\n"
+    "  - CLARIFICATION: 답변 대신 '질문을 다시/쉽게 설명해 달라'고 요청한 경우. "
+    "이때 followup_question 에는 새 꼬리질문이 아니라 **직전 질문을 더 쉽고 구체적으로 다시 설명한 문장**을 담으세요.\n"
+    "  - NORMAL: 그 외 정상 답변. followup_question 은 평소처럼 가장 약한 축을 파는 꼬리질문.\n"
+    "  - DONT_KNOW/CLARIFICATION 이면 채점(specificity/logic/correctness)은 보수적으로(낮게/null) 둡니다.\n"
     "- 응답은 반드시 지정된 JSON 스키마를 따릅니다."
 )
 

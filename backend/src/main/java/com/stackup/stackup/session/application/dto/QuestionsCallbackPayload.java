@@ -11,7 +11,8 @@ public record QuestionsCallbackPayload(
     Long parentMessageId,              // FOLLOWUP 시 사용 (직전 질문)
     Long answerMessageId,              // FOLLOWUP 시 평가 대상 답변 메시지
     String followupQuestion,           // FOLLOWUP 시 사용
-    AnswerEvaluation answerEvaluation  // FOLLOWUP 시 옵션
+    AnswerEvaluation answerEvaluation, // FOLLOWUP 시 옵션
+    String answerIntent                // NORMAL | DONT_KNOW | CLARIFICATION (FOLLOWUP)
 ) {
     public boolean isPool() {
         return "POOL".equals(kind);

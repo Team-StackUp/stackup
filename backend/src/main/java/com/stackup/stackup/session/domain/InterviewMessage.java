@@ -102,6 +102,10 @@ public class InterviewMessage extends BaseTimeEntity {
     @Column(name = "answer_correctness")
     private Double answerCorrectness;
 
+    // 부연(질문 재설명) 메시지 여부. true 면 총 질문 수·꼬리 깊이에 카운트하지 않는다.
+    @Column(nullable = false)
+    private boolean clarification = false;
+
     private InterviewMessage(InterviewSession session, Integer sequenceNumber, MessageRole role,
                              String content, InterviewMessage parentMessage,
                              MessageStatus initialStatus, String idempotencyKey) {
@@ -143,6 +147,16 @@ public class InterviewMessage extends BaseTimeEntity {
                                             InterviewMessage parent) {
         InterviewMessage m = new InterviewMessage(session, seq, MessageRole.INTERVIEWER, content, parent,
             MessageStatus.CREATED, null);
+        m.markTtsPending();
+        return m;
+    }
+
+    // 부연: 직전 질문을 다시 설명해 같은 차례를 유지. 질문 수/깊이에 카운트 안 함.
+    public static InterviewMessage clarification(InterviewSession session, int seq, String content,
+                                                 InterviewMessage parent) {
+        InterviewMessage m = new InterviewMessage(session, seq, MessageRole.INTERVIEWER, content, parent,
+            MessageStatus.CREATED, null);
+        m.clarification = true;
         m.markTtsPending();
         return m;
     }

@@ -158,34 +158,43 @@ public class QuestionsCallbackService {
     }
 
     private void applyFollowup(InterviewSession session, QuestionsCallbackPayload payload) {
+        InterviewMessage parent = payload.parentMessageId() == null
+            ? null
+            : messageRepository.findById(payload.parentMessageId()).orElse(null);
+        String intent = payload.answerIntent() == null ? "NORMAL" : payload.answerIntent();
+
+        // 모르겠음 → 이 주제 더 안 파고 다음 일반질문으로(없으면 종료). 답변평가는 기록(낮은 점수 의미 있음).
+        if ("DONT_KNOW".equalsIgnoreCase(intent)) {
+            recordAnswerEvaluation(payload);
+            log.info("callback.questions DONT_KNOW — advancing to next general. sessionId={}", session.getId());
+            advanceToNextGeneral(session.getId());
+            return;
+        }
+
         if (payload.followupQuestion() == null || payload.followupQuestion().isBlank()) {
             log.warn("callback.questions FOLLOWUP empty question. sessionId={}", session.getId());
             return;
         }
-        InterviewMessage parent = payload.parentMessageId() == null
-            ? null
-            : messageRepository.findById(payload.parentMessageId()).orElse(null);
 
-        // 답변 평가를 해당 답변 메시지에 영속 (피드백 롤업 재활용). 평가/대상 없으면 skip.
+        // 부연 요청 → 같은 질문 재설명. 질문 수(k)·깊이(m) 미반영, 답변평가 기록 안 함.
+        if ("CLARIFICATION".equalsIgnoreCase(intent)) {
+            int seq = (int) messageRepository.countBySession_Id(session.getId()) + 1;
+            InterviewMessage clar = messageRepository.save(
+                InterviewMessage.clarification(session, seq, payload.followupQuestion(), parent));
+            publishQuestionEvents(session, clar, "CLARIFICATION");
+            log.info("callback.questions CLARIFICATION — re-explained question. sessionId={}, msg={}",
+                session.getId(), clar.getId());
+            return;
+        }
+
+        // 정상 답변 → 꼬리질문 삽입.
         recordAnswerEvaluation(payload);
-
-        long currentMsgs = messageRepository.countBySession_Id(session.getId());
-        int nextSeq = (int) currentMsgs + 1;
-
+        int nextSeq = (int) messageRepository.countBySession_Id(session.getId()) + 1;
         InterviewMessage message = messageRepository.save(
             InterviewMessage.followup(session, nextSeq, payload.followupQuestion(), parent)
         );
         session.incrementQuestionCount();
-
-        events.publishEvent(new QuestionPersistedEvent(
-            session.getUser().getId(), session.getId(), message.getId()));
-
-        events.publishEvent(RealtimeNotifyEvent.session(session.getId(), SseEventType.SESSION_MESSAGE, message.getId()));
-        events.publishEvent(RealtimeNotifyEvent.user(
-            session.getUser().getId(),
-            SseEventType.SESSION_MESSAGE,
-            new SessionMessageNotice(session.getId(), message.getId(), "FOLLOWUP_READY")
-        ));
+        publishQuestionEvents(session, message, "FOLLOWUP_READY");
 
         // maxQuestions(k) 도달 시 자동 종료.
         maybeAutoEnd(session);
