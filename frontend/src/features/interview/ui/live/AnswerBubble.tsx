@@ -1,13 +1,14 @@
+import { isTranscribing } from '@/domain/session'
 import type { Message } from '@/domain/session'
 
 export function AnswerBubble({ message }: { message: Message }) {
-  const transcribing = !message.content?.trim()
+  const transcribing = isTranscribing(message)
   const failed = transcribing && message.status === 'FAILED'
 
   return (
     <div className="flex flex-col items-end gap-1">
       <div className="max-w-[80%] whitespace-pre-wrap rounded-lg rounded-tr-sm bg-primary px-4 py-3 text-body text-fg-on-primary shadow-sm">
-        {message.content?.trim() ? (
+        {!transcribing ? (
           message.content
         ) : (
           <span className="inline-flex items-center gap-2 text-fg-on-primary/80">

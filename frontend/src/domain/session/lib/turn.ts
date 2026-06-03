@@ -10,6 +10,17 @@ export function isAnswer(message: Message): boolean {
   return message.role === 'INTERVIEWEE'
 }
 
+// 음성 답변 placeholder 의 임시 content (백엔드 InterviewMessage.VOICE_TRANSCRIPTION_PENDING_TEXT 와 동일).
+// STT 완료 전까지 이 값이 들어 있고, 완료되면 실제 transcript 로 교체된다.
+export const VOICE_TRANSCRIBING_TEXT = '(transcribing)'
+
+// STT 대기 중(transcript 아직 없음)인 음성 답변인지.
+export function isTranscribing(message: Message): boolean {
+  if (!isAnswer(message)) return false
+  const c = (message.content ?? '').trim()
+  return c === '' || c === VOICE_TRANSCRIBING_TEXT
+}
+
 export function currentTurn(messages: Message[]): Turn {
   const last = messages[messages.length - 1]
   // 마지막이 '내용이 있는' 면접관 질문일 때만 답변 차례. 질문 생성 중(빈 content)
