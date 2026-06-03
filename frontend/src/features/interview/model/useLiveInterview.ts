@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { currentTurn } from '@/domain/session'
 import type { Message } from '@/domain/session'
+import { submitVoiceAnswer } from '../api/messageApi'
 import { sessionKeys, useSession } from './useSession'
 import { messageKeys, useSessionMessages } from './useSessionMessages'
 import { useSessionLifecycle } from './useSessionLifecycle'
@@ -68,6 +69,20 @@ export function useLiveInterview(sessionId: number) {
     [socketSubmit],
   )
 
+  // 음성 답변은 REST 업로드(multipart). 성공 시 placeholder 메시지를
+  // 받으므로 목록을 무효화해 "음성 인식 중…" 버블을 띄운다.
+  // 이후 STT 완료는 callback.voice → SESSION_MESSAGE SSE 로 갱신된다.
+  const voiceMutation = useMutation({
+    mutationFn: (audio: Blob) => submitVoiceAnswer(sessionId, audio, crypto.randomUUID()),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: messageKeys.list(sessionId) }),
+  })
+
+  const submitVoice = useCallback(
+    (audio: Blob) => voiceMutation.mutate(audio),
+    [voiceMutation],
+  )
+
   return {
     session: sessionQuery.data,
     status,
@@ -75,6 +90,9 @@ export function useLiveInterview(sessionId: number) {
     turn: currentTurn(items),
     connection,
     submitAnswer,
+    submitVoice,
+    voiceUploading: voiceMutation.isPending,
+    voiceError: voiceMutation.isError,
     endSession: () => end.mutate(),
     isLoading: sessionQuery.isLoading,
   }
