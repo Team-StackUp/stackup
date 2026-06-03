@@ -66,11 +66,17 @@ class Settings(BaseSettings):
     deepgram_live_endpointing_ms: int = 800  # 무음 800ms → utterance end
     voice_stream_internal_path: str = "/internal/voice/stream"
 
-    # TTS (질문 음성화). "auto" 면 openai 키 보유 시 openai, 없으면 mock.
-    tts_provider: Literal["auto", "mock", "openai"] = "auto"
+    # TTS (질문 음성화). "auto" 면 gemini > openai 순으로 키 보유 시 선택, 둘 다 없으면 mock.
+    # Deepgram/OpenAI TTS 는 한국어 미지원이라 기본은 Gemini TTS(GEMINI_API_KEY 재사용).
+    tts_provider: Literal["auto", "mock", "openai", "gemini"] = "auto"
     openai_tts_model: str = "gpt-4o-mini-tts"
     openai_tts_voice: str = "alloy"
     openai_tts_timeout_sec: float = 30.0
+    # Gemini TTS — 한국어 지원. raw PCM(L16) 반환 → 저장 시 WAV 로 감싼다.
+    gemini_tts_model: str = "gemini-2.5-flash-preview-tts"
+    gemini_tts_voice: str = "Kore"
+    gemini_tts_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
+    gemini_tts_timeout_sec: float = 30.0
     tts_audio_key_template: str = "interview/tts/{session_id}/{message_id}.mp3"
     # 음성 분석
     voice_filler_pattern: str = r"(?:음+|어+|그+|아+)"
