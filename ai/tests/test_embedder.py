@@ -120,7 +120,9 @@ async def test_gemini_embed_returns_vector_list_from_sdk_response() -> None:
 
 
 @pytest.mark.asyncio
-async def test_gemini_embed_task_type_defaults_to_document_and_overrides_to_query() -> None:
+async def test_gemini_embed_task_type_defaults_to_document_and_overrides_to_query() -> (
+    None
+):
     from types import SimpleNamespace
     from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -183,5 +185,103 @@ async def test_gemini_embed_wraps_sdk_exception_as_retriable() -> None:
 
     with pytest.raises(EmbeddingError) as exc_info:
         await emb.embed(["x"])
+    # 한도 초과가 아닌 일반 오류는 재시도하지 않고 즉시 실패.
     assert exc_info.value.code == "GEMINI_FAILED"
     assert exc_info.value.retriable is True
+    assert fake_aio.models.embed_content.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_gemini_embed_splits_into_batches() -> None:
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from ai_server.rag.embedder import GeminiEmbeddingProvider
+
+    # 배치마다 입력 개수만큼 벡터를 돌려주도록 모사.
+    def _resp_for(*, contents, **_kwargs):
+        return SimpleNamespace(
+            embeddings=[
+                SimpleNamespace(values=[float(i)]) for i in range(len(contents))
+            ]
+        )
+
+    fake_aio = MagicMock()
+    fake_aio.models.embed_content = AsyncMock(side_effect=_resp_for)
+    fake_client = MagicMock()
+    fake_client.aio = fake_aio
+
+    with patch("google.genai.Client", return_value=fake_client):
+        emb = GeminiEmbeddingProvider(api_key="fake", model="m", dim=1, batch_size=2)
+
+    out = await emb.embed(["a", "b", "c", "d", "e"])
+    assert len(out) == 5
+    # 5개 / batch_size 2 → 3회 호출 (2 + 2 + 1)
+    assert fake_aio.models.embed_content.await_count == 3
+    assert [
+        len(call.kwargs["contents"])
+        for call in fake_aio.models.embed_content.await_args_list
+    ] == [2, 2, 1]
+
+
+@pytest.mark.asyncio
+async def test_gemini_embed_retries_on_429_then_succeeds() -> None:
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from ai_server.rag.embedder import GeminiEmbeddingProvider
+
+    class _RateLimited(Exception):
+        code = 429
+        status = "RESOURCE_EXHAUSTED"
+
+    ok = SimpleNamespace(embeddings=[SimpleNamespace(values=[0.5])])
+    fake_aio = MagicMock()
+    fake_aio.models.embed_content = AsyncMock(side_effect=[_RateLimited("429"), ok])
+    fake_client = MagicMock()
+    fake_client.aio = fake_aio
+
+    with patch("google.genai.Client", return_value=fake_client):
+        emb = GeminiEmbeddingProvider(
+            api_key="fake",
+            model="m",
+            dim=1,
+            max_retries=3,
+            retry_base_delay_sec=0.0,  # 테스트는 즉시 재시도.
+        )
+
+    out = await emb.embed(["x"])
+    assert out == [[0.5]]
+    assert fake_aio.models.embed_content.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_gemini_embed_gives_up_after_max_retries_on_429() -> None:
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from ai_server.rag.embedder import EmbeddingError, GeminiEmbeddingProvider
+
+    class _RateLimited(Exception):
+        code = 429
+        status = "RESOURCE_EXHAUSTED"
+
+    fake_aio = MagicMock()
+    fake_aio.models.embed_content = AsyncMock(side_effect=_RateLimited("429"))
+    fake_client = MagicMock()
+    fake_client.aio = fake_aio
+
+    with patch("google.genai.Client", return_value=fake_client):
+        emb = GeminiEmbeddingProvider(
+            api_key="fake",
+            model="m",
+            dim=1,
+            max_retries=2,
+            retry_base_delay_sec=0.0,
+        )
+
+    with pytest.raises(EmbeddingError) as exc_info:
+        await emb.embed(["x"])
+    assert exc_info.value.code == "GEMINI_RATE_LIMITED"
+    assert exc_info.value.retriable is True
+    # 최초 1 + 재시도 2 = 3회.
+    assert fake_aio.models.embed_content.await_count == 3

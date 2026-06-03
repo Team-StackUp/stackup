@@ -134,7 +134,11 @@ class Settings(BaseSettings):
     embedding_dim: int = 1536
     embedding_chunk_size: int = 1000
     embedding_chunk_overlap: int = 200
+    # 한 임베딩 요청당 청크 수. 크면 분당 토큰 한도(429)에 걸리기 쉬우니 적당히 쪼갠다.
     embedding_batch_size: int = 32
+    # 429(RESOURCE_EXHAUSTED) 시 지수 백오프 재시도 횟수·기본 지연(초).
+    embedding_max_retries: int = 5
+    embedding_retry_base_delay_sec: float = 2.0
 
     # PDF Vision (이미지/스캔 PDF 폴백 — 게이트웨이 멀티모달)
     pdf_vision_max_pages: int = 5

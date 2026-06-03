@@ -136,7 +136,9 @@ EMBEDDING_MODEL=gemini-embedding-001
 EMBEDDING_DIM=1536                # DB 컬럼 차원과 일치 필수
 EMBEDDING_CHUNK_SIZE=1000
 EMBEDDING_CHUNK_OVERLAP=200
-EMBEDDING_BATCH_SIZE=32
+EMBEDDING_BATCH_SIZE=32            # 한 요청당 청크 수 (작을수록 429 회피, 호출 수↑)
+EMBEDDING_MAX_RETRIES=5           # 429(RESOURCE_EXHAUSTED) 지수 백오프 재시도 횟수
+EMBEDDING_RETRY_BASE_DELAY_SEC=2.0  # delay = base*2^attempt + jitter (상한 30s)
 
 # ===== Markdown 산출물 키 템플릿 =====
 ANALYZED_RESUME_MD_KEY_TEMPLATE=analyzed/resume/{resume_id}/summary.md
