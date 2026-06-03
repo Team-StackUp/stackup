@@ -93,8 +93,8 @@ widgets/{X}  →  pages/*, app/*                    ✗
 | `home-quote` | 다크 그린 quote · 팀 크레딧 | `/` |
 | `home-faq` | FAQ 아코디언 (`<details>` 기반) | `/` |
 | `home-cta` | 풀-블리드 CTA 배너 | `/` |
-| `workspace-profile-card` | `useAuth().user` 기반 프로필 카드 (avatar + 핸들 + email + 연결 상태) | `/workspace` |
-| `workspace-section` | 타이틀·설명·우측 액션·children 슬롯 컨테이너 (도메인 무관) | `/workspace` |
+| `workspace-section` | 타이틀·설명·우측 액션·children 슬롯 컨테이너 (도메인 무관) | `/workspace/resumes`, `/workspace/repos` |
+| `workspace-sidebar` | 대시보드 좌측 사이드바 (브랜드 + 홈/이력서/레포지토리/히스토리 `NavLink` 전환 + 프로필·로그아웃). `lg` 미만에서는 상단 가로 바 | `/workspace`, `/workspace/resumes`, `/workspace/repos`, `/workspace/history` |
 
 ---
 

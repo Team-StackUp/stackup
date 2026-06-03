@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router-dom'
+import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { RequireAuth } from '@/features/auth'
 import HomePage from '@/pages/Home'
 import LoginPage from '@/pages/Login'
@@ -7,7 +7,6 @@ import WorkspacePage from '@/pages/Workspace'
 import InterviewSetupPage from '@/pages/InterviewSetup'
 import InterviewSessionPage from '@/pages/InterviewSession'
 import SessionFeedbackPage from '@/pages/SessionFeedback'
-import HistoryPage from '@/pages/History'
 import SharedFeedbackPage from '@/pages/SharedFeedback'
 
 export const router = createBrowserRouter([
@@ -17,6 +16,22 @@ export const router = createBrowserRouter([
   { path: '/auth/callback', element: <AuthCallbackPage /> },
   {
     path: '/workspace',
+    element: (
+      <RequireAuth>
+        <WorkspacePage />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/workspace/resumes',
+    element: (
+      <RequireAuth>
+        <WorkspacePage />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/workspace/repos',
     element: (
       <RequireAuth>
         <WorkspacePage />
@@ -48,13 +63,14 @@ export const router = createBrowserRouter([
     ),
   },
   {
-    path: '/history',
+    path: '/workspace/history',
     element: (
       <RequireAuth>
-        <HistoryPage />
+        <WorkspacePage />
       </RequireAuth>
     ),
   },
+  { path: '/history', element: <Navigate to="/workspace/history" replace /> },
   {
     path: '/design-system/*',
     lazy: async () => {
