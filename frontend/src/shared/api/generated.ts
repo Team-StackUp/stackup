@@ -1064,6 +1064,26 @@ export interface components {
             /** Format: date-time */
             timestamp?: string;
         };
+        Pageable: {
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            sort?: string[];
+        };
+        PageResponseSessionResponse: {
+            content?: components["schemas"]["SessionResponse"][];
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+            first?: boolean;
+            last?: boolean;
+        };
         FeedbackResponse: {
             /** Format: int64 */
             id?: number;
@@ -1312,7 +1332,9 @@ export interface operations {
     };
     listSessions: {
         parameters: {
-            query?: never;
+            query: {
+                pageable: components["schemas"]["Pageable"];
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -1325,7 +1347,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["SessionResponse"][];
+                    "*/*": components["schemas"]["PageResponseSessionResponse"];
                 };
             };
             /** @description 인증 실패 */
@@ -1334,7 +1356,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["SessionResponse"][];
+                    "*/*": components["schemas"]["PageResponseSessionResponse"];
                 };
             };
         };
