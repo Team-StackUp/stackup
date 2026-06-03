@@ -67,6 +67,32 @@ public class InterviewMessageService {
         }
     }
 
+    // 오디오 스트리밍 프록시. MinIO presigned URL 이 내부 호스트라 브라우저가 못 가므로,
+    // Core 가 인증을 거쳐 바이트를 그대로 흘려준다. 질문=TTS, 답변=음성 원본.
+    public AudioStream streamAudio(Long userId, Long sessionId, Long messageId) {
+        ownedSession(userId, sessionId);
+        InterviewMessage m = messageRepository.findById(messageId)
+            .filter(x -> x.getSession().getId().equals(sessionId))
+            .orElseThrow(() -> new DomainException(ApiErrorCode.VOICE_MESSAGE_NOT_FOUND));
+        String key = m.getRole() == MessageRole.INTERVIEWER ? m.getTtsAudioPath() : m.getAudioFilePath();
+        if (key == null || key.isBlank()) {
+            throw new DomainException(ApiErrorCode.VOICE_MESSAGE_NOT_FOUND);
+        }
+        return new AudioStream(storage.get(key), contentTypeForKey(key));
+    }
+
+    public record AudioStream(java.io.InputStream stream, String contentType) {}
+
+    private static String contentTypeForKey(String key) {
+        String k = key.toLowerCase();
+        if (k.endsWith(".mp3")) return "audio/mpeg";
+        if (k.endsWith(".wav")) return "audio/wav";
+        if (k.endsWith(".ogg")) return "audio/ogg";
+        if (k.endsWith(".m4a") || k.endsWith(".mp4")) return "audio/mp4";
+        if (k.endsWith(".webm")) return "audio/webm";
+        return "application/octet-stream";
+    }
+
     @Transactional
     public MessageResult submitAnswer(Long userId, Long sessionId, String content, String idempotencyKey) {
         InterviewSession session = ownedSession(userId, sessionId);

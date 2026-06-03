@@ -535,6 +535,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sessions/{sessionId}/messages/{messageId}/audio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 메시지 오디오 스트리밍 (질문 TTS / 음성 답변)
+         * @description MinIO presigned URL 이 내부 호스트라 브라우저가 직접 접근 불가하므로 Core 가 인증을 거쳐 오디오 바이트를 스트리밍한다.
+         */
+        get: operations["streamMessageAudio"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sessions/{sessionId}/feedback": {
         parameters: {
             query?: never;
@@ -2689,6 +2709,47 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["SystemHealthResponse"];
+                };
+            };
+        };
+    };
+    streamMessageAudio: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: number;
+                messageId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 오디오 바이트 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+            /** @description 인증 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+            /** @description 세션/메시지/오디오 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
                 };
             };
         };

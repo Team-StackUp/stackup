@@ -116,13 +116,24 @@ public class VoiceAnswerUploadService {
         if (cmd.size() > MAX_BYTES) {
             throw new DomainException(ApiErrorCode.VOICE_FILE_TOO_LARGE);
         }
-        if (cmd.contentType() == null || !ALLOWED_CONTENT_TYPES.contains(cmd.contentType().trim().toLowerCase())) {
+        if (baseContentType(cmd.contentType()) == null) {
             throw new DomainException(ApiErrorCode.VOICE_INVALID_CONTENT_TYPE);
         }
     }
 
+    // 브라우저 MediaRecorder 는 "audio/webm;codecs=opus" 처럼 코덱 파라미터를 붙인다.
+    // 파라미터를 떼고 base MIME 만으로 허용 여부를 판단한다. 허용 외면 null.
+    private static String baseContentType(String contentType) {
+        if (contentType == null) {
+            return null;
+        }
+        String base = contentType.split(";", 2)[0].trim().toLowerCase();
+        return ALLOWED_CONTENT_TYPES.contains(base) ? base : null;
+    }
+
     private static String buildKey(Long sessionId, Long messageId, String contentType) {
-        String ext = switch (contentType.trim().toLowerCase()) {
+        String base = baseContentType(contentType);
+        String ext = switch (base == null ? "" : base) {
             case "audio/webm" -> "webm";
             case "audio/ogg" -> "ogg";
             case "audio/mpeg" -> "mp3";
