@@ -22,7 +22,7 @@ export function LiveInterview({ sessionId }: { sessionId: number }) {
     return <InterviewLobby sessionId={sessionId} session={session} />
   }
   if (status !== 'IN_PROGRESS') {
-    return <SessionEndedPanel status={status ?? 'COMPLETED'} />
+    return <SessionEndedPanel status={status ?? 'COMPLETED'} sessionId={sessionId} />
   }
 
   const awaitingQuestion = turn === 'WAITING_FOR_QUESTION'
