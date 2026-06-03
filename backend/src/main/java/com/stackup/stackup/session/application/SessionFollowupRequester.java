@@ -9,6 +9,7 @@ import com.stackup.stackup.session.application.event.AnswerSubmittedEvent;
 import com.stackup.stackup.session.domain.InterviewMessage;
 import com.stackup.stackup.session.domain.InterviewMessageRepository;
 import com.stackup.stackup.session.domain.InterviewSession;
+import com.stackup.stackup.session.domain.MessageRole;
 import com.stackup.stackup.session.domain.SessionContextRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +34,7 @@ public class SessionFollowupRequester {
     private final RabbitMqProperties properties;
     private final InterviewMessageRepository messageRepository;
     private final SessionContextRepository contextRepository;
+    private final QuestionsCallbackService questionsCallbackService;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -54,6 +56,19 @@ public class SessionFollowupRequester {
         // 최근 대화 히스토리 (중복 질문 회피). 시퀀스 순 → 마지막 N개.
         List<InterviewMessage> ordered =
             messageRepository.findBySession_IdOrderBySequenceNumberAsc(session.getId());
+
+        // 깊이 제어: 현재 일반질문 아래 꼬리질문 수(depth) 가 m 이상이면
+        // 꼬리질문 대신 풀의 다음 일반질문으로 넘어간다(없으면 종료). AI 호출 불필요.
+        int depth = currentFollowupDepth(ordered);
+        int maxFollowups = session.getMaxFollowupsPerQuestion() != null
+            ? session.getMaxFollowupsPerQuestion() : 2;
+        if (depth >= maxFollowups) {
+            log.info("followup depth reached (m={}) — advancing to next general. sessionId={}",
+                maxFollowups, session.getId());
+            questionsCallbackService.advanceToNextGeneral(session.getId());
+            return;
+        }
+
         List<HistoryItem> history = ordered.stream()
             .skip(Math.max(0, ordered.size() - HISTORY_MAX))
             .map(m -> new HistoryItem(m.getRole().name(), m.getContent()))
@@ -79,5 +94,22 @@ public class SessionFollowupRequester {
         );
         log.info("generate.followup published. sessionId={}, parent={}, answer={}",
             session.getId(), parent.getId(), answer.getId());
+    }
+
+    // 현재 일반질문(INTERVIEWER + parent null) 이후 달린 꼬리질문(INTERVIEWER + parent 있음) 수.
+    // 새 일반질문이 나오면 0 으로 리셋된다.
+    private int currentFollowupDepth(List<InterviewMessage> ordered) {
+        int depth = 0;
+        for (InterviewMessage m : ordered) {
+            if (m.getRole() != MessageRole.INTERVIEWER) {
+                continue;
+            }
+            if (m.getParentMessage() == null) {
+                depth = 0;            // 일반질문 → 리셋
+            } else {
+                depth++;              // 꼬리질문 → 증가
+            }
+        }
+        return depth;
     }
 }

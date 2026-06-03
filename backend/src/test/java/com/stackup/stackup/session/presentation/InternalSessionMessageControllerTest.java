@@ -39,7 +39,7 @@ class InternalSessionMessageControllerTest {
         User user = User.createGithubUser(1L, "u", null, null, "t");
         ReflectionTestUtils.setField(user, "id", 7L);
         InterviewSession s = InterviewSession.create(user, "t", null, SessionMode.TECHNICAL,
-            JobCategory.BACKEND, 5, 30);
+            JobCategory.BACKEND, 5, 30, null, null);
         ReflectionTestUtils.setField(s, "id", 99L);
         InterviewMessage q = InterviewMessage.interviewer(s, 1, "Q?");
         ReflectionTestUtils.setField(q, "id", 500L);

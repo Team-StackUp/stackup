@@ -11,6 +11,8 @@ public record SessionCreateCommand(
     JobCategory jobCategory,
     Integer maxQuestions,
     Integer maxDurationMinutes,
+    Integer generalQuestionCount,
+    Integer maxFollowupsPerQuestion,
     List<Long> contextDocumentIds
 ) {
 }

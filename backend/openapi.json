@@ -2529,6 +2529,18 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "generalQuestionCount" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 15,
+            "minimum" : 1
+          },
+          "maxFollowupsPerQuestion" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 10,
+            "minimum" : 0
+          },
           "contextDocumentIds" : {
             "type" : "array",
             "items" : {
@@ -2565,6 +2577,14 @@
             "format" : "int32"
           },
           "maxDurationMinutes" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "generalQuestionCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxFollowupsPerQuestion" : {
             "type" : "integer",
             "format" : "int32"
           },
