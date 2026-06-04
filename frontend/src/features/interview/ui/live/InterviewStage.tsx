@@ -8,6 +8,7 @@ import { ConnectionBanner } from './ConnectionBanner'
 import { AnswerComposer } from './AnswerComposer'
 import { StageQuestion } from './StageQuestion'
 import { InterviewerAvatar } from './InterviewerAvatar'
+import { WebcamSelfView } from './WebcamSelfView'
 import { TranscriptDrawer } from './TranscriptDrawer'
 
 const BG = '/interview-session-background.png'
@@ -116,6 +117,10 @@ export function InterviewStage({
         ) : (
           <StageQuestion question={currentQuestion} />
         )}
+      </div>
+
+      <div className="absolute bottom-24 right-4 z-20 sm:bottom-28">
+        <WebcamSelfView />
       </div>
 
       <div className="relative z-10">
