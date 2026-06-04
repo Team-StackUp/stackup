@@ -1,4 +1,4 @@
-import { RadioCardGroup } from '@/shared/ui/RadioCardGroup'
+import { CheckboxCardGroup } from '@/shared/ui/CheckboxCardGroup'
 import type { JobCategory } from '@/domain/session'
 
 const OPTIONS = [
@@ -10,10 +10,10 @@ const OPTIONS = [
 
 export function JobCategorySelector({
   value,
-  onChange,
+  onToggle,
 }: {
-  value: JobCategory | null
-  onChange: (value: JobCategory) => void
+  value: JobCategory[]
+  onToggle: (value: JobCategory) => void
 }) {
-  return <RadioCardGroup ariaLabel="직군" options={OPTIONS} value={value} onChange={onChange} />
+  return <CheckboxCardGroup ariaLabel="직군" options={OPTIONS} value={value} onToggle={onToggle} />
 }

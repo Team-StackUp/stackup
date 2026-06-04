@@ -46,7 +46,7 @@ class SessionQuestionsRequesterTest {
             1L,
             11L,
             SessionMode.INTEGRATED,
-            JobCategory.BACKEND,
+            List.of(JobCategory.BACKEND),
             5,
             3,
             List.of()
@@ -59,7 +59,7 @@ class SessionQuestionsRequesterTest {
         GenerateQuestionsPayload payload = payloadCaptor.getValue();
         assertThat(payload.sessionId()).isEqualTo(11L);
         assertThat(payload.mode()).isEqualTo(SessionMode.INTEGRATED);
-        assertThat(payload.jobCategory()).isEqualTo(JobCategory.BACKEND);
+        assertThat(payload.jobCategories()).containsExactly(JobCategory.BACKEND);
         assertThat(payload.documents()).isEmpty();
         // generalQuestionCount(n) 만큼 생성 요청 (이벤트의 n=3).
         assertThat(payload.initialQuestionCount()).isEqualTo(3);
@@ -79,7 +79,7 @@ class SessionQuestionsRequesterTest {
             .thenReturn(List.of("이전 질문 A", "이전 질문 B"));
 
         requester.onSessionCreated(new SessionCreatedEvent(
-            1L, 11L, SessionMode.TECHNICAL, JobCategory.BACKEND, 5, 3, List.of()
+            1L, 11L, SessionMode.TECHNICAL, List.of(JobCategory.BACKEND), 5, 3, List.of()
         ));
 
         ArgumentCaptor<GenerateQuestionsPayload> payloadCaptor =

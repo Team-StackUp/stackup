@@ -8,7 +8,7 @@ public record SessionCreateCommand(
     String title,
     String memo,
     SessionMode mode,
-    JobCategory jobCategory,
+    List<JobCategory> jobCategories,
     Integer maxQuestions,
     Integer maxDurationMinutes,
     Integer generalQuestionCount,

@@ -12,6 +12,7 @@ import com.stackup.stackup.session.application.event.SessionCreatedEvent;
 import com.stackup.stackup.session.application.event.SessionEndedEvent;
 import com.stackup.stackup.session.domain.InterviewSession;
 import com.stackup.stackup.session.domain.InterviewSessionRepository;
+import com.stackup.stackup.session.domain.JobCategory;
 import com.stackup.stackup.session.domain.SessionContext;
 import com.stackup.stackup.session.domain.SessionContextRepository;
 import com.stackup.stackup.user.domain.User;
@@ -19,6 +20,7 @@ import com.stackup.stackup.user.domain.UserRepository;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -49,7 +51,7 @@ public class SessionService {
             title,
             command.memo(),
             command.mode(),
-            command.jobCategory(),
+            command.jobCategories(),
             command.maxQuestions(),
             command.maxDurationMinutes(),
             command.generalQuestionCount(),
@@ -63,7 +65,7 @@ public class SessionService {
             userId,
             session.getId(),
             session.getMode(),
-            session.getJobCategory(),
+            command.jobCategories(),
             session.getMaxQuestions(),
             session.getGeneralQuestionCount(),
             linkedIds
@@ -146,14 +148,17 @@ public class SessionService {
         return SessionResult.of(session, contextDocumentIds(sessionId));
     }
 
-    // 제목 미입력 시 모드+직군으로 규칙 기반 제목 생성 (예: "백엔드 기술 면접").
+    // 제목 미입력 시 모드+직군으로 규칙 기반 제목 생성 (예: "프론트엔드·백엔드 기술 면접").
     // 히스토리에서 "면접 #id" 대신 의미 있는 제목을 보이게 한다.
     private String resolveTitle(SessionCreateCommand command) {
         String title = command.title();
         if (title != null && !title.isBlank()) {
             return title;
         }
-        return command.jobCategory().koreanLabel() + " " + command.mode().koreanLabel();
+        String jobs = command.jobCategories().stream()
+            .map(JobCategory::koreanLabel)
+            .collect(Collectors.joining("·"));
+        return jobs + " " + command.mode().koreanLabel();
     }
 
     private User loadUser(Long userId) {

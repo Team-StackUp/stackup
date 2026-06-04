@@ -79,7 +79,7 @@ async def test_consumer_generates_questions_and_publishes_callback():
         {
             "sessionId": 99,
             "mode": "TECHNICAL",
-            "jobCategory": "BACKEND",
+            "jobCategories": ["BACKEND"],
             "documents": [
                 {
                     "documentId": 1,
@@ -97,7 +97,7 @@ async def test_consumer_generates_questions_and_publishes_callback():
 
     generator.generate.assert_awaited_once()
     call = generator.generate.await_args
-    assert call.kwargs["job_category"] == "BACKEND"
+    assert call.kwargs["job_categories"] == ["BACKEND"]
     assert call.kwargs["mode"] == "TECHNICAL"
     # maxQuestions is the session limit; initialQuestionCount controls this result.
     assert call.kwargs["max_questions"] == 2
@@ -133,7 +133,7 @@ async def test_consumer_skips_when_message_id_already_seen():
         {
             "sessionId": 99,
             "mode": "TECHNICAL",
-            "jobCategory": "BACKEND",
+            "jobCategories": ["BACKEND"],
             "documents": [],
             "maxQuestions": 3,
         }
@@ -161,7 +161,7 @@ async def test_consumer_defaults_initial_question_count_to_one():
         {
             "sessionId": 99,
             "mode": "TECHNICAL",
-            "jobCategory": "BACKEND",
+            "jobCategories": ["BACKEND"],
             "documents": [],
             "maxQuestions": 5,
         }
@@ -189,7 +189,7 @@ async def test_consumer_clamps_initial_question_count_to_at_least_one():
         {
             "sessionId": 99,
             "mode": "TECHNICAL",
-            "jobCategory": "BACKEND",
+            "jobCategories": ["BACKEND"],
             "documents": [],
             "initialQuestionCount": 0,
             "maxQuestions": 5,
@@ -233,7 +233,7 @@ async def test_consumer_injects_initial_rag_chunks_when_available():
         {
             "sessionId": 99,
             "mode": "TECHNICAL",
-            "jobCategory": "BACKEND",
+            "jobCategories": ["BACKEND"],
             "documents": [
                 {
                     "documentId": 1,
@@ -292,7 +292,7 @@ async def test_single_document_skips_rag_plan_mode():
         {
             "sessionId": 1,
             "mode": "TECHNICAL",
-            "jobCategory": "BACKEND",
+            "jobCategories": ["BACKEND"],
             "documents": [
                 {
                     "documentId": 1,
@@ -336,7 +336,7 @@ async def test_consumer_falls_back_to_document_context_when_rag_fails():
         {
             "sessionId": 99,
             "mode": "TECHNICAL",
-            "jobCategory": "BACKEND",
+            "jobCategories": ["BACKEND"],
             "documents": [
                 {
                     "documentId": 1,

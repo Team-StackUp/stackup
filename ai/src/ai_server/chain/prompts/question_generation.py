@@ -14,7 +14,7 @@ SYSTEM_PROMPT = (
 )
 
 HUMAN_PROMPT = (
-    "직군: {job_category}\n"
+    "직군(복수 가능): {job_categories}\n"
     "면접 모드: {mode}\n"
     "최대 질문 수: {max_questions}\n\n"
     "지원자 컨텍스트 (이력서/레포 분석):\n"
@@ -25,10 +25,11 @@ HUMAN_PROMPT = (
     "1. 정확히 {max_questions}개의 질문을 생성하되, **서로 다른 주제/영역**을 다룹니다 "
     "(각 질문이 일반질문 1개의 씨앗이 되고 뒤에 꼬리질문이 붙으므로 같은 주제 반복 금지).\n"
     "2. 각 질문에 적절한 category 를 부여합니다.\n"
-    "3. 직군({job_category})·면접 모드({mode}) 에 맞는 비중으로 카테고리 분배:\n"
+    "3. 직군({job_categories})·면접 모드({mode}) 에 맞는 비중으로 카테고리 분배:\n"
     "   - TECHNICAL: CS_FUNDAMENTAL + TECH_CHOICE + PROJECT_DEEP_DIVE 중심.\n"
     "   - PERSONALITY: BEHAVIORAL 중심.\n"
     "   - INTEGRATED: 모두 균형.\n"
+    "   직군이 여러 개면 각 직군에 질문이 고르게 분배되도록 합니다.\n"
     "   자료가 받쳐주는 만큼만 분배하고, 근거 없는 카테고리를 억지로 채우지 마세요.\n"
     "4. 각 질문에 target_evidence 와 expected_signal 을 채웁니다:\n"
     "   - target_evidence: 질문의 근거가 된 컨텍스트 원문을 짧게 인용. "

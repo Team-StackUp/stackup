@@ -17,7 +17,7 @@ export function InterviewSetupForm({
   isSubmitting?: boolean
 }) {
   const [mode, setMode] = useState<SessionMode | null>(null)
-  const [jobCategory, setJobCategory] = useState<JobCategory | null>(null)
+  const [jobCategories, setJobCategories] = useState<JobCategory[]>([])
   const [generalQuestionCount, setGeneralQuestionCount] = useState(3)
   const [maxFollowupsPerQuestion, setMaxFollowupsPerQuestion] = useState(2)
   const [maxQuestions, setMaxQuestions] = useState(10)
@@ -26,13 +26,19 @@ export function InterviewSetupForm({
   const toggle = (id: number) =>
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
 
-  const valid = mode !== null && jobCategory !== null && maxQuestions >= 2 && maxQuestions <= 30
+  const toggleJob = (job: JobCategory) =>
+    setJobCategories((prev) =>
+      prev.includes(job) ? prev.filter((x) => x !== job) : [...prev, job],
+    )
+
+  const valid =
+    mode !== null && jobCategories.length > 0 && maxQuestions >= 2 && maxQuestions <= 30
 
   const submit = () => {
-    if (mode === null || jobCategory === null || !valid) return
+    if (mode === null || jobCategories.length === 0 || !valid) return
     onCreate({
       mode,
-      jobCategory,
+      jobCategories,
       generalQuestionCount,
       maxFollowupsPerQuestion,
       maxQuestions,
@@ -53,8 +59,11 @@ export function InterviewSetupForm({
         <ModeSelector value={mode} onChange={setMode} />
       </section>
       <section className="flex flex-col gap-2">
-        <h2 className="text-h6 text-fg">직군</h2>
-        <JobCategorySelector value={jobCategory} onChange={setJobCategory} />
+        <h2 className="text-h6 text-fg">
+          직군
+          <span className="ml-1 text-caption text-fg-muted">복수 선택 가능</span>
+        </h2>
+        <JobCategorySelector value={jobCategories} onToggle={toggleJob} />
       </section>
       <section className="flex flex-col gap-3">
         <h2 className="text-h6 text-fg">면접 구성</h2>

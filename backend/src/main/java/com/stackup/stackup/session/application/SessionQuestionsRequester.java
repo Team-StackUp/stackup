@@ -68,7 +68,7 @@ public class SessionQuestionsRequester {
         GenerateQuestionsPayload payload = new GenerateQuestionsPayload(
             event.sessionId(),
             event.mode(),
-            event.jobCategory(),
+            event.jobCategories(),
             documents,
             generalCount,
             event.maxQuestions(),

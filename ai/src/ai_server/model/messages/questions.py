@@ -32,7 +32,8 @@ class GenerateQuestionsRequest(BaseModel):
 
     session_id: int
     mode: InterviewMode
-    job_category: JobCategory
+    # 직군 다중 선택. 첫 항목이 대표 직군.
+    job_categories: list[JobCategory] = []
     documents: list[DocumentContext] = []
     initial_question_count: int = 1
     max_questions: int = 10

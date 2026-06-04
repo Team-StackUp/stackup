@@ -224,7 +224,7 @@
   "payload": {
     "sessionId": 99,
     "mode": "TECHNICAL",
-    "jobCategory": "BACKEND",
+    "jobCategories": ["BACKEND", "FRONTEND"],
     "documentIds": [42, 17],
     "maxQuestions": 10,
     "recentQuestions": ["이전 면접 질문 텍스트", "..."]
