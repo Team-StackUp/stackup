@@ -9,15 +9,16 @@ describe('InterviewSetupForm', () => {
     expect(screen.getByRole('button', { name: '면접 생성' })).toBeDisabled()
   })
 
-  it('모드·직군 선택 후 생성하면 요청을 만든다', async () => {
+  it('모드·직군(복수) 선택 후 생성하면 요청을 만든다', async () => {
     const onCreate = vi.fn()
     render(<InterviewSetupForm documents={[]} onCreate={onCreate} />)
     await userEvent.click(screen.getByRole('radio', { name: '기술 면접' }))
-    await userEvent.click(screen.getByRole('radio', { name: '백엔드' }))
+    await userEvent.click(screen.getByRole('checkbox', { name: '백엔드' }))
+    await userEvent.click(screen.getByRole('checkbox', { name: '프론트엔드' }))
     await userEvent.click(screen.getByRole('button', { name: '면접 생성' }))
     expect(onCreate).toHaveBeenCalledWith({
       mode: 'TECHNICAL',
-      jobCategory: 'BACKEND',
+      jobCategories: ['BACKEND', 'FRONTEND'],
       generalQuestionCount: 3,
       maxFollowupsPerQuestion: 2,
       maxQuestions: 10,

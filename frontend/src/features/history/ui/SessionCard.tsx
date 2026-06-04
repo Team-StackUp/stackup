@@ -17,9 +17,22 @@ const MODE: Record<string, string> = {
   INTEGRATED: '통합',
 }
 
+const JOB: Record<string, string> = {
+  FRONTEND: '프론트엔드',
+  BACKEND: '백엔드',
+  INFRA: '인프라',
+  DBA: 'DBA',
+}
+
 export function SessionCard({ session }: { session: Session }) {
   const status = session.status ? STATUS[session.status] : undefined
   const completed = session.status === 'COMPLETED'
+  const jobs = session.jobCategories?.length
+    ? session.jobCategories
+    : session.jobCategory
+      ? [session.jobCategory]
+      : []
+  const jobLabel = jobs.map((j) => JOB[j] ?? j).join('·')
 
   const body = (
     <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-surface-raised px-5 py-4 transition-colors hover:bg-surface">
@@ -27,7 +40,7 @@ export function SessionCard({ session }: { session: Session }) {
         <span className="text-body text-fg">{session.title || `면접 #${session.id}`}</span>
         <span className="text-caption text-fg-muted">
           {formatDate(session.createdAt)} · {MODE[session.mode ?? ''] ?? session.mode} ·{' '}
-          {session.jobCategory} · 질문 {session.totalQuestionCount ?? 0}개
+          {jobLabel} · 질문 {session.totalQuestionCount ?? 0}개
         </span>
       </div>
       <div className="flex items-center gap-3">

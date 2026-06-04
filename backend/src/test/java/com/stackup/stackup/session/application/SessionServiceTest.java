@@ -54,7 +54,7 @@ class SessionServiceTest {
         });
 
         SessionResult result = service.create(1L, new SessionCreateCommand(
-            "title", "memo", SessionMode.TECHNICAL, JobCategory.BACKEND,
+            "title", "memo", SessionMode.TECHNICAL, List.of(JobCategory.BACKEND),
             5, 30, null, null, List.of()
         ));
 
@@ -70,7 +70,7 @@ class SessionServiceTest {
         when(sessionRepository.save(any(InterviewSession.class))).thenAnswer(inv -> inv.getArgument(0));
 
         SessionResult result = service.create(1L, new SessionCreateCommand(
-            "  ", null, SessionMode.TECHNICAL, JobCategory.BACKEND,
+            "  ", null, SessionMode.TECHNICAL, List.of(JobCategory.BACKEND),
             5, 30, null, null, List.of()
         ));
 
@@ -84,7 +84,7 @@ class SessionServiceTest {
         when(sessionRepository.save(any(InterviewSession.class))).thenAnswer(inv -> inv.getArgument(0));
 
         SessionResult result = service.create(1L, new SessionCreateCommand(
-            "내가 정한 제목", null, SessionMode.INTEGRATED, JobCategory.FRONTEND,
+            "내가 정한 제목", null, SessionMode.INTEGRATED, List.of(JobCategory.FRONTEND),
             5, 30, null, null, List.of()
         ));
 
@@ -104,7 +104,7 @@ class SessionServiceTest {
         when(documentRepository.findActiveByIdAndOwner(7L, 1L)).thenReturn(Optional.of(doc));
 
         SessionResult result = service.create(1L, new SessionCreateCommand(
-            "t", null, SessionMode.TECHNICAL, JobCategory.BACKEND,
+            "t", null, SessionMode.TECHNICAL, List.of(JobCategory.BACKEND),
             5, 30, null, null, List.of(7L, 7L)
         ));
 
@@ -121,7 +121,7 @@ class SessionServiceTest {
         when(documentRepository.findActiveByIdAndOwner(8L, 1L)).thenReturn(Optional.of(pending));
 
         assertThatThrownBy(() -> service.create(1L, new SessionCreateCommand(
-            "t", null, SessionMode.TECHNICAL, JobCategory.BACKEND,
+            "t", null, SessionMode.TECHNICAL, List.of(JobCategory.BACKEND),
             5, 30, null, null, List.of(8L)
         ))).isInstanceOf(DomainException.class);
     }
@@ -168,7 +168,7 @@ class SessionServiceTest {
 
     private InterviewSession sessionFixture(Long id) {
         InterviewSession s = InterviewSession.create(
-            userFixture(1L), "t", null, SessionMode.TECHNICAL, JobCategory.BACKEND, 5, 30, null, null
+            userFixture(1L), "t", null, SessionMode.TECHNICAL, List.of(JobCategory.BACKEND), 5, 30, null, null
         );
         ReflectionTestUtils.setField(s, "id", id);
         return s;

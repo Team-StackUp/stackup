@@ -2515,9 +2515,13 @@
             "type" : "string",
             "enum" : [ "TECHNICAL", "PERSONALITY", "INTEGRATED" ]
           },
-          "jobCategory" : {
-            "type" : "string",
-            "enum" : [ "FRONTEND", "BACKEND", "INFRA", "DBA" ]
+          "jobCategories" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "FRONTEND", "BACKEND", "INFRA", "DBA" ]
+            },
+            "minItems" : 1
           },
           "maxQuestions" : {
             "type" : "integer",
@@ -2549,7 +2553,7 @@
             }
           }
         },
-        "required" : [ "jobCategory", "mode" ]
+        "required" : [ "jobCategories", "mode" ]
       },
       "SessionResponse" : {
         "type" : "object",
@@ -2571,6 +2575,13 @@
           "jobCategory" : {
             "type" : "string",
             "enum" : [ "FRONTEND", "BACKEND", "INFRA", "DBA" ]
+          },
+          "jobCategories" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "FRONTEND", "BACKEND", "INFRA", "DBA" ]
+            }
           },
           "maxQuestions" : {
             "type" : "integer",

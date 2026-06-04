@@ -28,6 +28,7 @@ interview_sessions → session_feedbacks
 | 5 | `resumes` | 이력서 메타 (실 파일은 S3) |
 | 6 | `analyzed_documents` | AI 분석 결과 메타 + S3 경로 |
 | 7 | `interview_sessions` | 면접 세션 설정·상태·히스토리 |
+| 7-1 | `session_job_categories` | 세션 직군 다중 선택 (대표 직군은 interview_sessions) |
 | 8 | `session_contexts` | 세션 ↔ 분석 문서 N:M |
 | 9 | `interview_messages` | 면접 질문·답변 시퀀스 (트리) |
 | 10 | `message_voice_analyses` | 답변별 음성 분석 (1:1) |
@@ -141,6 +142,7 @@ CREATE TABLE interview_sessions (
     title                 VARCHAR(200),
     memo                  TEXT,
     mode                  VARCHAR(20)  NOT NULL CHECK (mode IN ('TECHNICAL','PERSONALITY','INTEGRATED')),
+    -- 대표 직군(다중 선택 시 첫 항목). 전체 직군은 session_job_categories 참조.
     job_category          VARCHAR(30)  NOT NULL
                           CHECK (job_category IN ('FRONTEND','BACKEND','INFRA','DBA')),
     max_questions         INT          NOT NULL DEFAULT 10,
@@ -153,6 +155,14 @@ CREATE TABLE interview_sessions (
     created_at            TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at            TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     is_deleted            BOOLEAN      NOT NULL DEFAULT FALSE
+);
+
+-- 7-1. session_job_categories (직군 다중 선택; 대표 직군은 interview_sessions.job_category)
+CREATE TABLE session_job_categories (
+    session_id   BIGINT      NOT NULL REFERENCES interview_sessions(id),
+    job_category VARCHAR(30) NOT NULL
+                 CHECK (job_category IN ('FRONTEND','BACKEND','INFRA','DBA')),
+    UNIQUE (session_id, job_category)
 );
 
 -- 8. session_contexts

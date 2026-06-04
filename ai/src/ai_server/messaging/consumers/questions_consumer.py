@@ -86,7 +86,7 @@ class QuestionsConsumer:
 
             context_text = await self._build_context(req)
             pool = await self._generator.generate(
-                job_category=req.job_category,
+                job_categories=req.job_categories,
                 mode=req.mode,
                 max_questions=effective_pool_size,
                 context=context_text,
@@ -173,7 +173,7 @@ def _build_context(documents: list[DocumentContext]) -> str:
 def _build_initial_rag_query(req: GenerateQuestionsRequest) -> str:
     parts = [
         f"mode: {req.mode}",
-        f"job category: {req.job_category}",
+        f"job categories: {', '.join(req.job_categories)}",
     ]
     for d in req.documents:
         doc_parts = [f"document #{d.document_id} {d.source_type}"]

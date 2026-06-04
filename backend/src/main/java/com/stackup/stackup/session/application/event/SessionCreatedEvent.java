@@ -9,7 +9,7 @@ public record SessionCreatedEvent(
     Long userId,
     Long sessionId,
     SessionMode mode,
-    JobCategory jobCategory,
+    List<JobCategory> jobCategories,
     Integer maxQuestions,
     Integer generalQuestionCount,
     List<Long> contextDocumentIds

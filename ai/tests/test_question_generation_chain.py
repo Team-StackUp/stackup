@@ -27,7 +27,7 @@ async def test_generate_forwards_formatted_recent_questions_to_chain():
     generator = LlmQuestionGenerator(chain)
 
     await generator.generate(
-        job_category="BACKEND",
+        job_categories=["BACKEND", "FRONTEND"],
         mode="TECHNICAL",
         max_questions=3,
         context="ctx",
@@ -36,3 +36,4 @@ async def test_generate_forwards_formatted_recent_questions_to_chain():
 
     chain_input = chain.ainvoke.call_args.args[0]
     assert chain_input["recent_questions"] == "- 이전 질문"
+    assert chain_input["job_categories"] == "BACKEND, FRONTEND"

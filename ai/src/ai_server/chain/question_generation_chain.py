@@ -28,7 +28,7 @@ class QuestionGenerator(Protocol):
     async def generate(
         self,
         *,
-        job_category: str,
+        job_categories: list[str],
         mode: str,
         max_questions: int,
         context: str,
@@ -43,7 +43,7 @@ class LlmQuestionGenerator:
     async def generate(
         self,
         *,
-        job_category: str,
+        job_categories: list[str],
         mode: str,
         max_questions: int,
         context: str,
@@ -51,7 +51,7 @@ class LlmQuestionGenerator:
     ) -> GeneratedQuestionPool:
         result = await self._chain.ainvoke(
             {
-                "job_category": job_category,
+                "job_categories": ", ".join(job_categories),
                 "mode": mode,
                 "max_questions": max_questions,
                 "context": context,

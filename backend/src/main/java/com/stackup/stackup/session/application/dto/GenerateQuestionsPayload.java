@@ -7,7 +7,7 @@ import java.util.List;
 public record GenerateQuestionsPayload(
     Long sessionId,
     SessionMode mode,
-    JobCategory jobCategory,
+    List<JobCategory> jobCategories,
     List<DocumentContext> documents,
     // Number of questions AI should generate for this initial callback.
     Integer initialQuestionCount,

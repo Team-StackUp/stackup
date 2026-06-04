@@ -8,5 +8,5 @@ export type SessionCreateRequest = Schemas['SessionCreateRequest']
 
 export type SessionStatus = NonNullable<Session['status']>
 export type SessionMode = NonNullable<SessionCreateRequest['mode']>
-export type JobCategory = NonNullable<SessionCreateRequest['jobCategory']>
+export type JobCategory = NonNullable<SessionCreateRequest['jobCategories']>[number]
 export type MessageRole = NonNullable<Message['role']>

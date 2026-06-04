@@ -800,8 +800,7 @@ export interface components {
             memo?: string;
             /** @enum {string} */
             mode: "TECHNICAL" | "PERSONALITY" | "INTEGRATED";
-            /** @enum {string} */
-            jobCategory: "FRONTEND" | "BACKEND" | "INFRA" | "DBA";
+            jobCategories: ("FRONTEND" | "BACKEND" | "INFRA" | "DBA")[];
             /** Format: int32 */
             maxQuestions?: number;
             /** Format: int32 */
@@ -821,6 +820,7 @@ export interface components {
             mode?: "TECHNICAL" | "PERSONALITY" | "INTEGRATED";
             /** @enum {string} */
             jobCategory?: "FRONTEND" | "BACKEND" | "INFRA" | "DBA";
+            jobCategories?: ("FRONTEND" | "BACKEND" | "INFRA" | "DBA")[];
             /** Format: int32 */
             maxQuestions?: number;
             /** Format: int32 */
