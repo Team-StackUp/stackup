@@ -11,6 +11,8 @@ import { useInterviewSocket } from './useInterviewSocket'
 import { interviewEventAction } from './interviewEvent'
 import { pendingAnswers, toOptimisticMessage } from './optimistic'
 import type { OptimisticAnswer } from './optimistic'
+import { applyDelta, isStreamingMessage, FOLLOWUP_GENERATING_TEXT } from './streamingBuffer'
+import type { DeltaPayload } from './streamingBuffer'
 
 export type ThreadItem = Message & { key: string }
 export type ConnectionStatus = 'connecting' | 'open' | 'closed'
@@ -25,14 +27,25 @@ export function useLiveInterview(sessionId: number) {
 
   const [optimistic, setOptimistic] = useState<OptimisticAnswer[]>([])
   const [connection, setConnection] = useState<ConnectionStatus>('connecting')
+  const [deltaBuffer, setDeltaBuffer] = useState<Record<number, string>>({})
 
   // 서버가 sequenceNumber asc 로 주지만, 순서를 코드에서 명시적으로 보장한다.
   const serverMessages = [...(messagesQuery.data ?? [])].sort(
     (a, b) => (a.sequenceNumber ?? 0) - (b.sequenceNumber ?? 0),
   )
   const pending = pendingAnswers(optimistic, serverMessages)
+
+  // 스트리밍 중인 메시지는 deltaBuffer의 누적 텍스트로 content를 오버라이드한다.
+  const mergedMessages = serverMessages.map((m) => {
+    const buffered = deltaBuffer[m.id ?? -1]
+    if (buffered !== undefined && isStreamingMessage(m, buffered)) {
+      return { ...m, content: buffered }
+    }
+    return m
+  })
+
   const items: ThreadItem[] = [
-    ...serverMessages.map((m) => ({ ...m, key: `m-${m.id}` })),
+    ...mergedMessages.map((m) => ({ ...m, key: `m-${m.id}` })),
     ...pending.map((o) => ({ ...toOptimisticMessage(o), key: `opt-${o.tempId}` })),
   ]
 
@@ -42,6 +55,22 @@ export function useLiveInterview(sessionId: number) {
       const next = pendingAnswers(prev, messagesQuery.data ?? [])
       return next.length === prev.length ? prev : next
     })
+  }, [messagesQuery.data])
+
+  // 서버에서 최종 content가 도착한 메시지의 버퍼를 정리한다.
+  useEffect(() => {
+    setDeltaBuffer((prev) => {
+      const next = { ...prev }
+      let changed = false
+      for (const m of serverMessages) {
+        if (m.id !== undefined && next[m.id] !== undefined && m.content !== FOLLOWUP_GENERATING_TEXT) {
+          delete next[m.id]
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messagesQuery.data])
 
   const { submitAnswer: socketSubmit } = useInterviewSocket({
@@ -56,6 +85,11 @@ export function useLiveInterview(sessionId: number) {
         void queryClient.invalidateQueries({ queryKey: sessionKeys.detail(sessionId) })
       } else if (action.kind === 'redirect-feedback') {
         navigate(`/sessions/${sessionId}/feedback`)
+      } else if (action.kind === 'append-delta') {
+        const payload = (frame.data as { data?: DeltaPayload } | undefined)?.data
+        if (payload && typeof payload.messageId === 'number') {
+          setDeltaBuffer((b) => applyDelta(b, payload))
+        }
       }
     },
   })
@@ -83,6 +117,10 @@ export function useLiveInterview(sessionId: number) {
     [voiceMutation],
   )
 
+  // 서버 메시지 기준으로 가장 최근 면접관 메시지가 여전히 sentinel이면 스트리밍 진행 중.
+  const latestServerQuestion = [...serverMessages].reverse().find((m) => m.role === 'INTERVIEWER')
+  const questionStreaming = latestServerQuestion?.content === FOLLOWUP_GENERATING_TEXT
+
   return {
     session: sessionQuery.data,
     status,
@@ -95,5 +133,6 @@ export function useLiveInterview(sessionId: number) {
     voiceError: voiceMutation.isError,
     endSession: () => end.mutate(),
     isLoading: sessionQuery.isLoading,
+    questionStreaming,
   }
 }

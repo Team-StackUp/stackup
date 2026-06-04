@@ -48,6 +48,7 @@ export function InterviewStage({
   connection,
   items,
   awaitingQuestion,
+  questionStreaming,
   onSubmit,
   onSubmitVoice,
   voiceUploading,
@@ -57,6 +58,7 @@ export function InterviewStage({
   connection: ConnectionStatus
   items: ThreadItem[]
   awaitingQuestion: boolean
+  questionStreaming: boolean
   onSubmit: (content: string) => void
   onSubmitVoice: (audio: Blob) => void
   voiceUploading: boolean
@@ -126,6 +128,7 @@ export function InterviewStage({
       <div className="relative z-10">
         <AnswerComposer
           disabled={awaitingQuestion || connection !== 'open'}
+          submitLocked={questionStreaming}
           onSubmit={onSubmit}
           onSubmitVoice={onSubmitVoice}
           voiceUploading={voiceUploading}

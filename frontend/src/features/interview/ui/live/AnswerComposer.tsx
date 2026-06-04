@@ -25,11 +25,13 @@ function MicIcon() {
 
 export function AnswerComposer({
   disabled = false,
+  submitLocked = false,
   onSubmit,
   onSubmitVoice,
   voiceUploading = false,
 }: {
   disabled?: boolean
+  submitLocked?: boolean
   onSubmit: (content: string) => void
   onSubmitVoice?: (audio: Blob) => void
   voiceUploading?: boolean
@@ -41,7 +43,7 @@ export function AnswerComposer({
 
   const submit = () => {
     const trimmed = value.trim()
-    if (!trimmed || disabled) return
+    if (!trimmed || disabled || submitLocked) return
     onSubmit(trimmed)
     setValue('')
   }
@@ -95,21 +97,25 @@ export function AnswerComposer({
           maxLength={8000}
           aria-label="답변 입력"
           placeholder={
-            disabled ? '질문을 기다리는 중…' : '답변을 입력하세요 (Enter 전송, Shift+Enter 줄바꿈)'
+            disabled
+              ? '질문을 기다리는 중…'
+              : submitLocked
+                ? '질문이 끝나면 전송할 수 있어요'
+                : '답변을 입력하세요 (Enter 전송, Shift+Enter 줄바꿈)'
           }
         />
         {voiceSupported && (
           <Button
             variant="secondary"
             onClick={start}
-            disabled={disabled}
+            disabled={disabled || submitLocked}
             aria-label="음성으로 답변"
             title="음성으로 답변"
           >
             <MicIcon />
           </Button>
         )}
-        <Button onClick={submit} disabled={disabled || value.trim().length === 0}>
+        <Button onClick={submit} disabled={disabled || submitLocked || value.trim().length === 0}>
           전송
         </Button>
       </div>

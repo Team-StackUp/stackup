@@ -16,6 +16,7 @@ export function LiveInterview({ sessionId }: { sessionId: number }) {
     voiceUploading,
     endSession,
     isLoading,
+    questionStreaming,
   } = useLiveInterview(sessionId)
 
   if (isLoading || !session) {
@@ -39,6 +40,7 @@ export function LiveInterview({ sessionId }: { sessionId: number }) {
       connection={connection}
       items={items}
       awaitingQuestion={awaitingQuestion}
+      questionStreaming={questionStreaming}
       onSubmit={submitAnswer}
       onSubmitVoice={submitVoice}
       voiceUploading={voiceUploading}

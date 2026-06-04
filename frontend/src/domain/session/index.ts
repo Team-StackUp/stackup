@@ -12,6 +12,7 @@ export {
   isAnswer,
   isTranscribing,
   VOICE_TRANSCRIBING_TEXT,
+  FOLLOWUP_GENERATING_TEXT,
   currentTurn,
   canSubmitAnswer,
   sessionProgress,
