@@ -148,7 +148,7 @@ ANALYZED_WEB_RESUME_MD_KEY_TEMPLATE=analyzed/web-resume/{resume_id}/summary.md
 # ===== STT/TTS (Phase 2) =====
 STT_PROVIDER=whisper-api          # whisper-api | whisper-self-hosted
 WHISPER_MODEL=whisper-1           # OpenAI Whisper API 모델
-TTS_PROVIDER=auto                 # auto | mock | openai (auto=OPENAI_API_KEY 보유 시 openai)
+TTS_PROVIDER=auto                 # auto | mock | openai | gemini | gateway (auto=LLM_API_KEY(gateway) > GEMINI_API_KEY > OPENAI_API_KEY)
 OPENAI_TTS_MODEL=gpt-4o-mini-tts  # OpenAI TTS 모델 (질문 음성화)
 OPENAI_TTS_VOICE=alloy            # TTS 보이스
 OPENAI_TTS_TIMEOUT_SEC=30         # TTS HTTP 타임아웃(초)

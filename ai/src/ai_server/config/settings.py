@@ -65,9 +65,10 @@ class Settings(BaseSettings):
     deepgram_live_endpointing_ms: int = 800  # 무음 800ms → utterance end
     voice_stream_internal_path: str = "/internal/voice/stream"
 
-    # TTS (질문 음성화). "auto" 면 gemini > openai 순으로 키 보유 시 선택, 둘 다 없으면 mock.
-    # Deepgram/OpenAI TTS 는 한국어 미지원이라 기본은 Gemini TTS(GEMINI_API_KEY 재사용).
-    tts_provider: Literal["auto", "mock", "openai", "gemini"] = "auto"
+    # TTS (질문 음성화). "auto" 면 gateway(충남대 키) > gemini(직접 키) > openai, 없으면 mock.
+    # gateway 는 Mindlogic 게이트웨이(/audio/speech)가 Gemini TTS 로 라우팅 — 직접 키 429 부하 분산.
+    # Deepgram/OpenAI TTS 는 한국어 미지원. gateway/gemini 모두 gemini_tts_model/voice 를 공유한다.
+    tts_provider: Literal["auto", "mock", "openai", "gemini", "gateway"] = "auto"
     openai_tts_model: str = "gpt-4o-mini-tts"
     openai_tts_voice: str = "alloy"
     openai_tts_timeout_sec: float = 30.0
