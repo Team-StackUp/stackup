@@ -15,7 +15,7 @@ import type { OptimisticAnswer } from './optimistic'
 import { applyDelta, isStreamingMessage, FOLLOWUP_GENERATING_TEXT } from './streamingBuffer'
 import type { DeltaPayload } from './streamingBuffer'
 
-export type ThreadItem = Message & { key: string }
+export type ThreadItem = Message & { key: string; streaming?: boolean }
 export type ConnectionStatus = 'connecting' | 'open' | 'closed'
 
 export function useLiveInterview(sessionId: number) {
@@ -58,7 +58,7 @@ export function useLiveInterview(sessionId: number) {
   const mergedMessages = serverMessages.map((m) => {
     const buffered = deltaBuffer[m.id ?? -1]
     if (buffered !== undefined && isStreamingMessage(m, buffered)) {
-      return { ...m, content: buffered }
+      return { ...m, content: buffered, streaming: true as const }
     }
     return m
   })

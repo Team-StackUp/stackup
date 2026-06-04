@@ -213,6 +213,8 @@ class MessagingRuntime:
             tts=tts,
             storage=storage,
             tts_voice=settings.openai_tts_voice,
+            rerank_enabled=settings.followup_rerank_enabled,
+            rag_timeout_sec=settings.followup_rag_timeout_sec,
         )
 
         # 종합 피드백 생성 (US-24)

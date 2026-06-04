@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     # 리랭킹: 하이브리드 검색으로 후보 N개(candidate_k)를 가져와 LLM 으로 재정렬 후 top_k 주입.
     rerank_enabled: bool = True
     rerank_candidate_k: int = 20
+    # 꼬리질문 RAG 저지연: 리랭커(LLM 호출, 종종 실패)를 건너뛰고 검색 순서를 그대로 쓴다.
+    followup_rerank_enabled: bool = False
+    # RAG 컨텍스트 구성(임베딩+검색+리랭크) 전체 상한. 초과 시 (none) 으로 폴백해 첫 토큰을 막지 않는다.
+    followup_rag_timeout_sec: float = 1.5
     # 질문 풀 초기 크기. Core 의 applyPool 이 questions[0] 만 INSERT 하므로 1 로 고정해 토큰 낭비 차단.
     # 후속 작업에서 풀 저장 도입 시 늘리기 (예: 5).
     questions_initial_pool_size: int = 1

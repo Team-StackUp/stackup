@@ -480,3 +480,163 @@ async def test_callback_includes_answer_message_id():
     payload = publisher.publish.await_args.kwargs["payload"]
     assert payload.answer_message_id == 502  # _envelope 의 answerMessageId
     assert payload.followup_message_id == 503  # _envelope 의 followupMessageId
+
+
+# ---------------------------------------------------------------------------
+# 꼬리질문 RAG 저지연 픽스: rerank_enabled=False, timeout 폴백
+# ---------------------------------------------------------------------------
+
+
+def _make_req() -> "GenerateFollowupRequest":
+    from ai_server.model.messages.followup import GenerateFollowupRequest
+
+    return GenerateFollowupRequest(
+        session_id=99,
+        parent_message_id=501,
+        answer_message_id=502,
+        followup_message_id=503,
+        previous_question="결제 outbox 어떻게 구현?",
+        answer_text="RabbitMQ로 보냈습니다.",
+        mode="TECHNICAL",
+        job_category="BACKEND",
+        context_document_ids=[1],
+    )
+
+
+def _make_hit(document_id: int = 1, chunk_index: int = 0, chunk_text: str = "x"):
+    from types import SimpleNamespace
+
+    return SimpleNamespace(
+        document_id=document_id, chunk_index=chunk_index, chunk_text=chunk_text
+    )
+
+
+@pytest.mark.asyncio
+async def test_rag_rerank_skipped_when_disabled():
+    """rerank_enabled=False: search_embeddings 는 top_k 만 요청, reranker.rerank 는 호출 안 됨."""
+    import asyncio
+
+    from ai_server.messaging.consumers.followup_consumer import FollowupConsumer
+    from ai_server.messaging.idempotency import LruIdempotencyStore
+
+    hit = _make_hit(chunk_text="이 청크가 반환돼야 한다")
+
+    embedder = MagicMock()
+    embedder.embed = AsyncMock(return_value=[[0.0]])
+
+    core = MagicMock()
+    core.search_embeddings = AsyncMock(return_value=[hit])
+
+    fake_reranker = MagicMock()
+    fake_reranker.rerank = AsyncMock(return_value=[0])
+
+    generator = MagicMock()
+    generator.generate = AsyncMock()
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+
+    consumer = FollowupConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.questions",
+        core_client=core,
+        embedder=embedder,
+        rag_top_k=5,
+        reranker=fake_reranker,
+        candidate_k=20,
+        rerank_enabled=False,
+    )
+
+    req = _make_req()
+    result = await consumer._build_rag_context(req)
+
+    # 청크 텍스트가 결과에 포함돼야 한다
+    assert "이 청크가 반환돼야 한다" in result
+    # rerank 비활성 시 candidate 확장 없이 rag_top_k 만 검색
+    call_kwargs = core.search_embeddings.await_args.kwargs
+    assert call_kwargs["top_k"] == 5  # rag_top_k, NOT candidate_k(20)
+    # 리랭커 rerank 는 절대 호출되지 않음
+    fake_reranker.rerank.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_rag_rerank_used_when_enabled():
+    """rerank_enabled=True: search_embeddings 는 candidate_k, reranker.rerank 는 호출됨."""
+    hit = _make_hit(chunk_text="후보 청크")
+
+    embedder = MagicMock()
+    embedder.embed = AsyncMock(return_value=[[0.0]])
+
+    core = MagicMock()
+    core.search_embeddings = AsyncMock(return_value=[hit])
+
+    fake_reranker = MagicMock()
+    fake_reranker.rerank = AsyncMock(return_value=[0])
+
+    generator = MagicMock()
+    generator.generate = AsyncMock()
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+
+    consumer = FollowupConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.questions",
+        core_client=core,
+        embedder=embedder,
+        rag_top_k=5,
+        reranker=fake_reranker,
+        candidate_k=20,
+        rerank_enabled=True,
+    )
+
+    req = _make_req()
+    result = await consumer._build_rag_context(req)
+
+    assert "후보 청크" in result
+    call_kwargs = core.search_embeddings.await_args.kwargs
+    assert call_kwargs["top_k"] == 20  # candidate_k
+    # 리랭커 rerank 는 호출돼야 한다
+    fake_reranker.rerank.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_rag_timeout_returns_none():
+    """rag_timeout_sec 초과 시 _build_rag_context 가 '(none)' 을 반환한다."""
+    import asyncio
+
+    from ai_server.messaging.consumers.followup_consumer import FollowupConsumer
+    from ai_server.messaging.idempotency import LruIdempotencyStore
+
+    async def _slow_embed(texts, *, task_type=""):
+        await asyncio.sleep(0.1)  # 타임아웃(0.01s) 보다 훨씬 길다
+        return [[0.0]]
+
+    embedder = MagicMock()
+    embedder.embed = _slow_embed
+
+    core = MagicMock()
+    core.search_embeddings = AsyncMock(return_value=[])
+
+    generator = MagicMock()
+    generator.generate = AsyncMock()
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+
+    consumer = FollowupConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.questions",
+        core_client=core,
+        embedder=embedder,
+        rag_top_k=5,
+        rag_timeout_sec=0.01,
+    )
+
+    req = _make_req()
+    result = await consumer._build_rag_context(req)
+
+    assert result == "(none)"

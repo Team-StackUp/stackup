@@ -1,6 +1,7 @@
 import type { Message } from '@/domain/session'
 import { categoryLabel } from '../../lib/categoryLabel'
 import { useTtsPlayback } from '../../lib/media/useTtsPlayback'
+import { useTypewriter } from '../../lib/useTypewriter'
 
 function PlayIcon({ playing }: { playing: boolean }) {
   return (
@@ -11,9 +12,10 @@ function PlayIcon({ playing }: { playing: boolean }) {
 }
 
 // 면접관이 지금 막 던진 한 질문에만 집중시키는 카드.
-export function StageQuestion({ question, segmented = false }: { question: Message; segmented?: boolean }) {
+export function StageQuestion({ question, segmented = false, streaming = false }: { question: Message; segmented?: boolean; streaming?: boolean }) {
   const label = categoryLabel(question.category)
   const ttsReady = question.ttsStatus === 'SUCCEEDED'
+  const shownText = useTypewriter(question.content ?? '', !!streaming)
 
   const { playing, toggle, audioNode } = useTtsPlayback({
     sessionId: question.sessionId,
@@ -40,7 +42,7 @@ export function StageQuestion({ question, segmented = false }: { question: Messa
       </div>
 
       <p className="mt-5 whitespace-pre-wrap text-[22px] font-medium leading-relaxed text-fg sm:text-[26px]">
-        {question.content}
+        {shownText}
       </p>
 
       {ttsReady && (

@@ -3,6 +3,7 @@ import { StatusBadge } from '@/shared/ui/StatusBadge'
 import { categoryLabel } from '../../lib/categoryLabel'
 import { useTtsPlayback } from '../../lib/media/useTtsPlayback'
 import { FOLLOWUP_GENERATING_TEXT } from '../../model/streamingBuffer'
+import { useTypewriter } from '../../lib/useTypewriter'
 
 function PlayIcon({ playing }: { playing: boolean }) {
   return (
@@ -15,13 +16,17 @@ function PlayIcon({ playing }: { playing: boolean }) {
 export function QuestionBubble({
   message,
   autoPlay = false,
+  streaming = false,
 }: {
   message: Message
   autoPlay?: boolean
+  streaming?: boolean
 }) {
   const label = categoryLabel(message.category)
   const hasMeta = Boolean(label || message.targetEvidence)
   const ttsReady = message.ttsStatus === 'SUCCEEDED'
+  const isSentinel = message.content === FOLLOWUP_GENERATING_TEXT
+  const shownText = useTypewriter(message.content ?? '', !!streaming && !isSentinel)
 
   const { playing, toggle, audioNode } = useTtsPlayback({
     sessionId: message.sessionId,
@@ -42,14 +47,14 @@ export function QuestionBubble({
           </div>
         )}
         <div className="rounded-lg rounded-tl-sm bg-surface-raised px-4 py-3 text-body text-fg shadow-sm">
-          {message.content === FOLLOWUP_GENERATING_TEXT ? (
+          {isSentinel ? (
             <span className="inline-flex gap-1 text-fg-muted" aria-label="질문 생성 중">
               <span className="animate-pulse">●</span>
               <span className="animate-pulse [animation-delay:150ms]">●</span>
               <span className="animate-pulse [animation-delay:300ms]">●</span>
             </span>
           ) : (
-            <p className="whitespace-pre-wrap">{message.content}</p>
+            <p className="whitespace-pre-wrap">{shownText}</p>
           )}
           {ttsReady && (
             <div className="mt-2 flex items-center gap-2 border-t border-border pt-2">

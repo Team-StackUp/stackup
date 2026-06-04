@@ -27,7 +27,7 @@ export function ConversationThread({
     <div ref={containerRef} className="flex h-full flex-col gap-3 overflow-y-auto px-4 py-6">
       {items.map((item) =>
         isQuestion(item) ? (
-          <QuestionBubble key={item.key} message={item} autoPlay={item.key === lastQuestionKey} />
+          <QuestionBubble key={item.key} message={item} autoPlay={item.key === lastQuestionKey} streaming={item.streaming} />
         ) : (
           <AnswerBubble key={item.key} message={item} />
         ),

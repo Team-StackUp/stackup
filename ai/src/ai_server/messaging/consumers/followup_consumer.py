@@ -50,6 +50,8 @@ class FollowupConsumer:
         tts=None,
         storage=None,
         tts_voice: str = "",
+        rerank_enabled: bool = True,
+        rag_timeout_sec: float = 1.5,
     ) -> None:
         self._generator = generator
         self._publisher = publisher
@@ -65,6 +67,8 @@ class FollowupConsumer:
         self._tts = tts
         self._storage = storage
         self._tts_voice = tts_voice
+        self._rerank_enabled = rerank_enabled
+        self._rag_timeout_sec = rag_timeout_sec
 
     async def handle(self, message: AbstractIncomingMessage) -> None:
         async with message.process(requeue=False):
@@ -233,8 +237,22 @@ class FollowupConsumer:
     async def _build_rag_context(self, req: GenerateFollowupRequest) -> str:
         if not self._core or not self._embedder or not req.context_document_ids:
             return "(none)"
+        try:
+            return await asyncio.wait_for(
+                self._do_build_rag_context(req), timeout=self._rag_timeout_sec
+            )
+        except asyncio.TimeoutError:
+            log.warning(
+                "followup.rag.timeout",
+                session_id=req.session_id,
+                timeout_sec=self._rag_timeout_sec,
+            )
+            return "(none)"
 
+    async def _do_build_rag_context(self, req: GenerateFollowupRequest) -> str:
         query = f"{req.previous_question}\n\n{req.answer_text}"
+        # 리랭크 비활성 시 candidate 확장 없이 top_k 만 검색(LLM 리랭커 호출 회피).
+        search_k = self._candidate_k if self._rerank_enabled else self._rag_top_k
         try:
             query_vec = (
                 await self._embedder.embed([query], task_type="RETRIEVAL_QUERY")
@@ -243,7 +261,7 @@ class FollowupConsumer:
                 query_embedding=query_vec,
                 query_text=query,
                 document_ids=req.context_document_ids,
-                top_k=self._candidate_k,
+                top_k=search_k,
             )
         except Exception as exc:
             log.warn("followup.rag.failed", error=str(exc), session_id=req.session_id)
@@ -251,9 +269,10 @@ class FollowupConsumer:
 
         if not hits:
             return "(none)"
-        hits = await rerank_hits(
-            self._reranker, query=query, hits=hits, top_k=self._rag_top_k
-        )
+        if self._rerank_enabled:
+            hits = await rerank_hits(
+                self._reranker, query=query, hits=hits, top_k=self._rag_top_k
+            )
         return "\n---\n".join(
             f"[doc#{h.document_id} chunk#{h.chunk_index}] {h.chunk_text}" for h in hits
         )
