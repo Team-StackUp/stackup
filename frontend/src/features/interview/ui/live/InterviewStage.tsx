@@ -73,7 +73,7 @@ export function InterviewStage({
   const transcribing = Boolean(lastItem && isTranscribing(lastItem))
 
   return (
-    <section className="relative flex h-full flex-col overflow-hidden">
+    <section className="anim-screen-power-on relative flex h-full flex-col overflow-hidden">
       <div
         aria-hidden
         className="absolute inset-0 bg-cover bg-center"

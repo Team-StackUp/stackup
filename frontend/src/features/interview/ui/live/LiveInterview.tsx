@@ -22,7 +22,7 @@ export function LiveInterview({ sessionId }: { sessionId: number }) {
 
   if (isLoading || !session) {
     return (
-      <div className="flex justify-center py-16">
+      <div className="flex h-full items-center justify-center">
         <Spinner />
       </div>
     )
