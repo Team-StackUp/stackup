@@ -3,11 +3,14 @@ package com.stackup.stackup.session.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.stackup.stackup.common.exception.DomainException;
+import com.stackup.stackup.common.storage.ObjectStorageClient;
 import com.stackup.stackup.session.application.dto.MessageResult;
 import com.stackup.stackup.session.application.event.AnswerSubmittedEvent;
 import com.stackup.stackup.session.domain.InterviewMessage;
@@ -30,8 +33,13 @@ import org.springframework.test.util.ReflectionTestUtils;
 @ExtendWith(MockitoExtension.class)
 class InterviewMessageServiceTest {
 
+    private static final Long USER_ID    = 1L;
+    private static final Long SESSION_ID = 10L;
+    private static final Long MESSAGE_ID = 100L;
+
     @Mock InterviewSessionRepository sessionRepository;
     @Mock InterviewMessageRepository messageRepository;
+    @Mock ObjectStorageClient storage;
     @Mock ApplicationEventPublisher events;
     @InjectMocks InterviewMessageService service;
 
@@ -114,9 +122,39 @@ class InterviewMessageServiceTest {
         assertThat(eventCaptor.getValue().answerMessageId()).isEqualTo(201L);
     }
 
+    // ── 라이브 TTS 세그먼트 프록시 테스트 ─────────────────────────────────────────
+
+    @Test
+    void streamAudioSegment_rejects_unknown_extension() {
+        // ownedSession 통과하도록 sessionRepository.findByIdAndUser_IdAndDeletedFalse 스텁
+        given(sessionRepository.findByIdAndUser_IdAndDeletedFalse(SESSION_ID, USER_ID))
+            .willReturn(Optional.of(sessionInProgress(SESSION_ID)));
+        assertThatThrownBy(() -> service.streamAudioSegment(USER_ID, SESSION_ID, MESSAGE_ID, 0, "exe"))
+            .isInstanceOf(DomainException.class);
+    }
+
+    @Test
+    void streamAudioSegment_builds_convention_key_and_streams() {
+        InterviewSession session = sessionInProgress(SESSION_ID);
+        InterviewMessage message = InterviewMessage.interviewer(session, 1, "Q?");
+        ReflectionTestUtils.setField(message, "id", MESSAGE_ID);
+
+        given(sessionRepository.findByIdAndUser_IdAndDeletedFalse(SESSION_ID, USER_ID))
+            .willReturn(Optional.of(session));
+        given(messageRepository.findById(MESSAGE_ID)).willReturn(Optional.of(message));
+        given(storage.get(anyString())).willReturn(new java.io.ByteArrayInputStream(new byte[]{1, 2, 3}));
+
+        var audio = service.streamAudioSegment(USER_ID, SESSION_ID, MESSAGE_ID, 2, "mp3");
+
+        verify(storage).get("interview/tts/%d/%d/seg-2.mp3".formatted(SESSION_ID, MESSAGE_ID));
+        assertThat(audio.contentType()).isEqualTo("audio/mpeg");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+
     private InterviewSession sessionInProgress(Long id) {
         User user = User.createGithubUser(1L, "u", null, null, "t");
-        ReflectionTestUtils.setField(user, "id", 1L);
+        ReflectionTestUtils.setField(user, "id", USER_ID);
         InterviewSession s = InterviewSession.create(
             user, "t", null, SessionMode.TECHNICAL, JobCategory.BACKEND, 5, 30, null, null
         );

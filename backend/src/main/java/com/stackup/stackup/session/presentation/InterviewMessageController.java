@@ -26,6 +26,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -99,6 +100,32 @@ public class InterviewMessageController {
         return ResponseEntity.ok()
             .contentType(MediaType.parseMediaType(audio.contentType()))
             .cacheControl(CacheControl.maxAge(Duration.ofHours(1)).cachePrivate())
+            .body(new InputStreamResource(audio.stream()));
+    }
+
+    @Operation(
+        operationId = "streamMessageAudioSegment",
+        summary = "라이브 TTS 문장 세그먼트 스트리밍",
+        description = "AI 서버가 S3에 쓴 per-sentence TTS 세그먼트를 규칙 기반 키로 프록시한다. "
+            + "세그먼트는 DB에 미저장(휘발성 라이브)이므로 Core 가 키를 재구성해 스트리밍."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "세그먼트 오디오 바이트"),
+        @ApiResponse(responseCode = "401", description = "인증 실패"),
+        @ApiResponse(responseCode = "404", description = "세션/메시지/세그먼트 없음")
+    })
+    @GetMapping("/{messageId}/audio/segments/{seq}")
+    public ResponseEntity<Resource> audioSegment(
+        @AuthenticationPrincipal UserPrincipal principal,
+        @PathVariable Long sessionId,
+        @PathVariable Long messageId,
+        @PathVariable int seq,
+        @RequestParam String ext
+    ) {
+        var audio = messageService.streamAudioSegment(principal.userId(), sessionId, messageId, seq, ext);
+        return ResponseEntity.ok()
+            .contentType(MediaType.parseMediaType(audio.contentType()))
+            .cacheControl(CacheControl.maxAge(Duration.ofMinutes(10)).cachePrivate())
             .body(new InputStreamResource(audio.stream()));
     }
 }

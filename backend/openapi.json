@@ -1861,6 +1861,81 @@
         }
       }
     },
+    "/api/sessions/{sessionId}/messages/{messageId}/audio/segments/{seq}" : {
+      "get" : {
+        "tags" : [ "Session Messages" ],
+        "summary" : "라이브 TTS 문장 세그먼트 스트리밍",
+        "description" : "AI 서버가 S3에 쓴 per-sentence TTS 세그먼트를 규칙 기반 키로 프록시한다. 세그먼트는 DB에 미저장(휘발성 라이브)이므로 Core 가 키를 재구성해 스트리밍.",
+        "operationId" : "streamMessageAudioSegment",
+        "parameters" : [ {
+          "name" : "sessionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "messageId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "seq",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "name" : "ext",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "세그먼트 오디오 바이트",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "binary"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "binary"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "세션/메시지/세그먼트 없음",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "binary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/sessions/{sessionId}/feedback" : {
       "get" : {
         "tags" : [ "Session Feedback" ],
