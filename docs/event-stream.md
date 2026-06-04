@@ -40,7 +40,7 @@ WS  /realtime/sessions/{sessionId}/audio  # RT3 실시간 음성 답변 스트�
 
 ## 2. 이벤트 포맷
 
-> - `event` 이름은 **`SseEventType` enum 이름(대문자)**: `DOC_STATE`·`REPO_STATE`·`SESSION_MESSAGE`·`SESSION_STATE`·`FEEDBACK_READY`·`ERROR`·`KEEP_ALIVE` (+ AI 가 직접 발행하는 `ANALYSIS_PROGRESS`). **`session.message` 같은 소문자 점표기가 아니다.** (RealTime `bridge/dispatcher.go` `Type: env.Payload.EventType` → `sse.go`/`ws.go` 가 그대로 전달.)
+> - `event` 이름은 **`SseEventType` enum 이름(대문자)**: `DOC_STATE`·`REPO_STATE`·`SESSION_MESSAGE`·`SESSION_STATE`·`FEEDBACK_READY`·`ERROR`·`KEEP_ALIVE` (+ AI 가 직접 발행하는 `ANALYSIS_PROGRESS`·`SESSION_MESSAGE_DELTA`). **`session.message` 같은 소문자 점표기가 아니다.** (RealTime `bridge/dispatcher.go` `Type: env.Payload.EventType` → `sse.go`/`ws.go` 가 그대로 전달.) RealTime 디스패처는 이벤트 타입을 화이트리스트 없이 투명 전달하므로, AI 가 새 이벤트 타입(`SESSION_MESSAGE_DELTA` 등)을 발행해도 RealTime 코드 변경이 필요 없다.
 > - `data` 봉투는 `{"data": <payload>, "traceId": "..."}` 다 (`realtime/CLAUDE.md §8`). payload 필드는 camelCase.
 > - 클라는 SSE `addEventListener(<ENUM_NAME>, …)` / WS `frame.event === '<ENUM_NAME>'` 로 매칭한다.
 
@@ -115,6 +115,19 @@ WS(RT1)는 같은 내용을 JSON 한 줄 프레임으로: `{ "id": <eventId>, "e
 ```json
 { "data": 503, "traceId": "..." }
 ```
+
+### 3.3-1 꼬리질문 토큰 스트리밍 (`event: SESSION_MESSAGE_DELTA`)
+
+**휘발성** 이벤트. 꼬리질문을 ChatGPT처럼 토큰 단위로 흘려 체감 반응을 높인다. **AI 서버가 `stackup.realtime`(`realtime.session.notify`)으로 직접 발행**(Core·DB 미경유) → RealTime 이 세션 채널로 fan-out. `SESSION_MESSAGE`(종료, messageId만)와 짝을 이루는 진행 이벤트다 (`ANALYSIS_PROGRESS`↔`DOC_STATE` 관계와 동일 패턴).
+
+```json
+{ "data": { "messageId": 503, "seq": 0, "text": "그 설계에서 " }, "traceId": "..." }
+```
+
+- `messageId`: Core 가 답변 직후 선INSERT 한 INTERVIEWER **placeholder** 메시지 id(content=`"(생성 중)"`, status=`CREATED`). 생성 시 Core 가 `SESSION_MESSAGE(placeholderId)` 를 1회 발행하므로 프론트 목록에 placeholder 버블이 먼저 뜬다.
+- `seq`: 0부터 단조 증가. `text`: 이번 델타에서 **추가된 조각**(누적 아님). 프론트는 placeholder 버블에 append.
+- 흐름: 답변 → (Core) placeholder INSERT + `SESSION_MESSAGE` → (AI) `astream` 으로 `SESSION_MESSAGE_DELTA` 연속 발행 → (AI) `callback.questions(FOLLOWUP, followupMessageId)` → (Core) placeholder UPDATE(content/COMPLETED) + `SESSION_MESSAGE`(종료) → 프론트 `GET …/messages` 재조회로 정본 reconcile.
+- `answer_intent=DONT_KNOW` 면 AI 가 델타를 **발행하지 않고**, Core 가 placeholder 삭제 후 다음 일반질문으로 진행한다. 이때 프론트는 placeholder 를 "생각 중"으로만 표시하다 일반질문으로 교체.
 
 ### 3.4 세션 상태 (`event: SESSION_STATE`)
 ```json
