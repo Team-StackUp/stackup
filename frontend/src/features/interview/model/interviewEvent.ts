@@ -3,6 +3,7 @@ export type InterviewAction =
   | { kind: 'refetch-session' }
   | { kind: 'redirect-feedback' }
   | { kind: 'append-delta' }
+  | { kind: 'queue-audio' }
   | { kind: 'ignore' }
 
 export function interviewEventAction(event: string): InterviewAction {
@@ -15,6 +16,8 @@ export function interviewEventAction(event: string): InterviewAction {
       return { kind: 'redirect-feedback' }
     case 'SESSION_MESSAGE_DELTA':
       return { kind: 'append-delta' }
+    case 'SESSION_MESSAGE_AUDIO':
+      return { kind: 'queue-audio' }
     default:
       return { kind: 'ignore' }
   }

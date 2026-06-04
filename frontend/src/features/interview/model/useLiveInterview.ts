@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { currentTurn } from '@/domain/session'
 import type { Message } from '@/domain/session'
-import { submitVoiceAnswer } from '../api/messageApi'
+import { submitVoiceAnswer, fetchMessageSegmentObjectUrl } from '../api/messageApi'
+import { createSegmentQueue } from '../lib/media/segmentAudioQueue'
 import { sessionKeys, useSession } from './useSession'
 import { messageKeys, useSessionMessages } from './useSessionMessages'
 import { useSessionLifecycle } from './useSessionLifecycle'
@@ -29,6 +30,24 @@ export function useLiveInterview(sessionId: number) {
   const [connection, setConnection] = useState<ConnectionStatus>('connecting')
   const [deltaBuffer, setDeltaBuffer] = useState<Record<number, string>>({})
 
+  // ── 라이브 세그먼트 TTS ──────────────────────────────────────────────────
+  const audioElRef = useRef<HTMLAudioElement | null>(null)
+  const lastUrlRef = useRef<string | null>(null)
+  const queueRef = useRef<ReturnType<typeof createSegmentQueue> | null>(null)
+  const currentAudioMsgId = useRef<number | null>(null)
+  const segmentedIds = useRef<Set<number>>(new Set())
+  if (queueRef.current === null) {
+    queueRef.current = createSegmentQueue(async (url) => {
+      if (typeof Audio === 'undefined') return
+      if (!audioElRef.current) audioElRef.current = new Audio()
+      const el = audioElRef.current
+      if (lastUrlRef.current) URL.revokeObjectURL(lastUrlRef.current)
+      lastUrlRef.current = url
+      el.src = url
+      try { await el.play() } catch { /* autoplay 차단 등은 무시 */ }
+    })
+  }
+
   // 서버가 sequenceNumber asc 로 주지만, 순서를 코드에서 명시적으로 보장한다.
   const serverMessages = [...(messagesQuery.data ?? [])].sort(
     (a, b) => (a.sequenceNumber ?? 0) - (b.sequenceNumber ?? 0),
@@ -48,6 +67,19 @@ export function useLiveInterview(sessionId: number) {
     ...mergedMessages.map((m) => ({ ...m, key: `m-${m.id}` })),
     ...pending.map((o) => ({ ...toOptimisticMessage(o), key: `opt-${o.tempId}` })),
   ]
+
+  // 세그먼트 오디오 엘리먼트 ended 리스너 — 마운트 1회.
+  useEffect(() => {
+    if (typeof Audio === 'undefined') return
+    if (!audioElRef.current) audioElRef.current = new Audio()
+    const el = audioElRef.current
+    const onEnded = () => queueRef.current?.onEnded()
+    el.addEventListener('ended', onEnded)
+    return () => {
+      el.removeEventListener('ended', onEnded)
+      if (lastUrlRef.current) URL.revokeObjectURL(lastUrlRef.current)
+    }
+  }, [])
 
   // 서버에 반영된 낙관적 답변은 상태에서 제거(세션 내내 누적 방지).
   useEffect(() => {
@@ -90,6 +122,18 @@ export function useLiveInterview(sessionId: number) {
         if (payload && typeof payload.messageId === 'number') {
           setDeltaBuffer((b) => applyDelta(b, payload))
         }
+      } else if (action.kind === 'queue-audio') {
+        const p = (frame.data as { data?: { messageId: number; seq: number; ext: string } } | undefined)?.data
+        if (p && typeof p.messageId === 'number') {
+          segmentedIds.current.add(p.messageId)
+          if (currentAudioMsgId.current !== p.messageId) {
+            currentAudioMsgId.current = p.messageId
+            queueRef.current?.reset()
+          }
+          void fetchMessageSegmentObjectUrl(sessionId, p.messageId, p.seq, p.ext)
+            .then((url) => queueRef.current?.enqueue({ seq: p.seq, url }))
+            .catch(() => { /* best-effort */ })
+        }
       }
     },
   })
@@ -121,6 +165,8 @@ export function useLiveInterview(sessionId: number) {
   const latestServerQuestion = [...serverMessages].reverse().find((m) => m.role === 'INTERVIEWER')
   const questionStreaming = latestServerQuestion?.content === FOLLOWUP_GENERATING_TEXT
 
+  const wasSegmented = useCallback((id: number) => segmentedIds.current.has(id), [])
+
   return {
     session: sessionQuery.data,
     status,
@@ -134,5 +180,6 @@ export function useLiveInterview(sessionId: number) {
     endSession: () => end.mutate(),
     isLoading: sessionQuery.isLoading,
     questionStreaming,
+    wasSegmented,
   }
 }

@@ -11,7 +11,7 @@ function PlayIcon({ playing }: { playing: boolean }) {
 }
 
 // 면접관이 지금 막 던진 한 질문에만 집중시키는 카드.
-export function StageQuestion({ question }: { question: Message }) {
+export function StageQuestion({ question, segmented = false }: { question: Message; segmented?: boolean }) {
   const label = categoryLabel(question.category)
   const ttsReady = question.ttsStatus === 'SUCCEEDED'
 
@@ -19,7 +19,7 @@ export function StageQuestion({ question }: { question: Message }) {
     sessionId: question.sessionId,
     messageId: question.id,
     enabled: ttsReady,
-    autoPlay: true,
+    autoPlay: !segmented,
   })
 
   return (

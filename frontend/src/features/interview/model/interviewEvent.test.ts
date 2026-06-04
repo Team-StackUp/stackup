@@ -20,4 +20,7 @@ describe('interviewEventAction', () => {
   it('SESSION_MESSAGE_DELTA → 델타 append', () => {
     expect(interviewEventAction('SESSION_MESSAGE_DELTA')).toEqual({ kind: 'append-delta' })
   })
+  it('SESSION_MESSAGE_AUDIO → 오디오 큐', () => {
+    expect(interviewEventAction('SESSION_MESSAGE_AUDIO')).toEqual({ kind: 'queue-audio' })
+  })
 })
