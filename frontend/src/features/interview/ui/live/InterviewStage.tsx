@@ -7,6 +7,7 @@ import type { ConnectionStatus, ThreadItem } from '../../model/useLiveInterview'
 import { ConnectionBanner } from './ConnectionBanner'
 import { AnswerComposer } from './AnswerComposer'
 import { StageQuestion } from './StageQuestion'
+import { InterviewerAvatar } from './InterviewerAvatar'
 import { TranscriptDrawer } from './TranscriptDrawer'
 
 const BG = '/interview-session-background.png'
@@ -108,7 +109,8 @@ export function InterviewStage({
 
       <ConnectionBanner connection={connection} />
 
-      <div className="relative z-10 flex flex-1 items-center justify-center overflow-y-auto px-5 py-8">
+      <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-6 overflow-y-auto px-5 py-8">
+        <InterviewerAvatar state={awaitingQuestion || !currentQuestion ? 'thinking' : 'asking'} />
         {awaitingQuestion || !currentQuestion ? (
           <ThinkingState transcribing={transcribing} />
         ) : (
