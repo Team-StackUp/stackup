@@ -52,6 +52,7 @@ def _envelope(
     *,
     context_documents: list[int] | None = None,
     voice_analysis_summary: dict | None = None,
+    end_reason: str = "MAX_QUESTIONS_REACHED",
 ) -> bytes:
     env = {
         "messageId": "fb-1",
@@ -65,7 +66,7 @@ def _envelope(
             "mode": "TECHNICAL",
             "jobCategory": "BACKEND",
             "totalQuestionCount": 2,
-            "endReason": "MAX_QUESTIONS_REACHED",
+            "endReason": end_reason,
             "messages": [
                 {
                     "id": 100,
@@ -129,6 +130,26 @@ async def test_consumer_generates_feedback_and_publishes_callback():
     assert payload.session_id == 50
     assert payload.overall_score == 85.0
     assert publisher.publish.await_args.kwargs["message_type"] == "callback.feedback"
+
+
+@pytest.mark.asyncio
+async def test_consumer_accepts_pool_exhausted_end_reason():
+    # 회귀: Core 가 POOL_EXHAUSTED 로 종료해도 파싱 실패(DLQ) 없이 피드백 생성돼야 한다.
+    generator = _generator()
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+    consumer = FeedbackConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.feedback",
+        core_client=MagicMock(),
+        embedder=None,
+    )
+    await consumer.handle(_StubMessage(_envelope(end_reason="POOL_EXHAUSTED")))
+
+    generator.generate.assert_awaited_once()
+    publisher.publish.assert_awaited_once()
 
 
 @pytest.mark.asyncio
