@@ -399,6 +399,11 @@
 분석 진행(ANALYSIS_PROGRESS)과 동일 패턴으로, AI 서버가 꼬리질문 생성 중 토큰을 `stackup.realtime` exchange 의 `realtime.session.notify` 로 **직접** 발행(Core 미경유)해 세션 채널로 흘린다. 휘발성(영속 불필요)이며 발행 실패는 무시(경고만).
 - `context.sessionId` 로 세션 채널 라우팅. `payload.eventType` = `SESSION_MESSAGE_DELTA`, `payload.data` = `{ messageId, seq, text }` (§event-stream.md 3.3-1).
 - `messageId` = `generate.followup` 의 `followupMessageId`(placeholder). 종료/정본은 기존대로 Core 가 `callback.questions` 수신 후 `SESSION_MESSAGE`(messageId) 로 통지.
+
+### 5.12-2 `realtime.session.notify` — 문장 단위 TTS 세그먼트 (AI 직접 발행)
+AI followup consumer 가 토큰 스트림 중 문장 경계마다 그 문장만 인라인 TTS 합성 → S3 세그먼트 PUT → `SESSION_MESSAGE_AUDIO` 를 `realtime.session.notify` 로 직접 발행(휘발성). 문장 합성은 `asyncio.create_task` 백그라운드(텍스트 델타 비차단), 콜백 발행 전 `gather` 로 수거.
+- `payload.eventType` = `SESSION_MESSAGE_AUDIO`, `payload.data` = `{ messageId, seq, ext, durationSec }`. `seq` 는 오디오 전용(델타 seq 와 독립).
+- 세그먼트 S3 키 규칙(AI·Core 공유): `interview/tts/{sessionId}/{messageId}/seg-{seq}.{ext}`. Core 는 DB 미기록, `GET …/messages/{mid}/audio/segments/{seq}?ext=` 프록시에서 소유권 검증 후 규칙으로 키 재구성(ext 화이트리스트 wav|mp3|ogg|m4a).
 - 상세 SSE 스펙: [`event-stream.md §3.2-1`](./event-stream.md).
 
 ---

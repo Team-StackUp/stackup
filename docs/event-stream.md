@@ -40,7 +40,7 @@ WS  /realtime/sessions/{sessionId}/audio  # RT3 실시간 음성 답변 스트�
 
 ## 2. 이벤트 포맷
 
-> - `event` 이름은 **`SseEventType` enum 이름(대문자)**: `DOC_STATE`·`REPO_STATE`·`SESSION_MESSAGE`·`SESSION_STATE`·`FEEDBACK_READY`·`ERROR`·`KEEP_ALIVE` (+ AI 가 직접 발행하는 `ANALYSIS_PROGRESS`·`SESSION_MESSAGE_DELTA`). **`session.message` 같은 소문자 점표기가 아니다.** (RealTime `bridge/dispatcher.go` `Type: env.Payload.EventType` → `sse.go`/`ws.go` 가 그대로 전달.) RealTime 디스패처는 이벤트 타입을 화이트리스트 없이 투명 전달하므로, AI 가 새 이벤트 타입(`SESSION_MESSAGE_DELTA` 등)을 발행해도 RealTime 코드 변경이 필요 없다.
+> - `event` 이름은 **`SseEventType` enum 이름(대문자)**: `DOC_STATE`·`REPO_STATE`·`SESSION_MESSAGE`·`SESSION_STATE`·`FEEDBACK_READY`·`ERROR`·`KEEP_ALIVE` (+ AI 가 직접 발행하는 `ANALYSIS_PROGRESS`·`SESSION_MESSAGE_DELTA`·`SESSION_MESSAGE_AUDIO`). **`session.message` 같은 소문자 점표기가 아니다.** (RealTime `bridge/dispatcher.go` `Type: env.Payload.EventType` → `sse.go`/`ws.go` 가 그대로 전달.) RealTime 디스패처는 이벤트 타입을 화이트리스트 없이 투명 전달하므로, AI 가 새 이벤트 타입(`SESSION_MESSAGE_DELTA` 등)을 발행해도 RealTime 코드 변경이 필요 없다.
 > - `data` 봉투는 `{"data": <payload>, "traceId": "..."}` 다 (`realtime/CLAUDE.md §8`). payload 필드는 camelCase.
 > - 클라는 SSE `addEventListener(<ENUM_NAME>, …)` / WS `frame.event === '<ENUM_NAME>'` 로 매칭한다.
 
@@ -128,6 +128,18 @@ WS(RT1)는 같은 내용을 JSON 한 줄 프레임으로: `{ "id": <eventId>, "e
 - `seq`: 0부터 단조 증가. `text`: 이번 델타에서 **추가된 조각**(누적 아님). 프론트는 placeholder 버블에 append.
 - 흐름: 답변 → (Core) placeholder INSERT + `SESSION_MESSAGE` → (AI) `astream` 으로 `SESSION_MESSAGE_DELTA` 연속 발행 → (AI) `callback.questions(FOLLOWUP, followupMessageId)` → (Core) placeholder UPDATE(content/COMPLETED) + `SESSION_MESSAGE`(종료) → 프론트 `GET …/messages` 재조회로 정본 reconcile.
 - `answer_intent=DONT_KNOW` 면 AI 가 델타를 **발행하지 않고**, Core 가 placeholder 삭제 후 다음 일반질문으로 진행한다. 이때 프론트는 placeholder 를 "생각 중"으로만 표시하다 일반질문으로 교체.
+
+### 3.3-2 꼬리질문 문장 단위 TTS (`event: SESSION_MESSAGE_AUDIO`)
+
+**휘발성** 이벤트. 꼬리질문이 토큰으로 차오르는 동안, **문장이 완성될 때마다 그 문장만 TTS 합성**해 첫 소리까지의 지연을 단축한다. AI 서버가 인라인 합성 후 `stackup.realtime`(`realtime.session.notify`)으로 직접 발행.
+
+```json
+{ "data": { "messageId": 503, "seq": 0, "ext": "mp3", "durationSec": 1.2 }, "traceId": "..." }
+```
+
+- `messageId` = `SESSION_MESSAGE_DELTA` 와 동일 placeholder id. `seq` = 오디오 세그먼트 순번(0부터, **델타 seq 와 독립**). `ext` ∈ `wav|mp3|ogg|m4a`.
+- 세그먼트는 S3 `interview/tts/{sessionId}/{messageId}/seg-{seq}.{ext}` 에 저장(DB 미기록, 휘발성). 프론트는 Core 프록시 `GET /api/sessions/{sid}/messages/{mid}/audio/segments/{seq}?ext=` 로 받아 **seq 순서대로 순차 재생**.
+- `DONT_KNOW` 면 발행 안 함. 라이브 세그먼트를 재생한 메시지는 완료 후 whole-message TTS **autoPlay 억제**(중복 재생 방지) — 수동 "다시 듣기"만 동작.
 
 ### 3.4 세션 상태 (`event: SESSION_STATE`)
 ```json

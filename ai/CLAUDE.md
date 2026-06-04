@@ -324,6 +324,7 @@ docker run --env-file .env -p 8000:8000 stackup-ai
   - 꼬리질문 + 답변 평가 (Flash 모델, `chain/followup_generation_chain.py`)
   - 콜백: `callback.questions` (`kind=POOL|FOLLOWUP`)
 - **꼬리질문 토큰 스트리밍 본 구현**: followup 출력을 `<intent>…</intent><question>…</question><meta>{json}</meta>` 구분자 포맷으로 바꾸고(`chain/prompts/followup_generation.py`), `StreamingFollowupGenerator`(`astream`)가 `<question>` 토큰만 `SessionRealtimeNotifier`(`messaging/session_notify.py`)로 `SESSION_MESSAGE_DELTA` 발행(`stackup.realtime`/`realtime.session.notify`, Core 우회). `DONT_KNOW` 면 델타 미발행. 종료 후 `parse_followup_result` 로 검증해 기존 `callback.questions(FOLLOWUP, followupMessageId)` 발행. 와이어링은 `messaging/runner.py`(분석 진행 publisher 재사용).
+- **문장 단위 TTS 본 구현 (Part B)**: followup consumer 스트림 루프가 `chain/sentence_split.next_sentences` 로 문장 경계를 잡아, 문장마다 `TtsProvider` 인라인 합성(`asyncio.create_task` 백그라운드, 텍스트 델타 비차단)→S3 `interview/tts/{sid}/{mid}/seg-{seq}.{ext}` PUT→`SessionRealtimeNotifier.emit_audio`(`SESSION_MESSAGE_AUDIO`). 콜백 전 `gather` 로 수거. 라이브 세그먼트는 휘발성(DB 미기록).
 - **임베딩 본 구현** (`rag/`): `MarkdownChunker` + `GeminiEmbeddingProvider` (1536d, `gemini-embedding-001`).
   운영/개발 default 는 gemini, 테스트는 `MockEmbeddingProvider`.
   - 청크를 `EMBEDDING_BATCH_SIZE`(기본 32) 단위로 쪼개 순차 호출 — 한 요청에 몰면 분당 토큰 한도(429 `RESOURCE_EXHAUSTED`)에 걸린다.
