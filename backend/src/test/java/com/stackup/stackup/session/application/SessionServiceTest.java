@@ -64,6 +64,34 @@ class SessionServiceTest {
     }
 
     @Test
+    void create_generatesTitleFromModeAndJobWhenBlank() {
+        User user = userFixture(1L);
+        when(userRepository.findByIdAndDeletedFalse(1L)).thenReturn(Optional.of(user));
+        when(sessionRepository.save(any(InterviewSession.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        SessionResult result = service.create(1L, new SessionCreateCommand(
+            "  ", null, SessionMode.TECHNICAL, JobCategory.BACKEND,
+            5, 30, null, null, List.of()
+        ));
+
+        assertThat(result.title()).isEqualTo("백엔드 기술 면접");
+    }
+
+    @Test
+    void create_keepsProvidedTitle() {
+        User user = userFixture(1L);
+        when(userRepository.findByIdAndDeletedFalse(1L)).thenReturn(Optional.of(user));
+        when(sessionRepository.save(any(InterviewSession.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        SessionResult result = service.create(1L, new SessionCreateCommand(
+            "내가 정한 제목", null, SessionMode.INTEGRATED, JobCategory.FRONTEND,
+            5, 30, null, null, List.of()
+        ));
+
+        assertThat(result.title()).isEqualTo("내가 정한 제목");
+    }
+
+    @Test
     void create_linksAnalyzedContextDocuments() {
         User user = userFixture(1L);
         when(userRepository.findByIdAndDeletedFalse(1L)).thenReturn(Optional.of(user));
