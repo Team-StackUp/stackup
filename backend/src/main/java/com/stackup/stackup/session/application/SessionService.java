@@ -43,9 +43,10 @@ public class SessionService {
     @Transactional
     public SessionResult create(Long userId, SessionCreateCommand command) {
         User user = loadUser(userId);
+        String title = resolveTitle(command);
         InterviewSession session = sessionRepository.save(InterviewSession.create(
             user,
-            command.title(),
+            title,
             command.memo(),
             command.mode(),
             command.jobCategory(),
@@ -143,6 +144,16 @@ public class SessionService {
         InterviewSession session = loadOwned(userId, sessionId);
         session.updateTitleAndMemo(title, memo);
         return SessionResult.of(session, contextDocumentIds(sessionId));
+    }
+
+    // 제목 미입력 시 모드+직군으로 규칙 기반 제목 생성 (예: "백엔드 기술 면접").
+    // 히스토리에서 "면접 #id" 대신 의미 있는 제목을 보이게 한다.
+    private String resolveTitle(SessionCreateCommand command) {
+        String title = command.title();
+        if (title != null && !title.isBlank()) {
+            return title;
+        }
+        return command.jobCategory().koreanLabel() + " " + command.mode().koreanLabel();
     }
 
     private User loadUser(Long userId) {
