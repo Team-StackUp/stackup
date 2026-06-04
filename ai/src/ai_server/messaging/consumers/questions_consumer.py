@@ -90,6 +90,7 @@ class QuestionsConsumer:
                 mode=req.mode,
                 max_questions=effective_pool_size,
                 context=context_text,
+                recent_questions=req.recent_questions,
             )
 
             payload = QuestionPoolCallbackPayload(

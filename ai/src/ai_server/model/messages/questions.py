@@ -36,6 +36,8 @@ class GenerateQuestionsRequest(BaseModel):
     documents: list[DocumentContext] = []
     initial_question_count: int = 1
     max_questions: int = 10
+    # 같은 유저가 최근 면접에서 받은 질문들. 의미 중복 회피에 사용.
+    recent_questions: list[str] = []
 
 
 class GeneratedQuestion(BaseModel):

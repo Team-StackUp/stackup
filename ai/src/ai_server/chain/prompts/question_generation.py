@@ -36,6 +36,11 @@ HUMAN_PROMPT = (
     "CS_FUNDAMENTAL·BEHAVIORAL 은 선택(없으면 빈 문자열).\n"
     "   - expected_signal: 좋은 답변이 드러내야 할 핵심(평가 관점). 한 문장.\n"
     "5. 지원자 컨텍스트의 기술/프로젝트를 구체적으로 언급하는 PROJECT_DEEP_DIVE / "
-    "TECH_CHOICE 질문을 우선합니다.\n\n"
+    "TECH_CHOICE 질문을 우선합니다.\n"
+    "6. 아래는 같은 지원자가 최근 면접에서 이미 받은 질문들입니다. 이와 "
+    "**의미상 중복되는 질문은 만들지 말고**, 새로운 주제나 다른 각도로 출제하세요:\n"
+    "---\n"
+    "{recent_questions}\n"
+    "---\n\n"
     "{format_instructions}"
 )
