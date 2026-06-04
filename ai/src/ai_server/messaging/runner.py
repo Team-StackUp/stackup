@@ -32,7 +32,6 @@ from ai_server.core.client import HttpCoreClient
 from ai_server.messaging.connection import RabbitConnection
 from ai_server.rag.chunker import MarkdownChunker
 from ai_server.rag.embedder import build_embedding_provider
-from ai_server.rag.reranker import build_reranker
 from ai_server.messaging.consumers.feedback_consumer import FeedbackConsumer
 from ai_server.messaging.consumers.followup_consumer import FollowupConsumer
 from ai_server.messaging.consumers.questions_consumer import QuestionsConsumer
@@ -102,7 +101,6 @@ class MessagingRuntime:
             max_retries=settings.embedding_max_retries,
             retry_base_delay_sec=settings.embedding_retry_base_delay_sec,
         )
-        reranker = build_reranker(settings, core_client=core_client)
         vision_pdf_reader = build_vision_pdf_reader(settings, core_client=core_client)
 
         # 이력서 PDF
@@ -182,8 +180,6 @@ class MessagingRuntime:
             initial_pool_size=settings.questions_initial_pool_size,
             core_client=core_client,
             embedder=embedder,
-            reranker=reranker,
-            candidate_k=settings.rerank_candidate_k,
         )
 
         # 꼬리질문 생성 (US-19)
@@ -206,13 +202,12 @@ class MessagingRuntime:
             callback_routing_key=settings.ai_callback_routing_questions,
             core_client=core_client,
             embedder=embedder,
-            reranker=reranker,
-            candidate_k=settings.rerank_candidate_k,
             streaming_generator=streaming_followup_generator,
             session_notifier=session_notifier,
             tts=tts,
             storage=storage,
             tts_voice=settings.openai_tts_voice,
+            rag_timeout_sec=settings.followup_rag_timeout_sec,
         )
 
         # 종합 피드백 생성 (US-24)
@@ -226,8 +221,6 @@ class MessagingRuntime:
             callback_routing_key=settings.ai_callback_routing_feedback,
             core_client=core_client,
             embedder=embedder,
-            reranker=reranker,
-            candidate_k=settings.rerank_candidate_k,
             rag_top_k=settings.feedback_rag_top_k,
         )
 

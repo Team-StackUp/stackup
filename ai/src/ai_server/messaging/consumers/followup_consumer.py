@@ -20,7 +20,6 @@ from ai_server.model.messages.followup import (
     GenerateFollowupRequest,
 )
 from ai_server.rag.embedder import EmbeddingProvider
-from ai_server.rag.reranker import NoopReranker, Reranker, rerank_hits
 
 log = structlog.get_logger(__name__)
 
@@ -43,13 +42,12 @@ class FollowupConsumer:
         core_client: CoreClient | None = None,
         embedder: EmbeddingProvider | None = None,
         rag_top_k: int = 5,
-        reranker: Reranker | None = None,
-        candidate_k: int = 20,
         streaming_generator: StreamingFollowupGenerator | None = None,
         session_notifier: SessionRealtimeNotifier | None = None,
         tts=None,
         storage=None,
         tts_voice: str = "",
+        rag_timeout_sec: float = 1.5,
     ) -> None:
         self._generator = generator
         self._publisher = publisher
@@ -58,13 +56,12 @@ class FollowupConsumer:
         self._core = core_client
         self._embedder = embedder
         self._rag_top_k = rag_top_k
-        self._reranker = reranker or NoopReranker()
-        self._candidate_k = max(candidate_k, rag_top_k)
         self._streaming = streaming_generator
         self._notifier = session_notifier
         self._tts = tts
         self._storage = storage
         self._tts_voice = tts_voice
+        self._rag_timeout_sec = rag_timeout_sec
 
     async def handle(self, message: AbstractIncomingMessage) -> None:
         async with message.process(requeue=False):
@@ -233,7 +230,19 @@ class FollowupConsumer:
     async def _build_rag_context(self, req: GenerateFollowupRequest) -> str:
         if not self._core or not self._embedder or not req.context_document_ids:
             return "(none)"
+        try:
+            return await asyncio.wait_for(
+                self._do_build_rag_context(req), timeout=self._rag_timeout_sec
+            )
+        except asyncio.TimeoutError:
+            log.warning(
+                "followup.rag.timeout",
+                session_id=req.session_id,
+                timeout_sec=self._rag_timeout_sec,
+            )
+            return "(none)"
 
+    async def _do_build_rag_context(self, req: GenerateFollowupRequest) -> str:
         query = f"{req.previous_question}\n\n{req.answer_text}"
         try:
             query_vec = (
@@ -243,7 +252,7 @@ class FollowupConsumer:
                 query_embedding=query_vec,
                 query_text=query,
                 document_ids=req.context_document_ids,
-                top_k=self._candidate_k,
+                top_k=self._rag_top_k,
             )
         except Exception as exc:
             log.warn("followup.rag.failed", error=str(exc), session_id=req.session_id)
@@ -251,9 +260,6 @@ class FollowupConsumer:
 
         if not hits:
             return "(none)"
-        hits = await rerank_hits(
-            self._reranker, query=query, hits=hits, top_k=self._rag_top_k
-        )
         return "\n---\n".join(
             f"[doc#{h.document_id} chunk#{h.chunk_index}] {h.chunk_text}" for h in hits
         )

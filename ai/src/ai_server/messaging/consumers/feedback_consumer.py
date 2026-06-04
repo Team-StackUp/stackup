@@ -15,7 +15,6 @@ from ai_server.model.messages.feedback import (
     VoiceAnalysisSummary,
 )
 from ai_server.rag.embedder import EmbeddingProvider
-from ai_server.rag.reranker import NoopReranker, Reranker, rerank_hits
 
 log = structlog.get_logger(__name__)
 
@@ -41,8 +40,6 @@ class FeedbackConsumer:
         core_client: CoreClient,
         embedder: EmbeddingProvider | None = None,
         rag_top_k: int = 5,
-        reranker: Reranker | None = None,
-        candidate_k: int = 20,
     ) -> None:
         self._generator = generator
         self._publisher = publisher
@@ -51,8 +48,6 @@ class FeedbackConsumer:
         self._core = core_client
         self._embedder = embedder
         self._rag_top_k = rag_top_k
-        self._reranker = reranker or NoopReranker()
-        self._candidate_k = max(candidate_k, rag_top_k)
 
     async def handle(self, message: AbstractIncomingMessage) -> None:
         async with message.process(requeue=False):
@@ -148,16 +143,13 @@ class FeedbackConsumer:
                 query_embedding=query_vec,
                 query_text=last_answer,
                 document_ids=req.context_document_ids,
-                top_k=self._candidate_k,
+                top_k=self._rag_top_k,
             )
         except Exception as exc:
             log.warn("feedback.rag.failed", error=str(exc), session_id=req.session_id)
             return "(none)"
         if not hits:
             return "(none)"
-        hits = await rerank_hits(
-            self._reranker, query=last_answer, hits=hits, top_k=self._rag_top_k
-        )
         return "\n---\n".join(
             f"[doc#{h.document_id} chunk#{h.chunk_index}] {h.chunk_text}" for h in hits
         )

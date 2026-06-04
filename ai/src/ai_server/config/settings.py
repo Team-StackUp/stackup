@@ -38,9 +38,8 @@ class Settings(BaseSettings):
     ai_realtime_exchange: str = "stackup.realtime"
     ai_realtime_routing_user: str = "realtime.user.notify"
     feedback_rag_top_k: int = 5
-    # 리랭킹: 하이브리드 검색으로 후보 N개(candidate_k)를 가져와 LLM 으로 재정렬 후 top_k 주입.
-    rerank_enabled: bool = True
-    rerank_candidate_k: int = 20
+    # RAG 컨텍스트 구성(임베딩+검색) 전체 상한. 초과 시 (none) 으로 폴백해 첫 토큰을 막지 않는다.
+    followup_rag_timeout_sec: float = 1.5
     # 질문 풀 초기 크기. Core 의 applyPool 이 questions[0] 만 INSERT 하므로 1 로 고정해 토큰 낭비 차단.
     # 후속 작업에서 풀 저장 도입 시 늘리기 (예: 5).
     questions_initial_pool_size: int = 1

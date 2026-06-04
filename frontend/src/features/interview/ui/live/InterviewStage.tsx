@@ -119,7 +119,7 @@ export function InterviewStage({
         {awaitingQuestion || !currentQuestion ? (
           <ThinkingState transcribing={transcribing} />
         ) : (
-          <StageQuestion question={currentQuestion} segmented={wasSegmented(currentQuestion.id ?? -1)} />
+          <StageQuestion question={currentQuestion} segmented={wasSegmented(currentQuestion.id ?? -1)} streaming={currentQuestion?.streaming ?? false} />
         )}
       </div>
 

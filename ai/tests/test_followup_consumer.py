@@ -168,7 +168,7 @@ async def test_consumer_injects_followup_rag_context_when_available():
     call = core.search_embeddings.await_args
     assert call.kwargs["query_embedding"] == [0.1, 0.2, 0.3]
     assert call.kwargs["document_ids"] == [7]
-    assert call.kwargs["top_k"] == 20  # candidate_k (리랭크 후보 수)
+    assert call.kwargs["top_k"] == 3  # rag_top_k (direct vector search)
     assert call.kwargs["query_text"]  # 하이브리드 검색: 쿼리 텍스트 동봉
     assert (
         "Outbox rows are inserted in the same transaction" in received_kwargs["context"]
@@ -480,3 +480,111 @@ async def test_callback_includes_answer_message_id():
     payload = publisher.publish.await_args.kwargs["payload"]
     assert payload.answer_message_id == 502  # _envelope 의 answerMessageId
     assert payload.followup_message_id == 503  # _envelope 의 followupMessageId
+
+
+# ---------------------------------------------------------------------------
+# 꼬리질문 RAG 저지연: top_k 직접 검색, timeout 폴백
+# ---------------------------------------------------------------------------
+
+
+def _make_req() -> "GenerateFollowupRequest":
+    from ai_server.model.messages.followup import GenerateFollowupRequest
+
+    return GenerateFollowupRequest(
+        session_id=99,
+        parent_message_id=501,
+        answer_message_id=502,
+        followup_message_id=503,
+        previous_question="결제 outbox 어떻게 구현?",
+        answer_text="RabbitMQ로 보냈습니다.",
+        mode="TECHNICAL",
+        job_category="BACKEND",
+        context_document_ids=[1],
+    )
+
+
+def _make_hit(document_id: int = 1, chunk_index: int = 0, chunk_text: str = "x"):
+    from types import SimpleNamespace
+
+    return SimpleNamespace(
+        document_id=document_id, chunk_index=chunk_index, chunk_text=chunk_text
+    )
+
+
+@pytest.mark.asyncio
+async def test_rag_searches_top_k_directly():
+    """search_embeddings 는 rag_top_k 로 직접 검색하고, 청크 텍스트가 결과에 포함된다."""
+    from ai_server.messaging.consumers.followup_consumer import FollowupConsumer
+    from ai_server.messaging.idempotency import LruIdempotencyStore
+
+    hit = _make_hit(chunk_text="이 청크가 반환돼야 한다")
+
+    embedder = MagicMock()
+    embedder.embed = AsyncMock(return_value=[[0.0]])
+
+    core = MagicMock()
+    core.search_embeddings = AsyncMock(return_value=[hit])
+
+    generator = MagicMock()
+    generator.generate = AsyncMock()
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+
+    consumer = FollowupConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.questions",
+        core_client=core,
+        embedder=embedder,
+        rag_top_k=5,
+    )
+
+    req = _make_req()
+    result = await consumer._build_rag_context(req)
+
+    # 청크 텍스트가 결과에 포함돼야 한다
+    assert "이 청크가 반환돼야 한다" in result
+    # rag_top_k 로 직접 검색
+    call_kwargs = core.search_embeddings.await_args.kwargs
+    assert call_kwargs["top_k"] == 5  # rag_top_k
+
+
+@pytest.mark.asyncio
+async def test_rag_timeout_returns_none():
+    """rag_timeout_sec 초과 시 _build_rag_context 가 '(none)' 을 반환한다."""
+    import asyncio
+
+    from ai_server.messaging.consumers.followup_consumer import FollowupConsumer
+    from ai_server.messaging.idempotency import LruIdempotencyStore
+
+    async def _slow_embed(texts, *, task_type=""):
+        await asyncio.sleep(0.1)  # 타임아웃(0.01s) 보다 훨씬 길다
+        return [[0.0]]
+
+    embedder = MagicMock()
+    embedder.embed = _slow_embed
+
+    core = MagicMock()
+    core.search_embeddings = AsyncMock(return_value=[])
+
+    generator = MagicMock()
+    generator.generate = AsyncMock()
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+
+    consumer = FollowupConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.questions",
+        core_client=core,
+        embedder=embedder,
+        rag_top_k=5,
+        rag_timeout_sec=0.01,
+    )
+
+    req = _make_req()
+    result = await consumer._build_rag_context(req)
+
+    assert result == "(none)"
