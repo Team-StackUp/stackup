@@ -197,6 +197,8 @@ class MessagingRuntime:
             publisher=self._realtime_publisher,
             routing_key="realtime.session.notify",
         )
+        # TTS provider 는 꼬리질문 인라인 세그먼트 합성과 질문 TTS 양쪽에서 재사용한다.
+        tts = build_tts_provider(settings)
         self._followup_consumer = FollowupConsumer(
             generator=followup_generator,
             publisher=self._publisher,
@@ -208,6 +210,9 @@ class MessagingRuntime:
             candidate_k=settings.rerank_candidate_k,
             streaming_generator=streaming_followup_generator,
             session_notifier=session_notifier,
+            tts=tts,
+            storage=storage,
+            tts_voice=settings.openai_tts_voice,
         )
 
         # 종합 피드백 생성 (US-24)
@@ -238,8 +243,7 @@ class MessagingRuntime:
             core_client=core_client,
         )
 
-        # 질문 TTS (Part A)
-        tts = build_tts_provider(settings)
+        # 질문 TTS (Part A) — tts 인스턴스는 위에서 이미 생성됨
         self._tts_consumer = TtsConsumer(
             tts=tts,
             storage=storage,

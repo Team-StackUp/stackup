@@ -267,6 +267,127 @@ def test_answer_evaluation_correctness_defaults_none_and_parses():
     assert e2.correctness == 3.5
 
 
+# ---------------------------------------------------------------------------
+# TTS segment synthesis tests (Part B Task 4)
+# ---------------------------------------------------------------------------
+
+
+def _make_tts_fake():
+    """audio/mpeg を返す偽 TtsProvider."""
+    from ai_server.voice.tts.base import TtsResult
+
+    tts = MagicMock()
+    tts.synthesize = AsyncMock(
+        return_value=TtsResult(
+            audio_bytes=b"x", duration_sec=0.5, content_type="audio/mpeg"
+        )
+    )
+    return tts
+
+
+def _make_storage_fake():
+    storage = MagicMock()
+    storage.put_bytes = AsyncMock()
+    return storage
+
+
+def _make_full_session_notifier():
+    notifier = MagicMock()
+    notifier.emit_delta = AsyncMock()
+    notifier.emit_audio = AsyncMock()
+    return notifier
+
+
+def _make_streaming_generator_two_tokens(result):
+    """stream() 이 on_question_token 을 두 번 호출 ('첫 문장이다. ', '둘째다.')."""
+    streaming = MagicMock()
+
+    async def _stream(*, on_question_token, **kwargs):
+        await on_question_token("첫 문장이다. ")
+        await on_question_token("둘째다.")
+        return result
+
+    streaming.stream = _stream
+    return streaming
+
+
+@pytest.mark.asyncio
+async def test_segment_synthesis_emits_audio_event():
+    """스트리밍 경로에서 TTS + storage 가 주입되면 segment 합성 후 emit_audio 를 발행한다."""
+    followup_result = FollowupResult(
+        followup_question="구체적인 질문",
+        answer_evaluation=AnswerEvaluation(
+            specificity=2.0, logic=3.0, structure="PARTIAL_STAR"
+        ),
+    )
+    generator = MagicMock()
+    generator.generate = AsyncMock(return_value=followup_result)
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+
+    tts = _make_tts_fake()
+    storage = _make_storage_fake()
+    session_notifier = _make_full_session_notifier()
+    streaming_generator = _make_streaming_generator_two_tokens(followup_result)
+
+    consumer = FollowupConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.questions",
+        streaming_generator=streaming_generator,
+        session_notifier=session_notifier,
+        tts=tts,
+        storage=storage,
+        tts_voice="alloy",
+    )
+    await consumer.handle(_StubMessage(_envelope()))
+
+    # emit_audio 는 최소 1회 이상 호출돼야 한다
+    assert session_notifier.emit_audio.await_count >= 1
+
+    # storage.put_bytes 첫 번째 호출 키가 seg-0.mp3 패턴
+    assert storage.put_bytes.await_count >= 1
+    first_key = storage.put_bytes.await_args_list[0].args[0]
+    assert first_key == "interview/tts/99/503/seg-0.mp3"
+
+    # emit_audio 첫 번째 호출 kwargs
+    first_audio_call = session_notifier.emit_audio.await_args_list[0].kwargs
+    assert first_audio_call["ext"] == "mp3"
+    assert first_audio_call["seq"] == 0
+
+
+@pytest.mark.asyncio
+async def test_no_tts_injected_emits_no_audio():
+    """tts/storage 를 주입하지 않으면 emit_audio 는 호출되지 않는다."""
+    followup_result = FollowupResult(
+        followup_question="Q",
+        answer_evaluation=AnswerEvaluation(
+            specificity=2.0, logic=2.0, structure="NONE"
+        ),
+    )
+    generator = MagicMock()
+    generator.generate = AsyncMock(return_value=followup_result)
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+
+    session_notifier = _make_full_session_notifier()
+    streaming_generator = _make_streaming_generator_two_tokens(followup_result)
+
+    consumer = FollowupConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.questions",
+        streaming_generator=streaming_generator,
+        session_notifier=session_notifier,
+        # tts / storage 미주입
+    )
+    await consumer.handle(_StubMessage(_envelope()))
+
+    session_notifier.emit_audio.assert_not_awaited()
+
+
 @pytest.mark.asyncio
 async def test_consumer_passes_parent_category_and_history_to_generator():
     followup_result = FollowupResult(

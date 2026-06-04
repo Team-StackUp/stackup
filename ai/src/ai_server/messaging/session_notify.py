@@ -5,6 +5,8 @@ import structlog
 from ai_server.messaging.publisher import CallbackPublisher
 from ai_server.model.envelope import MessageContext
 from ai_server.model.messages.realtime import (
+    SessionAudioNotifyPayload,
+    SessionMessageAudioData,
     SessionMessageDeltaData,
     SessionNotifyPayload,
 )
@@ -12,6 +14,7 @@ from ai_server.model.messages.realtime import (
 log = structlog.get_logger(__name__)
 
 SESSION_MESSAGE_DELTA_EVENT = "SESSION_MESSAGE_DELTA"
+SESSION_MESSAGE_AUDIO_EVENT = "SESSION_MESSAGE_AUDIO"
 
 
 class SessionRealtimeNotifier:
@@ -49,6 +52,40 @@ class SessionRealtimeNotifier:
         except Exception:
             log.warning(
                 "session.delta.publish_failed",
+                session_id=session_id,
+                message_id=message_id,
+                seq=seq,
+                trace_id=trace_id,
+            )
+
+    async def emit_audio(
+        self,
+        *,
+        session_id: int,
+        message_id: int,
+        seq: int,
+        ext: str,
+        duration_sec: float | None,
+        trace_id: str,
+    ) -> None:
+        payload = SessionAudioNotifyPayload(
+            event_type=SESSION_MESSAGE_AUDIO_EVENT,
+            data=SessionMessageAudioData(
+                message_id=message_id, seq=seq, ext=ext, duration_sec=duration_sec
+            ),
+        )
+        try:
+            await self._publisher.publish(
+                routing_key=self._routing_key,
+                message_type=self._routing_key,
+                payload=payload,
+                trace_id=trace_id,
+                correlation_id=f"audio-{message_id}-{seq}",
+                context=MessageContext(session_id=session_id),
+            )
+        except Exception:
+            log.warning(
+                "session.audio.publish_failed",
                 session_id=session_id,
                 message_id=message_id,
                 seq=seq,

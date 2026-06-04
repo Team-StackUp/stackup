@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 import structlog
 from aio_pika.abc import AbstractIncomingMessage
 
@@ -7,6 +9,7 @@ from ai_server.chain.followup_generation_chain import (
     FollowupGenerator,
     StreamingFollowupGenerator,
 )
+from ai_server.chain.sentence_split import next_sentences
 from ai_server.core.client import CoreClient
 from ai_server.messaging.idempotency import LruIdempotencyStore
 from ai_server.messaging.publisher import CallbackPublisher
@@ -20,6 +23,13 @@ from ai_server.rag.embedder import EmbeddingProvider
 from ai_server.rag.reranker import NoopReranker, Reranker, rerank_hits
 
 log = structlog.get_logger(__name__)
+
+_EXT_BY_CONTENT_TYPE = {
+    "audio/wav": "wav",
+    "audio/mpeg": "mp3",
+    "audio/ogg": "ogg",
+    "audio/mp4": "m4a",
+}
 
 
 class FollowupConsumer:
@@ -37,6 +47,9 @@ class FollowupConsumer:
         candidate_k: int = 20,
         streaming_generator: StreamingFollowupGenerator | None = None,
         session_notifier: SessionRealtimeNotifier | None = None,
+        tts=None,
+        storage=None,
+        tts_voice: str = "",
     ) -> None:
         self._generator = generator
         self._publisher = publisher
@@ -49,6 +62,9 @@ class FollowupConsumer:
         self._candidate_k = max(candidate_k, rag_top_k)
         self._streaming = streaming_generator
         self._notifier = session_notifier
+        self._tts = tts
+        self._storage = storage
+        self._tts_voice = tts_voice
 
     async def handle(self, message: AbstractIncomingMessage) -> None:
         async with message.process(requeue=False):
@@ -85,6 +101,26 @@ class FollowupConsumer:
 
             if self._streaming is not None and self._notifier is not None:
                 seq = {"n": 0}
+                audio_seq = {"n": 0}
+                q_acc = {"text": "", "consumed": 0}
+                synth_tasks: list = []
+
+                def _spawn_segment(sentence: str) -> None:
+                    if not (self._tts and self._storage):
+                        return
+                    idx = audio_seq["n"]
+                    audio_seq["n"] += 1
+                    synth_tasks.append(
+                        asyncio.create_task(
+                            self._synth_segment(
+                                session_id=req.session_id,
+                                message_id=req.followup_message_id,
+                                seq=idx,
+                                sentence=sentence,
+                                trace_id=envelope.trace_id,
+                            )
+                        )
+                    )
 
                 async def _on_token(delta: str) -> None:
                     await self._notifier.emit_delta(
@@ -95,6 +131,12 @@ class FollowupConsumer:
                         trace_id=envelope.trace_id,
                     )
                     seq["n"] += 1
+                    q_acc["text"] += delta
+                    sents, q_acc["consumed"] = next_sentences(
+                        q_acc["text"], q_acc["consumed"]
+                    )
+                    for s in sents:
+                        _spawn_segment(s)
 
                 result = await self._streaming.stream(
                     on_question_token=_on_token,
@@ -107,6 +149,11 @@ class FollowupConsumer:
                     expected_signal=req.parent_expected_signal or "(none)",
                     history=_format_history(req.history),
                 )
+                tail = q_acc["text"][q_acc["consumed"] :].strip()
+                if tail:
+                    _spawn_segment(tail)
+                if synth_tasks:
+                    await asyncio.gather(*synth_tasks, return_exceptions=True)
             else:
                 result = await self._generator.generate(
                     job_category=req.job_category,
@@ -143,6 +190,44 @@ class FollowupConsumer:
                 message_id=envelope.message_id,
                 session_id=req.session_id,
                 trace_id=envelope.trace_id,
+            )
+
+    async def _synth_segment(
+        self,
+        *,
+        session_id: int,
+        message_id: int,
+        seq: int,
+        sentence: str,
+        trace_id: str,
+    ) -> None:
+        """문장 하나를 TTS 합성 → S3 세그먼트 PUT → SESSION_MESSAGE_AUDIO 발행.
+
+        라이브 세그먼트는 휘발성 — 실패해도 텍스트 스트림/콜백을 막지 않는다(로그만).
+        """
+        try:
+            res = await self._tts.synthesize(sentence, voice=self._tts_voice)
+            ext = _EXT_BY_CONTENT_TYPE.get(
+                res.content_type.split(";")[0].strip(), "mp3"
+            )
+            key = f"interview/tts/{session_id}/{message_id}/seg-{seq}.{ext}"
+            await self._storage.put_bytes(
+                key, res.audio_bytes, content_type=res.content_type
+            )
+            await self._notifier.emit_audio(
+                session_id=session_id,
+                message_id=message_id,
+                seq=seq,
+                ext=ext,
+                duration_sec=res.duration_sec,
+                trace_id=trace_id,
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning(
+                "followup.segment.failed",
+                message_id=message_id,
+                seq=seq,
+                error=str(exc),
             )
 
     async def _build_rag_context(self, req: GenerateFollowupRequest) -> str:

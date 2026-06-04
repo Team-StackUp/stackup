@@ -37,3 +37,20 @@ class SessionNotifyPayload(BaseModel):
 
     event_type: str
     data: SessionMessageDeltaData
+
+
+# AI -> RealTime 세션 채널 직접 발행. 꼬리질문 문장 단위 TTS 세그먼트(휘발성).
+class SessionMessageAudioData(BaseModel):
+    model_config = camel_config()
+
+    message_id: int
+    seq: int
+    ext: str  # wav | mp3 | ogg | m4a
+    duration_sec: float | None = None
+
+
+class SessionAudioNotifyPayload(BaseModel):
+    model_config = camel_config()
+
+    event_type: str
+    data: SessionMessageAudioData
