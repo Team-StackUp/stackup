@@ -48,19 +48,23 @@ export function InterviewStage({
   connection,
   items,
   awaitingQuestion,
+  questionStreaming,
   onSubmit,
   onSubmitVoice,
   voiceUploading,
   onEnd,
+  wasSegmented,
 }: {
   session: Session
   connection: ConnectionStatus
   items: ThreadItem[]
   awaitingQuestion: boolean
+  questionStreaming: boolean
   onSubmit: (content: string) => void
   onSubmitVoice: (audio: Blob) => void
   voiceUploading: boolean
   onEnd: () => void
+  wasSegmented: (id: number) => boolean
 }) {
   const [transcriptOpen, setTranscriptOpen] = useState(false)
   const progress = sessionProgress(session)
@@ -115,7 +119,7 @@ export function InterviewStage({
         {awaitingQuestion || !currentQuestion ? (
           <ThinkingState transcribing={transcribing} />
         ) : (
-          <StageQuestion question={currentQuestion} />
+          <StageQuestion question={currentQuestion} segmented={wasSegmented(currentQuestion.id ?? -1)} />
         )}
       </div>
 
@@ -126,6 +130,7 @@ export function InterviewStage({
       <div className="relative z-10">
         <AnswerComposer
           disabled={awaitingQuestion || connection !== 'open'}
+          submitLocked={questionStreaming}
           onSubmit={onSubmit}
           onSubmitVoice={onSubmitVoice}
           voiceUploading={voiceUploading}

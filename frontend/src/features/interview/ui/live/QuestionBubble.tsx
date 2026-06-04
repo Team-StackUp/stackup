@@ -2,6 +2,7 @@ import type { Message } from '@/domain/session'
 import { StatusBadge } from '@/shared/ui/StatusBadge'
 import { categoryLabel } from '../../lib/categoryLabel'
 import { useTtsPlayback } from '../../lib/media/useTtsPlayback'
+import { FOLLOWUP_GENERATING_TEXT } from '../../model/streamingBuffer'
 
 function PlayIcon({ playing }: { playing: boolean }) {
   return (
@@ -41,7 +42,15 @@ export function QuestionBubble({
           </div>
         )}
         <div className="rounded-lg rounded-tl-sm bg-surface-raised px-4 py-3 text-body text-fg shadow-sm">
-          <p className="whitespace-pre-wrap">{message.content}</p>
+          {message.content === FOLLOWUP_GENERATING_TEXT ? (
+            <span className="inline-flex gap-1 text-fg-muted" aria-label="질문 생성 중">
+              <span className="animate-pulse">●</span>
+              <span className="animate-pulse [animation-delay:150ms]">●</span>
+              <span className="animate-pulse [animation-delay:300ms]">●</span>
+            </span>
+          ) : (
+            <p className="whitespace-pre-wrap">{message.content}</p>
+          )}
           {ttsReady && (
             <div className="mt-2 flex items-center gap-2 border-t border-border pt-2">
               <button

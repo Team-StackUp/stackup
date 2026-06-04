@@ -44,6 +44,7 @@ def _envelope() -> bytes:
             "sessionId": 99,
             "parentMessageId": 501,
             "answerMessageId": 502,
+            "followupMessageId": 503,
             "previousQuestion": "결제 outbox 어떻게 구현?",
             "answerText": "RabbitMQ로 보냈습니다.",
             "mode": "TECHNICAL",
@@ -55,17 +56,36 @@ def _envelope() -> bytes:
     return json.dumps(env).encode()
 
 
+def _make_streaming_generator(result: FollowupResult):
+    """streaming_generator 페이크: stream() 호출 시 on_question_token 한 번 호출 후 result 반환."""
+    streaming = MagicMock()
+
+    async def _stream(*, on_question_token, **kwargs):
+        await on_question_token("토큰")
+        return result
+
+    streaming.stream = _stream
+    return streaming
+
+
+def _make_session_notifier():
+    notifier = MagicMock()
+    notifier.emit_delta = AsyncMock()
+    return notifier
+
+
 @pytest.mark.asyncio
 async def test_consumer_generates_followup_and_publishes_callback():
-    generator = MagicMock()
-    generator.generate = AsyncMock(
-        return_value=FollowupResult(
-            followup_question="구체적으로 outbox 테이블 스키마와 polling 주기는?",
-            answer_evaluation=AnswerEvaluation(
-                specificity=2.0, logic=3.0, structure="PARTIAL_STAR"
-            ),
-        )
+    followup_result = FollowupResult(
+        followup_question="구체적으로 outbox 테이블 스키마와 polling 주기는?",
+        answer_evaluation=AnswerEvaluation(
+            specificity=2.0, logic=3.0, structure="PARTIAL_STAR"
+        ),
     )
+    generator = MagicMock()
+    generator.generate = AsyncMock(return_value=followup_result)
+    streaming_generator = _make_streaming_generator(followup_result)
+    session_notifier = _make_session_notifier()
     publisher = MagicMock()
     publisher.publish = AsyncMock()
 
@@ -74,10 +94,14 @@ async def test_consumer_generates_followup_and_publishes_callback():
         publisher=publisher,
         idempotency=LruIdempotencyStore(max_size=10),
         callback_routing_key="callback.questions",
+        streaming_generator=streaming_generator,
+        session_notifier=session_notifier,
     )
     await consumer.handle(_StubMessage(_envelope()))
 
-    generator.generate.assert_awaited_once()
+    # streaming path이 사용되므로 generator.generate 는 호출되지 않음
+    generator.generate.assert_not_awaited()
+    session_notifier.emit_delta.assert_awaited_once()
     publisher.publish.assert_awaited_once()
     payload: FollowupCallbackPayload = publisher.publish.await_args.kwargs["payload"]
     assert payload.session_id == 99
@@ -85,20 +109,20 @@ async def test_consumer_generates_followup_and_publishes_callback():
     assert payload.parent_message_id == 501
     assert payload.followup_question.startswith("구체적으로")
     assert payload.answer_evaluation.structure == "PARTIAL_STAR"
+    assert payload.followup_message_id == 503
     assert publisher.publish.await_args.kwargs["message_type"] == "callback.questions"
 
 
 @pytest.mark.asyncio
 async def test_consumer_injects_followup_rag_context_when_available():
-    generator = MagicMock()
-    generator.generate = AsyncMock(
-        return_value=FollowupResult(
-            followup_question="outbox 저장과 발행의 원자성은 어떻게 보장했나요?",
-            answer_evaluation=AnswerEvaluation(
-                specificity=2.0, logic=3.0, structure="PARTIAL_STAR"
-            ),
-        )
+    followup_result = FollowupResult(
+        followup_question="outbox 저장과 발행의 원자성은 어떻게 보장했나요?",
+        answer_evaluation=AnswerEvaluation(
+            specificity=2.0, logic=3.0, structure="PARTIAL_STAR"
+        ),
     )
+    generator = MagicMock()
+    generator.generate = AsyncMock(return_value=followup_result)
     publisher = MagicMock()
     publisher.publish = AsyncMock()
     core = MagicMock()
@@ -115,6 +139,18 @@ async def test_consumer_injects_followup_rag_context_when_available():
     embedder = MagicMock()
     embedder.embed = AsyncMock(return_value=[[0.1, 0.2, 0.3]])
 
+    # Track kwargs passed to stream
+    received_kwargs: dict = {}
+
+    async def _stream(*, on_question_token, **kwargs):
+        received_kwargs.update(kwargs)
+        await on_question_token("토큰")
+        return followup_result
+
+    streaming_generator = MagicMock()
+    streaming_generator.stream = _stream
+    session_notifier = _make_session_notifier()
+
     consumer = FollowupConsumer(
         generator=generator,
         publisher=publisher,
@@ -123,6 +159,8 @@ async def test_consumer_injects_followup_rag_context_when_available():
         core_client=core,
         embedder=embedder,
         rag_top_k=3,
+        streaming_generator=streaming_generator,
+        session_notifier=session_notifier,
     )
     await consumer.handle(_StubMessage(_envelope()))
 
@@ -132,27 +170,38 @@ async def test_consumer_injects_followup_rag_context_when_available():
     assert call.kwargs["document_ids"] == [7]
     assert call.kwargs["top_k"] == 20  # candidate_k (리랭크 후보 수)
     assert call.kwargs["query_text"]  # 하이브리드 검색: 쿼리 텍스트 동봉
-    context = generator.generate.await_args.kwargs["context"]
-    assert "Outbox rows are inserted in the same transaction" in context
+    assert (
+        "Outbox rows are inserted in the same transaction" in received_kwargs["context"]
+    )
 
 
 @pytest.mark.asyncio
 async def test_consumer_falls_back_when_followup_rag_fails():
-    generator = MagicMock()
-    generator.generate = AsyncMock(
-        return_value=FollowupResult(
-            followup_question="실패 재처리는 어떻게 했나요?",
-            answer_evaluation=AnswerEvaluation(
-                specificity=2.0, logic=3.0, structure="PARTIAL_STAR"
-            ),
-        )
+    followup_result = FollowupResult(
+        followup_question="실패 재처리는 어떻게 했나요?",
+        answer_evaluation=AnswerEvaluation(
+            specificity=2.0, logic=3.0, structure="PARTIAL_STAR"
+        ),
     )
+    generator = MagicMock()
+    generator.generate = AsyncMock(return_value=followup_result)
     publisher = MagicMock()
     publisher.publish = AsyncMock()
     core = MagicMock()
     core.search_embeddings = AsyncMock(side_effect=RuntimeError("core down"))
     embedder = MagicMock()
     embedder.embed = AsyncMock(return_value=[[0.1, 0.2, 0.3]])
+
+    received_kwargs: dict = {}
+
+    async def _stream(*, on_question_token, **kwargs):
+        received_kwargs.update(kwargs)
+        await on_question_token("토큰")
+        return followup_result
+
+    streaming_generator = MagicMock()
+    streaming_generator.stream = _stream
+    session_notifier = _make_session_notifier()
 
     consumer = FollowupConsumer(
         generator=generator,
@@ -161,10 +210,12 @@ async def test_consumer_falls_back_when_followup_rag_fails():
         callback_routing_key="callback.questions",
         core_client=core,
         embedder=embedder,
+        streaming_generator=streaming_generator,
+        session_notifier=session_notifier,
     )
     await consumer.handle(_StubMessage(_envelope()))
 
-    assert generator.generate.await_args.kwargs["context"] == "(none)"
+    assert received_kwargs["context"] == "(none)"
 
 
 @pytest.mark.asyncio
@@ -175,12 +226,18 @@ async def test_consumer_idempotent_skip():
     publisher.publish = AsyncMock()
     idempotency = LruIdempotencyStore(max_size=10)
     idempotency.is_seen_then_mark("m-1")
+    streaming_generator = _make_streaming_generator(
+        FollowupResult(followup_question="Q")
+    )
+    session_notifier = _make_session_notifier()
 
     consumer = FollowupConsumer(
         generator=generator,
         publisher=publisher,
         idempotency=idempotency,
         callback_routing_key="callback.questions",
+        streaming_generator=streaming_generator,
+        session_notifier=session_notifier,
     )
     await consumer.handle(_StubMessage(_envelope()))
     generator.generate.assert_not_awaited()
@@ -210,24 +267,158 @@ def test_answer_evaluation_correctness_defaults_none_and_parses():
     assert e2.correctness == 3.5
 
 
-@pytest.mark.asyncio
-async def test_consumer_passes_parent_category_and_history_to_generator():
-    generator = MagicMock()
-    generator.generate = AsyncMock(
-        return_value=FollowupResult(
-            followup_question="새 각도 질문",
-            answer_evaluation=AnswerEvaluation(
-                specificity=2.0, logic=2.0, structure="NONE"
-            ),
+# ---------------------------------------------------------------------------
+# TTS segment synthesis tests (Part B Task 4)
+# ---------------------------------------------------------------------------
+
+
+def _make_tts_fake():
+    """audio/mpeg を返す偽 TtsProvider."""
+    from ai_server.voice.tts.base import TtsResult
+
+    tts = MagicMock()
+    tts.synthesize = AsyncMock(
+        return_value=TtsResult(
+            audio_bytes=b"x", duration_sec=0.5, content_type="audio/mpeg"
         )
     )
+    return tts
+
+
+def _make_storage_fake():
+    storage = MagicMock()
+    storage.put_bytes = AsyncMock()
+    return storage
+
+
+def _make_full_session_notifier():
+    notifier = MagicMock()
+    notifier.emit_delta = AsyncMock()
+    notifier.emit_audio = AsyncMock()
+    return notifier
+
+
+def _make_streaming_generator_two_tokens(result):
+    """stream() 이 on_question_token 을 두 번 호출 ('첫 문장이다. ', '둘째다.')."""
+    streaming = MagicMock()
+
+    async def _stream(*, on_question_token, **kwargs):
+        await on_question_token("첫 문장이다. ")
+        await on_question_token("둘째다.")
+        return result
+
+    streaming.stream = _stream
+    return streaming
+
+
+@pytest.mark.asyncio
+async def test_segment_synthesis_emits_audio_event():
+    """스트리밍 경로에서 TTS + storage 가 주입되면 segment 합성 후 emit_audio 를 발행한다."""
+    followup_result = FollowupResult(
+        followup_question="구체적인 질문",
+        answer_evaluation=AnswerEvaluation(
+            specificity=2.0, logic=3.0, structure="PARTIAL_STAR"
+        ),
+    )
+    generator = MagicMock()
+    generator.generate = AsyncMock(return_value=followup_result)
     publisher = MagicMock()
     publisher.publish = AsyncMock()
+
+    tts = _make_tts_fake()
+    storage = _make_storage_fake()
+    session_notifier = _make_full_session_notifier()
+    streaming_generator = _make_streaming_generator_two_tokens(followup_result)
+
     consumer = FollowupConsumer(
         generator=generator,
         publisher=publisher,
         idempotency=LruIdempotencyStore(max_size=10),
         callback_routing_key="callback.questions",
+        streaming_generator=streaming_generator,
+        session_notifier=session_notifier,
+        tts=tts,
+        storage=storage,
+        tts_voice="alloy",
+    )
+    await consumer.handle(_StubMessage(_envelope()))
+
+    # emit_audio 는 최소 1회 이상 호출돼야 한다
+    assert session_notifier.emit_audio.await_count >= 1
+
+    # storage.put_bytes 첫 번째 호출 키가 seg-0.mp3 패턴
+    assert storage.put_bytes.await_count >= 1
+    first_key = storage.put_bytes.await_args_list[0].args[0]
+    assert first_key == "interview/tts/99/503/seg-0.mp3"
+
+    # emit_audio 첫 번째 호출 kwargs
+    first_audio_call = session_notifier.emit_audio.await_args_list[0].kwargs
+    assert first_audio_call["ext"] == "mp3"
+    assert first_audio_call["seq"] == 0
+
+
+@pytest.mark.asyncio
+async def test_no_tts_injected_emits_no_audio():
+    """tts/storage 를 주입하지 않으면 emit_audio 는 호출되지 않는다."""
+    followup_result = FollowupResult(
+        followup_question="Q",
+        answer_evaluation=AnswerEvaluation(
+            specificity=2.0, logic=2.0, structure="NONE"
+        ),
+    )
+    generator = MagicMock()
+    generator.generate = AsyncMock(return_value=followup_result)
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+
+    session_notifier = _make_full_session_notifier()
+    streaming_generator = _make_streaming_generator_two_tokens(followup_result)
+
+    consumer = FollowupConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.questions",
+        streaming_generator=streaming_generator,
+        session_notifier=session_notifier,
+        # tts / storage 미주입
+    )
+    await consumer.handle(_StubMessage(_envelope()))
+
+    session_notifier.emit_audio.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_consumer_passes_parent_category_and_history_to_generator():
+    followup_result = FollowupResult(
+        followup_question="새 각도 질문",
+        answer_evaluation=AnswerEvaluation(
+            specificity=2.0, logic=2.0, structure="NONE"
+        ),
+    )
+    generator = MagicMock()
+    generator.generate = AsyncMock(return_value=followup_result)
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+
+    received_kwargs: dict = {}
+
+    async def _stream(*, on_question_token, **kwargs):
+        received_kwargs.update(kwargs)
+        await on_question_token("토큰")
+        return followup_result
+
+    streaming_generator = MagicMock()
+    streaming_generator.stream = _stream
+    session_notifier = _make_session_notifier()
+
+    consumer = FollowupConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.questions",
+        streaming_generator=streaming_generator,
+        session_notifier=session_notifier,
     )
     env = {
         "messageId": "m-9",
@@ -240,6 +431,7 @@ async def test_consumer_passes_parent_category_and_history_to_generator():
             "sessionId": 99,
             "parentMessageId": 501,
             "answerMessageId": 502,
+            "followupMessageId": 503,
             "previousQuestion": "Q?",
             "answerText": "A.",
             "mode": "TECHNICAL",
@@ -255,32 +447,36 @@ async def test_consumer_passes_parent_category_and_history_to_generator():
     }
     await consumer.handle(_StubMessage(json.dumps(env).encode()))
 
-    kwargs = generator.generate.await_args.kwargs
-    assert kwargs["parent_category"] == "PROJECT_DEEP_DIVE"
-    assert kwargs["expected_signal"] == "동시성 제어를 DB 레벨까지 설명하는지"
-    assert "이전 질문" in kwargs["history"]
-    assert "면접관:" in kwargs["history"]
+    assert received_kwargs["parent_category"] == "PROJECT_DEEP_DIVE"
+    assert received_kwargs["expected_signal"] == "동시성 제어를 DB 레벨까지 설명하는지"
+    assert "이전 질문" in received_kwargs["history"]
+    assert "면접관:" in received_kwargs["history"]
 
 
 @pytest.mark.asyncio
 async def test_callback_includes_answer_message_id():
-    generator = MagicMock()
-    generator.generate = AsyncMock(
-        return_value=FollowupResult(
-            followup_question="Q",
-            answer_evaluation=AnswerEvaluation(
-                specificity=2.0, logic=2.0, structure="NONE"
-            ),
-        )
+    followup_result = FollowupResult(
+        followup_question="Q",
+        answer_evaluation=AnswerEvaluation(
+            specificity=2.0, logic=2.0, structure="NONE"
+        ),
     )
+    generator = MagicMock()
+    generator.generate = AsyncMock(return_value=followup_result)
     publisher = MagicMock()
     publisher.publish = AsyncMock()
+    streaming_generator = _make_streaming_generator(followup_result)
+    session_notifier = _make_session_notifier()
+
     consumer = FollowupConsumer(
         generator=generator,
         publisher=publisher,
         idempotency=LruIdempotencyStore(max_size=10),
         callback_routing_key="callback.questions",
+        streaming_generator=streaming_generator,
+        session_notifier=session_notifier,
     )
     await consumer.handle(_StubMessage(_envelope()))
     payload = publisher.publish.await_args.kwargs["payload"]
     assert payload.answer_message_id == 502  # _envelope 의 answerMessageId
+    assert payload.followup_message_id == 503  # _envelope 의 followupMessageId

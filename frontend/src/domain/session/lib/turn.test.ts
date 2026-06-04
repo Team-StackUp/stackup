@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { Message, Session } from '../model/types'
-import { currentTurn, canSubmitAnswer, sessionProgress, isQuestion, isAnswer } from './turn'
+import { currentTurn, canSubmitAnswer, sessionProgress, isQuestion, isAnswer, FOLLOWUP_GENERATING_TEXT } from './turn'
 
 const msg = (role: 'INTERVIEWER' | 'INTERVIEWEE', content = '내용'): Message =>
   ({ role, content } as Message)
@@ -18,6 +18,9 @@ describe('currentTurn', () => {
   })
   it('내용 없는 질문(생성 중)이면 질문 대기', () => {
     expect(currentTurn([msg('INTERVIEWER', '')])).toBe('WAITING_FOR_QUESTION')
+  })
+  it('생성 중 sentinel 질문이면 질문 대기', () => {
+    expect(currentTurn([msg('INTERVIEWER', FOLLOWUP_GENERATING_TEXT)])).toBe('WAITING_FOR_QUESTION')
   })
 })
 

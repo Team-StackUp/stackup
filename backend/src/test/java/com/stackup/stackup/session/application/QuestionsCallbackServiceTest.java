@@ -139,7 +139,7 @@ class QuestionsCallbackServiceTest {
 
         QuestionsCallbackPayload payload = new QuestionsCallbackPayload(
             11L, "FOLLOWUP", null, 500L, 600L, "다음 질문?",
-            new QuestionsCallbackPayload.AnswerEvaluation(2.0, 3.0, "PARTIAL_STAR", 1.5), "NORMAL"
+            new QuestionsCallbackPayload.AnswerEvaluation(2.0, 3.0, "PARTIAL_STAR", 1.5), "NORMAL", null
         );
         QuestionsCallbackEnvelope env = new QuestionsCallbackEnvelope(
             "m-eval", "callback.questions", "1", "t", null, "ai", payload, null);
@@ -165,7 +165,7 @@ class QuestionsCallbackServiceTest {
         InterviewSession session = sessionFixture(11L, SessionStatus.IN_PROGRESS);
         QuestionsCallbackPayload payload = new QuestionsCallbackPayload(
             11L, "FOLLOWUP", null, 500L, 600L, "쉽게 다시 설명: 트랜잭션이란…",
-            null, "CLARIFICATION"
+            null, "CLARIFICATION", null
         );
         QuestionsCallbackEnvelope env = new QuestionsCallbackEnvelope(
             "m-clar", "callback.questions", "1", "t", null, "ai", payload, null);
@@ -185,16 +185,112 @@ class QuestionsCallbackServiceTest {
         assertThat(session.getTotalQuestionCount()).isEqualTo(0);
     }
 
+    // ── 새 placeholder 경로 테스트 ─────────────────────────────────────────────
+
+    @Test
+    void apply_followupNormal_updatesPlaceholderInPlaceAndCounts() {
+        InterviewSession session = sessionFixture(20L, SessionStatus.IN_PROGRESS);
+        // placeholder: followupPlaceholder 의 sentinel content
+        InterviewMessage placeholder = InterviewMessage.followupPlaceholder(
+            session, 3, parentMessageFixture(session));
+        ReflectionTestUtils.setField(placeholder, "id", 301L);
+
+        QuestionsCallbackPayload payload = new QuestionsCallbackPayload(
+            20L, "FOLLOWUP", null, 200L, null, "꼬리질문 내용?",
+            null, "NORMAL", 301L
+        );
+        QuestionsCallbackEnvelope env = new QuestionsCallbackEnvelope(
+            "m-ph-normal", "callback.questions", "1", "t", null, "ai", payload, null);
+
+        when(processedMessageRepository.existsById("m-ph-normal")).thenReturn(false);
+        when(sessionRepository.findById(20L)).thenReturn(Optional.of(session));
+        when(messageRepository.findById(200L)).thenReturn(Optional.of(parentMessageFixture(session)));
+        when(messageRepository.findById(301L)).thenReturn(Optional.of(placeholder));
+        when(messageRepository.save(any(InterviewMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.apply(env);
+
+        // placeholder 가 in-place 로 업데이트되어야 함
+        assertThat(placeholder.getContent()).isEqualTo("꼬리질문 내용?");
+        assertThat(placeholder.getStatus()).isEqualTo(com.stackup.stackup.session.domain.MessageStatus.COMPLETED);
+        // 질문 수 카운트 증가
+        assertThat(session.getTotalQuestionCount()).isEqualTo(1);
+        // save 는 placeholder 자체에 대해 호출됨 (새 InterviewMessage INSERT 아님)
+        ArgumentCaptor<InterviewMessage> cap = ArgumentCaptor.forClass(InterviewMessage.class);
+        verify(messageRepository).save(cap.capture());
+        assertThat(cap.getValue()).isSameAs(placeholder);
+    }
+
+    @Test
+    void apply_followupClarification_updatesPlaceholderWithoutCounting() {
+        InterviewSession session = sessionFixture(21L, SessionStatus.IN_PROGRESS);
+        InterviewMessage placeholder = InterviewMessage.followupPlaceholder(
+            session, 3, parentMessageFixture(session));
+        ReflectionTestUtils.setField(placeholder, "id", 302L);
+
+        QuestionsCallbackPayload payload = new QuestionsCallbackPayload(
+            21L, "FOLLOWUP", null, 200L, null, "다시 설명드리면…",
+            null, "CLARIFICATION", 302L
+        );
+        QuestionsCallbackEnvelope env = new QuestionsCallbackEnvelope(
+            "m-ph-clar", "callback.questions", "1", "t", null, "ai", payload, null);
+
+        when(processedMessageRepository.existsById("m-ph-clar")).thenReturn(false);
+        when(sessionRepository.findById(21L)).thenReturn(Optional.of(session));
+        when(messageRepository.findById(200L)).thenReturn(Optional.of(parentMessageFixture(session)));
+        when(messageRepository.findById(302L)).thenReturn(Optional.of(placeholder));
+        when(messageRepository.save(any(InterviewMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.apply(env);
+
+        // clarification 플래그가 세팅되어야 함
+        assertThat(placeholder.isClarification()).isTrue();
+        assertThat(placeholder.getContent()).isEqualTo("다시 설명드리면…");
+        // 질문 수 카운트 미증가
+        assertThat(session.getTotalQuestionCount()).isEqualTo(0);
+    }
+
+    @Test
+    void apply_followupDontKnow_deletesPlaceholderAndAdvances() {
+        InterviewSession session = sessionFixture(22L, SessionStatus.IN_PROGRESS);
+        InterviewMessage placeholder = InterviewMessage.followupPlaceholder(
+            session, 3, parentMessageFixture(session));
+        ReflectionTestUtils.setField(placeholder, "id", 303L);
+
+        QuestionsCallbackPayload payload = new QuestionsCallbackPayload(
+            22L, "FOLLOWUP", null, 200L, null, null,
+            null, "DONT_KNOW", 303L
+        );
+        QuestionsCallbackEnvelope env = new QuestionsCallbackEnvelope(
+            "m-ph-dk", "callback.questions", "1", "t", null, "ai", payload, null);
+
+        when(processedMessageRepository.existsById("m-ph-dk")).thenReturn(false);
+        when(sessionRepository.findById(22L)).thenReturn(Optional.of(session));
+        when(messageRepository.findById(200L)).thenReturn(Optional.of(parentMessageFixture(session)));
+        when(messageRepository.findById(303L)).thenReturn(Optional.of(placeholder));
+        // advanceToNextGeneral 내부에서 sessionRepository.findById 재호출
+        when(poolRepository.findFirstBySessionIdAndUsedFalseOrderByIdxAsc(22L))
+            .thenReturn(java.util.Optional.empty());
+
+        service.apply(env);
+
+        // placeholder 가 삭제되어야 함
+        verify(messageRepository).delete(placeholder);
+        verify(messageRepository).flush();
+        // 세션이 종료됨 (풀이 비어있어 POOL_EXHAUSTED)
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.COMPLETED);
+    }
+
     private QuestionsCallbackEnvelope poolEnvelope(Long sessionId, List<GeneratedQuestion> questions) {
         QuestionsCallbackPayload payload = new QuestionsCallbackPayload(
-            sessionId, "POOL", questions, null, null, null, null, null
+            sessionId, "POOL", questions, null, null, null, null, null, null
         );
         return new QuestionsCallbackEnvelope("m-1", "callback.questions", "1", "t", null, "ai", payload, null);
     }
 
     private QuestionsCallbackEnvelope followupEnvelope(Long sessionId, Long parentId, String followup) {
         QuestionsCallbackPayload payload = new QuestionsCallbackPayload(
-            sessionId, "FOLLOWUP", null, parentId, null, followup, null, "NORMAL"
+            sessionId, "FOLLOWUP", null, parentId, null, followup, null, "NORMAL", null
         );
         return new QuestionsCallbackEnvelope("m-2", "callback.questions", "1", "t", null, "ai", payload, null);
     }

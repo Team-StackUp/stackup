@@ -3,6 +3,8 @@ package com.stackup.stackup.session.application;
 import com.stackup.stackup.common.config.properties.RabbitMqProperties;
 import com.stackup.stackup.common.messaging.MessageContext;
 import com.stackup.stackup.common.messaging.RabbitMessagePublisher;
+import com.stackup.stackup.common.messaging.RealtimeNotifyEvent;
+import com.stackup.stackup.common.sse.SseEventType;
 import com.stackup.stackup.session.application.dto.GenerateFollowupPayload;
 import com.stackup.stackup.session.application.dto.GenerateFollowupPayload.HistoryItem;
 import com.stackup.stackup.session.application.event.AnswerSubmittedEvent;
@@ -35,6 +37,7 @@ public class SessionFollowupRequester {
     private final InterviewMessageRepository messageRepository;
     private final SessionContextRepository contextRepository;
     private final QuestionsCallbackService questionsCallbackService;
+    private final org.springframework.context.ApplicationEventPublisher events;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -74,6 +77,15 @@ public class SessionFollowupRequester {
             .map(m -> new HistoryItem(m.getRole().name(), m.getContent()))
             .toList();
 
+        // 스트리밍 표시용 placeholder 선INSERT (seq 예약). 콜백에서 content 채움.
+        int placeholderSeq = (int) messageRepository.countBySession_Id(session.getId()) + 1;
+        InterviewMessage placeholder = messageRepository.save(
+            InterviewMessage.followupPlaceholder(session, placeholderSeq, parent));
+        // placeholder 를 프론트 메시지 목록에 즉시 노출 → 토큰 델타가 채울 버블 확보.
+        // REQUIRES_NEW 트랜잭션 commit 후 RealtimeNotifyEventListener 가 발행하므로 조회 보장.
+        events.publishEvent(RealtimeNotifyEvent.session(
+            session.getId(), SseEventType.SESSION_MESSAGE, placeholder.getId()));
+
         GenerateFollowupPayload payload = new GenerateFollowupPayload(
             session.getId(),
             parent.getId(),
@@ -85,6 +97,7 @@ public class SessionFollowupRequester {
             contextDocumentIds,
             parent.getCategory(),
             parent.getExpectedSignal(),
+            placeholder.getId(),
             history
         );
         publisher.publishToAi(

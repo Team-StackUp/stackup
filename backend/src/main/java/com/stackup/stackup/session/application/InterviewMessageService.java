@@ -88,6 +88,23 @@ public class InterviewMessageService {
 
     public record AudioStream(java.io.InputStream stream, String contentType) {}
 
+    private static final java.util.Set<String> SEGMENT_EXTS =
+        java.util.Set.of("wav", "mp3", "ogg", "m4a");
+
+    // 라이브 문장 TTS 세그먼트 프록시. 키는 AI 와 동일 규칙으로 재구성(DB 미저장).
+    // 소유권(ownedSession) + 메시지-세션 일치 + ext 화이트리스트 + seq>=0 으로 임의 키 노출 차단.
+    public AudioStream streamAudioSegment(Long userId, Long sessionId, Long messageId, int seq, String ext) {
+        ownedSession(userId, sessionId);
+        if (ext == null || !SEGMENT_EXTS.contains(ext) || seq < 0) {
+            throw new DomainException(ApiErrorCode.VOICE_MESSAGE_NOT_FOUND);
+        }
+        InterviewMessage m = messageRepository.findById(messageId)
+            .filter(x -> x.getSession().getId().equals(sessionId))
+            .orElseThrow(() -> new DomainException(ApiErrorCode.VOICE_MESSAGE_NOT_FOUND));
+        String key = "interview/tts/%d/%d/seg-%d.%s".formatted(sessionId, m.getId(), seq, ext);
+        return new AudioStream(storage.get(key), contentTypeForKey(key));
+    }
+
     private static String contentTypeForKey(String key) {
         String k = key.toLowerCase();
         if (k.endsWith(".mp3")) return "audio/mpeg";

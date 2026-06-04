@@ -24,9 +24,13 @@ analyzed/resume/{resume_id}/summary.md
 analyzed/repository/{repository_id}/summary.md
 session/{session_id}/audio/{message_id}.webm
 session/{session_id}/audio/{message_id}.transcript.txt
+interview/tts/{session_id}/{message_id}.{ext}                # 질문 whole-message TTS (영속, ttsAudioPath)
+interview/tts/{session_id}/{message_id}/seg-{seq}.{ext}      # 꼬리질문 문장 단위 TTS 세그먼트 (휘발성, DB 미기록)
 feedback/{session_id}/report.md
 feedback/{session_id}/charts/{name}.png
 ```
+
+> 세그먼트 키 규칙은 **AI(발행)·Core(프록시 재구성) 양측이 하드코딩으로 공유**하는 SSOT다 — 변경 시 양측 동시 수정. `{ext}` ∈ `wav|mp3|ogg|m4a`, `{seq}` 는 0부터의 오디오 세그먼트 순번. 세그먼트는 DB에 기록하지 않고 Core 프록시(`GET …/audio/segments/{seq}?ext=`)가 소유권 검증 후 규칙으로 키를 만든다.
 
 규칙:
 - 슬래시(`/`) 계층 구조로 탐색성 확보

@@ -17,6 +17,7 @@ from ai_server.chain.pdf_vision import build_vision_pdf_reader
 from ai_server.chain.followup_generation_chain import (
     LlmFollowupGenerator,
     build_followup_generation_chain,
+    build_streaming_followup_generator,
 )
 from ai_server.chain.feedback_generation_chain import (
     LlmFeedbackGenerator,
@@ -45,6 +46,7 @@ from ai_server.messaging.consumers.web_consumer import WebResumeConsumer
 from ai_server.messaging.idempotency import LruIdempotencyStore
 from ai_server.messaging.progress import AnalysisProgressNotifier
 from ai_server.messaging.publisher import CallbackPublisher
+from ai_server.messaging.session_notify import SessionRealtimeNotifier
 from ai_server.storage.factory import build_storage
 
 log = structlog.get_logger(__name__)
@@ -188,6 +190,15 @@ class MessagingRuntime:
         followup_generator = LlmFollowupGenerator(
             build_followup_generation_chain(settings, core_client=core_client)
         )
+        streaming_followup_generator = build_streaming_followup_generator(
+            settings, core_client=core_client
+        )
+        session_notifier = SessionRealtimeNotifier(
+            publisher=self._realtime_publisher,
+            routing_key="realtime.session.notify",
+        )
+        # TTS provider 는 꼬리질문 인라인 세그먼트 합성과 질문 TTS 양쪽에서 재사용한다.
+        tts = build_tts_provider(settings)
         self._followup_consumer = FollowupConsumer(
             generator=followup_generator,
             publisher=self._publisher,
@@ -197,6 +208,11 @@ class MessagingRuntime:
             embedder=embedder,
             reranker=reranker,
             candidate_k=settings.rerank_candidate_k,
+            streaming_generator=streaming_followup_generator,
+            session_notifier=session_notifier,
+            tts=tts,
+            storage=storage,
+            tts_voice=settings.openai_tts_voice,
         )
 
         # 종합 피드백 생성 (US-24)
@@ -227,8 +243,7 @@ class MessagingRuntime:
             core_client=core_client,
         )
 
-        # 질문 TTS (Part A)
-        tts = build_tts_provider(settings)
+        # 질문 TTS (Part A) — tts 인스턴스는 위에서 이미 생성됨
         self._tts_consumer = TtsConsumer(
             tts=tts,
             storage=storage,

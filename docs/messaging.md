@@ -263,12 +263,14 @@
     "contextDocumentIds": [12, 13],
     "parentCategory": "PROJECT_DEEP_DIVE",
     "parentExpectedSignal": "동시성 제어를 DB 레벨까지 설명하는지",
+    "followupMessageId": 503,
     "history": [{ "role": "INTERVIEWER", "content": "..." }]
   }
 }
 ```
 
 > `parentExpectedSignal` = 직전 질문 생성 시 만든 기대 신호(평가 관점). AI 가 specificity/correctness 채점의 핵심 기준으로 사용(없으면 무시). `contextDocumentIds` 로 RAG 검색 → correctness 판정.
+> `followupMessageId` = Core 가 답변 직후 선INSERT 한 INTERVIEWER placeholder(content=`"(생성 중)"`) 메시지 id. AI 는 이 id 로 `SESSION_MESSAGE_DELTA` 토큰을 태깅해 발행하고(§5.12-1), 콜백에도 되돌려준다. Core 는 콜백 시 이 id 의 placeholder 를 UPDATE(NORMAL/CLARIFICATION) 또는 DELETE(DONT_KNOW) 한다.
 
 ### 5.9 `callback.questions` (꼬리질문)
 ```json
@@ -278,6 +280,8 @@
     "sessionId": 99,
     "kind": "FOLLOWUP",
     "parentMessageId": 502,
+    "followupMessageId": 503,
+    "answerIntent": "NORMAL",
     "followupQuestion": "...",
     "answerEvaluation": {
       "specificity": 3.5,
@@ -390,6 +394,16 @@
 
 - 발행: AI `AnalysisProgressNotifier` (envelope 구조는 Core `RealtimeNotifyPublisher` 와 동일 — `payload.eventType` + `context.userId`).
 - `payload.eventType` = `ANALYSIS_PROGRESS`, `payload.data` = `{ targetType, targetId, phase, message }`. phase ∈ `EXTRACTING | SUMMARIZING | EMBEDDING`.
+
+### 5.12-1 `realtime.session.notify` — 꼬리질문 토큰 델타 (AI 직접 발행)
+분석 진행(ANALYSIS_PROGRESS)과 동일 패턴으로, AI 서버가 꼬리질문 생성 중 토큰을 `stackup.realtime` exchange 의 `realtime.session.notify` 로 **직접** 발행(Core 미경유)해 세션 채널로 흘린다. 휘발성(영속 불필요)이며 발행 실패는 무시(경고만).
+- `context.sessionId` 로 세션 채널 라우팅. `payload.eventType` = `SESSION_MESSAGE_DELTA`, `payload.data` = `{ messageId, seq, text }` (§event-stream.md 3.3-1).
+- `messageId` = `generate.followup` 의 `followupMessageId`(placeholder). 종료/정본은 기존대로 Core 가 `callback.questions` 수신 후 `SESSION_MESSAGE`(messageId) 로 통지.
+
+### 5.12-2 `realtime.session.notify` — 문장 단위 TTS 세그먼트 (AI 직접 발행)
+AI followup consumer 가 토큰 스트림 중 문장 경계마다 그 문장만 인라인 TTS 합성 → S3 세그먼트 PUT → `SESSION_MESSAGE_AUDIO` 를 `realtime.session.notify` 로 직접 발행(휘발성). 문장 합성은 `asyncio.create_task` 백그라운드(텍스트 델타 비차단), 콜백 발행 전 `gather` 로 수거.
+- `payload.eventType` = `SESSION_MESSAGE_AUDIO`, `payload.data` = `{ messageId, seq, ext, durationSec }`. `seq` 는 오디오 전용(델타 seq 와 독립).
+- 세그먼트 S3 키 규칙(AI·Core 공유): `interview/tts/{sessionId}/{messageId}/seg-{seq}.{ext}`. Core 는 DB 미기록, `GET …/messages/{mid}/audio/segments/{seq}?ext=` 프록시에서 소유권 검증 후 규칙으로 키 재구성(ext 화이트리스트 wav|mp3|ogg|m4a).
 - 상세 SSE 스펙: [`event-stream.md §3.2-1`](./event-stream.md).
 
 ---

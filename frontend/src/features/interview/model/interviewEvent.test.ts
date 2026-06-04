@@ -17,4 +17,10 @@ describe('interviewEventAction', () => {
   it('알 수 없는 이벤트는 무시', () => {
     expect(interviewEventAction('whatever')).toEqual({ kind: 'ignore' })
   })
+  it('SESSION_MESSAGE_DELTA → 델타 append', () => {
+    expect(interviewEventAction('SESSION_MESSAGE_DELTA')).toEqual({ kind: 'append-delta' })
+  })
+  it('SESSION_MESSAGE_AUDIO → 오디오 큐', () => {
+    expect(interviewEventAction('SESSION_MESSAGE_AUDIO')).toEqual({ kind: 'queue-audio' })
+  })
 })

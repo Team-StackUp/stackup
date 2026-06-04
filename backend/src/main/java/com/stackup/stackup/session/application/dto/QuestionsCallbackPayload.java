@@ -12,7 +12,8 @@ public record QuestionsCallbackPayload(
     Long answerMessageId,              // FOLLOWUP 시 평가 대상 답변 메시지
     String followupQuestion,           // FOLLOWUP 시 사용
     AnswerEvaluation answerEvaluation, // FOLLOWUP 시 옵션
-    String answerIntent                // NORMAL | DONT_KNOW | CLARIFICATION (FOLLOWUP)
+    String answerIntent,               // NORMAL | DONT_KNOW | CLARIFICATION (FOLLOWUP)
+    Long followupMessageId             // 스트리밍 placeholder 메시지 ID (AI→Core 콜백, null 가능)
 ) {
     public boolean isPool() {
         return "POOL".equals(kind);

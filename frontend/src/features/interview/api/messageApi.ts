@@ -46,3 +46,14 @@ export async function fetchMessageAudioObjectUrl(
   )
   return URL.createObjectURL(data)
 }
+
+// 라이브 문장 TTS 세그먼트를 Core 프록시로 받아 object URL 로 변환.
+export async function fetchMessageSegmentObjectUrl(
+  sessionId: number, messageId: number, seq: number, ext: string,
+): Promise<string> {
+  const { data } = await apiClient.get<Blob>(
+    `/api/sessions/${sessionId}/messages/${messageId}/audio/segments/${seq}`,
+    { responseType: 'blob', params: { ext } },
+  )
+  return URL.createObjectURL(data)
+}
