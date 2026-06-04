@@ -4,9 +4,11 @@ import { Button } from '@/shared/ui/Button'
 import { isQuestion, isTranscribing, sessionProgress } from '@/domain/session'
 import type { Session } from '@/domain/session'
 import type { ConnectionStatus, ThreadItem } from '../../model/useLiveInterview'
+import { useDeliveryMode } from '../../model/useDeliveryMode'
 import { ConnectionBanner } from './ConnectionBanner'
 import { AnswerComposer } from './AnswerComposer'
 import { StageQuestion } from './StageQuestion'
+import { DeliveryModeToggle } from './DeliveryModeToggle'
 import { InterviewerAvatar } from './InterviewerAvatar'
 import { WebcamSelfView } from './WebcamSelfView'
 import { TranscriptDrawer } from './TranscriptDrawer'
@@ -67,13 +69,14 @@ export function InterviewStage({
   wasSegmented: (id: number) => boolean
 }) {
   const [transcriptOpen, setTranscriptOpen] = useState(false)
+  const [deliveryMode, setDeliveryMode] = useDeliveryMode()
   const progress = sessionProgress(session)
   const currentQuestion = [...items].reverse().find(isQuestion)
   const lastItem = items[items.length - 1]
   const transcribing = Boolean(lastItem && isTranscribing(lastItem))
 
   return (
-    <section className="relative flex h-full flex-col overflow-hidden">
+    <section className="anim-screen-power-on relative flex h-full flex-col overflow-hidden">
       <div
         aria-hidden
         className="absolute inset-0 bg-cover bg-center"
@@ -102,6 +105,7 @@ export function InterviewStage({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <DeliveryModeToggle value={deliveryMode} onChange={setDeliveryMode} />
           <StatusBadge tone={connTone[connection]}>{connLabel[connection]}</StatusBadge>
           <Button variant="ghost" size="sm" onClick={() => setTranscriptOpen(true)}>
             기록
@@ -119,7 +123,7 @@ export function InterviewStage({
         {awaitingQuestion || !currentQuestion ? (
           <ThinkingState transcribing={transcribing} />
         ) : (
-          <StageQuestion question={currentQuestion} segmented={wasSegmented(currentQuestion.id ?? -1)} streaming={currentQuestion?.streaming ?? false} />
+          <StageQuestion question={currentQuestion} segmented={wasSegmented(currentQuestion.id ?? -1)} streaming={currentQuestion?.streaming ?? false} mode={deliveryMode} />
         )}
       </div>
 
@@ -141,6 +145,7 @@ export function InterviewStage({
         <TranscriptDrawer
           items={items}
           awaitingQuestion={awaitingQuestion}
+          mode={deliveryMode}
           onClose={() => setTranscriptOpen(false)}
         />
       )}

@@ -3,6 +3,7 @@ import { useLiveInterview } from '../../model/useLiveInterview'
 import { InterviewStage } from './InterviewStage'
 import { SessionEndedPanel } from './SessionEndedPanel'
 import { InterviewLobby } from './InterviewLobby'
+import { InterviewPreparing } from './InterviewPreparing'
 
 export function LiveInterview({ sessionId }: { sessionId: number }) {
   const {
@@ -18,11 +19,12 @@ export function LiveInterview({ sessionId }: { sessionId: number }) {
     isLoading,
     questionStreaming,
     wasSegmented,
+    firstQuestionReady,
   } = useLiveInterview(sessionId)
 
   if (isLoading || !session) {
     return (
-      <div className="flex justify-center py-16">
+      <div className="flex h-full items-center justify-center">
         <Spinner />
       </div>
     )
@@ -32,6 +34,10 @@ export function LiveInterview({ sessionId }: { sessionId: number }) {
   }
   if (status !== 'IN_PROGRESS') {
     return <SessionEndedPanel status={status ?? 'COMPLETED'} sessionId={sessionId} />
+  }
+  // 면접은 시작됐지만 첫 질문이 아직 안 왔으면 스테이지 진입 전 대기 화면을 보여준다.
+  if (!firstQuestionReady) {
+    return <InterviewPreparing session={session} />
   }
 
   const awaitingQuestion = turn === 'WAITING_FOR_QUESTION'

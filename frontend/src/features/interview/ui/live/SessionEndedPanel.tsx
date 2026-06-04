@@ -16,7 +16,7 @@ export function SessionEndedPanel({
   sessionId: number
 }) {
   return (
-    <div className="flex flex-col items-center gap-4 px-4 py-16 text-center">
+    <div className="flex h-full flex-col items-center justify-center gap-4 px-4 text-center">
       <p className="text-rich text-fg">{messageByStatus[status] ?? '면접이 종료되었습니다.'}</p>
       <div className="flex flex-wrap items-center justify-center gap-3">
         {status === 'COMPLETED' && (

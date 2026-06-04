@@ -16,6 +16,7 @@ export function InterviewSetupForm({
   onCreate: (req: SessionCreateRequest) => void
   isSubmitting?: boolean
 }) {
+  const [title, setTitle] = useState('')
   const [mode, setMode] = useState<SessionMode | null>(null)
   const [jobCategories, setJobCategories] = useState<JobCategory[]>([])
   const [generalQuestionCount, setGeneralQuestionCount] = useState(3)
@@ -36,7 +37,9 @@ export function InterviewSetupForm({
 
   const submit = () => {
     if (mode === null || jobCategories.length === 0 || !valid) return
+    const trimmedTitle = title.trim()
     onCreate({
+      title: trimmedTitle || undefined,
       mode,
       jobCategories,
       generalQuestionCount,
@@ -54,6 +57,21 @@ export function InterviewSetupForm({
         submit()
       }}
     >
+      <section className="flex flex-col gap-2">
+        <label htmlFor="session-title" className="text-h6 text-fg">
+          면접 제목
+          <span className="ml-1 text-caption text-fg-muted">선택 · 미입력 시 '모의 면접'</span>
+        </label>
+        <input
+          id="session-title"
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          maxLength={60}
+          placeholder="예: 백엔드 기술 면접 2차"
+          className="rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-fg placeholder:text-fg-muted focus:border-border-strong focus:outline-none"
+        />
+      </section>
       <section className="flex flex-col gap-2">
         <h2 className="text-h6 text-fg">면접 모드</h2>
         <ModeSelector value={mode} onChange={setMode} />

@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import type { ThreadItem } from '../../model/useLiveInterview'
+import type { DeliveryMode } from '../../model/useDeliveryMode'
 import { ConversationThread } from './ConversationThread'
 
 // 몰입형 스테이지는 현재 질문에만 집중하므로, 지난 문답 전체는
@@ -7,10 +8,12 @@ import { ConversationThread } from './ConversationThread'
 export function TranscriptDrawer({
   items,
   awaitingQuestion,
+  mode = 'text',
   onClose,
 }: {
   items: ThreadItem[]
   awaitingQuestion: boolean
+  mode?: DeliveryMode
   onClose: () => void
 }) {
   useEffect(() => {
@@ -45,7 +48,7 @@ export function TranscriptDrawer({
           </button>
         </header>
         <div className="min-h-0 flex-1">
-          <ConversationThread items={items} awaitingQuestion={awaitingQuestion} />
+          <ConversationThread items={items} awaitingQuestion={awaitingQuestion} mode={mode} />
         </div>
       </aside>
     </div>

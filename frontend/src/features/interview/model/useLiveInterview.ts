@@ -167,6 +167,14 @@ export function useLiveInterview(sessionId: number) {
 
   const wasSegmented = useCallback((id: number) => segmentedIds.current.has(id), [])
 
+  // 첫 질문이 실제 content 를 갖고 도착했는지. 면접 스테이지 진입 전에 이걸 기다려
+  // 사용자가 스테이지에 들어서면 바로 질문을 볼 수 있게 한다(빈 대기 화면 회피).
+  const firstQuestionReady = items.some((m) => {
+    if (m.role !== 'INTERVIEWER') return false
+    const c = (m.content ?? '').trim()
+    return c.length > 0 && c !== FOLLOWUP_GENERATING_TEXT
+  })
+
   return {
     session: sessionQuery.data,
     status,
@@ -181,5 +189,6 @@ export function useLiveInterview(sessionId: number) {
     isLoading: sessionQuery.isLoading,
     questionStreaming,
     wasSegmented,
+    firstQuestionReady,
   }
 }
