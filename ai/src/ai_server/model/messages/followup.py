@@ -24,6 +24,7 @@ class GenerateFollowupRequest(BaseModel):
     session_id: int
     parent_message_id: int  # 직전 질문 메시지 ID
     answer_message_id: int  # 답변 메시지 ID
+    followup_message_id: int  # Core 가 선INSERT 한 placeholder 질문 메시지 id
     previous_question: str
     answer_text: str
     mode: InterviewMode
@@ -58,3 +59,4 @@ class FollowupCallbackPayload(BaseModel):
     answer_evaluation: AnswerEvaluation | None = None
     # 답변 의도: NORMAL | DONT_KNOW | CLARIFICATION. Core 가 흐름 분기에 사용.
     answer_intent: str = "NORMAL"
+    followup_message_id: int  # placeholder UPDATE 대상

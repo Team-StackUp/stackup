@@ -1,0 +1,56 @@
+from __future__ import annotations
+
+import structlog
+
+from ai_server.messaging.publisher import CallbackPublisher
+from ai_server.model.envelope import MessageContext
+from ai_server.model.messages.realtime import (
+    SessionMessageDeltaData,
+    SessionNotifyPayload,
+)
+
+log = structlog.get_logger(__name__)
+
+SESSION_MESSAGE_DELTA_EVENT = "SESSION_MESSAGE_DELTA"
+
+
+class SessionRealtimeNotifier:
+    """AI -> RealTime 세션 채널 직접 발행. 꼬리질문 토큰 델타(휘발성).
+
+    발행 실패가 생성 파이프라인을 막아선 안 된다 — 예외를 삼키고 경고만.
+    """
+
+    def __init__(self, *, publisher: CallbackPublisher, routing_key: str) -> None:
+        self._publisher = publisher
+        self._routing_key = routing_key
+
+    async def emit_delta(
+        self,
+        *,
+        session_id: int,
+        message_id: int,
+        seq: int,
+        text: str,
+        trace_id: str,
+    ) -> None:
+        payload = SessionNotifyPayload(
+            event_type=SESSION_MESSAGE_DELTA_EVENT,
+            data=SessionMessageDeltaData(message_id=message_id, seq=seq, text=text),
+        )
+        try:
+            await self._publisher.publish(
+                routing_key=self._routing_key,
+                message_type=self._routing_key,
+                payload=payload,
+                trace_id=trace_id,
+                correlation_id=f"delta-{message_id}-{seq}",
+                context=MessageContext(session_id=session_id),
+            )
+        except Exception:
+            log.warning(
+                "session.delta.publish_failed",
+                session_id=session_id,
+                message_id=message_id,
+                seq=seq,
+                trace_id=trace_id,
+            )

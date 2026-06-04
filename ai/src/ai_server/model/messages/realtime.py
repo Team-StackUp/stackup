@@ -21,3 +21,19 @@ class RealtimeNotifyPayload(BaseModel):
 
     event_type: str
     data: AnalysisProgressData
+
+
+# AI -> RealTime 세션 채널 직접 발행. 꼬리질문 토큰 델타(휘발성). Core 우회.
+class SessionMessageDeltaData(BaseModel):
+    model_config = camel_config()
+
+    message_id: int
+    seq: int
+    text: str  # 이번 델타에서 추가된 조각(누적 아님)
+
+
+class SessionNotifyPayload(BaseModel):
+    model_config = camel_config()
+
+    event_type: str
+    data: SessionMessageDeltaData

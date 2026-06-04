@@ -3,10 +3,14 @@ from __future__ import annotations
 import structlog
 from aio_pika.abc import AbstractIncomingMessage
 
-from ai_server.chain.followup_generation_chain import FollowupGenerator
+from ai_server.chain.followup_generation_chain import (
+    FollowupGenerator,
+    StreamingFollowupGenerator,
+)
 from ai_server.core.client import CoreClient
 from ai_server.messaging.idempotency import LruIdempotencyStore
 from ai_server.messaging.publisher import CallbackPublisher
+from ai_server.messaging.session_notify import SessionRealtimeNotifier
 from ai_server.model.envelope import Envelope
 from ai_server.model.messages.followup import (
     FollowupCallbackPayload,
@@ -31,6 +35,8 @@ class FollowupConsumer:
         rag_top_k: int = 5,
         reranker: Reranker | None = None,
         candidate_k: int = 20,
+        streaming_generator: StreamingFollowupGenerator | None = None,
+        session_notifier: SessionRealtimeNotifier | None = None,
     ) -> None:
         self._generator = generator
         self._publisher = publisher
@@ -41,6 +47,8 @@ class FollowupConsumer:
         self._rag_top_k = rag_top_k
         self._reranker = reranker or NoopReranker()
         self._candidate_k = max(candidate_k, rag_top_k)
+        self._streaming = streaming_generator
+        self._notifier = session_notifier
 
     async def handle(self, message: AbstractIncomingMessage) -> None:
         async with message.process(requeue=False):
@@ -73,16 +81,43 @@ class FollowupConsumer:
                 trace_id=envelope.trace_id,
             )
 
-            result = await self._generator.generate(
-                job_category=req.job_category,
-                mode=req.mode,
-                previous_question=req.previous_question,
-                answer_text=req.answer_text,
-                context=await self._build_rag_context(req),
-                parent_category=req.parent_category or "UNKNOWN",
-                expected_signal=req.parent_expected_signal or "(none)",
-                history=_format_history(req.history),
-            )
+            rag_context = await self._build_rag_context(req)
+
+            if self._streaming is not None and self._notifier is not None:
+                seq = {"n": 0}
+
+                async def _on_token(delta: str) -> None:
+                    await self._notifier.emit_delta(
+                        session_id=req.session_id,
+                        message_id=req.followup_message_id,
+                        seq=seq["n"],
+                        text=delta,
+                        trace_id=envelope.trace_id,
+                    )
+                    seq["n"] += 1
+
+                result = await self._streaming.stream(
+                    on_question_token=_on_token,
+                    job_category=req.job_category,
+                    mode=req.mode,
+                    previous_question=req.previous_question,
+                    answer_text=req.answer_text,
+                    context=rag_context,
+                    parent_category=req.parent_category or "UNKNOWN",
+                    expected_signal=req.parent_expected_signal or "(none)",
+                    history=_format_history(req.history),
+                )
+            else:
+                result = await self._generator.generate(
+                    job_category=req.job_category,
+                    mode=req.mode,
+                    previous_question=req.previous_question,
+                    answer_text=req.answer_text,
+                    context=rag_context,
+                    parent_category=req.parent_category or "UNKNOWN",
+                    expected_signal=req.parent_expected_signal or "(none)",
+                    history=_format_history(req.history),
+                )
 
             payload = FollowupCallbackPayload(
                 session_id=req.session_id,
@@ -92,6 +127,7 @@ class FollowupConsumer:
                 followup_question=result.followup_question,
                 answer_evaluation=result.answer_evaluation,
                 answer_intent=result.answer_intent,
+                followup_message_id=req.followup_message_id,
             )
 
             await self._publisher.publish(

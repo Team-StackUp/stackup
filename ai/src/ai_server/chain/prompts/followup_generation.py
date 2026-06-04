@@ -26,7 +26,13 @@ SYSTEM_PROMPT = (
     "이때 followup_question 에는 새 꼬리질문이 아니라 **직전 질문을 더 쉽고 구체적으로 다시 설명한 문장**을 담으세요.\n"
     "  - NORMAL: 그 외 정상 답변. followup_question 은 평소처럼 가장 약한 축을 파는 꼬리질문.\n"
     "  - DONT_KNOW/CLARIFICATION 이면 채점(specificity/logic/correctness)은 보수적으로(낮게/null) 둡니다.\n"
-    "- 응답은 반드시 지정된 JSON 스키마를 따릅니다."
+    "- 출력은 정확히 다음 3개 블록을 이 순서로만 작성합니다(설명·코드펜스 금지):\n"
+    "  <intent>NORMAL 또는 DONT_KNOW 또는 CLARIFICATION</intent>\n"
+    "  <question>지원자에게 보여줄 한국어 질문 1개(또는 CLARIFICATION 시 재설명 문장)</question>\n"
+    "  <meta>{{\"specificity\": <0~5>, \"logic\": <0~5>, "
+    "\"structure\": \"FULL_STAR|PARTIAL_STAR|NONE\", \"correctness\": <0~5 또는 null>}}</meta>\n"
+    "- <intent> 를 가장 먼저 확정해 출력합니다. DONT_KNOW 여도 <question> 블록은 비우지 말고 한 문장 넣되, "
+    "표시는 시스템이 결정합니다."
 )
 
 HUMAN_PROMPT = (
@@ -41,6 +47,5 @@ HUMAN_PROMPT = (
     "직전 질문:\n{previous_question}\n\n"
     "직전 질문의 기대 신호(평가 기준):\n{expected_signal}\n\n"
     "지원자 답변:\n{answer_text}\n\n"
-    "검색 문서 컨텍스트:\n---\n{context}\n---\n\n"
-    "{format_instructions}"
+    "검색 문서 컨텍스트:\n---\n{context}\n---\n"
 )
