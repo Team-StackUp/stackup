@@ -168,7 +168,7 @@ async def test_consumer_injects_followup_rag_context_when_available():
     call = core.search_embeddings.await_args
     assert call.kwargs["query_embedding"] == [0.1, 0.2, 0.3]
     assert call.kwargs["document_ids"] == [7]
-    assert call.kwargs["top_k"] == 20  # candidate_k (리랭크 후보 수)
+    assert call.kwargs["top_k"] == 3  # rag_top_k (direct vector search)
     assert call.kwargs["query_text"]  # 하이브리드 검색: 쿼리 텍스트 동봉
     assert (
         "Outbox rows are inserted in the same transaction" in received_kwargs["context"]
@@ -483,7 +483,7 @@ async def test_callback_includes_answer_message_id():
 
 
 # ---------------------------------------------------------------------------
-# 꼬리질문 RAG 저지연 픽스: rerank_enabled=False, timeout 폴백
+# 꼬리질문 RAG 저지연: top_k 직접 검색, timeout 폴백
 # ---------------------------------------------------------------------------
 
 
@@ -512,10 +512,8 @@ def _make_hit(document_id: int = 1, chunk_index: int = 0, chunk_text: str = "x")
 
 
 @pytest.mark.asyncio
-async def test_rag_rerank_skipped_when_disabled():
-    """rerank_enabled=False: search_embeddings 는 top_k 만 요청, reranker.rerank 는 호출 안 됨."""
-    import asyncio
-
+async def test_rag_searches_top_k_directly():
+    """search_embeddings 는 rag_top_k 로 직접 검색하고, 청크 텍스트가 결과에 포함된다."""
     from ai_server.messaging.consumers.followup_consumer import FollowupConsumer
     from ai_server.messaging.idempotency import LruIdempotencyStore
 
@@ -527,9 +525,6 @@ async def test_rag_rerank_skipped_when_disabled():
     core = MagicMock()
     core.search_embeddings = AsyncMock(return_value=[hit])
 
-    fake_reranker = MagicMock()
-    fake_reranker.rerank = AsyncMock(return_value=[0])
-
     generator = MagicMock()
     generator.generate = AsyncMock()
     publisher = MagicMock()
@@ -543,9 +538,6 @@ async def test_rag_rerank_skipped_when_disabled():
         core_client=core,
         embedder=embedder,
         rag_top_k=5,
-        reranker=fake_reranker,
-        candidate_k=20,
-        rerank_enabled=False,
     )
 
     req = _make_req()
@@ -553,53 +545,9 @@ async def test_rag_rerank_skipped_when_disabled():
 
     # 청크 텍스트가 결과에 포함돼야 한다
     assert "이 청크가 반환돼야 한다" in result
-    # rerank 비활성 시 candidate 확장 없이 rag_top_k 만 검색
+    # rag_top_k 로 직접 검색
     call_kwargs = core.search_embeddings.await_args.kwargs
-    assert call_kwargs["top_k"] == 5  # rag_top_k, NOT candidate_k(20)
-    # 리랭커 rerank 는 절대 호출되지 않음
-    fake_reranker.rerank.assert_not_awaited()
-
-
-@pytest.mark.asyncio
-async def test_rag_rerank_used_when_enabled():
-    """rerank_enabled=True: search_embeddings 는 candidate_k, reranker.rerank 는 호출됨."""
-    hit = _make_hit(chunk_text="후보 청크")
-
-    embedder = MagicMock()
-    embedder.embed = AsyncMock(return_value=[[0.0]])
-
-    core = MagicMock()
-    core.search_embeddings = AsyncMock(return_value=[hit])
-
-    fake_reranker = MagicMock()
-    fake_reranker.rerank = AsyncMock(return_value=[0])
-
-    generator = MagicMock()
-    generator.generate = AsyncMock()
-    publisher = MagicMock()
-    publisher.publish = AsyncMock()
-
-    consumer = FollowupConsumer(
-        generator=generator,
-        publisher=publisher,
-        idempotency=LruIdempotencyStore(max_size=10),
-        callback_routing_key="callback.questions",
-        core_client=core,
-        embedder=embedder,
-        rag_top_k=5,
-        reranker=fake_reranker,
-        candidate_k=20,
-        rerank_enabled=True,
-    )
-
-    req = _make_req()
-    result = await consumer._build_rag_context(req)
-
-    assert "후보 청크" in result
-    call_kwargs = core.search_embeddings.await_args.kwargs
-    assert call_kwargs["top_k"] == 20  # candidate_k
-    # 리랭커 rerank 는 호출돼야 한다
-    fake_reranker.rerank.assert_awaited_once()
+    assert call_kwargs["top_k"] == 5  # rag_top_k
 
 
 @pytest.mark.asyncio

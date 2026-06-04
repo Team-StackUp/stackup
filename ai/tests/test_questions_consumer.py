@@ -261,7 +261,7 @@ async def test_consumer_injects_initial_rag_chunks_when_available():
     call = core.search_embeddings.await_args
     assert call.kwargs["query_embedding"] == [0.1, 0.2]
     assert call.kwargs["document_ids"] == [1, 2]
-    assert call.kwargs["top_k"] == 20  # candidate_k (리랭크 후보 수)
+    assert call.kwargs["top_k"] == 2  # rag_top_k (direct vector search)
     assert call.kwargs["query_text"]  # 하이브리드 검색: 쿼리 텍스트 동봉
     context = generator.generate.await_args.kwargs["context"]
     assert "Outbox table uses status and retry count" in context
