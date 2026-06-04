@@ -226,7 +226,8 @@
     "mode": "TECHNICAL",
     "jobCategory": "BACKEND",
     "documentIds": [42, 17],
-    "maxQuestions": 10
+    "maxQuestions": 10,
+    "recentQuestions": ["이전 면접 질문 텍스트", "..."]
   },
   "context": { "userId": 123, "sessionId": 99 }
 }

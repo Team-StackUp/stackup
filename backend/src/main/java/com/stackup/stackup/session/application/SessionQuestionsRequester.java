@@ -14,6 +14,8 @@ import com.stackup.stackup.document.domain.AnalyzedDocumentRepository;
 import com.stackup.stackup.session.application.dto.GenerateQuestionsPayload;
 import com.stackup.stackup.session.application.dto.GenerateQuestionsPayload.DocumentContext;
 import com.stackup.stackup.session.application.event.SessionCreatedEvent;
+import com.stackup.stackup.session.domain.InterviewSessionRepository;
+import com.stackup.stackup.session.domain.SessionQuestionPoolRepository;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -22,6 +24,8 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,6 +48,15 @@ public class SessionQuestionsRequester {
     private final RabbitMqProperties properties;
     private final AnalyzedDocumentRepository documentRepository;
     private final ObjectStorageClient storage;
+    private final InterviewSessionRepository sessionRepository;
+    private final SessionQuestionPoolRepository questionPoolRepository;
+
+    // 최근 몇 개 세션까지 거슬러 중복 질문을 회피할지. 0 이면 비활성.
+    @Value("${interview.question-dedup.recent-sessions:3}")
+    private int recentSessionCount;
+    // AI 에 넘길 과거 질문 최대 개수 (envelope 비대화 방지).
+    @Value("${interview.question-dedup.max-questions:30}")
+    private int maxRecentQuestions;
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -51,21 +64,37 @@ public class SessionQuestionsRequester {
         List<DocumentContext> documents = buildDocumentContexts(event.contextDocumentIds());
         int generalCount = event.generalQuestionCount() != null
             ? event.generalQuestionCount() : DEFAULT_GENERAL_QUESTION_COUNT;
+        List<String> recentQuestions = recentQuestions(event.userId(), event.sessionId());
         GenerateQuestionsPayload payload = new GenerateQuestionsPayload(
             event.sessionId(),
             event.mode(),
             event.jobCategory(),
             documents,
             generalCount,
-            event.maxQuestions()
+            event.maxQuestions(),
+            recentQuestions
         );
         publisher.publishToAi(
             properties.routingKeys().generateQuestions(),
             payload,
             new MessageContext(event.userId(), event.sessionId(), null, null)
         );
-        log.info("generate.questions published. sessionId={}, doc_count={}, general_count={}, max={}",
-            event.sessionId(), documents.size(), generalCount, event.maxQuestions());
+        log.info("generate.questions published. sessionId={}, doc_count={}, general_count={}, max={}, recent_q={}",
+            event.sessionId(), documents.size(), generalCount, event.maxQuestions(), recentQuestions.size());
+    }
+
+    // 같은 유저의 최근 N개 세션에서 출제된 질문을 모아 AI 의 중복 회피용으로 전달.
+    private List<String> recentQuestions(Long userId, Long currentSessionId) {
+        if (recentSessionCount <= 0 || maxRecentQuestions <= 0) {
+            return List.of();
+        }
+        List<Long> sessionIds = sessionRepository.findRecentSessionIds(
+            userId, currentSessionId, PageRequest.of(0, recentSessionCount));
+        if (sessionIds.isEmpty()) {
+            return List.of();
+        }
+        return questionPoolRepository.findRecentQuestions(
+            sessionIds, PageRequest.of(0, maxRecentQuestions));
     }
 
     private List<DocumentContext> buildDocumentContexts(List<Long> documentIds) {

@@ -18,6 +18,12 @@ class GeneratedQuestionPool(BaseModel):
     questions: list[GeneratedQuestion] = Field(default_factory=list)
 
 
+def _format_recent_questions(recent_questions: list[str] | None) -> str:
+    if not recent_questions:
+        return "(없음)"
+    return "\n".join(f"- {q}" for q in recent_questions)
+
+
 class QuestionGenerator(Protocol):
     async def generate(
         self,
@@ -26,6 +32,7 @@ class QuestionGenerator(Protocol):
         mode: str,
         max_questions: int,
         context: str,
+        recent_questions: list[str] | None = None,
     ) -> GeneratedQuestionPool: ...
 
 
@@ -40,6 +47,7 @@ class LlmQuestionGenerator:
         mode: str,
         max_questions: int,
         context: str,
+        recent_questions: list[str] | None = None,
     ) -> GeneratedQuestionPool:
         result = await self._chain.ainvoke(
             {
@@ -47,6 +55,7 @@ class LlmQuestionGenerator:
                 "mode": mode,
                 "max_questions": max_questions,
                 "context": context,
+                "recent_questions": _format_recent_questions(recent_questions),
             }
         )
         if not isinstance(result, GeneratedQuestionPool):
