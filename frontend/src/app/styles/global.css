@@ -153,6 +153,16 @@
     transform-origin: center;
   }
 
+  /* 음성 모드 — 재생 중 표시하는 이퀄라이저 바. */
+  @keyframes eq-bar {
+    0%, 100% { transform: scaleY(0.35); }
+    50% { transform: scaleY(1); }
+  }
+  .anim-eq-bar {
+    animation: eq-bar 0.9s var(--ease-standard) infinite;
+    transform-origin: bottom;
+  }
+
   .anim-modal-backdrop {
     animation: modal-fade var(--duration-normal) var(--ease-decelerate) both;
   }

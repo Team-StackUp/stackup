@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { isQuestion } from '@/domain/session'
 import type { ThreadItem } from '../../model/useLiveInterview'
+import type { DeliveryMode } from '../../model/useDeliveryMode'
 import { QuestionBubble } from './QuestionBubble'
 import { AnswerBubble } from './AnswerBubble'
 import { TypingIndicator } from './TypingIndicator'
@@ -8,9 +9,11 @@ import { TypingIndicator } from './TypingIndicator'
 export function ConversationThread({
   items,
   awaitingQuestion,
+  mode = 'text',
 }: {
   items: ThreadItem[]
   awaitingQuestion: boolean
+  mode?: DeliveryMode
 }) {
   // 내부 스레드 컨테이너만 스크롤한다. scrollIntoView 는 스크롤 가능한 모든
   // 조상(=window)까지 스크롤해 페이지가 푸터로 끌려 내려가므로 사용하지 않는다.
@@ -27,7 +30,7 @@ export function ConversationThread({
     <div ref={containerRef} className="flex h-full flex-col gap-3 overflow-y-auto px-4 py-6">
       {items.map((item) =>
         isQuestion(item) ? (
-          <QuestionBubble key={item.key} message={item} autoPlay={item.key === lastQuestionKey} streaming={item.streaming} />
+          <QuestionBubble key={item.key} message={item} autoPlay={mode === 'voice' && item.key === lastQuestionKey} streaming={item.streaming} />
         ) : (
           <AnswerBubble key={item.key} message={item} />
         ),
