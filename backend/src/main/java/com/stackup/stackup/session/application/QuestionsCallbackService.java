@@ -163,9 +163,17 @@ public class QuestionsCallbackService {
             : messageRepository.findById(payload.parentMessageId()).orElse(null);
         String intent = payload.answerIntent() == null ? "NORMAL" : payload.answerIntent();
 
-        // 모르겠음 → 이 주제 더 안 파고 다음 일반질문으로(없으면 종료). 답변평가는 기록(낮은 점수 의미 있음).
+        InterviewMessage placeholder = payload.followupMessageId() == null
+            ? null
+            : messageRepository.findById(payload.followupMessageId()).orElse(null);
+
+        // 모르겠음 → 이 주제 그만, 다음 일반질문. placeholder 는 삭제(seq 연속성 유지).
         if ("DONT_KNOW".equalsIgnoreCase(intent)) {
             recordAnswerEvaluation(payload);
+            if (placeholder != null) {
+                messageRepository.delete(placeholder);
+                messageRepository.flush();
+            }
             log.info("callback.questions DONT_KNOW — advancing to next general. sessionId={}", session.getId());
             advanceToNextGeneral(session.getId());
             return;
@@ -176,31 +184,32 @@ public class QuestionsCallbackService {
             return;
         }
 
-        // 부연 요청 → 같은 질문 재설명. 질문 수(k)·깊이(m) 미반영, 답변평가 기록 안 함.
-        if ("CLARIFICATION".equalsIgnoreCase(intent)) {
-            int seq = (int) messageRepository.countBySession_Id(session.getId()) + 1;
-            InterviewMessage clar = messageRepository.save(
-                InterviewMessage.clarification(session, seq, payload.followupQuestion(), parent));
-            publishQuestionEvents(session, clar, "CLARIFICATION");
-            log.info("callback.questions CLARIFICATION — re-explained question. sessionId={}, msg={}",
-                session.getId(), clar.getId());
-            return;
+        boolean clarification = "CLARIFICATION".equalsIgnoreCase(intent);
+        if (!clarification) {
+            recordAnswerEvaluation(payload);
         }
 
-        // 정상 답변 → 꼬리질문 삽입.
-        recordAnswerEvaluation(payload);
-        int nextSeq = (int) messageRepository.countBySession_Id(session.getId()) + 1;
-        InterviewMessage message = messageRepository.save(
-            InterviewMessage.followup(session, nextSeq, payload.followupQuestion(), parent)
-        );
-        session.incrementQuestionCount();
-        publishQuestionEvents(session, message, "FOLLOWUP_READY");
+        InterviewMessage message;
+        if (placeholder != null) {
+            placeholder.completeFollowup(payload.followupQuestion(), clarification);
+            message = messageRepository.save(placeholder);
+        } else {
+            // 레거시 폴백: placeholder 없이 도착한 콜백(롤아웃 호환).
+            int nextSeq = (int) messageRepository.countBySession_Id(session.getId()) + 1;
+            message = messageRepository.save(clarification
+                ? InterviewMessage.clarification(session, nextSeq, payload.followupQuestion(), parent)
+                : InterviewMessage.followup(session, nextSeq, payload.followupQuestion(), parent));
+        }
 
-        // maxQuestions(k) 도달 시 자동 종료.
-        maybeAutoEnd(session);
-
-        log.info("callback.questions FOLLOWUP processed. sessionId={}, msg={}, totalQ={}",
-            session.getId(), message.getId(), session.getTotalQuestionCount());
+        if (!clarification) {
+            session.incrementQuestionCount();
+        }
+        publishQuestionEvents(session, message, clarification ? "CLARIFICATION" : "FOLLOWUP_READY");
+        if (!clarification) {
+            maybeAutoEnd(session);
+        }
+        log.info("callback.questions FOLLOWUP processed. sessionId={}, msg={}, clarification={}",
+            session.getId(), message.getId(), clarification);
     }
 
     public record SessionStateNotice(Long sessionId, String status, String reason) {

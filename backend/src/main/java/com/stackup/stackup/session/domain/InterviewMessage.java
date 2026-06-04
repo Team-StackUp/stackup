@@ -36,6 +36,7 @@ public class InterviewMessage extends BaseTimeEntity {
     public static final String VOICE_TRANSCRIPTION_PENDING_TEXT = "(transcribing)";
     public static final String VOICE_TRANSCRIPTION_FAILED_TEXT =
         "음성 인식에 실패했습니다. 텍스트로 다시 답변해 주세요.";
+    public static final String FOLLOWUP_GENERATING_TEXT = "(생성 중)";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -151,6 +152,14 @@ public class InterviewMessage extends BaseTimeEntity {
         return m;
     }
 
+    // 스트리밍 꼬리질문 placeholder. content 는 콜백에서 채운다. CHECK 제약(blank 금지) 위해 sentinel.
+    // TTS 는 생성 시점이 아니라 completeFollowup 에서 요청한다.
+    public static InterviewMessage followupPlaceholder(InterviewSession session, int seq,
+                                                       InterviewMessage parent) {
+        return new InterviewMessage(session, seq, MessageRole.INTERVIEWER,
+            FOLLOWUP_GENERATING_TEXT, parent, MessageStatus.CREATED, null);
+    }
+
     // 부연: 직전 질문을 다시 설명해 같은 차례를 유지. 질문 수/깊이에 카운트 안 함.
     public static InterviewMessage clarification(InterviewSession session, int seq, String content,
                                                  InterviewMessage parent) {
@@ -209,6 +218,16 @@ public class InterviewMessage extends BaseTimeEntity {
 
     public void failTts() {
         this.ttsStatus = TtsStatus.FAILED;
+    }
+
+    // 스트리밍 종료 후 placeholder 를 실제 질문으로 확정. clarification=true 면 질문 수/깊이 미반영.
+    public void completeFollowup(String content, boolean clarification) {
+        if (content != null && !content.isBlank()) {
+            this.content = content;
+        }
+        this.clarification = clarification;
+        markTtsPending();
+        this.status = MessageStatus.COMPLETED;
     }
 
     public void completeWithTranscript(String transcript) {
