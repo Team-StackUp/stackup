@@ -188,8 +188,8 @@ async def test_tts_consumer_streams_segments_then_assembles_full_file():
 
     await consumer.handle(_FakeMsg(_envelope_body("첫 문장입니다. 둘째 문장입니다.")))
 
-    # 문장 2개 → 세그먼트 2개 합성
-    assert tts.calls == ["첫 문장입니다.", "둘째 문장입니다."]
+    # 문장 2개 → 세그먼트 2개 합성 (선합성으로 호출 순서는 보장 안 함)
+    assert sorted(tts.calls) == sorted(["첫 문장입니다.", "둘째 문장입니다."])
     # seq 0,1 로 라이브 푸시
     assert [a["seq"] for a in notifier.audio] == [0, 1]
     assert all(a["ext"] == "wav" for a in notifier.audio)

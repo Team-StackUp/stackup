@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import re
 
 import structlog
@@ -16,6 +17,11 @@ from ai_server.voice.tts.audio_join import join_audio
 from ai_server.voice.tts.base import TtsError, TtsProvider, TtsResult
 
 log = structlog.get_logger(__name__)
+
+# 다음 문장(들)을 미리 합성해 발화 중간 공백을 줄인다. 게이트웨이 문장당 지연이
+# 재생 길이와 비슷해 순차 합성 시 짧은 문장 뒤 무음이 생길 수 있어 소폭 선합성한다.
+# 과도한 동시 호출(429)을 피해 보수적으로 2로 둔다(꼬리질문의 무제한 병렬보다 안전).
+_TTS_LOOKAHEAD = 2
 
 
 def _split_all_sentences(text: str) -> list[str]:
@@ -173,8 +179,9 @@ class TtsConsumer:
     async def _synthesize_segmented(
         self, envelope: Envelope[GenerateTtsRequest], req: GenerateTtsRequest
     ) -> TtsResult | None:
-        """문장 단위로 순차 합성 → 세그먼트 PUT + SESSION_MESSAGE_AUDIO 즉시 발행.
+        """문장 단위로 합성 → 세그먼트 PUT + SESSION_MESSAGE_AUDIO 즉시 발행.
 
+        다음 문장을 미리 합성(_TTS_LOOKAHEAD 만큼 선합성)하되, 발행은 문장 순서대로 한다.
         seq 는 '성공한' 세그먼트만 0..n 연속 부여해 프론트 큐가 빈 seq 에서 멈추지 않게 한다.
         합성된 세그먼트를 이어붙여 전체 파일(다시 듣기용)을 반환한다. 전부 실패하면 콜백 발행 후 None.
         """
@@ -191,11 +198,21 @@ class TtsConsumer:
             )
             return None
 
+        # 동시 합성을 _TTS_LOOKAHEAD 개로 제한하면서 모든 문장을 미리 시작한다.
+        # 발행은 문장 순서대로 await 하므로 재생 순서는 읽기 순서와 동일하다.
+        sem = asyncio.Semaphore(_TTS_LOOKAHEAD)
+
+        async def _synth(sentence: str) -> TtsResult:
+            async with sem:
+                return await self._tts.synthesize(sentence, voice=self._voice)
+
+        synth_tasks = [asyncio.create_task(_synth(s)) for s in sentences]
+
         parts: list[TtsResult] = []
         seq = 0
-        for sentence in sentences:
+        for task in synth_tasks:
             try:
-                res = await self._tts.synthesize(sentence, voice=self._voice)
+                res = await task
             except Exception as exc:  # noqa: BLE001 — 한 문장 실패가 전체를 막지 않음
                 log.warning(
                     "tts.segment.failed",
