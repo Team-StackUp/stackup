@@ -1,6 +1,7 @@
+import { useState } from 'react'
 import { isApiError } from '@/shared/api'
 import { useAnalysisProgress } from '@/shared/hooks'
-import { StatusBadge, type StatusTone } from '@/shared/ui'
+import { ConfirmDialog, StatusBadge, type StatusTone } from '@/shared/ui'
 import { useDeleteResume, useResumes } from '../model/useResumes'
 import { formatFileSize } from '../lib/format'
 import type { Resume, ResumeStatus } from '../model/types'
@@ -54,6 +55,7 @@ function ResumeCard({
   onDelete: () => void
 }) {
   const meta = STATUS_META[resume.status]
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const progress = useAnalysisProgress('RESUME', resume.id)
   const showProgress =
     !!progress &&
@@ -76,13 +78,24 @@ function ResumeCard({
           <button
             type="button"
             disabled={deleting}
-            onClick={onDelete}
+            onClick={() => setConfirmOpen(true)}
             aria-label="이력서 삭제"
             className="shrink-0 rounded-md p-1 text-fg-subtle opacity-0 transition-colors duration-fast hover:bg-surface hover:text-danger-700 focus-visible:opacity-100 group-hover:opacity-100 disabled:opacity-40"
           >
             <TrashIcon />
           </button>
         </div>
+
+        <ConfirmDialog
+          open={confirmOpen}
+          title="이력서를 삭제하시겠습니까?"
+          description={`'${resume.originalFilename}'을(를) 삭제합니다. 이 작업은 되돌릴 수 없습니다.`}
+          confirmLabel="삭제"
+          danger
+          loading={deleting}
+          onConfirm={onDelete}
+          onCancel={() => setConfirmOpen(false)}
+        />
 
         <div className="mt-2 flex items-center gap-2">
           <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>

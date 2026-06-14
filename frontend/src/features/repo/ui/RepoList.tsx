@@ -1,6 +1,7 @@
+import { useState } from 'react'
 import { isApiError } from '@/shared/api'
 import { useAnalysisProgress } from '@/shared/hooks'
-import { StatusBadge, type StatusTone } from '@/shared/ui'
+import { ConfirmDialog, StatusBadge, type StatusTone } from '@/shared/ui'
 import {
   useDeleteRepository,
   useRegisteredRepositories,
@@ -68,6 +69,7 @@ function RepoCard({
   onDelete: () => void
 }) {
   const meta = STATUS_META[repo.status]
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const progress = useAnalysisProgress('REPOSITORY', repo.id)
   // 진행 문구는 분석 진행 중일 때만 의미 있다. 완료/실패 시 store 가 clear 되지만 방어적으로 가드.
   const showProgress =
@@ -95,13 +97,24 @@ function RepoCard({
           <button
             type="button"
             disabled={deleting}
-            onClick={onDelete}
+            onClick={() => setConfirmOpen(true)}
             aria-label="레포지토리 삭제"
             className="shrink-0 rounded-md p-1 text-fg-subtle opacity-0 transition-colors duration-fast hover:bg-surface hover:text-danger-700 focus-visible:opacity-100 group-hover:opacity-100 disabled:opacity-40"
           >
             <TrashIcon />
           </button>
         </div>
+
+        <ConfirmDialog
+          open={confirmOpen}
+          title="레포지토리를 삭제하시겠습니까?"
+          description={`'${repo.repoFullName}'을(를) 목록에서 삭제합니다. 이 작업은 되돌릴 수 없습니다.`}
+          confirmLabel="삭제"
+          danger
+          loading={deleting}
+          onConfirm={onDelete}
+          onCancel={() => setConfirmOpen(false)}
+        />
 
         <div className="mt-2 flex items-center gap-2">
           <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
