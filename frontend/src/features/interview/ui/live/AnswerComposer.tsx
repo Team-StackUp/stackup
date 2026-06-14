@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { TextArea } from '@/shared/ui/TextArea'
 import { Button } from '@/shared/ui/Button'
@@ -62,6 +62,17 @@ export function AnswerComposer({
     void start()
   }
 
+  // 녹음/업로드 전용 바에서 입력 바로 돌아오면 키보드 사용자를 위해 답변창에 포커스를 돌려준다.
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const busy = recording || voiceUploading
+  const prevBusy = useRef(false)
+  useEffect(() => {
+    if (prevBusy.current && !busy && !disabled) {
+      textareaRef.current?.focus()
+    }
+    prevBusy.current = busy
+  }, [busy, disabled])
+
   const submit = () => {
     const trimmed = value.trim()
     if (!trimmed || disabled || submitLocked) return
@@ -120,6 +131,7 @@ export function AnswerComposer({
     <div className="flex flex-col gap-1 border-t border-border bg-surface-raised px-4 py-3">
       <div className="flex items-end gap-2">
         <TextArea
+          ref={textareaRef}
           value={value}
           onChange={setValue}
           onKeyDown={onKeyDown}
