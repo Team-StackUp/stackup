@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { isApiError } from '@/shared/api'
 import { useAnalysisProgress } from '@/shared/hooks'
-import { ConfirmDialog, StatusBadge, type StatusTone } from '@/shared/ui'
+import { ConfirmDialog, EmptyState, StatusBadge, type StatusTone } from '@/shared/ui'
 import { useDeleteResume, useResumes } from '../model/useResumes'
 import { formatFileSize } from '../lib/format'
 import type { Resume, ResumeStatus } from '../model/types'
@@ -28,7 +28,12 @@ export function ResumeList() {
     )
   }
   if (data.length === 0) {
-    return null
+    return (
+      <EmptyState
+        title="아직 업로드한 이력서가 없어요"
+        description="위에서 PDF 이력서를 올리면 분석이 자동으로 시작됩니다."
+      />
+    )
   }
 
   return (
