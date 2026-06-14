@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-export type InterviewerState = 'idle' | 'thinking' | 'asking'
+export type InterviewerState = 'idle' | 'thinking' | 'asking' | 'speaking'
 
 // public/interviewer.png 가 있으면 사용, 없으면 onError 로 사람 아이콘 폴백.
 const SRC = '/interviewer.png'
@@ -20,6 +20,9 @@ function FallbackFace() {
 export function InterviewerAvatar({ state }: { state: InterviewerState }) {
   const [imgFailed, setImgFailed] = useState(false)
 
+  const ringColor =
+    state === 'speaking' ? 'ring-primary' : state === 'asking' ? 'ring-primary/60' : 'ring-white/50'
+
   return (
     <div className="relative flex items-center justify-center">
       {state === 'thinking' && (
@@ -28,11 +31,21 @@ export function InterviewerAvatar({ state }: { state: InterviewerState }) {
           className="absolute -inset-1 animate-ping rounded-full border-2 border-sage-400/40"
         />
       )}
+      {/* 말하는 동안 음성 파동(sonar) 링 — 2겹을 시차 재생해 '소리내는' 느낌. */}
+      {state === 'speaking' &&
+        [0, 1].map((i) => (
+          <span
+            key={i}
+            aria-hidden
+            className="absolute -inset-1 animate-ping rounded-full border-2 border-primary/50"
+            style={{ animationDelay: `${i * 500}ms` }}
+          />
+        ))}
       <div
         className={[
           'relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-full',
-          'bg-sage-800 text-white shadow-lg ring-4 transition-colors duration-slow sm:h-24 sm:w-24',
-          state === 'asking' ? 'ring-primary/60' : 'ring-white/50',
+          'bg-sage-800 text-white shadow-lg ring-4 transition-[box-shadow,color] duration-slow sm:h-24 sm:w-24',
+          ringColor,
         ].join(' ')}
       >
         {imgFailed ? (

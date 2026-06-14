@@ -14,11 +14,12 @@ import { pendingAnswers, toOptimisticMessage } from './optimistic'
 import type { OptimisticAnswer } from './optimistic'
 import { applyDelta, isStreamingMessage, FOLLOWUP_GENERATING_TEXT } from './streamingBuffer'
 import type { DeltaPayload } from './streamingBuffer'
+import type { DeliveryMode } from './useDeliveryMode'
 
 export type ThreadItem = Message & { key: string; streaming?: boolean }
 export type ConnectionStatus = 'connecting' | 'open' | 'closed'
 
-export function useLiveInterview(sessionId: number) {
+export function useLiveInterview(sessionId: number, deliveryMode: DeliveryMode = 'text') {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const sessionQuery = useSession(sessionId)
@@ -29,6 +30,11 @@ export function useLiveInterview(sessionId: number) {
   const [optimistic, setOptimistic] = useState<OptimisticAnswer[]>([])
   const [connection, setConnection] = useState<ConnectionStatus>('connecting')
   const [deltaBuffer, setDeltaBuffer] = useState<Record<number, string>>({})
+  // 라이브 세그먼트 오디오가 지금 재생 중인 메시지(아바타·질문 카드의 '말하는 중' 표시용).
+  const [speakingAudio, setSpeakingAudio] = useState<{ msgId: number | null; playing: boolean }>({
+    msgId: null,
+    playing: false,
+  })
 
   // ── 라이브 세그먼트 TTS ──────────────────────────────────────────────────
   const audioElRef = useRef<HTMLAudioElement | null>(null)
@@ -36,6 +42,9 @@ export function useLiveInterview(sessionId: number) {
   const queueRef = useRef<ReturnType<typeof createSegmentQueue> | null>(null)
   const currentAudioMsgId = useRef<number | null>(null)
   const segmentedIds = useRef<Set<number>>(new Set())
+  // 소켓 onEvent 클로저에서 최신 모드를 읽기 위한 ref. 텍스트 모드는 음성 자동재생 안 함.
+  const deliveryModeRef = useRef(deliveryMode)
+  deliveryModeRef.current = deliveryMode
   if (queueRef.current === null) {
     queueRef.current = createSegmentQueue(async (url) => {
       if (typeof Audio === 'undefined') return
@@ -68,15 +77,25 @@ export function useLiveInterview(sessionId: number) {
     ...pending.map((o) => ({ ...toOptimisticMessage(o), key: `opt-${o.tempId}` })),
   ]
 
-  // 세그먼트 오디오 엘리먼트 ended 리스너 — 마운트 1회.
+  // 세그먼트 오디오 엘리먼트 재생 리스너 — 마운트 1회.
+  // play/pause/ended 로 '말하는 중' 상태를 갱신해 아바타·질문 카드가 동기화되게 한다.
   useEffect(() => {
     if (typeof Audio === 'undefined') return
     if (!audioElRef.current) audioElRef.current = new Audio()
     const el = audioElRef.current
-    const onEnded = () => queueRef.current?.onEnded()
+    const onEnded = () => {
+      setSpeakingAudio((s) => ({ ...s, playing: false }))
+      queueRef.current?.onEnded()
+    }
+    const onPlay = () => setSpeakingAudio({ msgId: currentAudioMsgId.current, playing: true })
+    const onPause = () => setSpeakingAudio((s) => ({ ...s, playing: false }))
     el.addEventListener('ended', onEnded)
+    el.addEventListener('play', onPlay)
+    el.addEventListener('pause', onPause)
     return () => {
       el.removeEventListener('ended', onEnded)
+      el.removeEventListener('play', onPlay)
+      el.removeEventListener('pause', onPause)
       if (lastUrlRef.current) URL.revokeObjectURL(lastUrlRef.current)
     }
   }, [])
@@ -123,6 +142,9 @@ export function useLiveInterview(sessionId: number) {
           setDeltaBuffer((b) => applyDelta(b, payload))
         }
       } else if (action.kind === 'queue-audio') {
+        // 텍스트 모드에서는 음성을 자동재생하지 않는다(읽는 도중 끼어들기 방지).
+        // 수동 재생은 StageQuestion 의 전체 파일(callback.tts) 경로로 제공된다.
+        if (deliveryModeRef.current !== 'voice') return
         const p = (frame.data as { data?: { messageId: number; seq: number; ext: string } } | undefined)?.data
         if (p && typeof p.messageId === 'number') {
           segmentedIds.current.add(p.messageId)
@@ -167,6 +189,12 @@ export function useLiveInterview(sessionId: number) {
 
   const wasSegmented = useCallback((id: number) => segmentedIds.current.has(id), [])
 
+  // 해당 메시지의 라이브 세그먼트 오디오가 지금 재생 중인지.
+  const isSpeaking = useCallback(
+    (id: number) => speakingAudio.msgId === id && speakingAudio.playing,
+    [speakingAudio],
+  )
+
   // 첫 질문이 실제 content 를 갖고 도착했는지. 면접 스테이지 진입 전에 이걸 기다려
   // 사용자가 스테이지에 들어서면 바로 질문을 볼 수 있게 한다(빈 대기 화면 회피).
   const firstQuestionReady = items.some((m) => {
@@ -189,6 +217,7 @@ export function useLiveInterview(sessionId: number) {
     isLoading: sessionQuery.isLoading,
     questionStreaming,
     wasSegmented,
+    isSpeaking,
     firstQuestionReady,
   }
 }

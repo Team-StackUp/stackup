@@ -4,7 +4,7 @@ import { Button } from '@/shared/ui/Button'
 import { isQuestion, isTranscribing, sessionProgress } from '@/domain/session'
 import type { Session } from '@/domain/session'
 import type { ConnectionStatus, ThreadItem } from '../../model/useLiveInterview'
-import { useDeliveryMode } from '../../model/useDeliveryMode'
+import type { DeliveryMode } from '../../model/useDeliveryMode'
 import { ConnectionBanner } from './ConnectionBanner'
 import { AnswerComposer } from './AnswerComposer'
 import { StageQuestion } from './StageQuestion'
@@ -56,6 +56,9 @@ export function InterviewStage({
   voiceUploading,
   onEnd,
   wasSegmented,
+  isSpeaking,
+  deliveryMode,
+  onDeliveryModeChange,
 }: {
   session: Session
   connection: ConnectionStatus
@@ -67,13 +70,16 @@ export function InterviewStage({
   voiceUploading: boolean
   onEnd: () => void
   wasSegmented: (id: number) => boolean
+  isSpeaking: (id: number) => boolean
+  deliveryMode: DeliveryMode
+  onDeliveryModeChange: (mode: DeliveryMode) => void
 }) {
   const [transcriptOpen, setTranscriptOpen] = useState(false)
-  const [deliveryMode, setDeliveryMode] = useDeliveryMode()
   const progress = sessionProgress(session)
   const currentQuestion = [...items].reverse().find(isQuestion)
   const lastItem = items[items.length - 1]
   const transcribing = Boolean(lastItem && isTranscribing(lastItem))
+  const speaking = currentQuestion ? isSpeaking(currentQuestion.id ?? -1) : false
 
   return (
     <section className="anim-screen-power-on relative flex h-full flex-col overflow-hidden">
@@ -105,7 +111,7 @@ export function InterviewStage({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <DeliveryModeToggle value={deliveryMode} onChange={setDeliveryMode} />
+          <DeliveryModeToggle value={deliveryMode} onChange={onDeliveryModeChange} />
           <StatusBadge tone={connTone[connection]}>{connLabel[connection]}</StatusBadge>
           <Button variant="ghost" size="sm" onClick={() => setTranscriptOpen(true)}>
             기록
@@ -119,11 +125,25 @@ export function InterviewStage({
       <ConnectionBanner connection={connection} />
 
       <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-6 overflow-y-auto px-5 py-8">
-        <InterviewerAvatar state={awaitingQuestion || !currentQuestion ? 'thinking' : 'asking'} />
+        <InterviewerAvatar
+          state={
+            awaitingQuestion || !currentQuestion
+              ? 'thinking'
+              : speaking
+                ? 'speaking'
+                : 'asking'
+          }
+        />
         {awaitingQuestion || !currentQuestion ? (
           <ThinkingState transcribing={transcribing} />
         ) : (
-          <StageQuestion question={currentQuestion} segmented={wasSegmented(currentQuestion.id ?? -1)} streaming={currentQuestion?.streaming ?? false} mode={deliveryMode} />
+          <StageQuestion
+            question={currentQuestion}
+            segmented={wasSegmented(currentQuestion.id ?? -1)}
+            speaking={speaking}
+            streaming={currentQuestion?.streaming ?? false}
+            mode={deliveryMode}
+          />
         )}
       </div>
 

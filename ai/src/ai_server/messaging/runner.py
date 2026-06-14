@@ -236,7 +236,8 @@ class MessagingRuntime:
             core_client=core_client,
         )
 
-        # 질문 TTS (Part A) — tts 인스턴스는 위에서 이미 생성됨
+        # 질문 TTS (Part A) — tts 인스턴스는 위에서 이미 생성됨.
+        # notifier 주입 시 문장 단위 세그먼트로 발행해 첫 문장부터 즉시 재생되게 한다.
         self._tts_consumer = TtsConsumer(
             tts=tts,
             storage=storage,
@@ -245,6 +246,7 @@ class MessagingRuntime:
             callback_routing_key=settings.ai_callback_routing_tts,
             voice=settings.openai_tts_voice,
             key_template=settings.tts_audio_key_template,
+            session_notifier=session_notifier,
         )
 
         self._consumers: list[tuple[AbstractRobustQueue, str]] = []
