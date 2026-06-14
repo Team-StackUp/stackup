@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+import { EmptyState } from '@/shared/ui'
 import { useSessions } from '../model/useHistory'
 import { SessionCard } from './SessionCard'
 
@@ -29,7 +31,18 @@ export function SessionHistoryList() {
   const sessions = data?.pages.flatMap((p) => p.content ?? []) ?? []
   if (sessions.length === 0) {
     return (
-      <p className="py-8 text-center text-body text-fg-muted">아직 진행한 면접이 없어요.</p>
+      <EmptyState
+        title="아직 진행한 면접이 없어요"
+        description="첫 모의면접을 시작해 피드백을 받아보세요."
+        action={
+          <Link
+            to="/sessions/new"
+            className="inline-flex items-center rounded-md bg-primary px-4 py-2 text-button font-medium text-fg-on-primary transition-colors hover:bg-primary-hover"
+          >
+            면접 시작
+          </Link>
+        }
+      />
     )
   }
 

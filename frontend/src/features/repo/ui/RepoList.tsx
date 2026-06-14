@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { isApiError } from '@/shared/api'
 import { useAnalysisProgress } from '@/shared/hooks'
-import { ConfirmDialog, StatusBadge, type StatusTone } from '@/shared/ui'
+import { ConfirmDialog, EmptyState, StatusBadge, type StatusTone } from '@/shared/ui'
 import {
   useDeleteRepository,
   useRegisteredRepositories,
@@ -34,14 +34,10 @@ export function RepoList() {
   }
   if (data.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-border-strong bg-surface-raised p-10 text-center">
-        <p className="text-body text-fg-strong">
-          아직 등록된 레포지토리가 없습니다.
-        </p>
-        <p className="mt-1 text-caption text-fg-muted">
-          위에서 GitHub 레포를 가져오면 분석이 자동으로 시작됩니다.
-        </p>
-      </div>
+      <EmptyState
+        title="아직 등록된 레포지토리가 없어요"
+        description="위에서 GitHub 레포를 가져오면 분석이 자동으로 시작됩니다."
+      />
     )
   }
 

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { isApiError } from '@/shared/api'
-import { Modal, StatusBadge, type StatusTone } from '@/shared/ui'
+import { EmptyState, Modal, StatusBadge, type StatusTone } from '@/shared/ui'
 import type { DocumentFilter } from '../api/analysis'
 import { useDocuments } from '../model/useDocuments'
 import type {
@@ -52,12 +52,10 @@ export function DocumentList({ filter = {}, sourceType }: Props) {
   if (docs.length === 0) {
     const subject = sourceType ? SOURCE_LABEL[sourceType] : '이력서·레포'
     return (
-      <div className="rounded-2xl border border-dashed border-border-strong bg-surface-raised p-10 text-center">
-        <p className="text-body text-fg-strong">아직 분석된 문서가 없습니다.</p>
-        <p className="mt-1 text-caption text-fg-muted">
-          {subject} 분석이 완료되면 요약과 기술 스택이 여기에 표시됩니다.
-        </p>
-      </div>
+      <EmptyState
+        title="아직 분석된 문서가 없어요"
+        description={`${subject} 분석이 완료되면 요약과 기술 스택이 여기에 표시됩니다.`}
+      />
     )
   }
 
