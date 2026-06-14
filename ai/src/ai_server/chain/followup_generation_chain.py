@@ -39,11 +39,14 @@ def extract_question_span(text: str) -> str:
         return ""
     tail = text[open_idx + len("<question>") :]
     tail = tail.split("<meta>", 1)[0]
-    # 닫는/메타 태그가 스트림 청크 경계로 잘려 들어와도(예: "질문?</quest")
-    # 미완성 '<...' 꼬리를 잘라낸다 — 질문 본문에는 '<' 가 없다고 가정.
+    # 닫는/메타 태그가 스트림 청크 경계로 잘려 들어온 경우(예: "질문?</quest")만 그
+    # partial 을 제거한다. 질문 본문의 부등호·제네릭('a < b', 'List<T>')까지 잘라내지
+    # 않도록, 마지막 '<' 꼬리가 태그 시작과 일치할 때만 자른다.
     lt = tail.rfind("<")
     if lt != -1 and ">" not in tail[lt:]:
-        tail = tail[:lt]
+        partial = tail[lt:]
+        if "</question>".startswith(partial) or "<meta>".startswith(partial):
+            tail = tail[:lt]
     return tail.strip()
 
 

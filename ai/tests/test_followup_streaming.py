@@ -49,6 +49,35 @@ async def test_stream_emits_question_tokens_and_final_result():
 
 
 @pytest.mark.asyncio
+async def test_stream_emits_full_question_with_lt_operator():
+    # 부등호 '<' 가 든 질문이 스트리밍 중 '<' 에서 잘리지 않고 끝까지 흘러야 한다.
+    pieces = [
+        "<intent>NORMAL</intent><question>리스트에서 a ",
+        "< b 를 ",
+        "만족하는 쌍을 세는 법은?",
+        "</question><meta>{}</meta>",
+    ]
+    prompt = ChatPromptTemplate.from_messages([("human", "{answer_text}")])
+    gen = StreamingFollowupGenerator(prompt=prompt, llm=_FakeStreamLLM(pieces))
+
+    seen = []
+    result = await gen.stream(
+        on_question_token=lambda piece: seen.append(piece),
+        job_category="BACKEND",
+        mode="TECHNICAL",
+        previous_question="q",
+        answer_text="a",
+        context="(none)",
+        parent_category="X",
+        expected_signal="(none)",
+        history="(none)",
+    )
+    joined = "".join(seen)
+    assert joined == "리스트에서 a < b 를 만족하는 쌍을 세는 법은?"
+    assert result.followup_question == "리스트에서 a < b 를 만족하는 쌍을 세는 법은?"
+
+
+@pytest.mark.asyncio
 async def test_stream_dont_know_emits_no_question_tokens():
     pieces = ["<intent>DONT_KNOW</intent><question>모르면 이렇게</question><meta>{}</meta>"]
     prompt = ChatPromptTemplate.from_messages([("human", "{answer_text}")])
