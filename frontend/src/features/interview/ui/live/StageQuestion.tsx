@@ -33,11 +33,13 @@ function VoiceWave({ playing }: { playing: boolean }) {
 export function StageQuestion({
   question,
   segmented = false,
+  speaking = false,
   streaming = false,
   mode = 'text',
 }: {
   question: Message
   segmented?: boolean
+  speaking?: boolean
   streaming?: boolean
   mode?: DeliveryMode
 }) {
@@ -88,7 +90,9 @@ export function StageQuestion({
         <div className="mt-6 flex flex-col items-center gap-4 py-4">
           {ttsReady ? (
             <>
-              <VoiceWave playing={playing} />
+              {/* 전체 파일 준비 완료 — 수동 재생/일시정지. 끝나지 않은 세그먼트가
+                  계속 흐르는 동안에도 파형은 유지한다(playing || speaking). */}
+              <VoiceWave playing={playing || speaking} />
               <button
                 type="button"
                 onClick={toggle}
@@ -98,6 +102,12 @@ export function StageQuestion({
                 <PlayIcon playing={playing} />
                 {playing ? '재생 중 · 일시정지' : '다시 듣기'}
               </button>
+            </>
+          ) : segmented ? (
+            <>
+              {/* 라이브 세그먼트가 도착·재생 중 — 실제 재생 상태로 파형을 움직인다. */}
+              <VoiceWave playing={speaking} />
+              <p className="text-body font-medium text-fg-muted">질문을 들려드리고 있어요…</p>
             </>
           ) : (
             <p className="flex items-center gap-2 text-body font-medium text-fg-muted">

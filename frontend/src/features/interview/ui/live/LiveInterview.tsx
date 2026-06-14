@@ -1,11 +1,14 @@
 import { Spinner } from '@/shared/ui/Spinner'
 import { useLiveInterview } from '../../model/useLiveInterview'
+import { useDeliveryMode } from '../../model/useDeliveryMode'
 import { InterviewStage } from './InterviewStage'
 import { SessionEndedPanel } from './SessionEndedPanel'
 import { InterviewLobby } from './InterviewLobby'
 import { InterviewPreparing } from './InterviewPreparing'
 
 export function LiveInterview({ sessionId }: { sessionId: number }) {
+  // 음성 자동재생(라이브 세그먼트) 게이팅을 위해 모드를 여기서 소유하고 훅에 넘긴다.
+  const [deliveryMode, setDeliveryMode] = useDeliveryMode()
   const {
     session,
     status,
@@ -19,8 +22,9 @@ export function LiveInterview({ sessionId }: { sessionId: number }) {
     isLoading,
     questionStreaming,
     wasSegmented,
+    isSpeaking,
     firstQuestionReady,
-  } = useLiveInterview(sessionId)
+  } = useLiveInterview(sessionId, deliveryMode)
 
   if (isLoading || !session) {
     return (
@@ -53,6 +57,9 @@ export function LiveInterview({ sessionId }: { sessionId: number }) {
       voiceUploading={voiceUploading}
       onEnd={endSession}
       wasSegmented={wasSegmented}
+      isSpeaking={isSpeaking}
+      deliveryMode={deliveryMode}
+      onDeliveryModeChange={setDeliveryMode}
     />
   )
 }
