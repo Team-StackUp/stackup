@@ -22,12 +22,15 @@ export function useVoiceRecorder() {
   const recorderRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const chunksRef = useRef<Blob[]>([])
+  // 녹음 중 실시간 레벨 미터(MicLevelMeter)가 구독할 수 있도록 스트림을 상태로도 노출.
+  const [stream, setStream] = useState<MediaStream | null>(null)
 
   const cleanup = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop())
     streamRef.current = null
     recorderRef.current = null
     chunksRef.current = []
+    setStream(null)
   }, [])
 
   useEffect(() => cleanup, [cleanup])
@@ -51,6 +54,7 @@ export function useVoiceRecorder() {
     recorder.start()
     streamRef.current = stream
     recorderRef.current = recorder
+    setStream(stream)
     setStatus('recording')
     return true
   }, [status])
@@ -86,5 +90,5 @@ export function useVoiceRecorder() {
     setStatus('idle')
   }, [cleanup])
 
-  return { status, start, stop, cancel }
+  return { status, stream, start, stop, cancel }
 }

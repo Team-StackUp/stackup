@@ -1,8 +1,15 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { TextArea } from '@/shared/ui/TextArea'
 import { Button } from '@/shared/ui/Button'
 import { useVoiceRecorder } from '../../lib/media/useVoiceRecorder'
+import { MicLevelMeter } from './MicLevelMeter'
+
+function formatElapsed(sec: number): string {
+  const m = Math.floor(sec / 60)
+  const s = sec % 60
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}
 
 function MicIcon() {
   return (
@@ -37,9 +44,23 @@ export function AnswerComposer({
   voiceUploading?: boolean
 }) {
   const [value, setValue] = useState('')
-  const { status: recStatus, start, stop, cancel } = useVoiceRecorder()
+  const { status: recStatus, stream, start, stop, cancel } = useVoiceRecorder()
   const recording = recStatus === 'recording' || recStatus === 'requesting'
   const voiceSupported = recStatus !== 'unsupported' && Boolean(onSubmitVoice)
+
+  // 녹음 경과 시간(초). recording 상태에서만 흐른다. 리셋은 시작 시점(이벤트)에서.
+  const [elapsed, setElapsed] = useState(0)
+  useEffect(() => {
+    if (recStatus !== 'recording') return
+    const startedAt = Date.now()
+    const id = setInterval(() => setElapsed(Math.floor((Date.now() - startedAt) / 1000)), 250)
+    return () => clearInterval(id)
+  }, [recStatus])
+
+  const beginRecording = () => {
+    setElapsed(0)
+    void start()
+  }
 
   const submit = () => {
     const trimmed = value.trim()
@@ -62,20 +83,29 @@ export function AnswerComposer({
 
   // 녹음/업로드 중에는 전용 바를 보여준다.
   if (recording || voiceUploading) {
+    const requesting = recStatus === 'requesting'
     return (
       <div className="flex items-center justify-between gap-3 border-t border-border bg-surface-raised px-4 py-3">
-        <span className="flex items-center gap-2 text-body text-fg">
-          {voiceUploading ? (
-            '음성 답변 업로드 중…'
-          ) : (
-            <>
+        {voiceUploading ? (
+          <span className="text-body text-fg">음성 답변 업로드 중…</span>
+        ) : requesting ? (
+          <span className="text-body text-fg-muted">마이크 준비 중…</span>
+        ) : (
+          <span className="flex min-w-0 items-center gap-3 text-body text-fg">
+            <span className="flex items-center gap-2">
               <span className="inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-danger" />
-              녹음 중… 답변이 끝나면 전송을 누르세요
-            </>
-          )}
-        </span>
-        {!voiceUploading && (
-          <div className="flex items-center gap-2">
+              <span className="font-medium tabular-nums" aria-label={`녹음 중 ${formatElapsed(elapsed)}`}>
+                {formatElapsed(elapsed)}
+              </span>
+            </span>
+            <MicLevelMeter stream={stream} />
+            <span className="hidden truncate text-caption text-fg-muted sm:inline">
+              답변이 끝나면 전송을 누르세요
+            </span>
+          </span>
+        )}
+        {!voiceUploading && !requesting && (
+          <div className="flex shrink-0 items-center gap-2">
             <Button variant="ghost" onClick={cancel}>
               취소
             </Button>
@@ -107,7 +137,7 @@ export function AnswerComposer({
         {voiceSupported && (
           <Button
             variant="secondary"
-            onClick={start}
+            onClick={beginRecording}
             disabled={disabled || submitLocked}
             aria-label="음성으로 답변"
             title="음성으로 답변"
