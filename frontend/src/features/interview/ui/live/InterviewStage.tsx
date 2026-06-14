@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { StatusBadge } from '@/shared/ui/StatusBadge'
 import { Button } from '@/shared/ui/Button'
+import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 import { isQuestion, isTranscribing, sessionProgress } from '@/domain/session'
 import type { Session } from '@/domain/session'
 import type { ConnectionStatus, ThreadItem } from '../../model/useLiveInterview'
@@ -75,6 +76,7 @@ export function InterviewStage({
   onDeliveryModeChange: (mode: DeliveryMode) => void
 }) {
   const [transcriptOpen, setTranscriptOpen] = useState(false)
+  const [endConfirmOpen, setEndConfirmOpen] = useState(false)
   const progress = sessionProgress(session)
   const currentQuestion = [...items].reverse().find(isQuestion)
   const lastItem = items[items.length - 1]
@@ -116,7 +118,7 @@ export function InterviewStage({
           <Button variant="ghost" size="sm" onClick={() => setTranscriptOpen(true)}>
             기록
           </Button>
-          <Button variant="danger" size="sm" onClick={onEnd}>
+          <Button variant="danger" size="sm" onClick={() => setEndConfirmOpen(true)}>
             종료
           </Button>
         </div>
@@ -169,6 +171,20 @@ export function InterviewStage({
           onClose={() => setTranscriptOpen(false)}
         />
       )}
+
+      <ConfirmDialog
+        open={endConfirmOpen}
+        title="면접을 종료하시겠습니까?"
+        description="진행 중인 면접이 끝나고 피드백 단계로 넘어갑니다. 이 작업은 되돌릴 수 없습니다."
+        confirmLabel="종료"
+        cancelLabel="계속 진행"
+        danger
+        onConfirm={() => {
+          setEndConfirmOpen(false)
+          onEnd()
+        }}
+        onCancel={() => setEndConfirmOpen(false)}
+      />
     </section>
   )
 }
