@@ -2,6 +2,7 @@ import { Suspense } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider } from 'react-router-dom'
 import { AuthProvider } from '@/features/auth'
+import { ToastViewport } from '@/shared/ui'
 import { router } from '@/app/router'
 
 const queryClient = new QueryClient({
@@ -21,6 +22,7 @@ export function AppProviders() {
         <Suspense fallback={null}>
           <RouterProvider router={router} />
         </Suspense>
+        <ToastViewport />
       </AuthProvider>
     </QueryClientProvider>
   )
