@@ -21,9 +21,15 @@ export function ContextDocumentPicker({
       {documents.map((doc) => (
         <label
           key={doc.id}
+          htmlFor={`ctx-doc-${doc.id}`}
           className="flex cursor-pointer items-center gap-2 rounded-md border border-border bg-surface-raised px-3 py-2"
         >
-          <input type="checkbox" checked={selected.includes(doc.id)} onChange={() => onToggle(doc.id)} />
+          <input
+            id={`ctx-doc-${doc.id}`}
+            type="checkbox"
+            checked={selected.includes(doc.id)}
+            onChange={() => onToggle(doc.id)}
+          />
           <span className="text-button text-fg">{doc.label}</span>
           <span className="text-caption text-fg-muted">{doc.sourceType}</span>
         </label>

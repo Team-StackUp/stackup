@@ -18,11 +18,21 @@ export function ScoreTrend({ stats }: { stats: UserStats }) {
   return (
     <section className="flex flex-col gap-3 rounded-2xl border border-border bg-surface-raised p-5 shadow-sm">
       <span className="text-caption text-fg-muted">종합 점수 추이 (최근 {points.length}회)</span>
-      <div className="flex h-32 items-end gap-2">
+      <div
+        className="flex h-32 items-end gap-2"
+        role="img"
+        aria-label={`종합 점수 추이, 최근 ${points.length}회: ${points
+          .map((r) => `${Math.round(Math.max(0, Math.min(100, r.overall as number)))}점`)
+          .join(', ')}`}
+      >
         {points.map((r) => {
           const score = Math.max(0, Math.min(100, r.overall as number))
           return (
-            <div key={r.sessionId} className="flex flex-1 flex-col items-center gap-1">
+            <div
+              key={r.sessionId}
+              className="flex flex-1 flex-col items-center gap-1"
+              aria-hidden
+            >
               <div className="flex w-full flex-1 items-end">
                 <div
                   className="w-full rounded-t bg-primary"
