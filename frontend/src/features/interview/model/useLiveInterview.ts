@@ -132,6 +132,9 @@ export function useLiveInterview(sessionId: number, deliveryMode: DeliveryMode =
       const action = interviewEventAction(frame.event)
       if (action.kind === 'refetch-messages') {
         void queryClient.invalidateQueries({ queryKey: messageKeys.list(sessionId) })
+        // 헤더 질문 카운트(질문 N/M)는 session.totalQuestionCount 기반이라,
+        // 새 메시지(질문)마다 세션도 갱신해 진행도가 라이브로 반영되게 한다.
+        void queryClient.invalidateQueries({ queryKey: sessionKeys.detail(sessionId) })
       } else if (action.kind === 'refetch-session') {
         void queryClient.invalidateQueries({ queryKey: sessionKeys.detail(sessionId) })
       } else if (action.kind === 'redirect-feedback') {
