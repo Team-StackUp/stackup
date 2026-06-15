@@ -69,7 +69,7 @@ SERVER_PORT=8080
 
 # ===== Auth =====
 JWT_SECRET=                       # base64-encoded 32+ bytes (필수, default 없음)
-JWT_ACCESS_TTL_SECONDS=900        # 15min
+JWT_ACCESS_TTL_SECONDS=3600       # 1h (배포 기본; app.yml fallback 900). 면접 중 토큰 만료 방지용 상향
 JWT_REFRESH_TTL_SECONDS=1209600   # 14d
 
 ENCRYPTION_KEY=                   # AES-256 key, base64 32 bytes (필수)

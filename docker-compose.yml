@@ -169,6 +169,9 @@ services:
       # 비밀값은 .env 또는 GitHub Secrets 로 주입. 값이 비면 application-local.yml 의 dev default 적용.
       JWT_SECRET: ${JWT_SECRET:-}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      # 액세스 토큰 수명. application.yml 기본 900s(15분)은 면접 진행 중 만료로 이어져
+      # 배포 기본을 3600s(1시간)로 상향. 필요 시 .env(JWT_ACCESS_TTL_SECONDS)로 override.
+      JWT_ACCESS_TTL_SECONDS: ${JWT_ACCESS_TTL_SECONDS:-3600}
       CORE_INTERNAL_API_KEY: ${CORE_INTERNAL_API_KEY:-local-development-internal-api-key}
       GITHUB_OAUTH_CLIENT_ID: ${GITHUB_OAUTH_CLIENT_ID:-}
       GITHUB_OAUTH_CLIENT_SECRET: ${GITHUB_OAUTH_CLIENT_SECRET:-}
