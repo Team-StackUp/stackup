@@ -96,9 +96,10 @@ class QuestionsCallbackServiceTest {
     }
 
     @Test
-    void apply_followupAutoEndsSessionAtMaxQuestions() {
+    void apply_followupDoesNotCountOrAutoEnd() {
         InterviewSession session = sessionFixture(11L, SessionStatus.IN_PROGRESS);
-        // maxQuestions=5; total=4, then one follow-up reaches the limit.
+        // 꼬리질문은 maxQuestions(메인질문 수) 한도에 포함되지 않으며, 도착해도 세션을
+        // 끝내지 않는다(종료는 메인질문의 꼬리 사이클 후 advanceToNextGeneral 에서만).
         ReflectionTestUtils.setField(session, "totalQuestionCount", 4);
 
         QuestionsCallbackEnvelope env = followupEnvelope(11L, 200L, "Follow-up?");
@@ -114,8 +115,8 @@ class QuestionsCallbackServiceTest {
 
         service.apply(env);
 
-        assertThat(session.getStatus()).isEqualTo(SessionStatus.COMPLETED);
-        assertThat(session.getTotalQuestionCount()).isEqualTo(5);
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.IN_PROGRESS);
+        assertThat(session.getTotalQuestionCount()).isEqualTo(4);
     }
 
     @Test
@@ -188,7 +189,7 @@ class QuestionsCallbackServiceTest {
     // ── 새 placeholder 경로 테스트 ─────────────────────────────────────────────
 
     @Test
-    void apply_followupNormal_updatesPlaceholderInPlaceAndCounts() {
+    void apply_followupNormal_updatesPlaceholderInPlaceWithoutCounting() {
         InterviewSession session = sessionFixture(20L, SessionStatus.IN_PROGRESS);
         // placeholder: followupPlaceholder 의 sentinel content
         InterviewMessage placeholder = InterviewMessage.followupPlaceholder(
@@ -213,8 +214,8 @@ class QuestionsCallbackServiceTest {
         // placeholder 가 in-place 로 업데이트되어야 함
         assertThat(placeholder.getContent()).isEqualTo("꼬리질문 내용?");
         assertThat(placeholder.getStatus()).isEqualTo(com.stackup.stackup.session.domain.MessageStatus.COMPLETED);
-        // 질문 수 카운트 증가
-        assertThat(session.getTotalQuestionCount()).isEqualTo(1);
+        // 꼬리질문은 메인질문 카운트(maxQuestions 한도)에 포함되지 않는다.
+        assertThat(session.getTotalQuestionCount()).isEqualTo(0);
         // save 는 placeholder 자체에 대해 호출됨 (새 InterviewMessage INSERT 아님)
         ArgumentCaptor<InterviewMessage> cap = ArgumentCaptor.forClass(InterviewMessage.class);
         verify(messageRepository).save(cap.capture());
@@ -279,6 +280,19 @@ class QuestionsCallbackServiceTest {
         verify(messageRepository).flush();
         // 세션이 종료됨 (풀이 비어있어 POOL_EXHAUSTED)
         assertThat(session.getStatus()).isEqualTo(SessionStatus.COMPLETED);
+    }
+
+    @Test
+    void advanceToNextGeneral_endsWithMaxReached_whenMainQuestionsHitLimit() {
+        InterviewSession session = sessionFixture(33L, SessionStatus.IN_PROGRESS);
+        // maxQuestions=5; 메인질문을 5개 던진 상태 → 다음 advance 에서 풀을 보지 않고 종료.
+        ReflectionTestUtils.setField(session, "totalQuestionCount", 5);
+        when(sessionRepository.findById(33L)).thenReturn(Optional.of(session));
+
+        service.advanceToNextGeneral(33L);
+
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.COMPLETED);
+        verify(poolRepository, never()).findFirstBySessionIdAndUsedFalseOrderByIdxAsc(any());
     }
 
     private QuestionsCallbackEnvelope poolEnvelope(Long sessionId, List<GeneratedQuestion> questions) {

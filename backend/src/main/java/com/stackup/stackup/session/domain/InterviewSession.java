@@ -179,6 +179,8 @@ public class InterviewSession extends BaseSoftDeleteEntity {
         this.status = SessionStatus.CANCELLED;
     }
 
+    // 메인(일반) 질문만 센다. 꼬리질문은 maxQuestions 한도에 포함하지 않는다
+    // (꼬리질문은 maxFollowupsPerQuestion 으로 별도 제한).
     public void incrementQuestionCount() {
         if (totalQuestionCount == null) {
             totalQuestionCount = 0;
@@ -186,6 +188,7 @@ public class InterviewSession extends BaseSoftDeleteEntity {
         totalQuestionCount++;
     }
 
+    // 던진 메인질문 수가 maxQuestions 에 도달했는지. 꼬리 사이클 종료 후 판정한다.
     public boolean isMaxReached() {
         return totalQuestionCount != null
                 && maxQuestions != null
