@@ -45,6 +45,7 @@ class SessionFeedbackRequesterTest {
     @Mock SessionContextRepository contextRepository;
     @Mock SessionFeedbackRepository feedbackRepository;
     @Mock MessageVoiceAnalysisRepository voiceAnalysisRepository;
+    @Mock com.stackup.stackup.session.domain.SessionQuestionPoolRepository poolRepository;
     @InjectMocks SessionFeedbackRequester requester;
 
     @Test

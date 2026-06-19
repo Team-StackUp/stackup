@@ -90,9 +90,13 @@ public class QuestionsCallbackService {
             return;
         }
         int idx = 0;
+        String fallbackJobCategory = session.getJobCategory().name();
         for (GeneratedQuestion q : questions) {
+            String jobCategory = (q.jobCategory() != null && !q.jobCategory().isBlank())
+                ? q.jobCategory() : fallbackJobCategory;
             poolRepository.save(SessionQuestionPool.of(
-                session.getId(), idx++, q.question(), q.category(), q.targetEvidence(), q.expectedSignal()));
+                session.getId(), idx++, q.question(), q.category(), jobCategory,
+                q.targetEvidence(), q.expectedSignal()));
         }
         poolRepository.findFirstBySessionIdAndUsedFalseOrderByIdxAsc(session.getId())
             .ifPresent(first -> insertGeneralFromPool(session, first, "INITIAL_QUESTION_READY"));

@@ -43,6 +43,7 @@ class FeedbackGenerator(Protocol):
         rag_context: str,
         voice_analysis_summary: str,
         score_basis: str = "(없음)",
+        domain_question_counts: dict[str, int] | None = None,
     ) -> FeedbackResult: ...
 
 
@@ -61,6 +62,7 @@ class LlmFeedbackGenerator:
         rag_context: str,
         voice_analysis_summary: str = "",
         score_basis: str = "(없음)",
+        domain_question_counts: dict[str, int] | None = None,
     ) -> FeedbackResult:
         result = await self._chain.ainvoke(
             {
@@ -136,6 +138,19 @@ class _EvaluatorSpec:
     dimension_guide: str
 
 
+_TECH_GUIDE = (
+    "- 기술 정확성, 깊이, trade-off, 근거를 봅니다. 질문의 '기대 신호'를 "
+    "답변이 얼마나 짚었는지를 핵심 근거로 삼습니다."
+)
+
+_DOMAIN_KO = {
+    "FRONTEND": "프론트엔드",
+    "BACKEND": "백엔드",
+    "INFRA": "인프라",
+    "DBA": "DBA",
+}
+
+
 def _domain_spec(job_category: str, mode: str) -> _EvaluatorSpec:
     # PERSONALITY 모드는 기술 평가자를 인성·협업 평가자로 교체(사용자 결정).
     if (mode or "").upper() == "PERSONALITY":
@@ -149,16 +164,37 @@ def _domain_spec(job_category: str, mode: str) -> _EvaluatorSpec:
                 "기술 정확도는 평가하지 않습니다."
             ),
         )
+    ko = _DOMAIN_KO.get((job_category or "").upper(), job_category)
     return _EvaluatorSpec(
         key="technical",
         label="기술",
-        persona=f"{job_category} 직군 시니어 기술 면접관",
+        persona=f"{ko} 직군 시니어 기술 면접관",
         dimension_name="기술 정확도·깊이",
-        dimension_guide=(
-            "- 기술 정확성, 깊이, trade-off, 근거를 봅니다. 질문의 '기대 신호'를 "
-            "답변이 얼마나 짚었는지를 핵심 근거로 삼습니다."
-        ),
+        dimension_guide=_TECH_GUIDE,
     )
+
+
+def _domain_specs_weighted(
+    job_category: str, mode: str, domain_question_counts: dict[str, int]
+) -> list[tuple[_EvaluatorSpec, float]]:
+    """직군별 기술 평가위원 + 가중치(질문 수). PERSONALITY/단일/레거시는 단일 평가위원."""
+    if (mode or "").upper() == "PERSONALITY" or not domain_question_counts:
+        return [(_domain_spec(job_category, mode), 1.0)]
+    specs: list[tuple[_EvaluatorSpec, float]] = []
+    for dom, cnt in domain_question_counts.items():
+        ko = _DOMAIN_KO.get((dom or "").upper(), dom)
+        weight = float(cnt) if cnt and cnt > 0 else 1.0
+        specs.append((
+            _EvaluatorSpec(
+                key=f"tech:{dom}",
+                label=ko,
+                persona=f"{ko} 직군 시니어 기술 면접관",
+                dimension_name="기술 정확도·깊이",
+                dimension_guide=_TECH_GUIDE,
+            ),
+            weight,
+        ))
+    return specs or [(_domain_spec(job_category, mode), 1.0)]
 
 
 _LOGIC_SPEC = _EvaluatorSpec(
@@ -262,8 +298,11 @@ class PanelFeedbackGenerator:
         rag_context: str,
         voice_analysis_summary: str = "",
         score_basis: str = "(없음)",
+        domain_question_counts: dict[str, int] | None = None,
     ) -> FeedbackResult:
-        specs = [_domain_spec(job_category, mode), _LOGIC_SPEC, _COMM_SPEC]
+        domain_specs = _domain_specs_weighted(job_category, mode, domain_question_counts or {})
+        # 평가위원 순서: 직군 기술 평가위원(N) + 논리 + 전달.
+        specs = [s for s, _ in domain_specs] + [_LOGIC_SPEC, _COMM_SPEC]
         shared = {
             "job_category": job_category,
             "mode": mode,
@@ -290,52 +329,67 @@ class PanelFeedbackGenerator:
             return_exceptions=True,
         )
 
-        results: dict[str, EvaluatorResult] = {}
+        # 위치 기준 매핑(직군이 여러 개라 key 가 겹치지 않게).
+        results: list[EvaluatorResult] = []
         for spec, r in zip(specs, raw):
             if isinstance(r, EvaluatorResult):
-                results[spec.key] = r
+                results.append(r)
             else:
-                log.warning(
-                    "feedback.panel.evaluator_failed",
-                    evaluator=spec.key,
-                    error=str(r),
-                )
-                results[spec.key] = EvaluatorResult()
+                log.warning("feedback.panel.evaluator_failed", evaluator=spec.key, error=str(r))
+                results.append(EvaluatorResult())
 
-        tech = results["technical"]
-        logic = results["logic"]
-        comm = results["communication"]
-        domain_label = specs[0].label
+        n_domain = len(domain_specs)
+        domain_results = list(zip([s for s, _ in domain_specs], [w for _, w in domain_specs], results[:n_domain]))
+        logic = results[n_domain]
+        comm = results[n_domain + 1]
 
+        # technical_accuracy = 직군 평가위원 점수의 질문수 가중평균.
+        technical_accuracy = _weighted_overall([(r.score, w) for _, w, r in domain_results])
         overall = _weighted_overall(
             [
-                (tech.score, self._w_tech),
+                (technical_accuracy, self._w_tech),
                 (logic.score, self._w_logic),
                 (comm.score, self._w_comm),
             ]
         )
-        strengths = _merge_notes(
-            [(domain_label, tech.strength), ("논리", logic.strength), ("전달", comm.strength)]
-        )
-        weaknesses = _merge_notes(
-            [(domain_label, tech.weakness), ("논리", logic.weakness), ("전달", comm.weakness)]
-        )
-        keywords = _dedup_keywords(tech.keywords + logic.keywords + comm.keywords)
+
+        note_items = [(spec.label, r.strength) for spec, _, r in domain_results]
+        note_items += [("논리", logic.strength), ("전달", comm.strength)]
+        strengths = _merge_notes(note_items)
+        weak_items = [(spec.label, r.weakness) for spec, _, r in domain_results]
+        weak_items += [("논리", logic.weakness), ("전달", comm.weakness)]
+        weaknesses = _merge_notes(weak_items)
+
+        all_keywords: list[str] = []
+        for _, _, r in domain_results:
+            all_keywords += r.keywords
+        all_keywords += logic.keywords + comm.keywords
+        keywords = _dedup_keywords(all_keywords)
 
         breakdown = [
             PanelBreakdownItem(
                 evaluator=spec.label,
                 dimension=spec.dimension_name,
-                score=res.score,
-                strength=res.strength,
-                weakness=res.weakness,
+                score=r.score,
+                strength=r.strength,
+                weakness=r.weakness,
             )
-            for spec, res in zip(specs, (tech, logic, comm))
+            for spec, _, r in domain_results
         ]
+        for spec, r in ((_LOGIC_SPEC, logic), (_COMM_SPEC, comm)):
+            breakdown.append(
+                PanelBreakdownItem(
+                    evaluator=spec.label,
+                    dimension=spec.dimension_name,
+                    score=r.score,
+                    strength=r.strength,
+                    weakness=r.weakness,
+                )
+            )
 
         return FeedbackResult(
             overall_score=overall,
-            technical_accuracy=tech.score,
+            technical_accuracy=technical_accuracy,
             logic_score=logic.score,
             communication_score=comm.score,
             strengths_summary=strengths,

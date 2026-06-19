@@ -48,6 +48,9 @@ class GeneratedQuestion(BaseModel):
 
     category: QuestionCategory
     question: str
+    # 이 질문이 겨냥한 직군. 세션의 job_categories 중 하나. 다직군 패널 가중에 사용.
+    # LLM 이 비우면 Core 가 대표 직군으로 폴백.
+    job_category: JobCategory | None = None
     # 질문이 근거한 자료 인용(PROJECT/TECH 는 필수). 라이브 화면에 힌트로 노출.
     target_evidence: str = ""
     # 좋은 답이 드러내야 할 것 — 내부 평가용. 라이브 비노출(정답 유출 방지).

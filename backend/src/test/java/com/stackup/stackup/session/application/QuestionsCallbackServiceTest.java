@@ -47,8 +47,8 @@ class QuestionsCallbackServiceTest {
         InterviewSession session = sessionFixture(11L, SessionStatus.READY);
         QuestionsCallbackEnvelope env = poolEnvelope(11L, List.of(
             new GeneratedQuestion("PROJECT_DEEP_DIVE", "Introduce yourself",
-                "이력서: 결제 시스템", "협업/문제해결 깊이"),
-            new GeneratedQuestion("TECH", "JPA?", null, null)
+                "BACKEND", "이력서: 결제 시스템", "협업/문제해결 깊이"),
+            new GeneratedQuestion("TECH", "JPA?", null, null, null)
         ));
         when(processedMessageRepository.existsById("m-1")).thenReturn(false);
         when(sessionRepository.findById(11L)).thenReturn(Optional.of(session));
@@ -57,7 +57,7 @@ class QuestionsCallbackServiceTest {
         when(poolRepository.findFirstBySessionIdAndUsedFalseOrderByIdxAsc(11L)).thenReturn(
             Optional.of(com.stackup.stackup.session.domain.SessionQuestionPool.of(
                 11L, 0, "Introduce yourself", "PROJECT_DEEP_DIVE",
-                "이력서: 결제 시스템", "협업/문제해결 깊이")));
+                "BACKEND", "이력서: 결제 시스템", "협업/문제해결 깊이")));
         when(messageRepository.save(any(InterviewMessage.class))).thenAnswer(inv -> {
             InterviewMessage m = inv.getArgument(0);
             ReflectionTestUtils.setField(m, "id", 500L);
@@ -121,7 +121,7 @@ class QuestionsCallbackServiceTest {
     @Test
     void apply_skipsDuplicateMessageId() {
         QuestionsCallbackEnvelope env =
-            poolEnvelope(11L, List.of(new GeneratedQuestion("X", "Q", null, null)));
+            poolEnvelope(11L, List.of(new GeneratedQuestion("X", "Q", null, null, null)));
         when(processedMessageRepository.existsById("m-1")).thenReturn(true);
 
         service.apply(env);
