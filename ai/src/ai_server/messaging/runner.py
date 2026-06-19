@@ -21,6 +21,7 @@ from ai_server.chain.followup_generation_chain import (
 )
 from ai_server.chain.feedback_generation_chain import (
     PanelFeedbackGenerator,
+    build_feedback_synthesis_chain,
     build_panel_evaluator_chain,
 )
 from ai_server.chain.question_generation_chain import (
@@ -211,8 +212,10 @@ class MessagingRuntime:
         )
 
         # 종합 피드백 생성 (US-24) — 멀티 면접관 패널(직군·논리·커뮤 평가위원 병렬 → 가중평균)
+        # + 종합 서술형 평·학습 방향 synthesis.
         feedback_generator = PanelFeedbackGenerator(
-            build_panel_evaluator_chain(settings, core_client=core_client)
+            build_panel_evaluator_chain(settings, core_client=core_client),
+            synthesis_chain=build_feedback_synthesis_chain(settings, core_client=core_client),
         )
         self._feedback_consumer = FeedbackConsumer(
             generator=feedback_generator,

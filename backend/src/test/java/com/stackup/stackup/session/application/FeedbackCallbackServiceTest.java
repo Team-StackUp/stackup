@@ -46,7 +46,9 @@ class FeedbackCallbackServiceTest {
         FeedbackCallbackEnvelope env = envelope(50L, "fb-1",
             new FeedbackCallbackPayload(50L, 85.0, 80.0, 90.0, 75.0,
                 "strength summary", "weakness summary", List.of("Spring", "JPA"),
-                List.of(new PanelBreakdownItem("기술", "기술 정확도·깊이", 80.0, "설계 깊이", "테스트 부족")),
+                List.of("Redis 분산 락 직접 구현"),
+                List.of(new PanelBreakdownItem("기술", "기술 정확도·깊이", 80.0,
+                    "설계 깊이", "테스트 부족", "상세 평가 문단", "근거")),
                 null));
 
         when(processedMessageRepository.existsById("fb-1")).thenReturn(false);
@@ -65,6 +67,7 @@ class FeedbackCallbackServiceTest {
         assertThat(cap.getValue().getOverallScore()).isEqualTo(85.0);
         assertThat(cap.getValue().getImprovementKeywords()).contains("Spring");
         assertThat(cap.getValue().getPanelBreakdown()).contains("기술");
+        assertThat(cap.getValue().getStudyPlan()).contains("Redis");
 
         ArgumentCaptor<Object> evCap = ArgumentCaptor.forClass(Object.class);
         verify(events, atLeastOnce()).publishEvent(evCap.capture());
@@ -79,7 +82,7 @@ class FeedbackCallbackServiceTest {
     @Test
     void apply_skipsWhenDuplicateMessage() {
         FeedbackCallbackEnvelope env = envelope(50L, "dup",
-            new FeedbackCallbackPayload(50L, 80.0, null, null, null, null, null, List.of(), List.of(), null));
+            new FeedbackCallbackPayload(50L, 80.0, null, null, null, null, null, List.of(), List.of(), List.of(), null));
         when(processedMessageRepository.existsById("dup")).thenReturn(true);
 
         service.apply(env);
@@ -91,7 +94,7 @@ class FeedbackCallbackServiceTest {
     void apply_skipsWhenFeedbackAlreadyExists() {
         InterviewSession session = sessionFixture(50L);
         FeedbackCallbackEnvelope env = envelope(50L, "fb-2",
-            new FeedbackCallbackPayload(50L, 80.0, null, null, null, null, null, List.of(), List.of(), null));
+            new FeedbackCallbackPayload(50L, 80.0, null, null, null, null, null, List.of(), List.of(), List.of(), null));
         when(processedMessageRepository.existsById("fb-2")).thenReturn(false);
         when(sessionRepository.findById(50L)).thenReturn(Optional.of(session));
         when(feedbackRepository.existsBySession_Id(50L)).thenReturn(true);

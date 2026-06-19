@@ -14,6 +14,7 @@ public record FeedbackCallbackPayload(
     String strengthsSummary,
     String weaknessesSummary,
     List<String> improvementKeywords,
+    List<String> studyPlan,
     List<PanelBreakdownItem> panelBreakdown,
     String reportS3Key
 ) {

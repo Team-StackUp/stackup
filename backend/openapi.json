@@ -3348,6 +3348,13 @@
               "$ref" : "#/components/schemas/PanelBreakdownItem"
             }
           },
+          "studyPlan" : {
+            "type" : "array",
+            "description" : "Study plan / next-step action items synthesized from the panel.",
+            "items" : {
+              "type" : "string"
+            }
+          },
           "reportFilePath" : {
             "type" : "string",
             "description" : "Stored report path when AI generates a detailed learning guide/report."
@@ -3375,6 +3382,12 @@
             "type" : "string"
           },
           "weakness" : {
+            "type" : "string"
+          },
+          "detail" : {
+            "type" : "string"
+          },
+          "scoreRationale" : {
             "type" : "string"
           }
         }

@@ -11,7 +11,7 @@ from langchain_core.runnables import Runnable
 from pydantic import BaseModel, Field
 
 from ai_server.chain.prompts.feedback_generation import HUMAN_PROMPT, SYSTEM_PROMPT
-from ai_server.chain.prompts import feedback_panel
+from ai_server.chain.prompts import feedback_panel, feedback_synthesis
 from ai_server.config.settings import Settings
 from ai_server.core.client import CoreClient
 from ai_server.model.messages.feedback import PanelBreakdownItem
@@ -28,6 +28,7 @@ class FeedbackResult(BaseModel):
     strengths_summary: str | None = Field(None)
     weaknesses_summary: str | None = Field(None)
     improvement_keywords: list[str] = Field(default_factory=list)
+    study_plan: list[str] = Field(default_factory=list)
     panel_breakdown: list[PanelBreakdownItem] = Field(default_factory=list)
 
 
@@ -126,7 +127,16 @@ class EvaluatorResult(BaseModel):
     score: float | None = Field(None, description="0~100, 산정 불가 시 null")
     strength: str | None = None
     weakness: str | None = None
+    detail: str | None = Field(None, description="근거·예시 포함 2~4문장 상세 평가")
+    score_rationale: str | None = Field(None, description="점수 근거 한두 문장")
     keywords: list[str] = Field(default_factory=list)
+
+
+class SynthesisResult(BaseModel):
+    strengths_summary: str | None = None
+    weaknesses_summary: str | None = None
+    improvement_keywords: list[str] = Field(default_factory=list)
+    study_plan: list[str] = Field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -253,6 +263,40 @@ def build_panel_evaluator_chain(
     return prompt | llm | parser
 
 
+def build_feedback_synthesis_chain(
+    settings: Settings, core_client: CoreClient | None = None
+) -> Runnable:
+    """패널 결과를 통합한 종합 서술형 평 + 학습 방향 생성 체인."""
+    from langchain_openai import ChatOpenAI
+
+    parser = PydanticOutputParser(pydantic_object=SynthesisResult)
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", feedback_synthesis.SYSTEM_PROMPT),
+            ("human", feedback_synthesis.HUMAN_PROMPT),
+        ]
+    ).partial(format_instructions=parser.get_format_instructions())
+
+    callbacks = []
+    if core_client is not None:
+        callbacks.append(
+            CoreAiLogCallback(
+                core_client=core_client,
+                request_type="generate.feedback.synthesis",
+                default_model=settings.llm_pro_model,
+            )
+        )
+
+    llm = ChatOpenAI(
+        model=settings.llm_pro_model,
+        temperature=settings.llm_pro_temperature,
+        api_key=settings.llm_api_key or None,
+        base_url=settings.llm_base_url,
+        callbacks=callbacks,
+    )
+    return prompt | llm | parser
+
+
 def _weighted_overall(pairs: list[tuple[float | None, float]]) -> float | None:
     """(score, weight) 중 score 가 있는 것만 가중평균. 전부 None 이면 None."""
     present = [(s, w) for s, w in pairs if s is not None and w > 0]
@@ -283,8 +327,15 @@ def _dedup_keywords(keywords: list[str], cap: int = 8) -> list[str]:
 class PanelFeedbackGenerator:
     """직군·논리·커뮤니케이션 평가위원을 병렬 호출 → 가중평균 종합. FeedbackGenerator 호환."""
 
-    def __init__(self, chain: Runnable, *, weights: tuple[float, float, float] = (0.5, 0.25, 0.25)) -> None:
+    def __init__(
+        self,
+        chain: Runnable,
+        *,
+        synthesis_chain: Runnable | None = None,
+        weights: tuple[float, float, float] = (0.5, 0.25, 0.25),
+    ) -> None:
         self._chain = chain
+        self._synthesis = synthesis_chain
         self._w_tech, self._w_logic, self._w_comm = weights
 
     async def generate(
@@ -353,18 +404,18 @@ class PanelFeedbackGenerator:
             ]
         )
 
-        note_items = [(spec.label, r.strength) for spec, _, r in domain_results]
-        note_items += [("논리", logic.strength), ("전달", comm.strength)]
-        strengths = _merge_notes(note_items)
-        weak_items = [(spec.label, r.weakness) for spec, _, r in domain_results]
-        weak_items += [("논리", logic.weakness), ("전달", comm.weakness)]
-        weaknesses = _merge_notes(weak_items)
-
-        all_keywords: list[str] = []
-        for _, _, r in domain_results:
-            all_keywords += r.keywords
-        all_keywords += logic.keywords + comm.keywords
-        keywords = _dedup_keywords(all_keywords)
+        # 기계적 병합(synthesis 미설정/실패 시 폴백용).
+        fb_strength_items = [(spec.label, r.strength) for spec, _, r in domain_results]
+        fb_strength_items += [("논리", logic.strength), ("전달", comm.strength)]
+        fb_strengths = _merge_notes(fb_strength_items)
+        fb_weak_items = [(spec.label, r.weakness) for spec, _, r in domain_results]
+        fb_weak_items += [("논리", logic.weakness), ("전달", comm.weakness)]
+        fb_weaknesses = _merge_notes(fb_weak_items)
+        fb_keywords = _dedup_keywords(
+            [k for _, _, r in domain_results for k in r.keywords]
+            + logic.keywords
+            + comm.keywords
+        )
 
         breakdown = [
             PanelBreakdownItem(
@@ -373,6 +424,8 @@ class PanelFeedbackGenerator:
                 score=r.score,
                 strength=r.strength,
                 weakness=r.weakness,
+                detail=r.detail,
+                score_rationale=r.score_rationale,
             )
             for spec, _, r in domain_results
         ]
@@ -384,8 +437,36 @@ class PanelFeedbackGenerator:
                     score=r.score,
                     strength=r.strength,
                     weakness=r.weakness,
+                    detail=r.detail,
+                    score_rationale=r.score_rationale,
                 )
             )
+
+        # 종합 서술형 + 학습 방향(synthesis). 미설정/실패 시 기계적 병합으로 폴백.
+        strengths, weaknesses, keywords, study_plan = fb_strengths, fb_weaknesses, fb_keywords, []
+        if self._synthesis is not None:
+            panel_summary = "\n".join(
+                f"- {b.evaluator}({b.dimension}) "
+                f"{('%g점' % b.score) if b.score is not None else '점수없음'}: "
+                f"{(b.detail or '').strip() or (b.strength or '')}"
+                for b in breakdown
+            )
+            try:
+                syn = await self._synthesis.ainvoke(
+                    {
+                        "job_category": job_category,
+                        "mode": mode,
+                        "panel_summary": panel_summary,
+                        "transcript": transcript,
+                    }
+                )
+                if isinstance(syn, SynthesisResult):
+                    strengths = syn.strengths_summary or fb_strengths
+                    weaknesses = syn.weaknesses_summary or fb_weaknesses
+                    keywords = _dedup_keywords(syn.improvement_keywords) or fb_keywords
+                    study_plan = syn.study_plan or []
+            except Exception as exc:  # noqa: BLE001
+                log.warning("feedback.synthesis.failed", error=str(exc))
 
         return FeedbackResult(
             overall_score=overall,
@@ -395,5 +476,6 @@ class PanelFeedbackGenerator:
             strengths_summary=strengths,
             weaknesses_summary=weaknesses,
             improvement_keywords=keywords,
+            study_plan=study_plan,
             panel_breakdown=breakdown,
         )

@@ -1154,6 +1154,8 @@ export interface components {
             improvementKeywords?: string[];
             /** @description Per-evaluator panel breakdown (multi-interviewer). Empty for single/legacy feedback. */
             panelBreakdown?: components["schemas"]["PanelBreakdownItem"][];
+            /** @description Study plan / next-step action items synthesized from the panel. */
+            studyPlan?: string[];
             /** @description Stored report path when AI generates a detailed learning guide/report. */
             reportFilePath?: string;
             /** Format: date-time */
@@ -1166,6 +1168,8 @@ export interface components {
             score?: number;
             strength?: string;
             weakness?: string;
+            detail?: string;
+            scoreRationale?: string;
         };
         CandidateRepositoryResponse: {
             /** Format: int64 */

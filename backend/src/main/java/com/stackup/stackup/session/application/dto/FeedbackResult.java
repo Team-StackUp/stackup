@@ -19,6 +19,7 @@ public record FeedbackResult(
     String weaknessesSummary,
     List<String> improvementKeywords,
     List<PanelBreakdownItem> panelBreakdown,
+    List<String> studyPlan,
     String reportFilePath,
     Instant createdAt
 ) {
@@ -37,6 +38,7 @@ public record FeedbackResult(
             f.getWeaknessesSummary(),
             parseKeywords(f.getImprovementKeywords()),
             parseBreakdown(f.getPanelBreakdown()),
+            parseKeywords(f.getStudyPlan()),
             f.getReportFilePath(),
             f.getCreatedAt()
         );

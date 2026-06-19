@@ -75,11 +75,19 @@ export function FeedbackReport({
               {feedback.panelBreakdown.map((b) => (
                 <div key={b.evaluator} className="flex flex-col gap-1.5">
                   <ScoreBar label={`${b.evaluator} 면접관`} score={b.score} />
+                  {b.detail && (
+                    <p className="whitespace-pre-wrap pl-1 text-caption text-fg-muted">
+                      {b.detail}
+                    </p>
+                  )}
                   {(b.strength || b.weakness) && (
                     <div className="flex flex-col gap-0.5 pl-1 text-caption text-fg-muted">
                       {b.strength && <span>강점 · {b.strength}</span>}
                       {b.weakness && <span>보완 · {b.weakness}</span>}
                     </div>
+                  )}
+                  {b.scoreRationale && (
+                    <p className="pl-1 text-caption text-fg-subtle">점수 근거 · {b.scoreRationale}</p>
                   )}
                 </div>
               ))}
@@ -115,6 +123,20 @@ export function FeedbackReport({
                 </StatusBadge>
               ))}
             </div>
+          </section>
+        )}
+
+        {feedback.studyPlan && feedback.studyPlan.length > 0 && (
+          <section className="flex flex-col gap-2">
+            <h2 className="text-h6 text-fg">학습 방향</h2>
+            <ul className="flex flex-col gap-1.5">
+              {feedback.studyPlan.map((step, i) => (
+                <li key={i} className="flex gap-2 text-body text-fg-muted">
+                  <span aria-hidden className="text-primary">›</span>
+                  <span className="whitespace-pre-wrap">{step}</span>
+                </li>
+              ))}
+            </ul>
           </section>
         )}
       </div>
