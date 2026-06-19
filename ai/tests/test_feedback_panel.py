@@ -53,6 +53,9 @@ async def test_weighted_overall_and_dimension_mapping():
     assert r.overall_score == 65
     assert "[기술]" in r.strengths_summary and "[논리]" in r.strengths_summary
     assert set(r.improvement_keywords) == {"JPA", "trade-off", "STAR"}
+    # 평가위원별 분해
+    assert [b.evaluator for b in r.panel_breakdown] == ["기술", "논리", "전달"]
+    assert [b.score for b in r.panel_breakdown] == [80, 60, 40]
 
 
 @pytest.mark.asyncio

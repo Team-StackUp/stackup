@@ -14,6 +14,7 @@ from ai_server.chain.prompts.feedback_generation import HUMAN_PROMPT, SYSTEM_PRO
 from ai_server.chain.prompts import feedback_panel
 from ai_server.config.settings import Settings
 from ai_server.core.client import CoreClient
+from ai_server.model.messages.feedback import PanelBreakdownItem
 from ai_server.observability.llm_logging_callback import CoreAiLogCallback
 
 log = structlog.get_logger(__name__)
@@ -27,6 +28,7 @@ class FeedbackResult(BaseModel):
     strengths_summary: str | None = Field(None)
     weaknesses_summary: str | None = Field(None)
     improvement_keywords: list[str] = Field(default_factory=list)
+    panel_breakdown: list[PanelBreakdownItem] = Field(default_factory=list)
 
 
 class FeedbackGenerator(Protocol):
@@ -320,6 +322,17 @@ class PanelFeedbackGenerator:
         )
         keywords = _dedup_keywords(tech.keywords + logic.keywords + comm.keywords)
 
+        breakdown = [
+            PanelBreakdownItem(
+                evaluator=spec.label,
+                dimension=spec.dimension_name,
+                score=res.score,
+                strength=res.strength,
+                weakness=res.weakness,
+            )
+            for spec, res in zip(specs, (tech, logic, comm))
+        ]
+
         return FeedbackResult(
             overall_score=overall,
             technical_accuracy=tech.score,
@@ -328,4 +341,5 @@ class PanelFeedbackGenerator:
             strengths_summary=strengths,
             weaknesses_summary=weaknesses,
             improvement_keywords=keywords,
+            panel_breakdown=breakdown,
         )

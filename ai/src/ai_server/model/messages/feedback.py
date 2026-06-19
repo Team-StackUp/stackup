@@ -62,6 +62,18 @@ class GenerateFeedbackRequest(BaseModel):
     voice_analysis_summary: VoiceAnalysisSummary | None = None
 
 
+class PanelBreakdownItem(BaseModel):
+    """멀티 면접관 패널의 평가위원 1명 결과(분해 표시·저장용)."""
+
+    model_config = camel_config()
+
+    evaluator: str  # 라벨: 기술/인성/논리/전달
+    dimension: str  # 평가축 이름
+    score: float | None = None
+    strength: str | None = None
+    weakness: str | None = None
+
+
 class FeedbackCallbackPayload(BaseModel):
     """AI → Core 종합 피드백. 점수는 0~100 (NULL 허용)."""
 
@@ -75,4 +87,6 @@ class FeedbackCallbackPayload(BaseModel):
     strengths_summary: str | None = None
     weaknesses_summary: str | None = None
     improvement_keywords: list[str] = Field(default_factory=list)
+    # 평가위원별 분해(패널). 비어 있으면 단일/레거시 경로.
+    panel_breakdown: list[PanelBreakdownItem] = Field(default_factory=list)
     report_s3_key: str | None = None
