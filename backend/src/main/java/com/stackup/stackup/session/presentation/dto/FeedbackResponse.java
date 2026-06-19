@@ -19,6 +19,8 @@ public record FeedbackResponse(
     List<String> improvementKeywords,
     @Schema(description = "Per-evaluator panel breakdown (multi-interviewer). Empty for single/legacy feedback.")
     List<PanelBreakdownItem> panelBreakdown,
+    @Schema(description = "Study plan / next-step action items synthesized from the panel.")
+    List<String> studyPlan,
     @Schema(description = "Stored report path when AI generates a detailed learning guide/report.")
     String reportFilePath,
     Instant createdAt
@@ -29,7 +31,8 @@ public record FeedbackResponse(
             r.id(), r.sessionId(),
             r.overallScore(), r.technicalAccuracy(), r.logicScore(), r.communicationScore(),
             r.strengthsSummary(), r.weaknessesSummary(),
-            r.improvementKeywords(), r.panelBreakdown(), r.reportFilePath(), r.createdAt()
+            r.improvementKeywords(), r.panelBreakdown(), r.studyPlan(),
+            r.reportFilePath(), r.createdAt()
         );
     }
 }

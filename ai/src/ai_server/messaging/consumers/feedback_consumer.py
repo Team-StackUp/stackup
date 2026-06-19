@@ -109,6 +109,7 @@ class FeedbackConsumer:
                 strengths_summary=result.strengths_summary,
                 weaknesses_summary=result.weaknesses_summary,
                 improvement_keywords=result.improvement_keywords,
+                study_plan=result.study_plan,
                 panel_breakdown=result.panel_breakdown,
                 report_s3_key=None,
             )

@@ -74,6 +74,10 @@ class PanelBreakdownItem(BaseModel):
     score: float | None = None
     strength: str | None = None
     weakness: str | None = None
+    # 구체적 근거·예시(답변 인용)를 담은 2~4문장 상세 평가.
+    detail: str | None = None
+    # 이 점수를 준 근거(감점/가점 요인) 간단 설명.
+    score_rationale: str | None = None
 
 
 class FeedbackCallbackPayload(BaseModel):
@@ -89,6 +93,8 @@ class FeedbackCallbackPayload(BaseModel):
     strengths_summary: str | None = None
     weaknesses_summary: str | None = None
     improvement_keywords: list[str] = Field(default_factory=list)
+    # 패널을 통합한 학습 방향/다음 단계 액션 아이템.
+    study_plan: list[str] = Field(default_factory=list)
     # 평가위원별 분해(패널). 비어 있으면 단일/레거시 경로.
     panel_breakdown: list[PanelBreakdownItem] = Field(default_factory=list)
     report_s3_key: str | None = None

@@ -3,7 +3,17 @@ import pytest
 from ai_server.chain.feedback_generation_chain import (
     EvaluatorResult,
     PanelFeedbackGenerator,
+    SynthesisResult,
 )
+
+
+class _FakeSynthesis:
+    def __init__(self, result: SynthesisResult):
+        self._result = result
+
+    async def ainvoke(self, _v):
+        return self._result
+
 
 # 평가축(dimension_name) 으로 라우팅하는 가짜 체인.
 TECH = "기술 정확도·깊이"
@@ -121,6 +131,44 @@ async def test_multi_domain_weighted_by_question_counts():
     assert [b.evaluator for b in r.panel_breakdown] == ["백엔드", "프론트엔드", "논리", "전달"]
     # overall = 0.5*70 + 0.25*60 + 0.25*50 = 62.5 → 62 (은행가 반올림)
     assert r.overall_score == 62
+
+
+@pytest.mark.asyncio
+async def test_synthesis_narrative_study_plan_and_breakdown_detail():
+    syn = SynthesisResult(
+        strengths_summary="통합 강점 서술",
+        weaknesses_summary="통합 약점 서술",
+        improvement_keywords=["동시성"],
+        study_plan=["Redis 분산 락 SETNX/TTL 직접 구현"],
+    )
+    gen = PanelFeedbackGenerator(
+        _FakeChain({
+            TECH: EvaluatorResult(score=80, strength="s", detail="상세 평가", score_rationale="근거"),
+            LOGIC: EvaluatorResult(score=60),
+            COMM: EvaluatorResult(score=50),
+        }),
+        synthesis_chain=_FakeSynthesis(syn),
+    )
+    r = await _run_gen(gen)
+    # 종합 서술형(synthesis 결과로 대체)
+    assert r.strengths_summary == "통합 강점 서술"
+    assert r.weaknesses_summary == "통합 약점 서술"
+    assert r.improvement_keywords == ["동시성"]
+    assert r.study_plan == ["Redis 분산 락 SETNX/TTL 직접 구현"]
+    # 평가위원 분해에 detail/score_rationale 포함
+    assert r.panel_breakdown[0].detail == "상세 평가"
+    assert r.panel_breakdown[0].score_rationale == "근거"
+
+
+async def _run_gen(gen):
+    return await gen.generate(
+        job_category="BACKEND",
+        mode="TECHNICAL",
+        total_question_count=3,
+        end_reason="x",
+        transcript="t",
+        rag_context="(none)",
+    )
 
 
 @pytest.mark.asyncio

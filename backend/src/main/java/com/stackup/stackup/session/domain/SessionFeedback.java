@@ -57,6 +57,11 @@ public class SessionFeedback extends BaseSoftDeleteEntity {
     @Column(name = "panel_breakdown", columnDefinition = "jsonb")
     private String panelBreakdown;
 
+    // 학습 방향/다음 단계 액션 아이템 JSON 배열.
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "study_plan", columnDefinition = "jsonb")
+    private String studyPlan;
+
     @Column(name = "report_file_path", length = 1000)
     private String reportFilePath;
 
@@ -68,7 +73,7 @@ public class SessionFeedback extends BaseSoftDeleteEntity {
                             Double logicScore, Double communicationScore,
                             String strengthsSummary, String weaknessesSummary,
                             String improvementKeywordsJson, String panelBreakdownJson,
-                            String reportFilePath) {
+                            String studyPlanJson, String reportFilePath) {
         if (session == null) {
             throw new IllegalArgumentException("session must not be null");
         }
@@ -81,6 +86,7 @@ public class SessionFeedback extends BaseSoftDeleteEntity {
         this.weaknessesSummary = weaknessesSummary;
         this.improvementKeywords = improvementKeywordsJson;
         this.panelBreakdown = panelBreakdownJson;
+        this.studyPlan = studyPlanJson;
         this.reportFilePath = reportFilePath;
     }
 
@@ -89,10 +95,10 @@ public class SessionFeedback extends BaseSoftDeleteEntity {
                                      Double communicationScore,
                                      String strengthsSummary, String weaknessesSummary,
                                      String improvementKeywordsJson, String panelBreakdownJson,
-                                     String reportFilePath) {
+                                     String studyPlanJson, String reportFilePath) {
         return new SessionFeedback(session, overallScore, technicalAccuracy, logicScore,
             communicationScore, strengthsSummary, weaknessesSummary,
-            improvementKeywordsJson, panelBreakdownJson, reportFilePath);
+            improvementKeywordsJson, panelBreakdownJson, studyPlanJson, reportFilePath);
     }
 
     // 공유 토큰을 보장(없으면 발급)하고 현재 토큰 반환. 멱등.

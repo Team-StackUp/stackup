@@ -9,6 +9,8 @@ public record PanelBreakdownItem(
     String dimension,
     Double score,
     String strength,
-    String weakness
+    String weakness,
+    String detail,          // 근거·예시 포함 상세 평가
+    String scoreRationale   // 점수 근거
 ) {
 }
