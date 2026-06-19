@@ -13,7 +13,9 @@ public record GenerateFeedbackPayload(
     String endReason,
     List<MessageItem> messages,
     List<Long> contextDocumentIds,
-    VoiceAnalysisSummary voiceAnalysisSummary
+    VoiceAnalysisSummary voiceAnalysisSummary,
+    // 다직군 패널 가중: 사용된 일반질문의 직군별 개수(예: {"BACKEND":3,"FRONTEND":2}). 비면 단일.
+    Map<String, Integer> domainQuestionCounts
 ) {
 
     public record MessageItem(

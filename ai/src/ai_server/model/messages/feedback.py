@@ -60,6 +60,8 @@ class GenerateFeedbackRequest(BaseModel):
     messages: list[FeedbackMessageItem] = Field(default_factory=list)
     context_document_ids: list[int] = Field(default_factory=list)
     voice_analysis_summary: VoiceAnalysisSummary | None = None
+    # 다직군 패널 가중: 사용된 일반질문의 직군별 개수. 비면 단일 직군 평가.
+    domain_question_counts: dict[str, int] = Field(default_factory=dict)
 
 
 class PanelBreakdownItem(BaseModel):

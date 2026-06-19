@@ -14,6 +14,9 @@ public interface SessionQuestionPoolRepository extends JpaRepository<SessionQues
 
     long countBySessionId(Long sessionId);
 
+    // 다직군 패널 가중: 실제 출제된(used) 일반질문 — 직군별 집계용.
+    List<SessionQuestionPool> findBySessionIdAndUsedTrue(Long sessionId);
+
     // 중복 질문 회피용: 주어진 세션들에서 출제된 질문 텍스트(최신순).
     @Query("select p.question from SessionQuestionPool p "
         + "where p.sessionId in :sessionIds order by p.createdAt desc")

@@ -97,6 +97,7 @@ class FeedbackConsumer:
                 score_basis=score_basis,
                 rag_context=rag_context,
                 voice_analysis_summary=voice_analysis_summary,
+                domain_question_counts=req.domain_question_counts,
             )
 
             payload = FeedbackCallbackPayload(

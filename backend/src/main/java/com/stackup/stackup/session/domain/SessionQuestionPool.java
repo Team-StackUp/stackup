@@ -33,6 +33,10 @@ public class SessionQuestionPool extends BaseTimeEntity {
     @Column(length = 40)
     private String category;
 
+    // 이 질문이 겨냥한 직군(다직군 패널 가중용). null = 대표 직군 폴백.
+    @Column(name = "job_category", length = 30)
+    private String jobCategory;
+
     @Column(name = "target_evidence", columnDefinition = "text")
     private String targetEvidence;
 
@@ -42,19 +46,22 @@ public class SessionQuestionPool extends BaseTimeEntity {
     @Column(nullable = false)
     private boolean used = false;
 
-    private SessionQuestionPool(Long sessionId, int idx, String question,
-                                String category, String targetEvidence, String expectedSignal) {
+    private SessionQuestionPool(Long sessionId, int idx, String question, String category,
+                                String jobCategory, String targetEvidence, String expectedSignal) {
         this.sessionId = sessionId;
         this.idx = idx;
         this.question = question;
         this.category = category;
+        this.jobCategory = jobCategory;
         this.targetEvidence = targetEvidence;
         this.expectedSignal = expectedSignal;
     }
 
-    public static SessionQuestionPool of(Long sessionId, int idx, String question,
-                                         String category, String targetEvidence, String expectedSignal) {
-        return new SessionQuestionPool(sessionId, idx, question, category, targetEvidence, expectedSignal);
+    public static SessionQuestionPool of(Long sessionId, int idx, String question, String category,
+                                         String jobCategory, String targetEvidence,
+                                         String expectedSignal) {
+        return new SessionQuestionPool(sessionId, idx, question, category, jobCategory,
+            targetEvidence, expectedSignal);
     }
 
     public void markUsed() {

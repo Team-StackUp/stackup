@@ -87,6 +87,42 @@ async def test_personality_mode_swaps_domain_to_behavioral():
     assert "[인성]" in r.strengths_summary
 
 
+class _PersonaChain:
+    """persona 내용으로 라우팅(다직군 기술 평가위원은 dimension 이 같아 persona 로 구분)."""
+
+    async def ainvoke(self, v):
+        p = v["persona"]
+        if "백엔드" in p:
+            return EvaluatorResult(score=80, strength="BE 강점")
+        if "프론트엔드" in p:
+            return EvaluatorResult(score=40, strength="FE 강점")
+        if "논리" in p:
+            return EvaluatorResult(score=60)
+        return EvaluatorResult(score=50)  # 커뮤니케이션
+
+
+@pytest.mark.asyncio
+async def test_multi_domain_weighted_by_question_counts():
+    gen = PanelFeedbackGenerator(_PersonaChain())
+    r = await gen.generate(
+        job_category="BACKEND",
+        mode="TECHNICAL",
+        total_question_count=4,
+        end_reason="POOL_EXHAUSTED",
+        transcript="t",
+        rag_context="(none)",
+        domain_question_counts={"BACKEND": 3, "FRONTEND": 1},
+    )
+    # technical = (80*3 + 40*1)/4 = 70
+    assert r.technical_accuracy == 70
+    assert r.logic_score == 60
+    assert r.communication_score == 50
+    # 직군 평가위원 2명 + 논리 + 전달 = 4
+    assert [b.evaluator for b in r.panel_breakdown] == ["백엔드", "프론트엔드", "논리", "전달"]
+    # overall = 0.5*70 + 0.25*60 + 0.25*50 = 62.5 → 62 (은행가 반올림)
+    assert r.overall_score == 62
+
+
 @pytest.mark.asyncio
 async def test_keyword_dedup():
     r = await _run(

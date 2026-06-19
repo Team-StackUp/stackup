@@ -46,6 +46,7 @@ public class SessionFeedbackRequester {
     private final SessionContextRepository contextRepository;
     private final SessionFeedbackRepository feedbackRepository;
     private final MessageVoiceAnalysisRepository voiceAnalysisRepository;
+    private final com.stackup.stackup.session.domain.SessionQuestionPoolRepository poolRepository;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -68,6 +69,13 @@ public class SessionFeedbackRequester {
             .map(c -> c.getDocument().getId())
             .toList();
 
+        Map<String, Integer> domainQuestionCounts = new java.util.LinkedHashMap<>();
+        String fallbackJobCategory = session.getJobCategory().name();
+        for (var pool : poolRepository.findBySessionIdAndUsedTrue(event.sessionId())) {
+            String jc = pool.getJobCategory() != null ? pool.getJobCategory() : fallbackJobCategory;
+            domainQuestionCounts.merge(jc, 1, Integer::sum);
+        }
+
         GenerateFeedbackPayload payload = new GenerateFeedbackPayload(
             session.getId(),
             session.getMode().name(),
@@ -76,7 +84,8 @@ public class SessionFeedbackRequester {
             event.reason(),
             messages,
             contextDocumentIds,
-            summarizeVoiceAnalysis(event.sessionId())
+            summarizeVoiceAnalysis(event.sessionId()),
+            domainQuestionCounts
         );
 
         publisher.publishToAi(
