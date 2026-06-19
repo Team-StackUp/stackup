@@ -20,8 +20,8 @@ from ai_server.chain.followup_generation_chain import (
     build_streaming_followup_generator,
 )
 from ai_server.chain.feedback_generation_chain import (
-    LlmFeedbackGenerator,
-    build_feedback_generation_chain,
+    PanelFeedbackGenerator,
+    build_panel_evaluator_chain,
 )
 from ai_server.chain.question_generation_chain import (
     LlmQuestionGenerator,
@@ -210,9 +210,9 @@ class MessagingRuntime:
             rag_timeout_sec=settings.followup_rag_timeout_sec,
         )
 
-        # 종합 피드백 생성 (US-24)
-        feedback_generator = LlmFeedbackGenerator(
-            build_feedback_generation_chain(settings, core_client=core_client)
+        # 종합 피드백 생성 (US-24) — 멀티 면접관 패널(직군·논리·커뮤 평가위원 병렬 → 가중평균)
+        feedback_generator = PanelFeedbackGenerator(
+            build_panel_evaluator_chain(settings, core_client=core_client)
         )
         self._feedback_consumer = FeedbackConsumer(
             generator=feedback_generator,
