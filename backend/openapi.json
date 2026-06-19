@@ -3341,6 +3341,13 @@
               "type" : "string"
             }
           },
+          "panelBreakdown" : {
+            "type" : "array",
+            "description" : "Per-evaluator panel breakdown (multi-interviewer). Empty for single/legacy feedback.",
+            "items" : {
+              "$ref" : "#/components/schemas/PanelBreakdownItem"
+            }
+          },
           "reportFilePath" : {
             "type" : "string",
             "description" : "Stored report path when AI generates a detailed learning guide/report."
@@ -3348,6 +3355,27 @@
           "createdAt" : {
             "type" : "string",
             "format" : "date-time"
+          }
+        }
+      },
+      "PanelBreakdownItem" : {
+        "type" : "object",
+        "properties" : {
+          "evaluator" : {
+            "type" : "string"
+          },
+          "dimension" : {
+            "type" : "string"
+          },
+          "score" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "strength" : {
+            "type" : "string"
+          },
+          "weakness" : {
+            "type" : "string"
           }
         }
       },

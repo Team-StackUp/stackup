@@ -68,6 +68,25 @@ export function FeedbackReport({
           <ScoreBar label="전달력" score={feedback.communicationScore} />
         </section>
 
+        {feedback.panelBreakdown && feedback.panelBreakdown.length > 0 && (
+          <section className="flex flex-col gap-3">
+            <h2 className="text-h6 text-fg">면접관 패널 평가</h2>
+            <div className="flex flex-col gap-4">
+              {feedback.panelBreakdown.map((b) => (
+                <div key={b.evaluator} className="flex flex-col gap-1.5">
+                  <ScoreBar label={`${b.evaluator} 면접관`} score={b.score} />
+                  {(b.strength || b.weakness) && (
+                    <div className="flex flex-col gap-0.5 pl-1 text-caption text-fg-muted">
+                      {b.strength && <span>강점 · {b.strength}</span>}
+                      {b.weakness && <span>보완 · {b.weakness}</span>}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {feedback.strengthsSummary && (
           <section className="flex flex-col gap-2">
             <h2 className="text-h6 text-fg">강점</h2>

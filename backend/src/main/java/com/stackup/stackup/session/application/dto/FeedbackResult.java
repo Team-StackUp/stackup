@@ -1,6 +1,7 @@
 package com.stackup.stackup.session.application.dto;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stackup.stackup.session.domain.SessionFeedback;
 import java.time.Instant;
@@ -17,6 +18,7 @@ public record FeedbackResult(
     String strengthsSummary,
     String weaknessesSummary,
     List<String> improvementKeywords,
+    List<PanelBreakdownItem> panelBreakdown,
     String reportFilePath,
     Instant createdAt
 ) {
@@ -34,9 +36,21 @@ public record FeedbackResult(
             f.getStrengthsSummary(),
             f.getWeaknessesSummary(),
             parseKeywords(f.getImprovementKeywords()),
+            parseBreakdown(f.getPanelBreakdown()),
             f.getReportFilePath(),
             f.getCreatedAt()
         );
+    }
+
+    private static List<PanelBreakdownItem> parseBreakdown(String json) {
+        if (json == null || json.isBlank()) {
+            return List.of();
+        }
+        try {
+            return JSON.readValue(json, new TypeReference<List<PanelBreakdownItem>>() {});
+        } catch (JsonProcessingException e) {
+            return Collections.emptyList();
+        }
     }
 
     @SuppressWarnings("unchecked")

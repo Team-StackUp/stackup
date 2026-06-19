@@ -555,6 +555,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sessions/{sessionId}/messages/{messageId}/audio/segments/{seq}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 라이브 TTS 문장 세그먼트 스트리밍
+         * @description AI 서버가 S3에 쓴 per-sentence TTS 세그먼트를 규칙 기반 키로 프록시한다. 세그먼트는 DB에 미저장(휘발성 라이브)이므로 Core 가 키를 재구성해 스트리밍.
+         */
+        get: operations["streamMessageAudioSegment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sessions/{sessionId}/feedback": {
         parameters: {
             query?: never;
@@ -1132,10 +1152,20 @@ export interface components {
             weaknessesSummary?: string;
             /** @description Improvement keywords returned by AI. The current contract is a string list. */
             improvementKeywords?: string[];
+            /** @description Per-evaluator panel breakdown (multi-interviewer). Empty for single/legacy feedback. */
+            panelBreakdown?: components["schemas"]["PanelBreakdownItem"][];
             /** @description Stored report path when AI generates a detailed learning guide/report. */
             reportFilePath?: string;
             /** Format: date-time */
             createdAt?: string;
+        };
+        PanelBreakdownItem: {
+            evaluator?: string;
+            dimension?: string;
+            /** Format: double */
+            score?: number;
+            strength?: string;
+            weakness?: string;
         };
         CandidateRepositoryResponse: {
             /** Format: int64 */
@@ -2753,6 +2783,50 @@ export interface operations {
                 };
             };
             /** @description 세션/메시지/오디오 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+        };
+    };
+    streamMessageAudioSegment: {
+        parameters: {
+            query: {
+                ext: string;
+            };
+            header?: never;
+            path: {
+                sessionId: number;
+                messageId: number;
+                seq: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 세그먼트 오디오 바이트 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+            /** @description 인증 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+            /** @description 세션/메시지/세그먼트 없음 */
             404: {
                 headers: {
                     [name: string]: unknown;

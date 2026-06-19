@@ -75,6 +75,7 @@ public class FeedbackCallbackService {
             payload.strengthsSummary(),
             payload.weaknessesSummary(),
             keywordsToJson(payload.improvementKeywords()),
+            breakdownToJson(payload.panelBreakdown()),
             payload.reportS3Key()
         );
         try {
@@ -106,6 +107,19 @@ public class FeedbackCallbackService {
         } catch (JsonProcessingException e) {
             log.warn("improvement_keywords json serialize failed", e);
             return "[]";
+        }
+    }
+
+    private String breakdownToJson(
+            java.util.List<com.stackup.stackup.session.application.dto.PanelBreakdownItem> breakdown) {
+        if (breakdown == null || breakdown.isEmpty()) {
+            return null;
+        }
+        try {
+            return JSON.writeValueAsString(breakdown);
+        } catch (JsonProcessingException e) {
+            log.warn("panel_breakdown json serialize failed", e);
+            return null;
         }
     }
 
