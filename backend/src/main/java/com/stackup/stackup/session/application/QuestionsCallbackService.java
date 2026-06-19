@@ -129,7 +129,8 @@ public class QuestionsCallbackService {
                 pool.getCategory(), pool.getTargetEvidence(), pool.getExpectedSignal()));
         session.incrementQuestionCount();
         publishQuestionEvents(session, message, reason);
-        maybeAutoEnd(session);
+        // 여기서 자동종료하지 않는다 — 방금 던진 메인질문은 답변·꼬리질문을 거쳐야 한다.
+        // maxQuestions 도달 종료는 꼬리 사이클 후 advanceToNextGeneral 에서 판정한다.
     }
 
     private void publishQuestionEvents(InterviewSession session, InterviewMessage message, String reason) {
@@ -138,12 +139,6 @@ public class QuestionsCallbackService {
         events.publishEvent(RealtimeNotifyEvent.session(session.getId(), SseEventType.SESSION_MESSAGE, message.getId()));
         events.publishEvent(RealtimeNotifyEvent.user(session.getUser().getId(), SseEventType.SESSION_MESSAGE,
             new SessionMessageNotice(session.getId(), message.getId(), reason)));
-    }
-
-    private void maybeAutoEnd(InterviewSession session) {
-        if (session.isMaxReached()) {
-            endSession(session, "MAX_QUESTIONS_REACHED");
-        }
     }
 
     private void endSession(InterviewSession session, String reason) {
@@ -205,13 +200,10 @@ public class QuestionsCallbackService {
                 : InterviewMessage.followup(session, nextSeq, payload.followupQuestion(), parent));
         }
 
-        if (!clarification) {
-            session.incrementQuestionCount();
-        }
+        // 꼬리질문은 maxQuestions(메인질문 수) 카운트에 포함하지 않고, 여기서 자동종료하지도
+        // 않는다 — 종료는 메인질문의 꼬리 사이클이 끝나고 advanceToNextGeneral 시점에서만 일어나야
+        // 답변 직후 생성된 꼬리질문을 버리고 갑자기 피드백으로 튕기는 일이 없다.
         publishQuestionEvents(session, message, clarification ? "CLARIFICATION" : "FOLLOWUP_READY");
-        if (!clarification) {
-            maybeAutoEnd(session);
-        }
         log.info("callback.questions FOLLOWUP processed. sessionId={}, msg={}, clarification={}",
             session.getId(), message.getId(), clarification);
     }
