@@ -15,6 +15,9 @@ public record SelfIntroAnsweredEvent(
     Integer maxQuestions,
     Integer generalQuestionCount,
     List<Long> contextDocumentIds,
-    String selfIntroAnswer
+    String selfIntroAnswer,
+    // 직무 맞춤 모드 전용 타깃 회사/JD. 다른 모드는 null.
+    String targetCompanyName,
+    String targetJobDescription
 ) {
 }

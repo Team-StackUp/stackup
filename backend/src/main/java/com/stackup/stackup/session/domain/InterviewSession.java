@@ -81,6 +81,13 @@ public class InterviewSession extends BaseSoftDeleteEntity {
     @Column(name = "max_followups_per_question", nullable = false)
     private Integer maxFollowupsPerQuestion = 2;
 
+    // 직무 맞춤(JOB_TAILORED) 모드 전용: 지원 회사명 + 채용공고(JD) 원문. 다른 모드는 null.
+    @Column(name = "target_company_name", length = 200)
+    private String targetCompanyName;
+
+    @Column(name = "target_job_description", columnDefinition = "text")
+    private String targetJobDescription;
+
     @Column(nullable = false, length = 20)
     @Enumerated(EnumType.STRING)
     private SessionStatus status = SessionStatus.READY;
@@ -146,6 +153,12 @@ public class InterviewSession extends BaseSoftDeleteEntity {
         }
         return new InterviewSession(user, title, memo, mode, jobCategories,
             maxQuestions, maxDurationMinutes, generalQuestionCount, maxFollowupsPerQuestion);
+    }
+
+    // 직무 맞춤 모드의 타깃 회사/JD 부여. create 시그니처를 늘리지 않으려 별도 메서드로 둔다.
+    public void assignTargetRole(String companyName, String jobDescription) {
+        this.targetCompanyName = companyName;
+        this.targetJobDescription = jobDescription;
     }
 
     public void start() {

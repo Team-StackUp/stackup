@@ -9,6 +9,7 @@ from ai_server.chain.feedback_generation_chain import (
     EvaluatorResult,
     FeedbackResult,
     LlmFeedbackGenerator,
+    LlmJobFitEvaluator,
     LlmSelfIntroEvaluator,
 )
 from ai_server.chain.prompts.feedback_generation import HUMAN_PROMPT, SYSTEM_PROMPT
@@ -495,6 +496,161 @@ async def test_self_intro_evaluator_forwards_inputs_to_chain():
 
     assert chain.input["self_intro_answer"] == "백엔드 개발자입니다."
     assert chain.input["job_category"] == "BACKEND"
+
+
+def _job_tailored_envelope(
+    *, with_jd: bool = True, mode: str = "JOB_TAILORED"
+) -> bytes:
+    payload = {
+        "sessionId": 60,
+        "mode": mode,
+        "jobCategory": "BACKEND",
+        "totalQuestionCount": 2,
+        "endReason": "POOL_EXHAUSTED",
+        "messages": [
+            {"id": 1, "sequenceNumber": 1, "role": "INTERVIEWER", "content": "ACID?"},
+            {
+                "id": 2,
+                "sequenceNumber": 2,
+                "role": "INTERVIEWEE",
+                "content": "원자성·일관성·격리성·영속성",
+                "parentMessageId": 1,
+            },
+        ],
+        "contextDocumentIds": [],
+    }
+    if with_jd:
+        payload["targetCompanyName"] = "토스"
+        payload["targetJobDescription"] = (
+            "Kotlin/Spring 백엔드, 대용량 결제 시스템 경험 우대"
+        )
+    env = {
+        "messageId": "fb-jt",
+        "messageType": "generate.feedback",
+        "version": "v1",
+        "traceId": "t-jt",
+        "publishedAt": "2026-05-30T00:00:00Z",
+        "publisher": "core-server",
+        "payload": payload,
+        "context": {"userId": 1, "sessionId": 60},
+    }
+    return json.dumps(env).encode()
+
+
+def _job_fit_evaluator():
+    ev = MagicMock()
+    ev.evaluate = AsyncMock(
+        return_value=EvaluatorResult(
+            score=72.0,
+            strength="결제 도메인 경험이 JD 핵심 요구와 일치",
+            weakness="대용량 트래픽 처리 근거는 미검증",
+            detail="JD의 '대용량 결제' 요구에 결제 경험은 부합하나, 처리량 수치 근거가 약함.",
+            score_rationale="핵심 요구 충족하나 일부 갭",
+        )
+    )
+    return ev
+
+
+@pytest.mark.asyncio
+async def test_consumer_appends_job_fit_panel_item():
+    generator = _generator()
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+    evaluator = _job_fit_evaluator()
+
+    consumer = FeedbackConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.feedback",
+        core_client=MagicMock(),
+        embedder=None,
+        job_fit_evaluator=evaluator,
+    )
+    await consumer.handle(_StubMessage(_job_tailored_envelope()))
+
+    ev_kwargs = evaluator.evaluate.await_args.kwargs
+    assert ev_kwargs["company_name"] == "토스"
+    assert "대용량 결제" in ev_kwargs["job_description"]
+
+    payload: FeedbackCallbackPayload = publisher.publish.await_args.kwargs["payload"]
+    fit_items = [b for b in payload.panel_breakdown if b.evaluator == "직무 적합도"]
+    assert len(fit_items) == 1
+    assert fit_items[0].score == 72.0
+
+
+@pytest.mark.asyncio
+async def test_consumer_skips_job_fit_when_not_job_tailored():
+    generator = _generator()
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+    evaluator = _job_fit_evaluator()
+
+    consumer = FeedbackConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.feedback",
+        core_client=MagicMock(),
+        embedder=None,
+        job_fit_evaluator=evaluator,
+    )
+    # JD 가 실려 있어도 모드가 직무 맞춤이 아니면 평가 안 함.
+    await consumer.handle(
+        _StubMessage(_job_tailored_envelope(with_jd=True, mode="TECHNICAL"))
+    )
+
+    evaluator.evaluate.assert_not_awaited()
+    payload: FeedbackCallbackPayload = publisher.publish.await_args.kwargs["payload"]
+    assert all(b.evaluator != "직무 적합도" for b in payload.panel_breakdown)
+
+
+@pytest.mark.asyncio
+async def test_consumer_skips_job_fit_when_no_jd():
+    generator = _generator()
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+    evaluator = _job_fit_evaluator()
+
+    consumer = FeedbackConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.feedback",
+        core_client=MagicMock(),
+        embedder=None,
+        job_fit_evaluator=evaluator,
+    )
+    await consumer.handle(_StubMessage(_job_tailored_envelope(with_jd=False)))
+
+    evaluator.evaluate.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_job_fit_evaluator_forwards_inputs_to_chain():
+    class _FakeChain:
+        def __init__(self):
+            self.input = None
+
+        async def ainvoke(self, value):
+            self.input = value
+            return EvaluatorResult(score=70.0)
+
+    chain = _FakeChain()
+    evaluator = LlmJobFitEvaluator(chain)
+
+    await evaluator.evaluate(
+        company_name="토스",
+        job_description="대용량 결제 백엔드",
+        job_category="BACKEND",
+        mode="JOB_TAILORED",
+        transcript="Q/A",
+        rag_context="resume chunk",
+    )
+
+    assert chain.input["company_name"] == "토스"
+    assert chain.input["job_description"] == "대용량 결제 백엔드"
+    assert chain.input["transcript"] == "Q/A"
 
 
 def test_build_transcript_annotates_interviewee_evaluation():

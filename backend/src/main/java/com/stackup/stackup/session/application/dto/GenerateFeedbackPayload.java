@@ -15,7 +15,10 @@ public record GenerateFeedbackPayload(
     List<Long> contextDocumentIds,
     VoiceAnalysisSummary voiceAnalysisSummary,
     // 다직군 패널 가중: 사용된 일반질문의 직군별 개수(예: {"BACKEND":3,"FRONTEND":2}). 비면 단일.
-    Map<String, Integer> domainQuestionCounts
+    Map<String, Integer> domainQuestionCounts,
+    // 직무 맞춤 모드 전용. 회사명 + 채용공고(JD). '직무 적합도' 평가의 근거. 다른 모드는 null.
+    String targetCompanyName,
+    String targetJobDescription
 ) {
 
     public record MessageItem(

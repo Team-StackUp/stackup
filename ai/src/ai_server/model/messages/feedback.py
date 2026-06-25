@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 
 from ai_server.model._config import camel_config
 
-InterviewMode = Literal["PERSONALITY", "TECHNICAL", "INTEGRATED"]
+InterviewMode = Literal["PERSONALITY", "TECHNICAL", "INTEGRATED", "JOB_TAILORED"]
 
 
 class MessageEvaluation(BaseModel):
@@ -64,6 +64,9 @@ class GenerateFeedbackRequest(BaseModel):
     voice_analysis_summary: VoiceAnalysisSummary | None = None
     # 다직군 패널 가중: 사용된 일반질문의 직군별 개수. 비면 단일 직군 평가.
     domain_question_counts: dict[str, int] = Field(default_factory=dict)
+    # 직무 맞춤(JOB_TAILORED) 모드 전용. 회사명 + 채용공고(JD). '직무 적합도' 평가의 근거.
+    target_company_name: str | None = None
+    target_job_description: str | None = None
 
 
 class PanelBreakdownItem(BaseModel):

@@ -5,6 +5,7 @@ const OPTIONS = [
   { value: 'TECHNICAL' as const, label: '기술 면접' },
   { value: 'PERSONALITY' as const, label: '인성 면접' },
   { value: 'INTEGRATED' as const, label: '종합 면접' },
+  { value: 'JOB_TAILORED' as const, label: '직무 맞춤 면접' },
 ]
 
 export function ModeSelector({

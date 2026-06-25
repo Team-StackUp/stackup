@@ -819,7 +819,7 @@ export interface components {
             title?: string;
             memo?: string;
             /** @enum {string} */
-            mode: "TECHNICAL" | "PERSONALITY" | "INTEGRATED";
+            mode: "TECHNICAL" | "PERSONALITY" | "INTEGRATED" | "JOB_TAILORED";
             jobCategories: ("FRONTEND" | "BACKEND" | "INFRA" | "DBA")[];
             /** Format: int32 */
             maxQuestions?: number;
@@ -830,6 +830,8 @@ export interface components {
             /** Format: int32 */
             maxFollowupsPerQuestion?: number;
             contextDocumentIds?: number[];
+            targetCompanyName?: string;
+            targetJobDescription?: string;
         };
         SessionResponse: {
             /** Format: int64 */
@@ -837,7 +839,7 @@ export interface components {
             title?: string;
             memo?: string;
             /** @enum {string} */
-            mode?: "TECHNICAL" | "PERSONALITY" | "INTEGRATED";
+            mode?: "TECHNICAL" | "PERSONALITY" | "INTEGRATED" | "JOB_TAILORED";
             /** @enum {string} */
             jobCategory?: "FRONTEND" | "BACKEND" | "INFRA" | "DBA";
             jobCategories?: ("FRONTEND" | "BACKEND" | "INFRA" | "DBA")[];
@@ -858,6 +860,8 @@ export interface components {
             /** Format: date-time */
             endedAt?: string;
             contextDocumentIds?: number[];
+            targetCompanyName?: string;
+            targetJobDescription?: string;
             /** Format: date-time */
             createdAt?: string;
             /** Format: date-time */

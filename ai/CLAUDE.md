@@ -325,12 +325,19 @@ docker run --env-file .env -p 8000:8000 stackup-ai
   - 콜백: `callback.questions` (`kind=POOL|FOLLOWUP`)
   - **자기소개 기반 질문 생성**: `generate.questions` 는 자기소개 답변을 받은 뒤 발행되며, payload 의
     `selfIntroAnswer` 를 프롬프트(`chain/prompts/question_generation.py`)의 1차 근거로 사용한다(없으면 자료만으로).
+  - **직무 맞춤(JOB_TAILORED) 질문 생성**: `mode=JOB_TAILORED` 면 payload 의 `targetCompanyName`·
+    `targetJobDescription`(JD)이 채워진다. 프롬프트가 `target_role` 블록으로 받아 이력서↔JD 교집합·갭,
+    JD 요구 충족 검증, 지원동기·컬처핏 질문을 우선 생성한다(다른 모드는 '(일반 면접)' 안내라 무시).
 - **자기소개 첫인상 평가 본 구현**: `FeedbackConsumer` 가 `messages[]` 에서 `category=SELF_INTRODUCTION`
   질문+답변을 찾아 `LlmSelfIntroEvaluator`(Flash, `chain/prompts/self_intro_evaluation.py`)로 첫인상
   (전달력·구조·간결성·직무적합성)을 평가하고, 결과를 `panelBreakdown` 의 `evaluator="첫인상"` 항목으로
   덧붙인다(종합 generate 와 `asyncio.gather` 병렬, 실패해도 피드백 계속). 이 항목은 **종합 점수 집계에
   미포함** — 메인 generator 가 모른 채 overall 을 계산한 뒤 표시용으로만 append 한다. 레거시 세션(자기소개
   없음)·빈 답변은 건너뛴다.
+- **직무 적합도 평가 본 구현**: `mode=JOB_TAILORED` + JD 있을 때 `LlmJobFitEvaluator`(Pro,
+  `chain/prompts/job_fit_evaluation.py`)가 면접 전사·자료를 채용공고(JD) 요구와 대조해 적합도·갭을 평가,
+  `panelBreakdown` 의 `evaluator="직무 적합도"` 항목으로 append(첫인상과 같은 병렬·미집계 메커니즘).
+  그 외 모드/빈 JD/실패는 건너뜀.
 - **꼬리질문 토큰 스트리밍 본 구현**: followup 출력을 `<intent>…</intent><question>…</question><meta>{json}</meta>` 구분자 포맷으로 바꾸고(`chain/prompts/followup_generation.py`), `StreamingFollowupGenerator`(`astream`)가 `<question>` 토큰만 `SessionRealtimeNotifier`(`messaging/session_notify.py`)로 `SESSION_MESSAGE_DELTA` 발행(`stackup.realtime`/`realtime.session.notify`, Core 우회). `DONT_KNOW` 면 델타 미발행. 종료 후 `parse_followup_result` 로 검증해 기존 `callback.questions(FOLLOWUP, followupMessageId)` 발행. 와이어링은 `messaging/runner.py`(분석 진행 publisher 재사용).
 - **문장 단위 TTS 본 구현 (Part B)**: followup consumer 스트림 루프가 `chain/sentence_split.next_sentences` 로 문장 경계를 잡아, 문장마다 `TtsProvider` 인라인 합성(`asyncio.create_task` 백그라운드, 텍스트 델타 비차단)→S3 `interview/tts/{sid}/{mid}/seg-{seq}.{ext}` PUT→`SessionRealtimeNotifier.emit_audio`(`SESSION_MESSAGE_AUDIO`). 콜백 전 `gather` 로 수거. 라이브 세그먼트는 휘발성(DB 미기록).
 - **임베딩 본 구현** (`rag/`): `MarkdownChunker` + `GeminiEmbeddingProvider` (1536d, `gemini-embedding-001`).

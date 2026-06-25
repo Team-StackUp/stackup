@@ -55,7 +55,7 @@ class SessionServiceTest {
 
         SessionResult result = service.create(1L, new SessionCreateCommand(
             "title", "memo", SessionMode.TECHNICAL, List.of(JobCategory.BACKEND),
-            5, 30, null, null, List.of()
+            5, 30, null, null, List.of(), null, null
         ));
 
         assertThat(result.id()).isEqualTo(100L);
@@ -71,7 +71,7 @@ class SessionServiceTest {
 
         SessionResult result = service.create(1L, new SessionCreateCommand(
             "  ", null, SessionMode.TECHNICAL, List.of(JobCategory.BACKEND),
-            5, 30, null, null, List.of()
+            5, 30, null, null, List.of(), null, null
         ));
 
         assertThat(result.title()).isEqualTo("백엔드 기술 면접");
@@ -85,7 +85,7 @@ class SessionServiceTest {
 
         SessionResult result = service.create(1L, new SessionCreateCommand(
             "내가 정한 제목", null, SessionMode.INTEGRATED, List.of(JobCategory.FRONTEND),
-            5, 30, null, null, List.of()
+            5, 30, null, null, List.of(), null, null
         ));
 
         assertThat(result.title()).isEqualTo("내가 정한 제목");
@@ -105,7 +105,7 @@ class SessionServiceTest {
 
         SessionResult result = service.create(1L, new SessionCreateCommand(
             "t", null, SessionMode.TECHNICAL, List.of(JobCategory.BACKEND),
-            5, 30, null, null, List.of(7L, 7L)
+            5, 30, null, null, List.of(7L, 7L), null, null
         ));
 
         assertThat(result.contextDocumentIds()).containsExactly(7L);
@@ -122,8 +122,39 @@ class SessionServiceTest {
 
         assertThatThrownBy(() -> service.create(1L, new SessionCreateCommand(
             "t", null, SessionMode.TECHNICAL, List.of(JobCategory.BACKEND),
-            5, 30, null, null, List.of(8L)
+            5, 30, null, null, List.of(8L), null, null
         ))).isInstanceOf(DomainException.class);
+    }
+
+    @Test
+    void create_jobTailoredRequiresJobDescription() {
+        User user = userFixture(1L);
+        when(userRepository.findByIdAndDeletedFalse(1L)).thenReturn(Optional.of(user));
+
+        // JD 미입력 → SESSION_JD_REQUIRED. save 까지 가지 않고 검증에서 막힌다.
+        assertThatThrownBy(() -> service.create(1L, new SessionCreateCommand(
+            "t", null, SessionMode.JOB_TAILORED, List.of(JobCategory.BACKEND),
+            5, 30, null, null, List.of(), "토스", "  "
+        ))).isInstanceOf(DomainException.class);
+    }
+
+    @Test
+    void create_jobTailoredStoresCompanyAndJd() {
+        User user = userFixture(1L);
+        when(userRepository.findByIdAndDeletedFalse(1L)).thenReturn(Optional.of(user));
+        when(sessionRepository.save(any(InterviewSession.class))).thenAnswer(inv -> {
+            InterviewSession s = inv.getArgument(0);
+            ReflectionTestUtils.setField(s, "id", 100L);
+            return s;
+        });
+
+        SessionResult result = service.create(1L, new SessionCreateCommand(
+            "t", null, SessionMode.JOB_TAILORED, List.of(JobCategory.BACKEND),
+            5, 30, null, null, List.of(), "토스", "백엔드 엔지니어. Kotlin/Spring, 대용량 결제."
+        ));
+
+        assertThat(result.targetCompanyName()).isEqualTo("토스");
+        assertThat(result.targetJobDescription()).contains("결제");
     }
 
     @Test

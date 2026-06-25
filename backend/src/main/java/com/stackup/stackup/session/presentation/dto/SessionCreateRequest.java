@@ -25,7 +25,10 @@ public record SessionCreateRequest(
     @Min(1) @Max(15) Integer generalQuestionCount,
     // m: 일반질문당 최대 꼬리질문 수. null 이면 기본 2.
     @Min(0) @Max(10) Integer maxFollowupsPerQuestion,
-    List<Long> contextDocumentIds
+    List<Long> contextDocumentIds,
+    // 직무 맞춤(JOB_TAILORED) 모드 전용. 회사명 + 채용공고(JD). 그 모드일 때 JD 필수(서비스에서 검증).
+    @Size(max = 200) String targetCompanyName,
+    @Size(max = 20000) String targetJobDescription
 ) {
     public SessionCreateCommand toCommand() {
         return new SessionCreateCommand(
@@ -37,7 +40,9 @@ public record SessionCreateRequest(
             maxDurationMinutes,
             generalQuestionCount,
             maxFollowupsPerQuestion,
-            contextDocumentIds
+            contextDocumentIds,
+            targetCompanyName,
+            targetJobDescription
         );
     }
 }

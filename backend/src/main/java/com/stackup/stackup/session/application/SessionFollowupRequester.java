@@ -68,7 +68,9 @@ public class SessionFollowupRequester {
                 session.getMaxQuestions(),
                 session.getGeneralQuestionCount(),
                 contextDocumentIds,
-                answer.getContent()
+                answer.getContent(),
+                session.getTargetCompanyName(),
+                session.getTargetJobDescription()
             ));
             log.info("self-intro answered — requesting question pool. sessionId={}", session.getId());
             return;

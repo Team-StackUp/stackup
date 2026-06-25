@@ -16,7 +16,10 @@ public record GenerateQuestionsPayload(
     // 같은 유저가 최근 면접에서 받은 질문들. AI 가 의미 중복 회피에 사용.
     List<String> recentQuestions,
     // 지원자의 자기소개 답변. 질문 생성의 1차 근거(모든 면접의 기본). 없으면 빈 문자열.
-    String selfIntroAnswer
+    String selfIntroAnswer,
+    // 직무 맞춤 모드 전용. 지원 회사명 + 채용공고(JD). 적합도·지원동기 질문의 근거. 다른 모드는 null.
+    String targetCompanyName,
+    String targetJobDescription
 ) {
     public record DocumentContext(
         Long documentId,

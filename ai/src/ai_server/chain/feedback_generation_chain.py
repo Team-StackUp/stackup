@@ -14,6 +14,7 @@ from ai_server.chain.prompts.feedback_generation import HUMAN_PROMPT, SYSTEM_PRO
 from ai_server.chain.prompts import (
     feedback_panel,
     feedback_synthesis,
+    job_fit_evaluation,
     self_intro_evaluation,
 )
 from ai_server.config.settings import Settings
@@ -378,6 +379,92 @@ class LlmSelfIntroEvaluator:
                 "self_intro_answer": self_intro_answer or "(빈 답변)",
                 "voice_analysis_summary": voice_analysis_summary
                 or "No voice analysis summary was provided.",
+            }
+        )
+        if not isinstance(result, EvaluatorResult):
+            raise TypeError(
+                f"chain returned {type(result).__name__}, expected EvaluatorResult"
+            )
+        return result
+
+
+# ── 직무 적합도 평가 (직무 맞춤 모드 전용) ────────────────────────────────────
+# 채용공고(JD) 요구사항 대비 지원자 적합도를 별도 평가해 패널의 '직무 적합도' 항목으로 표시.
+# 종합 점수 집계에는 포함하지 않는다(별도 정성 평가).
+
+JOB_FIT_EVALUATOR_LABEL = "직무 적합도"
+JOB_FIT_DIMENSION = "채용공고(JD) 요구 대비 적합도·갭"
+
+
+def build_job_fit_evaluation_chain(
+    settings: Settings, core_client: CoreClient | None = None
+) -> Runnable:
+    """면접 답변·자료를 JD 요구사항과 대조해 직무 적합도를 평가하는 체인(Pro — 갭 추론)."""
+    from langchain_openai import ChatOpenAI
+
+    parser = PydanticOutputParser(pydantic_object=EvaluatorResult)
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", job_fit_evaluation.SYSTEM_PROMPT),
+            ("human", job_fit_evaluation.HUMAN_PROMPT),
+        ]
+    ).partial(format_instructions=parser.get_format_instructions())
+
+    callbacks = []
+    if core_client is not None:
+        callbacks.append(
+            CoreAiLogCallback(
+                core_client=core_client,
+                request_type="generate.feedback.job_fit",
+                default_model=settings.llm_pro_model,
+            )
+        )
+
+    llm = ChatOpenAI(
+        model=settings.llm_pro_model,
+        temperature=settings.llm_pro_temperature,
+        api_key=settings.llm_api_key or None,
+        base_url=settings.llm_base_url,
+        callbacks=callbacks,
+    )
+    return prompt | llm | parser
+
+
+class JobFitEvaluator(Protocol):
+    async def evaluate(
+        self,
+        *,
+        company_name: str,
+        job_description: str,
+        job_category: str,
+        mode: str,
+        transcript: str,
+        rag_context: str = "(none)",
+    ) -> EvaluatorResult: ...
+
+
+class LlmJobFitEvaluator:
+    def __init__(self, chain: Runnable) -> None:
+        self._chain = chain
+
+    async def evaluate(
+        self,
+        *,
+        company_name: str,
+        job_description: str,
+        job_category: str,
+        mode: str,
+        transcript: str,
+        rag_context: str = "(none)",
+    ) -> EvaluatorResult:
+        result = await self._chain.ainvoke(
+            {
+                "company_name": company_name or "(회사명 미입력)",
+                "job_description": job_description or "(JD 본문 없음)",
+                "job_category": job_category,
+                "mode": mode,
+                "transcript": transcript,
+                "rag_context": rag_context or "(none)",
             }
         )
         if not isinstance(result, EvaluatorResult):

@@ -85,7 +85,9 @@ public class SessionFeedbackRequester {
             messages,
             contextDocumentIds,
             summarizeVoiceAnalysis(event.sessionId()),
-            domainQuestionCounts
+            domainQuestionCounts,
+            session.getTargetCompanyName(),
+            session.getTargetJobDescription()
         );
 
         publisher.publishToAi(

@@ -33,6 +33,7 @@ public enum ApiErrorCode {
     SESSION_MAX_REACHED(HttpStatus.UNPROCESSABLE_CONTENT, "세션 제한에 도달했습니다."),
     SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "세션을 찾을 수 없습니다."),
     SESSION_FORBIDDEN(HttpStatus.FORBIDDEN, "세션에 접근할 수 없습니다."),
+    SESSION_JD_REQUIRED(HttpStatus.BAD_REQUEST, "직무 맞춤 면접은 채용공고(JD)를 입력해야 합니다."),
     FEEDBACK_NOT_READY(HttpStatus.NOT_FOUND, "피드백이 아직 생성되지 않았습니다."),
     FEEDBACK_NOT_FOUND(HttpStatus.NOT_FOUND, "공유된 피드백을 찾을 수 없습니다."),
     VOICE_EMPTY_FILE(HttpStatus.BAD_REQUEST, "음성 파일을 업로드할 수 없습니다."),

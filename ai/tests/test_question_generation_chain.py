@@ -9,7 +9,40 @@ from ai_server.chain.question_generation_chain import (
     LlmQuestionGenerator,
     _format_recent_questions,
     _format_self_introduction,
+    _format_target_role,
 )
+
+
+def test_format_target_role_empty_is_general():
+    assert "일반 면접" in _format_target_role(None, None)
+    assert "일반 면접" in _format_target_role("  ", "  ")
+
+
+def test_format_target_role_includes_company_and_jd():
+    out = _format_target_role("토스", "Kotlin/Spring 백엔드, 대용량 결제")
+    assert "지원 회사: 토스" in out
+    assert "채용공고(JD):" in out
+    assert "대용량 결제" in out
+
+
+@pytest.mark.asyncio
+async def test_generate_forwards_target_role_to_chain():
+    chain = AsyncMock()
+    chain.ainvoke = AsyncMock(return_value=GeneratedQuestionPool(questions=[]))
+    generator = LlmQuestionGenerator(chain)
+
+    await generator.generate(
+        job_categories=["BACKEND"],
+        mode="JOB_TAILORED",
+        max_questions=3,
+        context="ctx",
+        target_company_name="토스",
+        target_job_description="대용량 결제 시스템 백엔드",
+    )
+
+    target_role = chain.ainvoke.call_args.args[0]["target_role"]
+    assert "토스" in target_role
+    assert "대용량 결제" in target_role
 
 
 def test_format_recent_questions_empty():

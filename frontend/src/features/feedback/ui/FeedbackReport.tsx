@@ -7,8 +7,9 @@ import type { Feedback } from '../api/feedbackApi'
 import { downloadElementAsPdf } from '../lib/downloadPdf'
 import { useShareFeedback } from '../model/useFeedback'
 
-// AI 가 자기소개 첫인상 평가를 패널 항목으로 실어 보낼 때 쓰는 라벨(피드백 종합 점수엔 미포함).
+// AI 가 별도 정성 평가를 패널 항목으로 실어 보낼 때 쓰는 라벨(둘 다 종합 점수엔 미포함).
 const SELF_INTRO_LABEL = '첫인상'
+const JOB_FIT_LABEL = '직무 적합도'
 
 // shareable: 소유자 화면에서만 '공유' 버튼 노출(공개 페이지에선 false).
 export function FeedbackReport({
@@ -39,10 +40,13 @@ export function FeedbackReport({
   }
 
   const overall = feedback.overallScore
-  // '첫인상'(자기소개)은 종합 점수에 포함되지 않는 별도 정성 평가 → 패널과 분리해 전용 섹션으로.
+  // '첫인상'·'직무 적합도'는 종합 점수에 포함되지 않는 별도 정성 평가 → 패널과 분리해 전용 섹션으로.
   const panel = feedback.panelBreakdown ?? []
   const selfIntro = panel.find((b) => b.evaluator === SELF_INTRO_LABEL)
-  const interviewerPanel = panel.filter((b) => b.evaluator !== SELF_INTRO_LABEL)
+  const jobFit = panel.find((b) => b.evaluator === JOB_FIT_LABEL)
+  const interviewerPanel = panel.filter(
+    (b) => b.evaluator !== SELF_INTRO_LABEL && b.evaluator !== JOB_FIT_LABEL,
+  )
   return (
     <div className="flex w-full flex-col gap-4">
       <div className="flex justify-end gap-2">
@@ -74,6 +78,34 @@ export function FeedbackReport({
           <ScoreBar label="논리력" score={feedback.logicScore} />
           <ScoreBar label="전달력" score={feedback.communicationScore} />
         </section>
+
+        {jobFit && (
+          <section className="flex flex-col gap-2">
+            <h2 className="text-h6 text-fg">직무 적합도</h2>
+            <p className="text-caption text-fg-subtle">
+              채용공고(JD) 요구 대비 적합도·갭 평가입니다. 종합 점수에는 반영되지 않습니다.
+            </p>
+            <div className="flex flex-col gap-1.5">
+              <ScoreBar label="직무 적합도" score={jobFit.score} />
+              {jobFit.detail && (
+                <p className="whitespace-pre-wrap pl-1 text-caption text-fg-muted">
+                  {jobFit.detail}
+                </p>
+              )}
+              {(jobFit.strength || jobFit.weakness) && (
+                <div className="flex flex-col gap-0.5 pl-1 text-caption text-fg-muted">
+                  {jobFit.strength && <span>충족 · {jobFit.strength}</span>}
+                  {jobFit.weakness && <span>갭 · {jobFit.weakness}</span>}
+                </div>
+              )}
+              {jobFit.scoreRationale && (
+                <p className="pl-1 text-caption text-fg-subtle">
+                  점수 근거 · {jobFit.scoreRationale}
+                </p>
+              )}
+            </div>
+          </section>
+        )}
 
         {selfIntro && (
           <section className="flex flex-col gap-2">
