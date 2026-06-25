@@ -1,9 +1,16 @@
 from __future__ import annotations
 
+import asyncio
+
 import structlog
 from aio_pika.abc import AbstractIncomingMessage
 
-from ai_server.chain.feedback_generation_chain import FeedbackGenerator
+from ai_server.chain.feedback_generation_chain import (
+    SELF_INTRO_DIMENSION,
+    SELF_INTRO_EVALUATOR_LABEL,
+    FeedbackGenerator,
+    SelfIntroEvaluator,
+)
 from ai_server.core.client import CoreClient
 from ai_server.messaging.idempotency import LruIdempotencyStore
 from ai_server.messaging.publisher import CallbackPublisher
@@ -12,11 +19,14 @@ from ai_server.model.messages.feedback import (
     FeedbackCallbackPayload,
     FeedbackMessageItem,
     GenerateFeedbackRequest,
+    PanelBreakdownItem,
     VoiceAnalysisSummary,
 )
 from ai_server.rag.embedder import EmbeddingProvider
 
 log = structlog.get_logger(__name__)
+
+_SELF_INTRO_CATEGORY = "SELF_INTRODUCTION"
 
 
 class FeedbackConsumer:
@@ -40,6 +50,7 @@ class FeedbackConsumer:
         core_client: CoreClient,
         embedder: EmbeddingProvider | None = None,
         rag_top_k: int = 5,
+        self_intro_evaluator: SelfIntroEvaluator | None = None,
     ) -> None:
         self._generator = generator
         self._publisher = publisher
@@ -48,6 +59,7 @@ class FeedbackConsumer:
         self._core = core_client
         self._embedder = embedder
         self._rag_top_k = rag_top_k
+        self._self_intro_evaluator = self_intro_evaluator
 
     async def handle(self, message: AbstractIncomingMessage) -> None:
         async with message.process(requeue=False):
@@ -88,17 +100,24 @@ class FeedbackConsumer:
                 req.voice_analysis_summary
             )
 
-            result = await self._generator.generate(
-                job_category=req.job_category,
-                mode=req.mode,
-                total_question_count=req.total_question_count,
-                end_reason=req.end_reason,
-                transcript=transcript,
-                score_basis=score_basis,
-                rag_context=rag_context,
-                voice_analysis_summary=voice_analysis_summary,
-                domain_question_counts=req.domain_question_counts,
+            # 종합 피드백 + 자기소개 첫인상 평가를 병렬 실행(첫인상은 종합 점수에 미포함).
+            result, self_intro_item = await asyncio.gather(
+                self._generator.generate(
+                    job_category=req.job_category,
+                    mode=req.mode,
+                    total_question_count=req.total_question_count,
+                    end_reason=req.end_reason,
+                    transcript=transcript,
+                    score_basis=score_basis,
+                    rag_context=rag_context,
+                    voice_analysis_summary=voice_analysis_summary,
+                    domain_question_counts=req.domain_question_counts,
+                ),
+                self._evaluate_self_intro(req, voice_analysis_summary),
             )
+            if self_intro_item is not None:
+                # 종합 집계는 generator 가 첫인상을 모른 채 계산하므로, 여기서 표시용으로만 덧붙인다.
+                result.panel_breakdown.append(self_intro_item)
 
             payload = FeedbackCallbackPayload(
                 session_id=req.session_id,
@@ -129,6 +148,39 @@ class FeedbackConsumer:
                 trace_id=envelope.trace_id,
             )
 
+    async def _evaluate_self_intro(
+        self, req: GenerateFeedbackRequest, voice_analysis_summary: str
+    ) -> PanelBreakdownItem | None:
+        """자기소개 Q/A 를 찾아 첫인상 평가 → 패널 항목 1개. 없거나 실패하면 None(피드백은 계속)."""
+        if self._self_intro_evaluator is None:
+            return None
+        pair = _find_self_intro(req.messages)
+        if pair is None:
+            return None  # 레거시 세션(자기소개 없음) 또는 빈 답변 — 건너뜀
+        question, answer = pair
+        try:
+            ev = await self._self_intro_evaluator.evaluate(
+                job_category=req.job_category,
+                mode=req.mode,
+                self_intro_question=question.content,
+                self_intro_answer=answer.content,
+                voice_analysis_summary=voice_analysis_summary,
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning(
+                "feedback.self_intro.failed", error=str(exc), session_id=req.session_id
+            )
+            return None
+        return PanelBreakdownItem(
+            evaluator=SELF_INTRO_EVALUATOR_LABEL,
+            dimension=SELF_INTRO_DIMENSION,
+            score=ev.score,
+            strength=ev.strength,
+            weakness=ev.weakness,
+            detail=ev.detail,
+            score_rationale=ev.score_rationale,
+        )
+
     async def _build_rag_context(self, req: GenerateFeedbackRequest) -> str:
         if not self._embedder or not req.context_document_ids:
             return "(none)"
@@ -156,6 +208,33 @@ class FeedbackConsumer:
         return "\n---\n".join(
             f"[doc#{h.document_id} chunk#{h.chunk_index}] {h.chunk_text}" for h in hits
         )
+
+
+def _find_self_intro(
+    messages: list[FeedbackMessageItem],
+) -> tuple[FeedbackMessageItem, FeedbackMessageItem] | None:
+    """자기소개 질문(category=SELF_INTRODUCTION)과 그 답변 쌍. 없거나 답변이 비면 None."""
+    question = next(
+        (
+            m
+            for m in messages
+            if m.role == "INTERVIEWER" and (m.category or "") == _SELF_INTRO_CATEGORY
+        ),
+        None,
+    )
+    if question is None:
+        return None
+    answer = next(
+        (
+            m
+            for m in messages
+            if m.role == "INTERVIEWEE" and m.parent_message_id == question.id
+        ),
+        None,
+    )
+    if answer is None or not (answer.content or "").strip():
+        return None
+    return question, answer
 
 
 def _build_transcript(messages: list[FeedbackMessageItem]) -> str:

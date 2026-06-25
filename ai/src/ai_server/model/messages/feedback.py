@@ -28,6 +28,8 @@ class FeedbackMessageItem(BaseModel):
     role: Literal["INTERVIEWER", "INTERVIEWEE", "SYSTEM"]
     content: str
     parent_message_id: int | None = None
+    # 질문 유형(SELF_INTRODUCTION/CS_FUNDAMENTAL/…). 첫인상 평가에서 자기소개 식별에 사용.
+    category: str | None = None
     # 질문(INTERVIEWER) 메시지에만 채워짐. 답변이 짚어야 할 핵심(평가 기준).
     expected_signal: str | None = None
     # 답변(INTERVIEWEE) 메시지에만 채워짐. 피드백 종합 채점의 근거.

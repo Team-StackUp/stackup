@@ -7,6 +7,9 @@ import type { Feedback } from '../api/feedbackApi'
 import { downloadElementAsPdf } from '../lib/downloadPdf'
 import { useShareFeedback } from '../model/useFeedback'
 
+// AI 가 자기소개 첫인상 평가를 패널 항목으로 실어 보낼 때 쓰는 라벨(피드백 종합 점수엔 미포함).
+const SELF_INTRO_LABEL = '첫인상'
+
 // shareable: 소유자 화면에서만 '공유' 버튼 노출(공개 페이지에선 false).
 export function FeedbackReport({
   feedback,
@@ -36,6 +39,10 @@ export function FeedbackReport({
   }
 
   const overall = feedback.overallScore
+  // '첫인상'(자기소개)은 종합 점수에 포함되지 않는 별도 정성 평가 → 패널과 분리해 전용 섹션으로.
+  const panel = feedback.panelBreakdown ?? []
+  const selfIntro = panel.find((b) => b.evaluator === SELF_INTRO_LABEL)
+  const interviewerPanel = panel.filter((b) => b.evaluator !== SELF_INTRO_LABEL)
   return (
     <div className="flex w-full flex-col gap-4">
       <div className="flex justify-end gap-2">
@@ -68,11 +75,39 @@ export function FeedbackReport({
           <ScoreBar label="전달력" score={feedback.communicationScore} />
         </section>
 
-        {feedback.panelBreakdown && feedback.panelBreakdown.length > 0 && (
+        {selfIntro && (
+          <section className="flex flex-col gap-2">
+            <h2 className="text-h6 text-fg">자기소개 첫인상</h2>
+            <p className="text-caption text-fg-subtle">
+              전달력·구성·직무적합성 평가입니다. 종합 점수에는 반영되지 않습니다.
+            </p>
+            <div className="flex flex-col gap-1.5">
+              <ScoreBar label="첫인상" score={selfIntro.score} />
+              {selfIntro.detail && (
+                <p className="whitespace-pre-wrap pl-1 text-caption text-fg-muted">
+                  {selfIntro.detail}
+                </p>
+              )}
+              {(selfIntro.strength || selfIntro.weakness) && (
+                <div className="flex flex-col gap-0.5 pl-1 text-caption text-fg-muted">
+                  {selfIntro.strength && <span>강점 · {selfIntro.strength}</span>}
+                  {selfIntro.weakness && <span>보완 · {selfIntro.weakness}</span>}
+                </div>
+              )}
+              {selfIntro.scoreRationale && (
+                <p className="pl-1 text-caption text-fg-subtle">
+                  점수 근거 · {selfIntro.scoreRationale}
+                </p>
+              )}
+            </div>
+          </section>
+        )}
+
+        {interviewerPanel.length > 0 && (
           <section className="flex flex-col gap-3">
             <h2 className="text-h6 text-fg">면접관 패널 평가</h2>
             <div className="flex flex-col gap-4">
-              {feedback.panelBreakdown.map((b) => (
+              {interviewerPanel.map((b) => (
                 <div key={b.evaluator} className="flex flex-col gap-1.5">
                   <ScoreBar label={`${b.evaluator} 면접관`} score={b.score} />
                   {b.detail && (

@@ -20,9 +20,11 @@ from ai_server.chain.followup_generation_chain import (
     build_streaming_followup_generator,
 )
 from ai_server.chain.feedback_generation_chain import (
+    LlmSelfIntroEvaluator,
     PanelFeedbackGenerator,
     build_feedback_synthesis_chain,
     build_panel_evaluator_chain,
+    build_self_intro_evaluation_chain,
 )
 from ai_server.chain.question_generation_chain import (
     LlmQuestionGenerator,
@@ -215,7 +217,9 @@ class MessagingRuntime:
         # + 종합 서술형 평·학습 방향 synthesis.
         feedback_generator = PanelFeedbackGenerator(
             build_panel_evaluator_chain(settings, core_client=core_client),
-            synthesis_chain=build_feedback_synthesis_chain(settings, core_client=core_client),
+            synthesis_chain=build_feedback_synthesis_chain(
+                settings, core_client=core_client
+            ),
         )
         self._feedback_consumer = FeedbackConsumer(
             generator=feedback_generator,
@@ -225,6 +229,10 @@ class MessagingRuntime:
             core_client=core_client,
             embedder=embedder,
             rag_top_k=settings.feedback_rag_top_k,
+            # 자기소개 첫인상 평가(Flash, 경량). 종합 점수엔 미포함, 패널 '첫인상' 항목으로만 표시.
+            self_intro_evaluator=LlmSelfIntroEvaluator(
+                build_self_intro_evaluation_chain(settings, core_client=core_client)
+            ),
         )
 
         # 음성 답변 STT + 분석 (Phase 2)

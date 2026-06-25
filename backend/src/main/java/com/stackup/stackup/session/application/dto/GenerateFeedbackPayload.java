@@ -25,6 +25,7 @@ public record GenerateFeedbackPayload(
         String content,
         Long parentMessageId,
         String expectedSignal,         // INTERVIEWER 질문에만(평가 기준). 답변은 null
+        String category,               // 질문 유형(SELF_INTRODUCTION 등). 첫인상 평가에서 자기소개 식별용
         MessageEvaluation evaluation   // INTERVIEWEE 답변에만(없으면 null)
     ) {
     }

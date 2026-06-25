@@ -6,8 +6,10 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from ai_server.chain.feedback_generation_chain import (
+    EvaluatorResult,
     FeedbackResult,
     LlmFeedbackGenerator,
+    LlmSelfIntroEvaluator,
 )
 from ai_server.chain.prompts.feedback_generation import HUMAN_PROMPT, SYSTEM_PROMPT
 from ai_server.core.client import EmbeddingSearchHit
@@ -320,6 +322,179 @@ async def test_consumer_idempotent_skip():
     await consumer.handle(_StubMessage(_envelope()))
     generator.generate.assert_not_awaited()
     publisher.publish.assert_not_awaited()
+
+
+def _self_intro_envelope() -> bytes:
+    env = {
+        "messageId": "fb-si",
+        "messageType": "generate.feedback",
+        "version": "v1",
+        "traceId": "t-si",
+        "publishedAt": "2026-05-30T00:00:00Z",
+        "publisher": "core-server",
+        "payload": {
+            "sessionId": 51,
+            "mode": "TECHNICAL",
+            "jobCategory": "BACKEND",
+            "totalQuestionCount": 2,
+            "endReason": "POOL_EXHAUSTED",
+            "messages": [
+                {
+                    "id": 200,
+                    "sequenceNumber": 1,
+                    "role": "INTERVIEWER",
+                    "content": "먼저 간단하게 자기소개 부탁드립니다.",
+                    "category": "SELF_INTRODUCTION",
+                },
+                {
+                    "id": 201,
+                    "sequenceNumber": 2,
+                    "role": "INTERVIEWEE",
+                    "content": "안녕하세요, 결제 시스템을 만든 백엔드 3년차입니다.",
+                    "parentMessageId": 200,
+                },
+                {
+                    "id": 202,
+                    "sequenceNumber": 3,
+                    "role": "INTERVIEWER",
+                    "content": "ACID?",
+                    "category": "CS_FUNDAMENTAL",
+                },
+                {
+                    "id": 203,
+                    "sequenceNumber": 4,
+                    "role": "INTERVIEWEE",
+                    "content": "원자성·일관성·격리성·영속성",
+                    "parentMessageId": 202,
+                },
+            ],
+            "contextDocumentIds": [],
+        },
+        "context": {"userId": 1, "sessionId": 51},
+    }
+    return json.dumps(env).encode()
+
+
+def _self_intro_evaluator():
+    ev = MagicMock()
+    ev.evaluate = AsyncMock(
+        return_value=EvaluatorResult(
+            score=78.0,
+            strength="직무 연관 경험을 앞세움",
+            weakness="다소 장황함",
+            detail="결제 시스템 경험을 먼저 제시한 점이 좋았습니다.",
+            score_rationale="구조·직무적합성은 좋으나 간결성 감점",
+        )
+    )
+    return ev
+
+
+@pytest.mark.asyncio
+async def test_consumer_appends_self_intro_panel_item():
+    generator = _generator()
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+    evaluator = _self_intro_evaluator()
+
+    consumer = FeedbackConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.feedback",
+        core_client=MagicMock(),
+        embedder=None,
+        self_intro_evaluator=evaluator,
+    )
+    await consumer.handle(_StubMessage(_self_intro_envelope()))
+
+    # 자기소개 답변 텍스트로 첫인상 평가 호출
+    ev_kwargs = evaluator.evaluate.await_args.kwargs
+    assert "백엔드 3년차" in ev_kwargs["self_intro_answer"]
+    assert ev_kwargs["self_intro_question"].startswith("먼저")
+
+    payload: FeedbackCallbackPayload = publisher.publish.await_args.kwargs["payload"]
+    intro_items = [b for b in payload.panel_breakdown if b.evaluator == "첫인상"]
+    assert len(intro_items) == 1
+    assert intro_items[0].score == 78.0
+    assert intro_items[0].dimension  # 비어있지 않음
+
+
+@pytest.mark.asyncio
+async def test_consumer_skips_self_intro_when_no_self_intro_message():
+    # 레거시 세션(자기소개 질문 없음) → 첫인상 평가 호출 안 됨, 패널에 첫인상 미추가.
+    generator = _generator()
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+    evaluator = _self_intro_evaluator()
+
+    consumer = FeedbackConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.feedback",
+        core_client=MagicMock(),
+        embedder=None,
+        self_intro_evaluator=evaluator,
+    )
+    await consumer.handle(_StubMessage(_envelope()))
+
+    evaluator.evaluate.assert_not_awaited()
+    payload: FeedbackCallbackPayload = publisher.publish.await_args.kwargs["payload"]
+    assert all(b.evaluator != "첫인상" for b in payload.panel_breakdown)
+
+
+def test_find_self_intro_pairs_question_and_answer():
+    from ai_server.messaging.consumers.feedback_consumer import _find_self_intro
+
+    msgs = [
+        FeedbackMessageItem(
+            id=200,
+            sequence_number=1,
+            role="INTERVIEWER",
+            content="자기소개?",
+            category="SELF_INTRODUCTION",
+        ),
+        FeedbackMessageItem(
+            id=201,
+            sequence_number=2,
+            role="INTERVIEWEE",
+            content="소개합니다",
+            parent_message_id=200,
+        ),
+    ]
+    pair = _find_self_intro(msgs)
+    assert pair is not None
+    q, a = pair
+    assert q.id == 200 and a.id == 201
+
+    # 답변이 비면 None
+    msgs[1].content = "   "
+    assert _find_self_intro(msgs) is None
+
+
+@pytest.mark.asyncio
+async def test_self_intro_evaluator_forwards_inputs_to_chain():
+    class _FakeChain:
+        def __init__(self):
+            self.input = None
+
+        async def ainvoke(self, value):
+            self.input = value
+            return EvaluatorResult(score=80.0)
+
+    chain = _FakeChain()
+    evaluator = LlmSelfIntroEvaluator(chain)
+
+    await evaluator.evaluate(
+        job_category="BACKEND",
+        mode="TECHNICAL",
+        self_intro_question="자기소개 부탁드립니다.",
+        self_intro_answer="백엔드 개발자입니다.",
+        voice_analysis_summary="Average speaking rate: 120 WPM",
+    )
+
+    assert chain.input["self_intro_answer"] == "백엔드 개발자입니다."
+    assert chain.input["job_category"] == "BACKEND"
 
 
 def test_build_transcript_annotates_interviewee_evaluation():

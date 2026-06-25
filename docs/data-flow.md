@@ -115,11 +115,12 @@
 ```
 [사용자] 종료 버튼  OR  최대 질문/시간 도달
   → [Core] interview_sessions.status = COMPLETED, ended_at = now()
-  → [Core] RabbitMQ publish: stackup.core-to-ai / generate.feedback (예정)
-  → [AI] 전체 메시지 + 음성 분석 → 종합 평가 (Gemini 3.1 Pro)
-  → [AI] S3 PUT: feedback/{session_id}/report.md
-  → [AI] RabbitMQ publish: stackup.ai-to-core / callback.feedback (예정)
-  → [Core] session_feedbacks INSERT
+  → [Core] RabbitMQ publish: stackup.core-to-ai / generate.feedback (messages[]에 category 포함)
+  → [AI] 멀티 면접관 패널(직군·논리·전달) 병렬 평가 + 가중평균 종합 (Gemini 3.1 Pro)
+        ㄴ 병렬로 자기소개 첫인상 평가(category=SELF_INTRODUCTION 답변, Flash) → panelBreakdown 에
+           evaluator="첫인상" 항목 추가(종합 점수엔 미포함)
+  → [AI] RabbitMQ publish: stackup.ai-to-core / callback.feedback
+  → [Core] session_feedbacks INSERT (panelBreakdown JSON 그대로 저장)
   → [Frontend] SSE → 리포트 페이지 자동 라우팅
 ```
 
