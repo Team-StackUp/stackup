@@ -87,7 +87,9 @@ public class SessionQuestionsRequester {
             poolCount,
             event.maxQuestions(),
             recentQuestions,
-            event.selfIntroAnswer()
+            event.selfIntroAnswer(),
+            event.targetCompanyName(),
+            event.targetJobDescription()
         );
         publisher.publishToAi(
             properties.routingKeys().generateQuestions(),

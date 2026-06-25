@@ -87,6 +87,8 @@ class QuestionsConsumer:
                 context=context_text,
                 recent_questions=req.recent_questions,
                 self_introduction=req.self_intro_answer,
+                target_company_name=req.target_company_name,
+                target_job_description=req.target_job_description,
             )
 
             payload = QuestionPoolCallbackPayload(

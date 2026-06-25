@@ -359,6 +359,11 @@ docker compose up -d
 - ArchUnit 룰 적용 (의존 방향 · 순환 차단 · `@Transactional` application 한정 · entity는 domain 패키지)
 - 면접 도메인 (US-13~20) 본 구현: 세션 CRUD/start/end/interrupt, generate.questions 발행,
   callback.questions(POOL/FOLLOWUP) 수신, 자동 종료
+- **직무 맞춤 면접 모드(JOB_TAILORED) 본 구현**: `SessionMode.JOB_TAILORED` 추가(V18 — mode CHECK 갱신 +
+  `target_company_name`/`target_job_description` 컬럼). 이 모드는 회사명+채용공고(JD)를 받아(JD 필수,
+  `SessionService` 검증 `SESSION_JD_REQUIRED`) `InterviewSession.assignTargetRole` 로 보관. JD 는
+  `SelfIntroAnsweredEvent`→`generate.questions`(적합도·지원동기 질문)와 `generate.feedback`(직무 적합도
+  평가)에 함께 실린다. 다른 모드는 JD 무시(null).
 - **첫 질문 자기소개 고정 본 구현**: 모든 면접의 첫 질문은 `InterviewMessage.selfIntroduction`(seq=1,
   category=`SELF_INTRODUCTION`)으로 세션 생성 직후 AI 없이 삽입(`QuestionsCallbackService.insertSelfIntroduction`,
   `SessionQuestionsRequester.onSessionCreated`). 질문 풀은 자기소개 **답변**을 받은 뒤 발행한다 —

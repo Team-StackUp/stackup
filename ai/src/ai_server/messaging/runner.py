@@ -20,9 +20,11 @@ from ai_server.chain.followup_generation_chain import (
     build_streaming_followup_generator,
 )
 from ai_server.chain.feedback_generation_chain import (
+    LlmJobFitEvaluator,
     LlmSelfIntroEvaluator,
     PanelFeedbackGenerator,
     build_feedback_synthesis_chain,
+    build_job_fit_evaluation_chain,
     build_panel_evaluator_chain,
     build_self_intro_evaluation_chain,
 )
@@ -232,6 +234,10 @@ class MessagingRuntime:
             # 자기소개 첫인상 평가(Flash, 경량). 종합 점수엔 미포함, 패널 '첫인상' 항목으로만 표시.
             self_intro_evaluator=LlmSelfIntroEvaluator(
                 build_self_intro_evaluation_chain(settings, core_client=core_client)
+            ),
+            # 직무 적합도 평가(Pro, JD 갭 추론). 직무 맞춤 모드에서만 동작, 종합 점수엔 미포함.
+            job_fit_evaluator=LlmJobFitEvaluator(
+                build_job_fit_evaluation_chain(settings, core_client=core_client)
             ),
         )
 

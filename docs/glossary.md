@@ -35,7 +35,8 @@
 | 한국어 | 영어 | 비고 |
 |--------|------|------|
 | 면접 세션 | `interview session` | DB: `interview_sessions` |
-| 면접 모드 | `mode` | `TECHNICAL` / `PERSONALITY` / `INTEGRATED` |
+| 면접 모드 | `mode` | `TECHNICAL` / `PERSONALITY` / `INTEGRATED` / `JOB_TAILORED` |
+| 직무 맞춤 면접 | `job-tailored interview` | `mode=JOB_TAILORED`. 회사명+채용공고(JD)로 적합도·지원동기 질문 + 직무 적합도 피드백 |
 | 면접 유형 | `interview type` | legacy 용어. MVP에서는 `mode`로 통합 |
 | 직군 | `job category` | `FRONTEND` / `BACKEND` / `INFRA` / `DBA` |
 | 인성 면접 | `personality interview` | `PERSONALITY` |

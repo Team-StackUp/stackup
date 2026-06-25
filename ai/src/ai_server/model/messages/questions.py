@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from ai_server.model._config import camel_config
 
-InterviewMode = Literal["PERSONALITY", "TECHNICAL", "INTEGRATED"]
+InterviewMode = Literal["PERSONALITY", "TECHNICAL", "INTEGRATED", "JOB_TAILORED"]
 JobCategory = Literal["FRONTEND", "BACKEND", "INFRA", "DBA"]
 QuestionCategory = Literal[
     "CS_FUNDAMENTAL",
@@ -41,6 +41,9 @@ class GenerateQuestionsRequest(BaseModel):
     recent_questions: list[str] = []
     # 지원자의 자기소개 답변. 모든 면접의 첫 질문이며 질문 생성의 1차 근거. 없으면 빈 문자열.
     self_intro_answer: str = ""
+    # 직무 맞춤(JOB_TAILORED) 모드 전용. 지원 회사명 + 채용공고(JD) 원문. 다른 모드는 None/빈값.
+    target_company_name: str | None = None
+    target_job_description: str | None = None
 
 
 class GeneratedQuestion(BaseModel):

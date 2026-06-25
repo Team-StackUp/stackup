@@ -15,6 +15,7 @@ const MODE: Record<string, string> = {
   TECHNICAL: '기술',
   PERSONALITY: '인성',
   INTEGRATED: '통합',
+  JOB_TAILORED: '직무 맞춤',
 }
 
 const JOB: Record<string, string> = {

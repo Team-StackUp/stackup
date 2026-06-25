@@ -13,6 +13,9 @@ public record SessionCreateCommand(
     Integer maxDurationMinutes,
     Integer generalQuestionCount,
     Integer maxFollowupsPerQuestion,
-    List<Long> contextDocumentIds
+    List<Long> contextDocumentIds,
+    // 직무 맞춤 모드 전용. 지원 회사명 + 채용공고(JD) 원문.
+    String targetCompanyName,
+    String targetJobDescription
 ) {
 }

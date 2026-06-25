@@ -23,6 +23,9 @@ public record SessionResult(
     Instant startedAt,
     Instant endedAt,
     List<Long> contextDocumentIds,
+    // 직무 맞춤 모드 전용. 다른 모드는 null.
+    String targetCompanyName,
+    String targetJobDescription,
     Instant createdAt,
     Instant updatedAt
 ) {
@@ -43,6 +46,8 @@ public record SessionResult(
             session.getStartedAt(),
             session.getEndedAt(),
             documentIds,
+            session.getTargetCompanyName(),
+            session.getTargetJobDescription(),
             session.getCreatedAt(),
             session.getUpdatedAt()
         );

@@ -23,6 +23,10 @@ export function InterviewSetupForm({
   const [maxFollowupsPerQuestion, setMaxFollowupsPerQuestion] = useState(2)
   const [maxQuestions, setMaxQuestions] = useState(10)
   const [selected, setSelected] = useState<number[]>([])
+  const [companyName, setCompanyName] = useState('')
+  const [jobDescription, setJobDescription] = useState('')
+
+  const isJobTailored = mode === 'JOB_TAILORED'
 
   const toggle = (id: number) =>
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
@@ -33,7 +37,12 @@ export function InterviewSetupForm({
     )
 
   const valid =
-    mode !== null && jobCategories.length > 0 && maxQuestions >= 2 && maxQuestions <= 30
+    mode !== null &&
+    jobCategories.length > 0 &&
+    maxQuestions >= 2 &&
+    maxQuestions <= 30 &&
+    // 직무 맞춤 면접은 채용공고(JD)가 필수.
+    (!isJobTailored || jobDescription.trim().length > 0)
 
   const submit = () => {
     if (mode === null || jobCategories.length === 0 || !valid) return
@@ -46,6 +55,8 @@ export function InterviewSetupForm({
       maxFollowupsPerQuestion,
       maxQuestions,
       contextDocumentIds: selected,
+      targetCompanyName: isJobTailored ? companyName.trim() || undefined : undefined,
+      targetJobDescription: isJobTailored ? jobDescription.trim() : undefined,
     })
   }
 
@@ -76,6 +87,42 @@ export function InterviewSetupForm({
         <h2 className="text-h6 text-fg">면접 모드</h2>
         <ModeSelector value={mode} onChange={setMode} />
       </section>
+      {isJobTailored && (
+        <section className="flex flex-col gap-3">
+          <h2 className="text-h6 text-fg">
+            지원 회사 · 채용공고
+            <span className="ml-1 text-caption text-fg-muted">직무 맞춤 면접</span>
+          </h2>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="company-name" className="text-body text-fg">
+              회사명 <span className="text-caption text-fg-muted">선택</span>
+            </label>
+            <input
+              id="company-name"
+              type="text"
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
+              maxLength={200}
+              placeholder="예: 토스, 우아한형제들"
+              className="rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-fg placeholder:text-fg-muted focus:border-border-strong focus:outline-none"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="job-description" className="text-body text-fg">
+              채용공고(JD) <span className="text-caption text-fg-muted">필수 · 본문 붙여넣기</span>
+            </label>
+            <textarea
+              id="job-description"
+              value={jobDescription}
+              onChange={(e) => setJobDescription(e.target.value)}
+              maxLength={20000}
+              rows={8}
+              placeholder="채용공고의 자격요건·우대사항·주요업무를 붙여넣어 주세요. 이 내용으로 적합도·지원동기 질문과 직무 적합도 피드백이 생성됩니다."
+              className="resize-y rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-fg placeholder:text-fg-muted focus:border-border-strong focus:outline-none"
+            />
+          </div>
+        </section>
+      )}
       <section className="flex flex-col gap-2">
         <h2 className="text-h6 text-fg">
           직군

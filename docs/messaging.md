@@ -222,19 +222,22 @@
 > **발행 시점**: 세션 생성 시가 아니라 **자기소개(첫 질문) 답변을 받은 직후**(`SelfIntroAnsweredEvent`).
 > 모든 면접의 첫 질문은 자기소개로 고정이며, 질문 풀은 그 답변(`selfIntroAnswer`)을 1차 근거로 생성한다.
 > `initialQuestionCount` 는 자기소개 1자리를 예약해 `generalQuestionCount - 1` 로 보낸다.
+> `mode=JOB_TAILORED` 면 `targetCompanyName`·`targetJobDescription`(JD)이 채워져 적합도·지원동기 질문의 근거가 된다(다른 모드는 null).
 
 ```json
 {
   "messageType": "generate.questions",
   "payload": {
     "sessionId": 99,
-    "mode": "TECHNICAL",
+    "mode": "JOB_TAILORED",
     "jobCategories": ["BACKEND", "FRONTEND"],
     "documents": [ { "documentId": 42, "sourceType": "RESUME", "summary": "...", "techStack": ["..."], "markdown": "..." } ],
     "initialQuestionCount": 2,
     "maxQuestions": 10,
     "recentQuestions": ["이전 면접 질문 텍스트", "..."],
-    "selfIntroAnswer": "안녕하세요, 결제 시스템을 만든 백엔드 3년차입니다…"
+    "selfIntroAnswer": "안녕하세요, 결제 시스템을 만든 백엔드 3년차입니다…",
+    "targetCompanyName": "토스",
+    "targetJobDescription": "Kotlin/Spring 백엔드, 대용량 결제 시스템 경험 우대 …"
   },
   "context": { "userId": 123, "sessionId": 99 }
 }
@@ -344,26 +347,31 @@
 
 > `messages[]` 의 각 항목은 `category` 를 포함한다(질문 유형). AI 는 `category=SELF_INTRODUCTION`
 > 질문과 그 답변을 찾아 **첫인상(전달력·구성·직무적합성)** 을 별도 평가한다.
+> `mode=JOB_TAILORED` 면 `targetCompanyName`·`targetJobDescription`(JD)이 채워져 **직무 적합도** 평가의 근거가 된다.
 
 ```json
 {
   "messageType": "generate.feedback",
   "payload": {
     "sessionId": 99,
-    "mode": "TECHNICAL",
+    "mode": "JOB_TAILORED",
     "jobCategory": "BACKEND",
     "messages": [
       { "id": 1, "sequenceNumber": 1, "role": "INTERVIEWER", "content": "자기소개…", "category": "SELF_INTRODUCTION" },
       { "id": 2, "sequenceNumber": 2, "role": "INTERVIEWEE", "content": "…", "parentMessageId": 1 }
-    ]
+    ],
+    "targetCompanyName": "토스",
+    "targetJobDescription": "Kotlin/Spring 백엔드, 대용량 결제 …"
   }
 }
 ```
 
 ### 5.11 `callback.feedback`
 
-> `panelBreakdown[]` 에 평가위원별 항목이 담긴다. 자기소개가 있던 세션은 **`evaluator="첫인상"`**
-> 항목이 추가로 포함된다 — 이 항목은 **종합 점수(overallScore) 집계에서 제외**된 별도 정성 평가다.
+> `panelBreakdown[]` 에 평가위원별 항목이 담긴다. 자기소개가 있던 세션은 **`evaluator="첫인상"`**,
+> 직무 맞춤 모드는 **`evaluator="직무 적합도"`(역량 매칭)** + **`evaluator="직무 이해도"`(직무 이해·동기)**
+> 항목이 추가로 포함된다 — 모두 **종합 점수(overallScore) 집계에서 제외**된 별도 정성 평가다(메인
+> generator 가 모른 채 overall 계산 후 표시용으로 append).
 
 ```json
 {

@@ -13,6 +13,7 @@ import com.stackup.stackup.session.application.event.SessionEndedEvent;
 import com.stackup.stackup.session.domain.InterviewSession;
 import com.stackup.stackup.session.domain.InterviewSessionRepository;
 import com.stackup.stackup.session.domain.JobCategory;
+import com.stackup.stackup.session.domain.SessionMode;
 import com.stackup.stackup.session.domain.SessionContext;
 import com.stackup.stackup.session.domain.SessionContextRepository;
 import com.stackup.stackup.user.domain.User;
@@ -46,6 +47,11 @@ public class SessionService {
     public SessionResult create(Long userId, SessionCreateCommand command) {
         User user = loadUser(userId);
         String title = resolveTitle(command);
+        // 직무 맞춤 모드는 채용공고(JD)가 질문·피드백의 핵심 근거이므로 필수.
+        if (command.mode() == SessionMode.JOB_TAILORED
+            && (command.targetJobDescription() == null || command.targetJobDescription().isBlank())) {
+            throw new DomainException(ApiErrorCode.SESSION_JD_REQUIRED);
+        }
         InterviewSession session = sessionRepository.save(InterviewSession.create(
             user,
             title,
@@ -57,6 +63,10 @@ public class SessionService {
             command.generalQuestionCount(),
             command.maxFollowupsPerQuestion()
         ));
+        // 타깃 회사/JD 는 직무 맞춤 모드에서만 보관(다른 모드 입력값은 무시).
+        if (command.mode() == SessionMode.JOB_TAILORED) {
+            session.assignTargetRole(command.targetCompanyName(), command.targetJobDescription());
+        }
 
         List<Long> linkedIds = linkContexts(session, userId, command.contextDocumentIds());
 
@@ -158,7 +168,13 @@ public class SessionService {
         String jobs = command.jobCategories().stream()
             .map(JobCategory::koreanLabel)
             .collect(Collectors.joining("·"));
-        return jobs + " " + command.mode().koreanLabel();
+        String base = jobs + " " + command.mode().koreanLabel();
+        // 직무 맞춤 면접은 회사명을 제목 앞에 붙여 히스토리·라이브 헤더에서 대상이 드러나게 한다.
+        if (command.mode() == SessionMode.JOB_TAILORED
+            && command.targetCompanyName() != null && !command.targetCompanyName().isBlank()) {
+            return command.targetCompanyName().trim() + " " + base;
+        }
+        return base;
     }
 
     private User loadUser(Long userId) {

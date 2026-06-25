@@ -23,6 +23,8 @@ public record SessionResponse(
     Instant startedAt,
     Instant endedAt,
     List<Long> contextDocumentIds,
+    String targetCompanyName,
+    String targetJobDescription,
     Instant createdAt,
     Instant updatedAt
 ) {
@@ -43,6 +45,8 @@ public record SessionResponse(
             r.startedAt(),
             r.endedAt(),
             r.contextDocumentIds(),
+            r.targetCompanyName(),
+            r.targetJobDescription(),
             r.createdAt(),
             r.updatedAt()
         );

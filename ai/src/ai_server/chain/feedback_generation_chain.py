@@ -14,6 +14,7 @@ from ai_server.chain.prompts.feedback_generation import HUMAN_PROMPT, SYSTEM_PRO
 from ai_server.chain.prompts import (
     feedback_panel,
     feedback_synthesis,
+    job_fit_evaluation,
     self_intro_evaluation,
 )
 from ai_server.config.settings import Settings
@@ -383,6 +384,103 @@ class LlmSelfIntroEvaluator:
         if not isinstance(result, EvaluatorResult):
             raise TypeError(
                 f"chain returned {type(result).__name__}, expected EvaluatorResult"
+            )
+        return result
+
+
+# ── 직무 적합도 + 직무 이해도 평가 (직무 맞춤 모드 전용) ───────────────────────
+# 면접의 핵심은 직무 적합성이므로 두 축을 분리해 평가한다(한 번의 호출로 구조화 출력):
+#   · 직무 적합도(fit)  — JD 요구 기술·경험·책임을 실제로 갖췄는가(역량 매칭).
+#   · 직무 이해도(understanding) — 직무가 무엇을 하는 자리인지·핵심 책임을 이해하고 동기로 연결했는가.
+# 둘 다 패널 항목으로 표시하되 종합 점수 집계에는 포함하지 않는다(별도 정성 평가).
+
+JOB_FIT_EVALUATOR_LABEL = "직무 적합도"
+JOB_FIT_DIMENSION = "채용공고(JD) 요구 대비 역량 적합도·갭"
+ROLE_UNDERSTANDING_LABEL = "직무 이해도"
+ROLE_UNDERSTANDING_DIMENSION = "직무 이해·지원동기 연결"
+
+
+class JobFitResult(BaseModel):
+    """직무 맞춤 평가의 두 축. 각 축은 EvaluatorResult 형태(score/strength/weakness/detail/rationale)."""
+
+    fit: EvaluatorResult = Field(default_factory=EvaluatorResult)
+    understanding: EvaluatorResult = Field(default_factory=EvaluatorResult)
+
+
+def build_job_fit_evaluation_chain(
+    settings: Settings, core_client: CoreClient | None = None
+) -> Runnable:
+    """면접 답변·자료를 JD 와 대조해 직무 적합도·직무 이해도를 함께 평가하는 체인(Pro — 갭 추론)."""
+    from langchain_openai import ChatOpenAI
+
+    parser = PydanticOutputParser(pydantic_object=JobFitResult)
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", job_fit_evaluation.SYSTEM_PROMPT),
+            ("human", job_fit_evaluation.HUMAN_PROMPT),
+        ]
+    ).partial(format_instructions=parser.get_format_instructions())
+
+    callbacks = []
+    if core_client is not None:
+        callbacks.append(
+            CoreAiLogCallback(
+                core_client=core_client,
+                request_type="generate.feedback.job_fit",
+                default_model=settings.llm_pro_model,
+            )
+        )
+
+    llm = ChatOpenAI(
+        model=settings.llm_pro_model,
+        temperature=settings.llm_pro_temperature,
+        api_key=settings.llm_api_key or None,
+        base_url=settings.llm_base_url,
+        callbacks=callbacks,
+    )
+    return prompt | llm | parser
+
+
+class JobFitEvaluator(Protocol):
+    async def evaluate(
+        self,
+        *,
+        company_name: str,
+        job_description: str,
+        job_category: str,
+        mode: str,
+        transcript: str,
+        rag_context: str = "(none)",
+    ) -> JobFitResult: ...
+
+
+class LlmJobFitEvaluator:
+    def __init__(self, chain: Runnable) -> None:
+        self._chain = chain
+
+    async def evaluate(
+        self,
+        *,
+        company_name: str,
+        job_description: str,
+        job_category: str,
+        mode: str,
+        transcript: str,
+        rag_context: str = "(none)",
+    ) -> JobFitResult:
+        result = await self._chain.ainvoke(
+            {
+                "company_name": company_name or "(회사명 미입력)",
+                "job_description": job_description or "(JD 본문 없음)",
+                "job_category": job_category,
+                "mode": mode,
+                "transcript": transcript,
+                "rag_context": rag_context or "(none)",
+            }
+        )
+        if not isinstance(result, JobFitResult):
+            raise TypeError(
+                f"chain returned {type(result).__name__}, expected JobFitResult"
             )
         return result
 

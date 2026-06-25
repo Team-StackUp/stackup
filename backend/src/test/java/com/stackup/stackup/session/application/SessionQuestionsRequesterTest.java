@@ -65,7 +65,8 @@ class SessionQuestionsRequesterTest {
             5,
             3,
             List.of(),
-            "안녕하세요, 결제 시스템을 만든 백엔드 3년차입니다."
+            "안녕하세요, 결제 시스템을 만든 백엔드 3년차입니다.",
+            null, null
         ));
 
         ArgumentCaptor<GenerateQuestionsPayload> payloadCaptor =
@@ -95,7 +96,7 @@ class SessionQuestionsRequesterTest {
             .thenReturn(List.of("이전 질문 A", "이전 질문 B"));
 
         requester.onSelfIntroAnswered(new SelfIntroAnsweredEvent(
-            1L, 11L, SessionMode.TECHNICAL, List.of(JobCategory.BACKEND), 5, 3, List.of(), "자기소개"
+            1L, 11L, SessionMode.TECHNICAL, List.of(JobCategory.BACKEND), 5, 3, List.of(), "자기소개", null, null
         ));
 
         ArgumentCaptor<GenerateQuestionsPayload> payloadCaptor =

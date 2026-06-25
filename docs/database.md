@@ -141,12 +141,15 @@ CREATE TABLE interview_sessions (
     user_id               BIGINT       NOT NULL REFERENCES users(id),
     title                 VARCHAR(200),
     memo                  TEXT,
-    mode                  VARCHAR(20)  NOT NULL CHECK (mode IN ('TECHNICAL','PERSONALITY','INTEGRATED')),
+    mode                  VARCHAR(20)  NOT NULL CHECK (mode IN ('TECHNICAL','PERSONALITY','INTEGRATED','JOB_TAILORED')),
     -- 대표 직군(다중 선택 시 첫 항목). 전체 직군은 session_job_categories 참조.
     job_category          VARCHAR(30)  NOT NULL
                           CHECK (job_category IN ('FRONTEND','BACKEND','INFRA','DBA')),
     max_questions         INT          NOT NULL DEFAULT 10,
     max_duration_minutes  INT          NOT NULL DEFAULT 60,
+    -- 직무 맞춤(JOB_TAILORED) 모드 전용. 지원 회사명 + 채용공고(JD) 원문. 다른 모드는 NULL. (V18)
+    target_company_name   VARCHAR(200),
+    target_job_description TEXT,
     status                VARCHAR(20)  NOT NULL DEFAULT 'READY'
                           CHECK (status IN ('READY','IN_PROGRESS','INTERRUPTED','COMPLETED','CANCELLED')),
     total_question_count  INT          DEFAULT 0,
@@ -255,7 +258,7 @@ CREATE TABLE ai_request_logs (
 > 코드(Enum)와 DB(VARCHAR + CHECK)는 **반드시 1:1 매칭**. Enum 추가 시 Flyway 마이그레이션도 같이 작성.
 
 ```
-mode             : TECHNICAL | PERSONALITY | INTEGRATED
+mode             : TECHNICAL | PERSONALITY | INTEGRATED | JOB_TAILORED
 job_category     : FRONTEND | BACKEND | INFRA | DBA
 session_status   : READY | IN_PROGRESS | INTERRUPTED | COMPLETED | CANCELLED
 message_role     : INTERVIEWER | INTERVIEWEE | SYSTEM

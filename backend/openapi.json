@@ -2588,7 +2588,7 @@
           },
           "mode" : {
             "type" : "string",
-            "enum" : [ "TECHNICAL", "PERSONALITY", "INTEGRATED" ]
+            "enum" : [ "TECHNICAL", "PERSONALITY", "INTEGRATED", "JOB_TAILORED" ]
           },
           "jobCategories" : {
             "type" : "array",
@@ -2626,6 +2626,16 @@
               "type" : "integer",
               "format" : "int64"
             }
+          },
+          "targetCompanyName" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          },
+          "targetJobDescription" : {
+            "type" : "string",
+            "maxLength" : 20000,
+            "minLength" : 0
           }
         },
         "required" : [ "jobCategories", "mode" ]
@@ -2645,7 +2655,7 @@
           },
           "mode" : {
             "type" : "string",
-            "enum" : [ "TECHNICAL", "PERSONALITY", "INTEGRATED" ]
+            "enum" : [ "TECHNICAL", "PERSONALITY", "INTEGRATED", "JOB_TAILORED" ]
           },
           "jobCategory" : {
             "type" : "string",
@@ -2696,6 +2706,12 @@
               "type" : "integer",
               "format" : "int64"
             }
+          },
+          "targetCompanyName" : {
+            "type" : "string"
+          },
+          "targetJobDescription" : {
+            "type" : "string"
           },
           "createdAt" : {
             "type" : "string",

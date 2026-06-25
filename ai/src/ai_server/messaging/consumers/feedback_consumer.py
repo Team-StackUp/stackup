@@ -6,9 +6,15 @@ import structlog
 from aio_pika.abc import AbstractIncomingMessage
 
 from ai_server.chain.feedback_generation_chain import (
+    JOB_FIT_DIMENSION,
+    JOB_FIT_EVALUATOR_LABEL,
+    ROLE_UNDERSTANDING_DIMENSION,
+    ROLE_UNDERSTANDING_LABEL,
     SELF_INTRO_DIMENSION,
     SELF_INTRO_EVALUATOR_LABEL,
+    EvaluatorResult,
     FeedbackGenerator,
+    JobFitEvaluator,
     SelfIntroEvaluator,
 )
 from ai_server.core.client import CoreClient
@@ -27,6 +33,7 @@ from ai_server.rag.embedder import EmbeddingProvider
 log = structlog.get_logger(__name__)
 
 _SELF_INTRO_CATEGORY = "SELF_INTRODUCTION"
+_JOB_TAILORED_MODE = "JOB_TAILORED"
 
 
 class FeedbackConsumer:
@@ -51,6 +58,7 @@ class FeedbackConsumer:
         embedder: EmbeddingProvider | None = None,
         rag_top_k: int = 5,
         self_intro_evaluator: SelfIntroEvaluator | None = None,
+        job_fit_evaluator: JobFitEvaluator | None = None,
     ) -> None:
         self._generator = generator
         self._publisher = publisher
@@ -60,6 +68,7 @@ class FeedbackConsumer:
         self._embedder = embedder
         self._rag_top_k = rag_top_k
         self._self_intro_evaluator = self_intro_evaluator
+        self._job_fit_evaluator = job_fit_evaluator
 
     async def handle(self, message: AbstractIncomingMessage) -> None:
         async with message.process(requeue=False):
@@ -100,8 +109,9 @@ class FeedbackConsumer:
                 req.voice_analysis_summary
             )
 
-            # 종합 피드백 + 자기소개 첫인상 평가를 병렬 실행(첫인상은 종합 점수에 미포함).
-            result, self_intro_item = await asyncio.gather(
+            # 종합 피드백 + 자기소개 첫인상 + 직무 적합도(직무 맞춤 모드)를 병렬 실행.
+            # 첫인상·직무 적합도는 종합 점수(overall)에 미포함 — generator 가 모른 채 계산한 뒤 표시용으로 덧붙인다.
+            result, self_intro_item, job_fit_items = await asyncio.gather(
                 self._generator.generate(
                     job_category=req.job_category,
                     mode=req.mode,
@@ -114,10 +124,11 @@ class FeedbackConsumer:
                     domain_question_counts=req.domain_question_counts,
                 ),
                 self._evaluate_self_intro(req, voice_analysis_summary),
+                self._evaluate_job_fit(req, transcript, rag_context),
             )
             if self_intro_item is not None:
-                # 종합 집계는 generator 가 첫인상을 모른 채 계산하므로, 여기서 표시용으로만 덧붙인다.
                 result.panel_breakdown.append(self_intro_item)
+            result.panel_breakdown.extend(job_fit_items)
 
             payload = FeedbackCallbackPayload(
                 session_id=req.session_id,
@@ -181,6 +192,41 @@ class FeedbackConsumer:
             score_rationale=ev.score_rationale,
         )
 
+    async def _evaluate_job_fit(
+        self, req: GenerateFeedbackRequest, transcript: str, rag_context: str
+    ) -> list[PanelBreakdownItem]:
+        """직무 맞춤 모드일 때 JD 대비 '직무 적합도'+'직무 이해도' 평가 → 패널 항목 2개.
+        그 외 모드/빈 JD/실패는 빈 리스트."""
+        if self._job_fit_evaluator is None:
+            return []
+        if (req.mode or "") != _JOB_TAILORED_MODE:
+            return []
+        jd = (req.target_job_description or "").strip()
+        if not jd:
+            return []
+        try:
+            res = await self._job_fit_evaluator.evaluate(
+                company_name=req.target_company_name or "",
+                job_description=jd,
+                job_category=req.job_category,
+                mode=req.mode,
+                transcript=transcript,
+                rag_context=rag_context,
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning(
+                "feedback.job_fit.failed", error=str(exc), session_id=req.session_id
+            )
+            return []
+        return [
+            _to_panel_item(JOB_FIT_EVALUATOR_LABEL, JOB_FIT_DIMENSION, res.fit),
+            _to_panel_item(
+                ROLE_UNDERSTANDING_LABEL,
+                ROLE_UNDERSTANDING_DIMENSION,
+                res.understanding,
+            ),
+        ]
+
     async def _build_rag_context(self, req: GenerateFeedbackRequest) -> str:
         if not self._embedder or not req.context_document_ids:
             return "(none)"
@@ -208,6 +254,21 @@ class FeedbackConsumer:
         return "\n---\n".join(
             f"[doc#{h.document_id} chunk#{h.chunk_index}] {h.chunk_text}" for h in hits
         )
+
+
+def _to_panel_item(
+    label: str, dimension: str, ev: EvaluatorResult
+) -> PanelBreakdownItem:
+    """평가위원 결과(EvaluatorResult)를 패널 표시 항목으로 변환."""
+    return PanelBreakdownItem(
+        evaluator=label,
+        dimension=dimension,
+        score=ev.score,
+        strength=ev.strength,
+        weakness=ev.weakness,
+        detail=ev.detail,
+        score_rationale=ev.score_rationale,
+    )
 
 
 def _find_self_intro(
