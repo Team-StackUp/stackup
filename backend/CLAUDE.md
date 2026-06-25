@@ -359,6 +359,11 @@ docker compose up -d
 - ArchUnit 룰 적용 (의존 방향 · 순환 차단 · `@Transactional` application 한정 · entity는 domain 패키지)
 - 면접 도메인 (US-13~20) 본 구현: 세션 CRUD/start/end/interrupt, generate.questions 발행,
   callback.questions(POOL/FOLLOWUP) 수신, 자동 종료
+- **세션 시간초과 자동 종료 본 구현**: `@EnableScheduling`(`common/config/SchedulingConfig`) + `SessionTimeoutSweeper`
+  (`@Scheduled` 기본 5분 주기)가 `maxDurationMinutes` 초과한 IN_PROGRESS 세션을 찾아 `SessionTimeoutService.endTimedOut`
+  호출 — 답변 있으면 COMPLETED(→`SessionEndedEvent(DURATION_EXCEEDED)`→피드백), 없으면 INTERRUPTED(피드백 없음).
+  좀비 세션(자기소개 미답변·STT 실패·탭 종료) 방지. 멀티 인스턴스 중복 실행도 IN_PROGRESS 재확인+피드백 멱등으로 안전.
+  주기: `interview.session.sweep-interval-ms`(기본 300000)·`sweep-initial-delay-ms`(기본 60000).
 - **질문별 복기 본 구현**: V19 로 `interview_messages` 에 `model_answer`/`answer_rewrite`/`coaching_comment`
   추가. AI 가 `callback.feedback.answerCoaching[{messageId,…}]` 로 답변별 모범 답안·리라이트·코칭을 보내면
   `FeedbackCallbackService` 가 각 메시지에 `recordCoaching` 기록. `MessageResult`/`MessageResponse` 가 답변

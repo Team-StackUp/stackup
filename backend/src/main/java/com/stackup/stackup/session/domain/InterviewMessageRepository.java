@@ -14,6 +14,8 @@ public interface InterviewMessageRepository extends JpaRepository<InterviewMessa
 
     long countBySession_Id(Long sessionId);
 
+    boolean existsBySession_IdAndRole(Long sessionId, MessageRole role);
+
     Optional<InterviewMessage> findBySession_IdAndIdempotencyKey(Long sessionId, String idempotencyKey);
 
     @Query("select coalesce(max(m.sequenceNumber), 0) from InterviewMessage m where m.session.id = :sessionId")

@@ -32,5 +32,8 @@ public interface InterviewSessionRepository extends JpaRepository<InterviewSessi
 
     long countByUser_IdAndStatus(Long userId, SessionStatus status);
 
+    // 자동 종료 스위퍼용: 진행 중(또는 특정 상태) 세션 전체. 진행 세션은 소수라 메모리 필터로 충분.
+    List<InterviewSession> findByStatusAndDeletedFalse(SessionStatus status);
+
     List<InterviewSession> findByUser_IdAndStatusOrderByEndedAtDesc(Long userId, SessionStatus status, Pageable pageable);
 }
