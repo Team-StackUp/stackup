@@ -340,15 +340,31 @@
 
 > 실패 시 `status: "FAILED"` + `errorCode`(`TTS_API_ERROR`/`TTS_STORAGE_FAILED` 등), `audioKey`/`durationSec` 는 null. OpenAI TTS 는 duration 을 주지 않으므로 `durationSec` 는 null 일 수 있다.
 
-### 5.10 `generate.feedback` *(예정)*
+### 5.10 `generate.feedback`
+
+> `messages[]` 의 각 항목은 `category` 를 포함한다(질문 유형). AI 는 `category=SELF_INTRODUCTION`
+> 질문과 그 답변을 찾아 **첫인상(전달력·구성·직무적합성)** 을 별도 평가한다.
+
 ```json
 {
   "messageType": "generate.feedback",
-  "payload": { "sessionId": 99 }
+  "payload": {
+    "sessionId": 99,
+    "mode": "TECHNICAL",
+    "jobCategory": "BACKEND",
+    "messages": [
+      { "id": 1, "sequenceNumber": 1, "role": "INTERVIEWER", "content": "자기소개…", "category": "SELF_INTRODUCTION" },
+      { "id": 2, "sequenceNumber": 2, "role": "INTERVIEWEE", "content": "…", "parentMessageId": 1 }
+    ]
+  }
 }
 ```
 
-### 5.11 `callback.feedback` *(예정)*
+### 5.11 `callback.feedback`
+
+> `panelBreakdown[]` 에 평가위원별 항목이 담긴다. 자기소개가 있던 세션은 **`evaluator="첫인상"`**
+> 항목이 추가로 포함된다 — 이 항목은 **종합 점수(overallScore) 집계에서 제외**된 별도 정성 평가다.
+
 ```json
 {
   "messageType": "callback.feedback",
@@ -361,6 +377,11 @@
     "strengthsSummary": "...",
     "weaknessesSummary": "...",
     "improvementKeywords": ["JPA 영속성 컨텍스트", "TCP 3-way handshake"],
+    "studyPlan": ["..."],
+    "panelBreakdown": [
+      { "evaluator": "백엔드", "dimension": "기술 정확도·깊이", "score": 80.0, "detail": "...", "scoreRationale": "..." },
+      { "evaluator": "첫인상", "dimension": "자기소개 전달력·구성·직무적합성", "score": 78.0, "detail": "...", "scoreRationale": "..." }
+    ],
     "reportS3Key": "feedback/99/report.md"
   }
 }

@@ -117,6 +117,7 @@ public class SessionFeedbackRequester {
             m.getContent(),
             parentId,
             m.getExpectedSignal(),
+            m.getCategory(),
             evaluation
         );
     }

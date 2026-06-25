@@ -11,7 +11,11 @@ from langchain_core.runnables import Runnable
 from pydantic import BaseModel, Field
 
 from ai_server.chain.prompts.feedback_generation import HUMAN_PROMPT, SYSTEM_PROMPT
-from ai_server.chain.prompts import feedback_panel, feedback_synthesis
+from ai_server.chain.prompts import (
+    feedback_panel,
+    feedback_synthesis,
+    self_intro_evaluation,
+)
 from ai_server.config.settings import Settings
 from ai_server.core.client import CoreClient
 from ai_server.model.messages.feedback import PanelBreakdownItem
@@ -194,16 +198,18 @@ def _domain_specs_weighted(
     for dom, cnt in domain_question_counts.items():
         ko = _DOMAIN_KO.get((dom or "").upper(), dom)
         weight = float(cnt) if cnt and cnt > 0 else 1.0
-        specs.append((
-            _EvaluatorSpec(
-                key=f"tech:{dom}",
-                label=ko,
-                persona=f"{ko} 직군 시니어 기술 면접관",
-                dimension_name="기술 정확도·깊이",
-                dimension_guide=_TECH_GUIDE,
-            ),
-            weight,
-        ))
+        specs.append(
+            (
+                _EvaluatorSpec(
+                    key=f"tech:{dom}",
+                    label=ko,
+                    persona=f"{ko} 직군 시니어 기술 면접관",
+                    dimension_name="기술 정확도·깊이",
+                    dimension_guide=_TECH_GUIDE,
+                ),
+                weight,
+            )
+        )
     return specs or [(_domain_spec(job_category, mode), 1.0)]
 
 
@@ -297,6 +303,90 @@ def build_feedback_synthesis_chain(
     return prompt | llm | parser
 
 
+# ── 자기소개(첫인상) 평가 ─────────────────────────────────────────────────────
+# 모든 면접의 첫 질문은 자기소개다. 기술 채점이 아닌 첫인상·전달력만 별도로 평가해
+# 패널의 '첫인상' 항목으로 표시한다. 종합 점수 집계에는 포함하지 않는다(별도 정성 평가).
+
+SELF_INTRO_EVALUATOR_LABEL = "첫인상"
+SELF_INTRO_DIMENSION = "자기소개 전달력·구성·직무적합성"
+
+
+def build_self_intro_evaluation_chain(
+    settings: Settings, core_client: CoreClient | None = None
+) -> Runnable:
+    """자기소개 답변 1건을 첫인상(전달력·구조·간결성·직무적합성)으로 평가하는 경량 체인(Flash)."""
+    from langchain_openai import ChatOpenAI
+
+    parser = PydanticOutputParser(pydantic_object=EvaluatorResult)
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", self_intro_evaluation.SYSTEM_PROMPT),
+            ("human", self_intro_evaluation.HUMAN_PROMPT),
+        ]
+    ).partial(format_instructions=parser.get_format_instructions())
+
+    callbacks = []
+    if core_client is not None:
+        callbacks.append(
+            CoreAiLogCallback(
+                core_client=core_client,
+                request_type="generate.feedback.self_intro",
+                default_model=settings.llm_flash_model,
+            )
+        )
+
+    llm = ChatOpenAI(
+        model=settings.llm_flash_model,
+        temperature=settings.llm_flash_temperature,
+        api_key=settings.llm_api_key or None,
+        base_url=settings.llm_base_url,
+        callbacks=callbacks,
+    )
+    return prompt | llm | parser
+
+
+class SelfIntroEvaluator(Protocol):
+    async def evaluate(
+        self,
+        *,
+        job_category: str,
+        mode: str,
+        self_intro_question: str,
+        self_intro_answer: str,
+        voice_analysis_summary: str = "",
+    ) -> EvaluatorResult: ...
+
+
+class LlmSelfIntroEvaluator:
+    def __init__(self, chain: Runnable) -> None:
+        self._chain = chain
+
+    async def evaluate(
+        self,
+        *,
+        job_category: str,
+        mode: str,
+        self_intro_question: str,
+        self_intro_answer: str,
+        voice_analysis_summary: str = "",
+    ) -> EvaluatorResult:
+        result = await self._chain.ainvoke(
+            {
+                "job_category": job_category,
+                "mode": mode,
+                "self_intro_question": self_intro_question or "자기소개를 해주세요.",
+                "self_intro_answer": self_intro_answer or "(빈 답변)",
+                "voice_analysis_summary": voice_analysis_summary
+                or "No voice analysis summary was provided.",
+            }
+        )
+        if not isinstance(result, EvaluatorResult):
+            raise TypeError(
+                f"chain returned {type(result).__name__}, expected EvaluatorResult"
+            )
+        return result
+
+
 def _weighted_overall(pairs: list[tuple[float | None, float]]) -> float | None:
     """(score, weight) 중 score 가 있는 것만 가중평균. 전부 None 이면 None."""
     present = [(s, w) for s, w in pairs if s is not None and w > 0]
@@ -307,7 +397,9 @@ def _weighted_overall(pairs: list[tuple[float | None, float]]) -> float | None:
 
 
 def _merge_notes(items: list[tuple[str, str | None]]) -> str | None:
-    parts = [f"[{label}] {note.strip()}" for label, note in items if note and note.strip()]
+    parts = [
+        f"[{label}] {note.strip()}" for label, note in items if note and note.strip()
+    ]
     return " ".join(parts) if parts else None
 
 
@@ -351,7 +443,9 @@ class PanelFeedbackGenerator:
         score_basis: str = "(없음)",
         domain_question_counts: dict[str, int] | None = None,
     ) -> FeedbackResult:
-        domain_specs = _domain_specs_weighted(job_category, mode, domain_question_counts or {})
+        domain_specs = _domain_specs_weighted(
+            job_category, mode, domain_question_counts or {}
+        )
         # 평가위원 순서: 직군 기술 평가위원(N) + 논리 + 전달.
         specs = [s for s, _ in domain_specs] + [_LOGIC_SPEC, _COMM_SPEC]
         shared = {
@@ -386,16 +480,26 @@ class PanelFeedbackGenerator:
             if isinstance(r, EvaluatorResult):
                 results.append(r)
             else:
-                log.warning("feedback.panel.evaluator_failed", evaluator=spec.key, error=str(r))
+                log.warning(
+                    "feedback.panel.evaluator_failed", evaluator=spec.key, error=str(r)
+                )
                 results.append(EvaluatorResult())
 
         n_domain = len(domain_specs)
-        domain_results = list(zip([s for s, _ in domain_specs], [w for _, w in domain_specs], results[:n_domain]))
+        domain_results = list(
+            zip(
+                [s for s, _ in domain_specs],
+                [w for _, w in domain_specs],
+                results[:n_domain],
+            )
+        )
         logic = results[n_domain]
         comm = results[n_domain + 1]
 
         # technical_accuracy = 직군 평가위원 점수의 질문수 가중평균.
-        technical_accuracy = _weighted_overall([(r.score, w) for _, w, r in domain_results])
+        technical_accuracy = _weighted_overall(
+            [(r.score, w) for _, w, r in domain_results]
+        )
         overall = _weighted_overall(
             [
                 (technical_accuracy, self._w_tech),
@@ -443,7 +547,12 @@ class PanelFeedbackGenerator:
             )
 
         # 종합 서술형 + 학습 방향(synthesis). 미설정/실패 시 기계적 병합으로 폴백.
-        strengths, weaknesses, keywords, study_plan = fb_strengths, fb_weaknesses, fb_keywords, []
+        strengths, weaknesses, keywords, study_plan = (
+            fb_strengths,
+            fb_weaknesses,
+            fb_keywords,
+            [],
+        )
         if self._synthesis is not None:
             panel_summary = "\n".join(
                 f"- {b.evaluator}({b.dimension}) "
