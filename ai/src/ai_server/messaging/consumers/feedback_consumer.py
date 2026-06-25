@@ -12,6 +12,7 @@ from ai_server.chain.feedback_generation_chain import (
     ROLE_UNDERSTANDING_LABEL,
     SELF_INTRO_DIMENSION,
     SELF_INTRO_EVALUATOR_LABEL,
+    AnswerCoach,
     EvaluatorResult,
     FeedbackGenerator,
     JobFitEvaluator,
@@ -22,6 +23,7 @@ from ai_server.messaging.idempotency import LruIdempotencyStore
 from ai_server.messaging.publisher import CallbackPublisher
 from ai_server.model.envelope import Envelope
 from ai_server.model.messages.feedback import (
+    AnswerCoachingItem,
     FeedbackCallbackPayload,
     FeedbackMessageItem,
     GenerateFeedbackRequest,
@@ -59,6 +61,8 @@ class FeedbackConsumer:
         rag_top_k: int = 5,
         self_intro_evaluator: SelfIntroEvaluator | None = None,
         job_fit_evaluator: JobFitEvaluator | None = None,
+        answer_coach: AnswerCoach | None = None,
+        coaching_max_answers: int = 30,
     ) -> None:
         self._generator = generator
         self._publisher = publisher
@@ -69,6 +73,8 @@ class FeedbackConsumer:
         self._rag_top_k = rag_top_k
         self._self_intro_evaluator = self_intro_evaluator
         self._job_fit_evaluator = job_fit_evaluator
+        self._answer_coach = answer_coach
+        self._coaching_max_answers = coaching_max_answers
 
     async def handle(self, message: AbstractIncomingMessage) -> None:
         async with message.process(requeue=False):
@@ -111,20 +117,23 @@ class FeedbackConsumer:
 
             # 종합 피드백 + 자기소개 첫인상 + 직무 적합도(직무 맞춤 모드)를 병렬 실행.
             # 첫인상·직무 적합도는 종합 점수(overall)에 미포함 — generator 가 모른 채 계산한 뒤 표시용으로 덧붙인다.
-            result, self_intro_item, job_fit_items = await asyncio.gather(
-                self._generator.generate(
-                    job_category=req.job_category,
-                    mode=req.mode,
-                    total_question_count=req.total_question_count,
-                    end_reason=req.end_reason,
-                    transcript=transcript,
-                    score_basis=score_basis,
-                    rag_context=rag_context,
-                    voice_analysis_summary=voice_analysis_summary,
-                    domain_question_counts=req.domain_question_counts,
-                ),
-                self._evaluate_self_intro(req, voice_analysis_summary),
-                self._evaluate_job_fit(req, transcript, rag_context),
+            result, self_intro_item, job_fit_items, answer_coaching = (
+                await asyncio.gather(
+                    self._generator.generate(
+                        job_category=req.job_category,
+                        mode=req.mode,
+                        total_question_count=req.total_question_count,
+                        end_reason=req.end_reason,
+                        transcript=transcript,
+                        score_basis=score_basis,
+                        rag_context=rag_context,
+                        voice_analysis_summary=voice_analysis_summary,
+                        domain_question_counts=req.domain_question_counts,
+                    ),
+                    self._evaluate_self_intro(req, voice_analysis_summary),
+                    self._evaluate_job_fit(req, transcript, rag_context),
+                    self._coach_answers(req, rag_context),
+                )
             )
             if self_intro_item is not None:
                 result.panel_breakdown.append(self_intro_item)
@@ -141,6 +150,7 @@ class FeedbackConsumer:
                 improvement_keywords=result.improvement_keywords,
                 study_plan=result.study_plan,
                 panel_breakdown=result.panel_breakdown,
+                answer_coaching=answer_coaching,
                 report_s3_key=None,
             )
 
@@ -227,6 +237,56 @@ class FeedbackConsumer:
             ),
         ]
 
+    async def _coach_answers(
+        self, req: GenerateFeedbackRequest, rag_context: str
+    ) -> list[AnswerCoachingItem]:
+        """자기소개 제외 답변마다 모범 답안·리라이트·코칭을 병렬 생성 → 메시지별 복기 리스트."""
+        if self._answer_coach is None:
+            return []
+        pairs = _collect_coachable_pairs(req.messages)
+        if not pairs:
+            return []
+        if len(pairs) > self._coaching_max_answers:
+            log.info(
+                "feedback.coaching.capped",
+                session_id=req.session_id,
+                total=len(pairs),
+                cap=self._coaching_max_answers,
+            )
+            pairs = pairs[: self._coaching_max_answers]
+        target_role = _coaching_target_role(req)
+
+        async def _one(
+            question: FeedbackMessageItem, answer: FeedbackMessageItem
+        ) -> AnswerCoachingItem | None:
+            try:
+                res = await self._answer_coach.coach(
+                    job_category=req.job_category,
+                    mode=req.mode,
+                    target_role=target_role,
+                    question=question.content,
+                    expected_signal=question.expected_signal or "",
+                    answer=answer.content,
+                    rag_context=rag_context,
+                )
+            except Exception as exc:  # noqa: BLE001
+                log.warning(
+                    "feedback.coaching.failed",
+                    error=str(exc),
+                    session_id=req.session_id,
+                    message_id=answer.id,
+                )
+                return None
+            return AnswerCoachingItem(
+                message_id=answer.id,
+                model_answer=res.model_answer,
+                answer_rewrite=res.answer_rewrite,
+                coaching_comment=res.coaching_comment,
+            )
+
+        items = await asyncio.gather(*(_one(q, a) for q, a in pairs))
+        return [it for it in items if it is not None]
+
     async def _build_rag_context(self, req: GenerateFeedbackRequest) -> str:
         if not self._embedder or not req.context_document_ids:
             return "(none)"
@@ -254,6 +314,36 @@ class FeedbackConsumer:
         return "\n---\n".join(
             f"[doc#{h.document_id} chunk#{h.chunk_index}] {h.chunk_text}" for h in hits
         )
+
+
+def _collect_coachable_pairs(
+    messages: list[FeedbackMessageItem],
+) -> list[tuple[FeedbackMessageItem, FeedbackMessageItem]]:
+    """복기 대상 (질문, 답변) 쌍. 자기소개 질문에 대한 답변과 빈 답변은 제외, 시퀀스 순."""
+    by_id = {m.id: m for m in messages}
+    pairs: list[tuple[FeedbackMessageItem, FeedbackMessageItem]] = []
+    for m in messages:
+        if m.role != "INTERVIEWEE" or not (m.content or "").strip():
+            continue
+        question = by_id.get(m.parent_message_id) if m.parent_message_id else None
+        if question is None or question.role != "INTERVIEWER":
+            continue
+        if (question.category or "") == _SELF_INTRO_CATEGORY:
+            continue  # 자기소개는 첫인상 평가가 커버
+        pairs.append((question, m))
+    return pairs
+
+
+def _coaching_target_role(req: GenerateFeedbackRequest) -> str:
+    """직무 맞춤 모드일 때만 코칭 프롬프트에 실을 회사/JD 발췌. 그 외 빈 문자열."""
+    if (req.mode or "") != _JOB_TAILORED_MODE:
+        return ""
+    jd = (req.target_job_description or "").strip()
+    if not jd:
+        return ""
+    company = (req.target_company_name or "").strip()
+    head = f"지원 회사: {company}\n" if company else ""
+    return f"{head}채용공고(JD) 발췌: {jd[:800]}"
 
 
 def _to_panel_item(

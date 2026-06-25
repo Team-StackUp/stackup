@@ -368,6 +368,8 @@
 
 ### 5.11 `callback.feedback`
 
+> `answerCoaching[]` 은 질문별 복기 — 답변(INTERVIEWEE) 메시지별 모범 답안·리라이트·한 줄 코칭(자기소개 제외).
+> Core 가 각 `messageId` 의 메시지에 기록하고 종료 세션 조회에서만 노출한다.
 > `panelBreakdown[]` 에 평가위원별 항목이 담긴다. 자기소개가 있던 세션은 **`evaluator="첫인상"`**,
 > 직무 맞춤 모드는 **`evaluator="직무 적합도"`(역량 매칭)** + **`evaluator="직무 이해도"`(직무 이해·동기)**
 > 항목이 추가로 포함된다 — 모두 **종합 점수(overallScore) 집계에서 제외**된 별도 정성 평가다(메인
@@ -386,6 +388,9 @@
     "weaknessesSummary": "...",
     "improvementKeywords": ["JPA 영속성 컨텍스트", "TCP 3-way handshake"],
     "studyPlan": ["..."],
+    "answerCoaching": [
+      { "messageId": 203, "modelAnswer": "이 질문에 강한 답변 예시…", "answerRewrite": "내 답변을 이렇게 고치면…", "coachingComment": "결론을 먼저 말하세요." }
+    ],
     "panelBreakdown": [
       { "evaluator": "백엔드", "dimension": "기술 정확도·깊이", "score": 80.0, "detail": "...", "scoreRationale": "..." },
       { "evaluator": "첫인상", "dimension": "자기소개 전달력·구성·직무적합성", "score": 78.0, "detail": "...", "scoreRationale": "..." }

@@ -20,9 +20,11 @@ from ai_server.chain.followup_generation_chain import (
     build_streaming_followup_generator,
 )
 from ai_server.chain.feedback_generation_chain import (
+    LlmAnswerCoach,
     LlmJobFitEvaluator,
     LlmSelfIntroEvaluator,
     PanelFeedbackGenerator,
+    build_answer_coaching_chain,
     build_feedback_synthesis_chain,
     build_job_fit_evaluation_chain,
     build_panel_evaluator_chain,
@@ -238,6 +240,10 @@ class MessagingRuntime:
             # 직무 적합도 평가(Pro, JD 갭 추론). 직무 맞춤 모드에서만 동작, 종합 점수엔 미포함.
             job_fit_evaluator=LlmJobFitEvaluator(
                 build_job_fit_evaluation_chain(settings, core_client=core_client)
+            ),
+            # 질문별 복기(Flash, 답변 수만큼 병렬). 모범 답안+리라이트+한 줄 코칭.
+            answer_coach=LlmAnswerCoach(
+                build_answer_coaching_chain(settings, core_client=core_client)
             ),
         )
 

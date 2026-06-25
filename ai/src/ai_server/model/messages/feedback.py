@@ -85,6 +85,17 @@ class PanelBreakdownItem(BaseModel):
     score_rationale: str | None = None
 
 
+class AnswerCoachingItem(BaseModel):
+    """질문별 복기 1건 (AI → Core). 해당 답변(INTERVIEWEE) 메시지에 기록된다."""
+
+    model_config = camel_config()
+
+    message_id: int
+    model_answer: str | None = None
+    answer_rewrite: str | None = None
+    coaching_comment: str | None = None
+
+
 class FeedbackCallbackPayload(BaseModel):
     """AI → Core 종합 피드백. 점수는 0~100 (NULL 허용)."""
 
@@ -102,4 +113,6 @@ class FeedbackCallbackPayload(BaseModel):
     study_plan: list[str] = Field(default_factory=list)
     # 평가위원별 분해(패널). 비어 있으면 단일/레거시 경로.
     panel_breakdown: list[PanelBreakdownItem] = Field(default_factory=list)
+    # 질문별 복기(답변 메시지별 모범 답안·리라이트·코칭). 비면 복기 없음.
+    answer_coaching: list[AnswerCoachingItem] = Field(default_factory=list)
     report_s3_key: str | None = None

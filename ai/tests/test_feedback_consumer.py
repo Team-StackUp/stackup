@@ -6,9 +6,11 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from ai_server.chain.feedback_generation_chain import (
+    CoachingResult,
     EvaluatorResult,
     FeedbackResult,
     JobFitResult,
+    LlmAnswerCoach,
     LlmFeedbackGenerator,
     LlmJobFitEvaluator,
     LlmSelfIntroEvaluator,
@@ -670,6 +672,131 @@ async def test_job_fit_evaluator_forwards_inputs_to_chain():
     assert chain.input["transcript"] == "Q/A"
     assert result.fit.score == 70.0
     assert result.understanding.score == 55.0
+
+
+def _answer_coach():
+    c = MagicMock()
+    c.coach = AsyncMock(
+        return_value=CoachingResult(
+            model_answer="격리수준별 이상현상과 트레이드오프를 설명…",
+            answer_rewrite="두괄식으로 핵심 먼저, 그다음 근거…",
+            coaching_comment="결론을 먼저 말하고 근거로 받치세요.",
+        )
+    )
+    return c
+
+
+@pytest.mark.asyncio
+async def test_consumer_appends_answer_coaching_excluding_self_intro():
+    generator = _generator()
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+    coach = _answer_coach()
+
+    consumer = FeedbackConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.feedback",
+        core_client=MagicMock(),
+        embedder=None,
+        answer_coach=coach,
+    )
+    # _self_intro_envelope: 자기소개 Q(200)/A(201) + ACID Q(202)/A(203).
+    await consumer.handle(_StubMessage(_self_intro_envelope()))
+
+    # 자기소개 답변(201)은 코칭 제외, ACID 답변(203)만 코칭.
+    assert coach.coach.await_count == 1
+    assert "ACID" in coach.coach.await_args.kwargs["question"]
+
+    payload: FeedbackCallbackPayload = publisher.publish.await_args.kwargs["payload"]
+    assert len(payload.answer_coaching) == 1
+    item = payload.answer_coaching[0]
+    assert item.message_id == 203
+    assert item.model_answer.startswith("격리수준")
+    assert all(c.message_id != 201 for c in payload.answer_coaching)
+
+
+def test_collect_coachable_pairs_excludes_self_intro_and_empty():
+    from ai_server.messaging.consumers.feedback_consumer import _collect_coachable_pairs
+
+    msgs = [
+        FeedbackMessageItem(
+            id=1,
+            sequence_number=1,
+            role="INTERVIEWER",
+            content="자기소개?",
+            category="SELF_INTRODUCTION",
+        ),
+        FeedbackMessageItem(
+            id=2,
+            sequence_number=2,
+            role="INTERVIEWEE",
+            content="소개",
+            parent_message_id=1,
+        ),
+        FeedbackMessageItem(
+            id=3,
+            sequence_number=3,
+            role="INTERVIEWER",
+            content="ACID?",
+            category="CS_FUNDAMENTAL",
+        ),
+        FeedbackMessageItem(
+            id=4,
+            sequence_number=4,
+            role="INTERVIEWEE",
+            content="원자성…",
+            parent_message_id=3,
+        ),
+        # 빈 답변은 제외
+        FeedbackMessageItem(
+            id=5,
+            sequence_number=5,
+            role="INTERVIEWER",
+            content="Q2?",
+            category="TECH_CHOICE",
+        ),
+        FeedbackMessageItem(
+            id=6,
+            sequence_number=6,
+            role="INTERVIEWEE",
+            content="   ",
+            parent_message_id=5,
+        ),
+    ]
+    pairs = _collect_coachable_pairs(msgs)
+    assert [(q.id, a.id) for q, a in pairs] == [(3, 4)]
+
+
+@pytest.mark.asyncio
+async def test_answer_coach_forwards_inputs_to_chain():
+    class _FakeChain:
+        def __init__(self):
+            self.input = None
+
+        async def ainvoke(self, value):
+            self.input = value
+            return CoachingResult(
+                model_answer="m", answer_rewrite="r", coaching_comment="c"
+            )
+
+    chain = _FakeChain()
+    coach = LlmAnswerCoach(chain)
+
+    await coach.coach(
+        job_category="BACKEND",
+        mode="TECHNICAL",
+        target_role="",
+        question="트랜잭션 격리수준?",
+        expected_signal="격리수준·이상현상",
+        answer="음… 잘 모르겠습니다",
+        rag_context="resume chunk",
+    )
+
+    assert chain.input["question"] == "트랜잭션 격리수준?"
+    assert chain.input["expected_signal"] == "격리수준·이상현상"
+    assert chain.input["answer"] == "음… 잘 모르겠습니다"
 
 
 def test_build_transcript_annotates_interviewee_evaluation():

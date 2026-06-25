@@ -7,8 +7,11 @@ import com.stackup.stackup.common.messaging.domain.ProcessedMessageRepository;
 import com.stackup.stackup.common.messaging.RealtimeNotifyEvent;
 import com.stackup.stackup.common.sse.SseEventType;
 import org.springframework.context.ApplicationEventPublisher;
+import com.stackup.stackup.session.application.dto.AnswerCoachingItem;
 import com.stackup.stackup.session.application.dto.FeedbackCallbackEnvelope;
 import com.stackup.stackup.session.application.dto.FeedbackCallbackPayload;
+import com.stackup.stackup.session.domain.InterviewMessage;
+import com.stackup.stackup.session.domain.InterviewMessageRepository;
 import com.stackup.stackup.session.domain.InterviewSession;
 import com.stackup.stackup.session.domain.InterviewSessionRepository;
 import com.stackup.stackup.session.domain.SessionFeedback;
@@ -33,6 +36,7 @@ public class FeedbackCallbackService {
 
     private final InterviewSessionRepository sessionRepository;
     private final SessionFeedbackRepository feedbackRepository;
+    private final InterviewMessageRepository messageRepository;
     private final ProcessedMessageRepository processedMessageRepository;
     private final ApplicationEventPublisher events;
 
@@ -87,6 +91,8 @@ public class FeedbackCallbackService {
             return;
         }
 
+        applyAnswerCoaching(sessionId, payload.answerCoaching());
+
         events.publishEvent(RealtimeNotifyEvent.session(sessionId, SseEventType.FEEDBACK_READY,
             new SessionFeedbackNotice(sessionId, feedback.getId())));
         events.publishEvent(RealtimeNotifyEvent.user(session.getUser().getId(), SseEventType.FEEDBACK_READY,
@@ -94,6 +100,24 @@ public class FeedbackCallbackService {
 
         markProcessed(envelope.messageId());
         log.info("callback.feedback processed. sessionId={}, feedbackId={}", sessionId, feedback.getId());
+    }
+
+    // 답변별 복기를 각 INTERVIEWEE 메시지에 기록. 메시지가 다른 세션이면 방어적으로 skip.
+    private void applyAnswerCoaching(Long sessionId, java.util.List<AnswerCoachingItem> items) {
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+        for (AnswerCoachingItem item : items) {
+            if (item == null || item.messageId() == null) {
+                continue;
+            }
+            InterviewMessage message = messageRepository.findById(item.messageId()).orElse(null);
+            if (message == null || !sessionId.equals(message.getSession().getId())) {
+                continue;
+            }
+            message.recordCoaching(item.modelAnswer(), item.answerRewrite(), item.coachingComment());
+            messageRepository.save(message);
+        }
     }
 
     public record SessionFeedbackNotice(Long sessionId, Long feedbackId) {

@@ -900,6 +900,16 @@ export interface components {
             ttsAudioUrl?: string;
             audioFileUrl?: string;
             expectedSignal?: string;
+            /** Format: double */
+            answerSpecificity?: number;
+            /** Format: double */
+            answerLogic?: number;
+            answerStructure?: string;
+            /** Format: double */
+            answerCorrectness?: number;
+            modelAnswer?: string;
+            answerRewrite?: string;
+            coachingComment?: string;
         };
         VoiceStreamBeginResponse: {
             /** Format: int64 */

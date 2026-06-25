@@ -25,7 +25,15 @@ public record MessageResponse(
     String ttsAudioUrl,
     String audioFileUrl,
     // 질문이 기대한 핵심(평가 관점). 종료된 세션에서만 채워짐(라이브 중엔 null — 정답 유출 방지).
-    String expectedSignal
+    String expectedSignal,
+    // 답변별 복기(종료 세션에서만). 답변 평가 점수 + 모범 답안 + 리라이트 + 한 줄 코칭.
+    Double answerSpecificity,
+    Double answerLogic,
+    String answerStructure,
+    Double answerCorrectness,
+    String modelAnswer,
+    String answerRewrite,
+    String coachingComment
 ) {
     public static MessageResponse from(MessageResult r) {
         return new MessageResponse(
@@ -45,7 +53,14 @@ public record MessageResponse(
             r.targetEvidence(),
             r.ttsAudioUrl(),
             r.audioFileUrl(),
-            r.expectedSignal()
+            r.expectedSignal(),
+            r.answerSpecificity(),
+            r.answerLogic(),
+            r.answerStructure(),
+            r.answerCorrectness(),
+            r.modelAnswer(),
+            r.answerRewrite(),
+            r.coachingComment()
         );
     }
 }
