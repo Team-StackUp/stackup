@@ -13,7 +13,7 @@ import java.util.List;
 public record SessionCreateRequest(
     @Size(max = 200) String title,
     @Size(max = 4000) String memo,
-    // mode: TECHNICAL/PERSONALITY/INTEGRATED 중 하나를 선택한다.
+    // mode: TECHNICAL/PERSONALITY/INTEGRATED/JOB_TAILORED 중 하나. JOB_TAILORED 는 아래 회사명·JD 필수.
     @NotNull SessionMode mode,
     // 직군 다중 선택. 최소 1개. 첫 항목이 대표 직군이 된다.
     @NotEmpty List<JobCategory> jobCategories,

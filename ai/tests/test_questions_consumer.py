@@ -141,7 +141,9 @@ async def test_consumer_forwards_self_intro_answer_to_generator():
     await consumer.handle(_StubMessage(body))
 
     call = generator.generate.await_args
-    assert call.kwargs["self_introduction"] == "결제 시스템을 설계한 백엔드 3년차입니다."
+    assert (
+        call.kwargs["self_introduction"] == "결제 시스템을 설계한 백엔드 3년차입니다."
+    )
 
 
 @pytest.mark.asyncio
@@ -384,6 +386,27 @@ async def test_consumer_falls_back_to_document_context_when_rag_fails():
     context = generator.generate.await_args.kwargs["context"]
     assert "Java/Spring backend" in context
     assert "Retrieved document chunks" not in context
+
+
+def test_build_initial_rag_query_includes_self_intro_and_jd():
+    from ai_server.messaging.consumers.questions_consumer import (
+        _build_initial_rag_query,
+    )
+    from ai_server.model.messages.questions import GenerateQuestionsRequest
+
+    req = GenerateQuestionsRequest(
+        session_id=1,
+        mode="JOB_TAILORED",
+        job_categories=["BACKEND"],
+        documents=[],
+        self_intro_answer="결제 시스템을 만든 백엔드 3년차",
+        target_company_name="토스",
+        target_job_description="대용량 결제 백엔드, Kotlin/Spring",
+    )
+    q = _build_initial_rag_query(req)
+    assert "결제 시스템을 만든 백엔드" in q  # 자기소개가 쿼리에 포함
+    assert "대용량 결제 백엔드" in q  # JD 가 쿼리에 포함
+    assert "토스" in q
 
 
 def test_build_context_handles_empty_documents():

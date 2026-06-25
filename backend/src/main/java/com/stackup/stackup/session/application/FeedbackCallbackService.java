@@ -12,6 +12,7 @@ import com.stackup.stackup.session.application.dto.FeedbackCallbackEnvelope;
 import com.stackup.stackup.session.application.dto.FeedbackCallbackPayload;
 import com.stackup.stackup.session.domain.InterviewMessage;
 import com.stackup.stackup.session.domain.InterviewMessageRepository;
+import com.stackup.stackup.session.domain.MessageRole;
 import com.stackup.stackup.session.domain.InterviewSession;
 import com.stackup.stackup.session.domain.InterviewSessionRepository;
 import com.stackup.stackup.session.domain.SessionFeedback;
@@ -112,7 +113,10 @@ public class FeedbackCallbackService {
                 continue;
             }
             InterviewMessage message = messageRepository.findById(item.messageId()).orElse(null);
-            if (message == null || !sessionId.equals(message.getSession().getId())) {
+            // 답변(INTERVIEWEE) 메시지에만 기록 — 잘못된 messageId 로 질문에 복기가 달리는 것 방지.
+            if (message == null
+                || !sessionId.equals(message.getSession().getId())
+                || message.getRole() != MessageRole.INTERVIEWEE) {
                 continue;
             }
             message.recordCoaching(item.modelAnswer(), item.answerRewrite(), item.coachingComment());

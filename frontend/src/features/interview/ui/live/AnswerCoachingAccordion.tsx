@@ -77,15 +77,18 @@ export function AnswerCoachingAccordion({ message }: { message: Message }) {
             </div>
           )}
           {evals.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {evals.map((e) => (
-                <span
-                  key={e}
-                  className="rounded-pill bg-surface-raised px-2 py-0.5 text-caption text-fg-muted"
-                >
-                  {e}
-                </span>
-              ))}
+            <div className="flex flex-col gap-1">
+              <span className="text-caption text-fg-subtle">답변 평가</span>
+              <div className="flex flex-wrap gap-1.5">
+                {evals.map((e) => (
+                  <span
+                    key={e}
+                    className="rounded-pill bg-surface-raised px-2 py-0.5 text-caption text-fg-muted"
+                  >
+                    {e}
+                  </span>
+                ))}
+              </div>
             </div>
           )}
           {message.coachingComment && (

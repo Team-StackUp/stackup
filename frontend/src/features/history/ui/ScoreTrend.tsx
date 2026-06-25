@@ -45,12 +45,19 @@ export function ScoreTrend({ stats }: { stats: UserStats }) {
           : null,
       )
       .filter((p): p is { x: number; y: number } => p !== null)
-    const vals = sessions
-      .map((s) => s[m.key])
-      .filter((v): v is number => typeof v === 'number')
-    const latest = vals.length ? Math.round(vals[vals.length - 1]) : null
+    // 최신 점수 + 지난번(바로 직전 세션) 대비 델타. sparse 지표에서 비인접 세션끼리 비교하지 않는다.
+    const seq = sessions.map((s) => (typeof s[m.key] === 'number' ? (s[m.key] as number) : null))
+    let latestIdx = -1
+    for (let i = seq.length - 1; i >= 0; i--) {
+      if (seq[i] !== null) {
+        latestIdx = i
+        break
+      }
+    }
+    const latest = latestIdx >= 0 ? Math.round(seq[latestIdx] as number) : null
+    const prev = latestIdx > 0 ? seq[latestIdx - 1] : null
     const delta =
-      vals.length >= 2 ? Math.round(vals[vals.length - 1] - vals[vals.length - 2]) : null
+      latest !== null && prev !== null ? Math.round((seq[latestIdx] as number) - prev) : null
     return { ...m, pts, latest, delta }
   })
 

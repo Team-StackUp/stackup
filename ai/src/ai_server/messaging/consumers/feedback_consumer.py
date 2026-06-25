@@ -63,6 +63,7 @@ class FeedbackConsumer:
         job_fit_evaluator: JobFitEvaluator | None = None,
         answer_coach: AnswerCoach | None = None,
         coaching_max_answers: int = 30,
+        coaching_concurrency: int = 5,
     ) -> None:
         self._generator = generator
         self._publisher = publisher
@@ -75,6 +76,7 @@ class FeedbackConsumer:
         self._job_fit_evaluator = job_fit_evaluator
         self._answer_coach = answer_coach
         self._coaching_max_answers = coaching_max_answers
+        self._coaching_concurrency = max(1, coaching_concurrency)
 
     async def handle(self, message: AbstractIncomingMessage) -> None:
         async with message.process(requeue=False):
@@ -135,9 +137,11 @@ class FeedbackConsumer:
                     self._coach_answers(req, rag_context),
                 )
             )
-            if self_intro_item is not None:
-                result.panel_breakdown.append(self_intro_item)
-            result.panel_breakdown.extend(job_fit_items)
+            # 빈 평가위원 항목(점수·내용 모두 없음)은 표시하지 않는다 — LLM 부분 응답이 빈 패널로 새는 것 방지.
+            extras = [self_intro_item, *job_fit_items]
+            result.panel_breakdown.extend(
+                e for e in extras if e is not None and _panel_has_content(e)
+            )
 
             payload = FeedbackCallbackPayload(
                 session_id=req.session_id,
@@ -255,20 +259,23 @@ class FeedbackConsumer:
             )
             pairs = pairs[: self._coaching_max_answers]
         target_role = _coaching_target_role(req)
+        # 게이트웨이 429/과부하 방지 — 답변별 코칭 호출 동시성을 제한한다.
+        sem = asyncio.Semaphore(self._coaching_concurrency)
 
         async def _one(
             question: FeedbackMessageItem, answer: FeedbackMessageItem
         ) -> AnswerCoachingItem | None:
             try:
-                res = await self._answer_coach.coach(
-                    job_category=req.job_category,
-                    mode=req.mode,
-                    target_role=target_role,
-                    question=question.content,
-                    expected_signal=question.expected_signal or "",
-                    answer=answer.content,
-                    rag_context=rag_context,
-                )
+                async with sem:
+                    res = await self._answer_coach.coach(
+                        job_category=req.job_category,
+                        mode=req.mode,
+                        target_role=target_role,
+                        question=question.content,
+                        expected_signal=question.expected_signal or "",
+                        answer=answer.content,
+                        rag_context=rag_context,
+                    )
             except Exception as exc:  # noqa: BLE001
                 log.warning(
                     "feedback.coaching.failed",
@@ -344,6 +351,16 @@ def _coaching_target_role(req: GenerateFeedbackRequest) -> str:
     company = (req.target_company_name or "").strip()
     head = f"지원 회사: {company}\n" if company else ""
     return f"{head}채용공고(JD) 발췌: {jd[:800]}"
+
+
+def _panel_has_content(item: PanelBreakdownItem) -> bool:
+    """점수도 서술도 없는 빈 평가위원 항목인지. 빈 항목은 표시에서 제외한다."""
+    return (
+        item.score is not None
+        or bool((item.detail or "").strip())
+        or bool((item.strength or "").strip())
+        or bool((item.weakness or "").strip())
+    )
 
 
 def _to_panel_item(

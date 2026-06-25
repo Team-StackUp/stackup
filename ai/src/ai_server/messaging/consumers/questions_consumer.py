@@ -170,6 +170,15 @@ def _build_initial_rag_query(req: GenerateQuestionsRequest) -> str:
         f"mode: {req.mode}",
         f"job categories: {', '.join(req.job_categories)}",
     ]
+    # 자기소개·JD 를 쿼리에 포함해 검색이 지원자 발화/직무 요구로 steering 되게 한다.
+    intro = (req.self_intro_answer or "").strip()
+    if intro:
+        parts.append(f"self-introduction: {intro[:600]}")
+    jd = (req.target_job_description or "").strip()
+    if jd:
+        company = (req.target_company_name or "").strip()
+        head = f"target role at {company}" if company else "target role (JD)"
+        parts.append(f"{head}: {jd[:800]}")
     for d in req.documents:
         doc_parts = [f"document #{d.document_id} {d.source_type}"]
         if d.summary:

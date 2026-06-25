@@ -43,7 +43,11 @@ export function canSubmitAnswer(session: Session, messages: Message[]): boolean 
 }
 
 export function sessionProgress(session: Session): { current: number; max: number; ratio: number } {
-  const max = session.maxQuestions ?? 0
+  // 실제 면접은 일반질문 수(자기소개 포함 = generalQuestionCount)에서 끝나거나 maxQuestions 상한에서
+  // 끝난다 — 둘 중 작은 값이 진짜 목표. maxQuestions(상한)로만 나누면 진행률이 과소 표시된다.
+  const cap = session.maxQuestions ?? 0
+  const general = session.generalQuestionCount ?? cap
+  const max = cap > 0 ? Math.min(general || cap, cap) : general
   const current = session.totalQuestionCount ?? 0
   const ratio = max > 0 ? Math.min(current / max, 1) : 0
   return { current, max, ratio }
