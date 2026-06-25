@@ -1,22 +1,31 @@
 import type { UserStats } from '../api/historyApi'
 
 const W = 320
-const H = 140
-const PAD = { l: 26, r: 10, t: 18, b: 10 }
+const H = 150
+const PAD = { l: 26, r: 10, t: 14, b: 10 }
 const IW = W - PAD.l - PAD.r
 const IH = H - PAD.t - PAD.b
 const GRID = [0, 50, 100]
 
 const clamp = (v: number) => Math.max(0, Math.min(100, v))
 
-// 종합 점수 추이를 라이브러리 없이 SVG 추세선(라인+영역)으로. recent 는 최신순이라 뒤집어 시간순으로.
+type MetricKey = 'overall' | 'technical' | 'logic' | 'communication'
+const METRICS: { key: MetricKey; label: string; color: string }[] = [
+  { key: 'overall', label: '종합', color: 'var(--color-primary)' },
+  { key: 'technical', label: '기술', color: 'var(--color-info)' },
+  { key: 'logic', label: '논리', color: 'var(--color-success)' },
+  { key: 'communication', label: '전달력', color: 'var(--color-warning)' },
+]
+
+// 지표별(종합·기술·논리·전달력) 점수 추이를 라이브러리 없이 SVG 멀티 라인으로.
+// recent 는 최신순이라 뒤집어 시간순으로, 종합이 채점된 세션을 x축 스파인으로 쓴다.
 export function ScoreTrend({ stats }: { stats: UserStats }) {
-  const points = [...(stats.recent ?? [])]
+  const sessions = [...(stats.recent ?? [])]
     .reverse()
     .filter((r) => typeof r.overall === 'number')
-    .map((r) => ({ sessionId: r.sessionId, score: clamp(r.overall as number) }))
+  const n = sessions.length
 
-  if (points.length === 0) {
+  if (n === 0) {
     return (
       <section className="flex flex-col gap-2 rounded-2xl border border-border bg-surface-raised p-5 shadow-sm">
         <span className="text-caption text-fg-muted">점수 추이</span>
@@ -25,22 +34,37 @@ export function ScoreTrend({ stats }: { stats: UserStats }) {
     )
   }
 
-  const n = points.length
   const sx = (i: number) => (n <= 1 ? PAD.l + IW / 2 : PAD.l + (IW * i) / (n - 1))
   const sy = (s: number) => PAD.t + IH * (1 - s / 100)
-  const data = points.map((p, i) => ({ ...p, x: sx(i), y: sy(p.score) }))
-  const linePts = data.map((d) => `${d.x.toFixed(1)},${d.y.toFixed(1)}`).join(' ')
-  const areaPts = `${data[0].x.toFixed(1)},${PAD.t + IH} ${linePts} ${data[n - 1].x.toFixed(1)},${PAD.t + IH}`
+
+  const series = METRICS.map((m) => {
+    const pts = sessions
+      .map((s, i) =>
+        typeof s[m.key] === 'number'
+          ? { x: sx(i), y: sy(clamp(s[m.key] as number)) }
+          : null,
+      )
+      .filter((p): p is { x: number; y: number } => p !== null)
+    const vals = sessions
+      .map((s) => s[m.key])
+      .filter((v): v is number => typeof v === 'number')
+    const latest = vals.length ? Math.round(vals[vals.length - 1]) : null
+    const delta =
+      vals.length >= 2 ? Math.round(vals[vals.length - 1] - vals[vals.length - 2]) : null
+    return { ...m, pts, latest, delta }
+  })
 
   return (
     <section className="flex flex-col gap-3 rounded-2xl border border-border bg-surface-raised p-5 shadow-sm">
-      <span className="text-caption text-fg-muted">종합 점수 추이 (최근 {n}회)</span>
+      <span className="text-caption text-fg-muted">지표별 점수 추이 (최근 {n}회)</span>
       <svg
         viewBox={`0 0 ${W} ${H}`}
         className="h-36 w-full"
         preserveAspectRatio="none"
         role="img"
-        aria-label={`종합 점수 추이, 최근 ${n}회: ${data.map((d) => `${d.score}점`).join(', ')}`}
+        aria-label={`지표별 점수 추이, 최근 ${n}회. ${series
+          .map((s) => `${s.label} ${s.latest ?? '미산정'}`)
+          .join(', ')}`}
       >
         {/* y축 가이드라인 + 눈금(0/50/100) */}
         {GRID.map((g) => {
@@ -68,38 +92,54 @@ export function ScoreTrend({ stats }: { stats: UserStats }) {
           )
         })}
 
-        {/* 영역 + 추세선 (점 2개 이상일 때) */}
-        {n >= 2 && (
-          <>
-            <polygon points={areaPts} style={{ fill: 'var(--color-primary)' }} fillOpacity={0.12} />
-            <polyline
-              points={linePts}
-              fill="none"
-              style={{ stroke: 'var(--color-primary)' }}
-              strokeWidth={2}
-              strokeLinejoin="round"
-              strokeLinecap="round"
-            />
-          </>
+        {/* 지표별 추세선 (점 2개 이상일 때) */}
+        {series.map(
+          (s) =>
+            s.pts.length >= 2 && (
+              <polyline
+                key={s.key}
+                points={s.pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')}
+                fill="none"
+                style={{ stroke: s.color }}
+                strokeWidth={1.75}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+              />
+            ),
         )}
-
-        {/* 데이터 포인트 + 값 라벨 */}
-        {data.map((d) => (
-          <g key={d.sessionId}>
-            <circle cx={d.x} cy={d.y} r={3} style={{ fill: 'var(--color-primary)' }} />
-            <text
-              x={d.x}
-              y={d.y - 7}
-              textAnchor="middle"
-              style={{ fill: 'var(--color-fg)' }}
-              fontSize={10}
-              fontWeight={600}
-            >
-              {d.score}
-            </text>
-          </g>
-        ))}
+        {/* 데이터 포인트 */}
+        {series.map((s) =>
+          s.pts.map((p, i) => (
+            <circle
+              key={`${s.key}-${i}`}
+              cx={p.x}
+              cy={p.y}
+              r={2}
+              style={{ fill: s.color }}
+            />
+          )),
+        )}
       </svg>
+
+      {/* 범례 — 지표별 최신 점수 + 지난번 대비 델타 */}
+      <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+        {series.map((s) => (
+          <div key={s.key} className="flex items-center gap-1.5 text-caption">
+            <span
+              aria-hidden
+              className="inline-block h-2 w-2 rounded-full"
+              style={{ backgroundColor: s.color }}
+            />
+            <span className="text-fg-muted">{s.label}</span>
+            <span className="font-medium text-fg">{s.latest ?? '—'}</span>
+            {s.delta != null && s.delta !== 0 && (
+              <span className={s.delta > 0 ? 'text-success-700' : 'text-danger-700'}>
+                {s.delta > 0 ? `▲${s.delta}` : `▼${Math.abs(s.delta)}`}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
     </section>
   )
 }
