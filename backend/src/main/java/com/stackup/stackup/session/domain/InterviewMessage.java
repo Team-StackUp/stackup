@@ -109,6 +109,16 @@ public class InterviewMessage extends BaseTimeEntity {
     @Column(name = "answer_correctness")
     private Double answerCorrectness;
 
+    // 질문별 복기 (INTERVIEWEE 답변에만 채워짐). 피드백 생성 시 AI가 만든 모범 답안·리라이트·코칭.
+    @Column(name = "model_answer", columnDefinition = "text")
+    private String modelAnswer;
+
+    @Column(name = "answer_rewrite", columnDefinition = "text")
+    private String answerRewrite;
+
+    @Column(name = "coaching_comment", columnDefinition = "text")
+    private String coachingComment;
+
     // 부연(질문 재설명) 메시지 여부. true 면 총 질문 수·꼬리 깊이에 카운트하지 않는다.
     @Column(nullable = false)
     private boolean clarification = false;
@@ -216,6 +226,13 @@ public class InterviewMessage extends BaseTimeEntity {
         this.answerLogic = logic;
         this.answerStructure = structure;
         this.answerCorrectness = correctness;
+    }
+
+    // 피드백 생성 시 답변별 복기(모범 답안·리라이트·코칭)를 이 답변 메시지에 기록.
+    public void recordCoaching(String modelAnswer, String answerRewrite, String coachingComment) {
+        this.modelAnswer = modelAnswer;
+        this.answerRewrite = answerRewrite;
+        this.coachingComment = coachingComment;
     }
 
     public void attachAudio(String audioFilePath) {

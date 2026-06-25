@@ -334,6 +334,10 @@ docker run --env-file .env -p 8000:8000 stackup-ai
   덧붙인다(종합 generate 와 `asyncio.gather` 병렬, 실패해도 피드백 계속). 이 항목은 **종합 점수 집계에
   미포함** — 메인 generator 가 모른 채 overall 을 계산한 뒤 표시용으로만 append 한다. 레거시 세션(자기소개
   없음)·빈 답변은 건너뛴다.
+- **질문별 복기(답변 코칭) 본 구현**: `FeedbackConsumer` 가 자기소개 제외 모든 (질문,답변) 쌍을 찾아
+  `LlmAnswerCoach`(Flash, `chain/prompts/answer_coaching.py`)로 **답변별 병렬** 코칭 — 모범 답안 + 내 답변
+  리라이트 + 한 줄 코칭. `callback.feedback.answerCoaching[{messageId,…}]` 로 보내고 Core 가 각 답변 메시지에
+  기록(종료 세션 조회에서만 노출). 종합 generate·첫인상·직무 적합도와 `asyncio.gather` 병렬.
 - **직무 적합도 + 직무 이해도 평가 본 구현**: `mode=JOB_TAILORED` + JD 있을 때 `LlmJobFitEvaluator`(Pro,
   `chain/prompts/job_fit_evaluation.py`)가 면접 전사·자료를 채용공고(JD)와 대조해 **두 축**을 한 번의
   구조화 호출(`JobFitResult{fit, understanding}`)로 평가: `직무 적합도`(JD 요구 역량 매칭) + `직무 이해도`

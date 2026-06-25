@@ -2804,6 +2804,30 @@
           },
           "expectedSignal" : {
             "type" : "string"
+          },
+          "answerSpecificity" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "answerLogic" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "answerStructure" : {
+            "type" : "string"
+          },
+          "answerCorrectness" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "modelAnswer" : {
+            "type" : "string"
+          },
+          "answerRewrite" : {
+            "type" : "string"
+          },
+          "coachingComment" : {
+            "type" : "string"
           }
         }
       },

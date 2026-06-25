@@ -51,12 +51,11 @@ public class InterviewMessageService {
 
     // 재생용 presigned URL 동봉: 질문 TTS(SUCCEEDED) + 음성 답변 원본.
     // presign 실패가 메시지 조회 전체를 깨뜨리지 않도록 개별 try/catch.
-    private MessageResult toResultWithAudioUrls(InterviewMessage m, boolean revealExpectedSignal) {
+    private MessageResult toResultWithAudioUrls(InterviewMessage m, boolean revealInsights) {
         String ttsUrl = m.getTtsStatus() == TtsStatus.SUCCEEDED
             ? presign(m.getTtsAudioPath()) : null;
         String audioUrl = presign(m.getAudioFilePath());
-        String expectedSignal = revealExpectedSignal ? m.getExpectedSignal() : null;
-        return MessageResult.of(m, ttsUrl, audioUrl, expectedSignal);
+        return MessageResult.of(m, ttsUrl, audioUrl, revealInsights);
     }
 
     private String presign(String key) {

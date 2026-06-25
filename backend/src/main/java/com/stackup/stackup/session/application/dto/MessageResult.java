@@ -26,18 +26,27 @@ public record MessageResult(
     String audioFileUrl,
     // 질문이 기대한 핵심(평가 관점). 라이브 중엔 null(정답 유출 방지),
     // 종료된 세션 조회에서만 채워 피드백 학습용으로 노출.
-    String expectedSignal
+    String expectedSignal,
+    // 답변별 복기 — 종료 세션 조회에서만 노출(expectedSignal 과 동일 게이팅). 라이브 중엔 모두 null.
+    Double answerSpecificity,
+    Double answerLogic,
+    String answerStructure,
+    Double answerCorrectness,
+    String modelAnswer,
+    String answerRewrite,
+    String coachingComment
 ) {
     public static MessageResult of(InterviewMessage m) {
-        return of(m, null, null, null);
+        return of(m, null, null, false);
     }
 
     public static MessageResult of(InterviewMessage m, String ttsAudioUrl, String audioFileUrl) {
-        return of(m, ttsAudioUrl, audioFileUrl, null);
+        return of(m, ttsAudioUrl, audioFileUrl, false);
     }
 
+    // revealInsights=true 면 답변 평가·복기·expectedSignal 노출(종료 세션). 라이브/대기 중엔 false.
     public static MessageResult of(
-        InterviewMessage m, String ttsAudioUrl, String audioFileUrl, String expectedSignal) {
+        InterviewMessage m, String ttsAudioUrl, String audioFileUrl, boolean revealInsights) {
         return new MessageResult(
             m.getId(),
             m.getSession().getId(),
@@ -55,7 +64,14 @@ public record MessageResult(
             m.getTargetEvidence(),
             ttsAudioUrl,
             audioFileUrl,
-            expectedSignal
+            revealInsights ? m.getExpectedSignal() : null,
+            revealInsights ? m.getAnswerSpecificity() : null,
+            revealInsights ? m.getAnswerLogic() : null,
+            revealInsights ? m.getAnswerStructure() : null,
+            revealInsights ? m.getAnswerCorrectness() : null,
+            revealInsights ? m.getModelAnswer() : null,
+            revealInsights ? m.getAnswerRewrite() : null,
+            revealInsights ? m.getCoachingComment() : null
         );
     }
 }

@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 
 from ai_server.chain.prompts.feedback_generation import HUMAN_PROMPT, SYSTEM_PROMPT
 from ai_server.chain.prompts import (
+    answer_coaching,
     feedback_panel,
     feedback_synthesis,
     job_fit_evaluation,
@@ -481,6 +482,100 @@ class LlmJobFitEvaluator:
         if not isinstance(result, JobFitResult):
             raise TypeError(
                 f"chain returned {type(result).__name__}, expected JobFitResult"
+            )
+        return result
+
+
+# ── 질문별 복기 (답변 코칭) ───────────────────────────────────────────────────
+# 답변 1건당 모범 답안 + 리라이트 + 한 줄 코칭. 점수가 아니라 "어떻게 더 잘하는지"를 준다.
+# 답변별 병렬 호출(Flash). 자기소개 답변은 제외(첫인상 평가가 커버).
+
+
+class CoachingResult(BaseModel):
+    model_answer: str | None = Field(None, description="이 질문에 대한 강한 답변 예시")
+    answer_rewrite: str | None = Field(
+        None, description="지원자 답변을 더 좋게 고쳐 쓴 버전"
+    )
+    coaching_comment: str | None = Field(None, description="가장 중요한 보완점 한 문장")
+
+
+def build_answer_coaching_chain(
+    settings: Settings, core_client: CoreClient | None = None
+) -> Runnable:
+    """답변 1건을 코칭(모범 답안·리라이트·한 줄 코칭)하는 체인(Flash — 답변 수만큼 병렬)."""
+    from langchain_openai import ChatOpenAI
+
+    parser = PydanticOutputParser(pydantic_object=CoachingResult)
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", answer_coaching.SYSTEM_PROMPT),
+            ("human", answer_coaching.HUMAN_PROMPT),
+        ]
+    ).partial(format_instructions=parser.get_format_instructions())
+
+    callbacks = []
+    if core_client is not None:
+        callbacks.append(
+            CoreAiLogCallback(
+                core_client=core_client,
+                request_type="generate.feedback.coaching",
+                default_model=settings.llm_flash_model,
+            )
+        )
+
+    llm = ChatOpenAI(
+        model=settings.llm_flash_model,
+        temperature=settings.llm_flash_temperature,
+        api_key=settings.llm_api_key or None,
+        base_url=settings.llm_base_url,
+        callbacks=callbacks,
+    )
+    return prompt | llm | parser
+
+
+class AnswerCoach(Protocol):
+    async def coach(
+        self,
+        *,
+        job_category: str,
+        mode: str,
+        target_role: str,
+        question: str,
+        expected_signal: str,
+        answer: str,
+        rag_context: str = "(none)",
+    ) -> CoachingResult: ...
+
+
+class LlmAnswerCoach:
+    def __init__(self, chain: Runnable) -> None:
+        self._chain = chain
+
+    async def coach(
+        self,
+        *,
+        job_category: str,
+        mode: str,
+        target_role: str,
+        question: str,
+        expected_signal: str,
+        answer: str,
+        rag_context: str = "(none)",
+    ) -> CoachingResult:
+        result = await self._chain.ainvoke(
+            {
+                "job_category": job_category,
+                "mode": mode,
+                "target_role": target_role or "",
+                "question": question,
+                "expected_signal": expected_signal or "(명시 없음)",
+                "answer": answer or "(빈 답변)",
+                "rag_context": rag_context or "(none)",
+            }
+        )
+        if not isinstance(result, CoachingResult):
+            raise TypeError(
+                f"chain returned {type(result).__name__}, expected CoachingResult"
             )
         return result
 

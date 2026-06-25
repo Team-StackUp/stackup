@@ -16,6 +16,8 @@ public record FeedbackCallbackPayload(
     List<String> improvementKeywords,
     List<String> studyPlan,
     List<PanelBreakdownItem> panelBreakdown,
+    // 질문별 복기 (답변 메시지별 모범 답안·리라이트·코칭). 비면 복기 없음.
+    List<AnswerCoachingItem> answerCoaching,
     String reportS3Key
 ) {
 }
