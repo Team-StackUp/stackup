@@ -359,6 +359,12 @@ docker compose up -d
 - ArchUnit 룰 적용 (의존 방향 · 순환 차단 · `@Transactional` application 한정 · entity는 domain 패키지)
 - 면접 도메인 (US-13~20) 본 구현: 세션 CRUD/start/end/interrupt, generate.questions 발행,
   callback.questions(POOL/FOLLOWUP) 수신, 자동 종료
+- **첫 질문 자기소개 고정 본 구현**: 모든 면접의 첫 질문은 `InterviewMessage.selfIntroduction`(seq=1,
+  category=`SELF_INTRODUCTION`)으로 세션 생성 직후 AI 없이 삽입(`QuestionsCallbackService.insertSelfIntroduction`,
+  `SessionQuestionsRequester.onSessionCreated`). 질문 풀은 자기소개 **답변**을 받은 뒤 발행한다 —
+  `SessionFollowupRequester` 가 `parent.isSelfIntroduction()` 면 꼬리질문 대신 `SelfIntroAnsweredEvent` 발행 →
+  `SessionQuestionsRequester.onSelfIntroAnswered` 가 답변(`selfIntroAnswer`)을 씨앗으로 `generate.questions`
+  발행(풀 크기 = `generalQuestionCount-1`, 자기소개 1자리 예약). 자기소개엔 꼬리질문을 달지 않는다.
 - 질문 TTS 발행 본 구현: 질문 영속 후 `QuestionPersistedEvent`(AFTER_COMMIT) → `SessionTtsRequester` 가 `generate.tts` 발행,
   `callback.tts` 수신해 메시지에 오디오 경로 반영(`TtsCallbackService`)
 - **꼬리질문 토큰 스트리밍 placeholder 본 구현**: `SessionFollowupRequester` 가 AI 호출 분기에서 INTERVIEWER placeholder(`InterviewMessage.followupPlaceholder`, content=`"(생성 중)"`, status=`CREATED`)를 선INSERT + `SESSION_MESSAGE` 발행 + `generate.followup.followupMessageId` 동봉. AI 가 토큰을 `SESSION_MESSAGE_DELTA` 로 흘린 뒤 `callback.questions(FOLLOWUP)` 도착 시 `QuestionsCallbackService` 가 분기: NORMAL→`completeFollowup` UPDATE+카운트, CLARIFICATION→UPDATE(카운트 X), DONT_KNOW→placeholder DELETE 후 `advanceToNextGeneral`. placeholder 없는 레거시 콜백은 기존 INSERT 폴백.

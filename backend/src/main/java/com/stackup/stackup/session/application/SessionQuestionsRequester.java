@@ -13,6 +13,7 @@ import com.stackup.stackup.document.domain.AnalyzedDocument;
 import com.stackup.stackup.document.domain.AnalyzedDocumentRepository;
 import com.stackup.stackup.session.application.dto.GenerateQuestionsPayload;
 import com.stackup.stackup.session.application.dto.GenerateQuestionsPayload.DocumentContext;
+import com.stackup.stackup.session.application.event.SelfIntroAnsweredEvent;
 import com.stackup.stackup.session.application.event.SessionCreatedEvent;
 import com.stackup.stackup.session.domain.InterviewSessionRepository;
 import com.stackup.stackup.session.domain.SessionQuestionPoolRepository;
@@ -32,7 +33,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
-// 세션 생성 commit 후 발화 → generate.questions envelope 발행.
+// 모든 면접의 첫 질문은 자기소개로 고정한다.
+// - 세션 생성 commit 후: 자기소개 질문(seq=1)만 삽입(QuestionsCallbackService 위임). 이 단계에선 풀 생성을 하지 않는다.
+// - 자기소개 답변 commit 후: 그 답변을 씨앗으로 generate.questions envelope 발행 → 이력서/레포 기반 질문 풀 생성.
 // AI 가 documentIds 만으로 다시 fetch 하지 않도록, MD 본문까지 envelope 에 담아 보낸다 (RAG 정교화는 후속).
 @Component
 @RequiredArgsConstructor
@@ -50,6 +53,7 @@ public class SessionQuestionsRequester {
     private final ObjectStorageClient storage;
     private final InterviewSessionRepository sessionRepository;
     private final SessionQuestionPoolRepository questionPoolRepository;
+    private final QuestionsCallbackService questionsCallbackService;
 
     // 최근 몇 개 세션까지 거슬러 중복 질문을 회피할지. 0 이면 비활성.
     @Value("${interview.question-dedup.recent-sessions:3}")
@@ -58,29 +62,42 @@ public class SessionQuestionsRequester {
     @Value("${interview.question-dedup.max-questions:30}")
     private int maxRecentQuestions;
 
+    // 세션 생성 직후: 자기소개 질문을 고정 삽입한다(AI 호출 없음). 질문 풀 생성은 답변 이후로 미룬다.
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onSessionCreated(SessionCreatedEvent event) {
+        questionsCallbackService.insertSelfIntroduction(event.sessionId());
+    }
+
+    // 자기소개 답변 직후: 그 답변 + 이력서/레포 컨텍스트로 질문 풀 생성을 요청한다.
+    // 자기소개가 첫 질문 1자리를 차지하므로, 풀은 generalCount-1 개만 생성한다(총 일반질문 수 보존).
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onSelfIntroAnswered(SelfIntroAnsweredEvent event) {
         List<DocumentContext> documents = buildDocumentContexts(event.contextDocumentIds());
         int generalCount = event.generalQuestionCount() != null
             ? event.generalQuestionCount() : DEFAULT_GENERAL_QUESTION_COUNT;
+        int poolCount = Math.max(1, generalCount - 1);  // 자기소개 1자리 예약
         List<String> recentQuestions = recentQuestions(event.userId(), event.sessionId());
         GenerateQuestionsPayload payload = new GenerateQuestionsPayload(
             event.sessionId(),
             event.mode(),
             event.jobCategories(),
             documents,
-            generalCount,
+            poolCount,
             event.maxQuestions(),
-            recentQuestions
+            recentQuestions,
+            event.selfIntroAnswer()
         );
         publisher.publishToAi(
             properties.routingKeys().generateQuestions(),
             payload,
             new MessageContext(event.userId(), event.sessionId(), null, null)
         );
-        log.info("generate.questions published. sessionId={}, doc_count={}, general_count={}, max={}, recent_q={}",
-            event.sessionId(), documents.size(), generalCount, event.maxQuestions(), recentQuestions.size());
+        log.info("generate.questions published (post self-intro). sessionId={}, doc_count={}, "
+                + "pool_count={}, max={}, recent_q={}, intro_len={}",
+            event.sessionId(), documents.size(), poolCount, event.maxQuestions(), recentQuestions.size(),
+            event.selfIntroAnswer() == null ? 0 : event.selfIntroAnswer().length());
     }
 
     // 같은 유저의 최근 N개 세션에서 출제된 질문을 모아 AI 의 중복 회피용으로 전달.

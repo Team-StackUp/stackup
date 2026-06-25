@@ -3,6 +3,7 @@ package com.stackup.stackup.session.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -12,6 +13,7 @@ import com.stackup.stackup.common.messaging.RabbitMessagePublisher;
 import com.stackup.stackup.common.storage.ObjectStorageClient;
 import com.stackup.stackup.document.domain.AnalyzedDocumentRepository;
 import com.stackup.stackup.session.application.dto.GenerateQuestionsPayload;
+import com.stackup.stackup.session.application.event.SelfIntroAnsweredEvent;
 import com.stackup.stackup.session.application.event.SessionCreatedEvent;
 import com.stackup.stackup.session.domain.InterviewSessionRepository;
 import com.stackup.stackup.session.domain.JobCategory;
@@ -36,20 +38,34 @@ class SessionQuestionsRequesterTest {
     @Mock ObjectStorageClient storage;
     @Mock InterviewSessionRepository sessionRepository;
     @Mock SessionQuestionPoolRepository questionPoolRepository;
+    @Mock QuestionsCallbackService questionsCallbackService;
     @InjectMocks SessionQuestionsRequester requester;
 
+    // 세션 생성 시엔 질문 풀을 만들지 않고, 자기소개 질문만 삽입한다(generate.questions 미발행).
     @Test
-    void onSessionCreated_requestsOneInitialQuestionAndKeepsSessionLimit() {
+    void onSessionCreated_insertsSelfIntroductionAndDoesNotPublish() {
+        requester.onSessionCreated(new SessionCreatedEvent(
+            1L, 11L, SessionMode.INTEGRATED, List.of(JobCategory.BACKEND), 5, 3, List.of()
+        ));
+
+        verify(questionsCallbackService).insertSelfIntroduction(11L);
+        verify(publisher, never()).publishToAi(any(), any(), any(MessageContext.class));
+    }
+
+    // 자기소개 답변 후: 답변을 씨앗으로 generate.questions 발행. 자기소개 1자리 예약 → 풀은 n-1 개.
+    @Test
+    void onSelfIntroAnswered_requestsPoolReservingSelfIntroSlot() {
         when(properties.routingKeys()).thenReturn(mockRoutingKeys());
 
-        requester.onSessionCreated(new SessionCreatedEvent(
+        requester.onSelfIntroAnswered(new SelfIntroAnsweredEvent(
             1L,
             11L,
             SessionMode.INTEGRATED,
             List.of(JobCategory.BACKEND),
             5,
             3,
-            List.of()
+            List.of(),
+            "안녕하세요, 결제 시스템을 만든 백엔드 3년차입니다."
         ));
 
         ArgumentCaptor<GenerateQuestionsPayload> payloadCaptor =
@@ -61,15 +77,15 @@ class SessionQuestionsRequesterTest {
         assertThat(payload.mode()).isEqualTo(SessionMode.INTEGRATED);
         assertThat(payload.jobCategories()).containsExactly(JobCategory.BACKEND);
         assertThat(payload.documents()).isEmpty();
-        // generalQuestionCount(n) 만큼 생성 요청 (이벤트의 n=3).
-        assertThat(payload.initialQuestionCount()).isEqualTo(3);
+        // generalQuestionCount(n=3) 에서 자기소개 1자리 예약 → 풀 2개.
+        assertThat(payload.initialQuestionCount()).isEqualTo(2);
         assertThat(payload.maxQuestions()).isEqualTo(5);
-        // dedup 비활성(기본 0) 이면 과거 질문 없이 빈 목록.
         assertThat(payload.recentQuestions()).isEmpty();
+        assertThat(payload.selfIntroAnswer()).contains("백엔드 3년차");
     }
 
     @Test
-    void onSessionCreated_includesRecentQuestionsForDedup() {
+    void onSelfIntroAnswered_includesRecentQuestionsForDedup() {
         when(properties.routingKeys()).thenReturn(mockRoutingKeys());
         ReflectionTestUtils.setField(requester, "recentSessionCount", 3);
         ReflectionTestUtils.setField(requester, "maxRecentQuestions", 30);
@@ -78,8 +94,8 @@ class SessionQuestionsRequesterTest {
         when(questionPoolRepository.findRecentQuestions(eq(List.of(9L, 8L)), any(Pageable.class)))
             .thenReturn(List.of("이전 질문 A", "이전 질문 B"));
 
-        requester.onSessionCreated(new SessionCreatedEvent(
-            1L, 11L, SessionMode.TECHNICAL, List.of(JobCategory.BACKEND), 5, 3, List.of()
+        requester.onSelfIntroAnswered(new SelfIntroAnsweredEvent(
+            1L, 11L, SessionMode.TECHNICAL, List.of(JobCategory.BACKEND), 5, 3, List.of(), "자기소개"
         ));
 
         ArgumentCaptor<GenerateQuestionsPayload> payloadCaptor =

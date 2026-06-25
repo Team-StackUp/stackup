@@ -38,6 +38,12 @@ public class InterviewMessage extends BaseTimeEntity {
         "음성 인식에 실패했습니다. 텍스트로 다시 답변해 주세요.";
     public static final String FOLLOWUP_GENERATING_TEXT = "(생성 중)";
 
+    // 모든 면접의 첫 질문은 자기소개로 고정한다. 이력서/레포 기반 질문 풀은 이 답변을
+    // 씨앗으로 자기소개 답변 이후에 생성된다(SessionQuestionsRequester). category 는 느슨
+    // 결합(CHECK 없음)이라 sentinel 로 안전하게 마킹 — 이 값으로 첫 질문 분기를 식별한다.
+    public static final String SELF_INTRODUCTION_TEXT = "먼저 간단하게 자기소개 부탁드립니다.";
+    public static final String SELF_INTRODUCTION_CATEGORY = "SELF_INTRODUCTION";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -142,6 +148,18 @@ public class InterviewMessage extends BaseTimeEntity {
         m.expectedSignal = expectedSignal;
         m.markTtsPending();
         return m;
+    }
+
+    // 자기소개 질문(모든 면접의 첫 질문, seq=1). AI 호출 없이 고정 문구로 삽입하고 TTS 만 요청한다.
+    public static InterviewMessage selfIntroduction(InterviewSession session, int seq) {
+        return interviewer(session, seq, SELF_INTRODUCTION_TEXT,
+            SELF_INTRODUCTION_CATEGORY, null, null);
+    }
+
+    // 이 메시지가 자기소개 질문인지. 답변 시 꼬리질문 대신 질문 풀 생성을 트리거하는 분기에 사용.
+    public boolean isSelfIntroduction() {
+        return role == MessageRole.INTERVIEWER
+            && SELF_INTRODUCTION_CATEGORY.equals(category);
     }
 
     public static InterviewMessage followup(InterviewSession session, int seq, String content,

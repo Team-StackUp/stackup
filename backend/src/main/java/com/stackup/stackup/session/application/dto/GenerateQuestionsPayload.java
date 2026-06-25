@@ -14,7 +14,9 @@ public record GenerateQuestionsPayload(
     // Overall session question limit; not the generation batch size.
     Integer maxQuestions,
     // 같은 유저가 최근 면접에서 받은 질문들. AI 가 의미 중복 회피에 사용.
-    List<String> recentQuestions
+    List<String> recentQuestions,
+    // 지원자의 자기소개 답변. 질문 생성의 1차 근거(모든 면접의 기본). 없으면 빈 문자열.
+    String selfIntroAnswer
 ) {
     public record DocumentContext(
         Long documentId,

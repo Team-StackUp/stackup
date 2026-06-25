@@ -96,6 +96,40 @@ class QuestionsCallbackServiceTest {
     }
 
     @Test
+    void insertSelfIntroduction_insertsFixedFirstQuestionAndCounts() {
+        InterviewSession session = sessionFixture(11L, SessionStatus.READY);
+        when(sessionRepository.findById(11L)).thenReturn(Optional.of(session));
+        when(messageRepository.countBySession_Id(11L)).thenReturn(0L);
+        when(messageRepository.save(any(InterviewMessage.class))).thenAnswer(inv -> {
+            InterviewMessage m = inv.getArgument(0);
+            ReflectionTestUtils.setField(m, "id", 400L);
+            return m;
+        });
+
+        service.insertSelfIntroduction(11L);
+
+        ArgumentCaptor<InterviewMessage> cap = ArgumentCaptor.forClass(InterviewMessage.class);
+        verify(messageRepository).save(cap.capture());
+        assertThat(cap.getValue().getContent()).isEqualTo(InterviewMessage.SELF_INTRODUCTION_TEXT);
+        assertThat(cap.getValue().getSequenceNumber()).isEqualTo(1);
+        assertThat(cap.getValue().isSelfIntroduction()).isTrue();
+        // 자기소개는 첫 일반질문 1자리를 차지한다.
+        assertThat(session.getTotalQuestionCount()).isEqualTo(1);
+    }
+
+    @Test
+    void insertSelfIntroduction_skipsWhenMessagesAlreadyExist() {
+        InterviewSession session = sessionFixture(11L, SessionStatus.READY);
+        when(sessionRepository.findById(11L)).thenReturn(Optional.of(session));
+        when(messageRepository.countBySession_Id(11L)).thenReturn(1L);
+
+        service.insertSelfIntroduction(11L);
+
+        verify(messageRepository, never()).save(any(InterviewMessage.class));
+        assertThat(session.getTotalQuestionCount()).isEqualTo(0);
+    }
+
+    @Test
     void apply_followupDoesNotCountOrAutoEnd() {
         InterviewSession session = sessionFixture(11L, SessionStatus.IN_PROGRESS);
         // 꼬리질문은 maxQuestions(메인질문 수) 한도에 포함되지 않으며, 도착해도 세션을

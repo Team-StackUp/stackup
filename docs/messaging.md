@@ -218,6 +218,11 @@
 → `documentPath` 는 객체 스토리지 키 (bucket 제외). Core는 같은 storage 추상화로 fetch.
 
 ### 5.6 `generate.questions`
+
+> **발행 시점**: 세션 생성 시가 아니라 **자기소개(첫 질문) 답변을 받은 직후**(`SelfIntroAnsweredEvent`).
+> 모든 면접의 첫 질문은 자기소개로 고정이며, 질문 풀은 그 답변(`selfIntroAnswer`)을 1차 근거로 생성한다.
+> `initialQuestionCount` 는 자기소개 1자리를 예약해 `generalQuestionCount - 1` 로 보낸다.
+
 ```json
 {
   "messageType": "generate.questions",
@@ -225,9 +230,11 @@
     "sessionId": 99,
     "mode": "TECHNICAL",
     "jobCategories": ["BACKEND", "FRONTEND"],
-    "documentIds": [42, 17],
+    "documents": [ { "documentId": 42, "sourceType": "RESUME", "summary": "...", "techStack": ["..."], "markdown": "..." } ],
+    "initialQuestionCount": 2,
     "maxQuestions": 10,
-    "recentQuestions": ["이전 면접 질문 텍스트", "..."]
+    "recentQuestions": ["이전 면접 질문 텍스트", "..."],
+    "selfIntroAnswer": "안녕하세요, 결제 시스템을 만든 백엔드 3년차입니다…"
   },
   "context": { "userId": 123, "sessionId": 99 }
 }

@@ -8,11 +8,13 @@ import com.stackup.stackup.common.sse.SseEventType;
 import com.stackup.stackup.session.application.dto.GenerateFollowupPayload;
 import com.stackup.stackup.session.application.dto.GenerateFollowupPayload.HistoryItem;
 import com.stackup.stackup.session.application.event.AnswerSubmittedEvent;
+import com.stackup.stackup.session.application.event.SelfIntroAnsweredEvent;
 import com.stackup.stackup.session.domain.InterviewMessage;
 import com.stackup.stackup.session.domain.InterviewMessageRepository;
 import com.stackup.stackup.session.domain.InterviewSession;
 import com.stackup.stackup.session.domain.MessageRole;
 import com.stackup.stackup.session.domain.SessionContextRepository;
+import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -55,6 +57,22 @@ public class SessionFollowupRequester {
         List<Long> contextDocumentIds = contextRepository.findBySession_Id(session.getId()).stream()
             .map(c -> c.getDocument().getId())
             .toList();
+
+        // 자기소개(첫 질문) 답변이면 꼬리질문을 만들지 않고, 이 답변을 씨앗으로 질문 풀 생성을 트리거한다.
+        if (parent.isSelfIntroduction()) {
+            events.publishEvent(new SelfIntroAnsweredEvent(
+                event.userId(),
+                session.getId(),
+                session.getMode(),
+                new ArrayList<>(session.getJobCategories()),
+                session.getMaxQuestions(),
+                session.getGeneralQuestionCount(),
+                contextDocumentIds,
+                answer.getContent()
+            ));
+            log.info("self-intro answered — requesting question pool. sessionId={}", session.getId());
+            return;
+        }
 
         // 최근 대화 히스토리 (중복 질문 회피). 시퀀스 순 → 마지막 N개.
         List<InterviewMessage> ordered =
