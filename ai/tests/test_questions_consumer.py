@@ -115,6 +115,36 @@ async def test_consumer_generates_questions_and_publishes_callback():
 
 
 @pytest.mark.asyncio
+async def test_consumer_forwards_self_intro_answer_to_generator():
+    generator = MagicMock()
+    generator.generate = AsyncMock(return_value=GeneratedQuestionPool(questions=[]))
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+
+    consumer = QuestionsConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.questions",
+    )
+    body = _envelope(
+        {
+            "sessionId": 99,
+            "mode": "TECHNICAL",
+            "jobCategories": ["BACKEND"],
+            "documents": [],
+            "maxQuestions": 5,
+            "initialQuestionCount": 2,
+            "selfIntroAnswer": "결제 시스템을 설계한 백엔드 3년차입니다.",
+        }
+    )
+    await consumer.handle(_StubMessage(body))
+
+    call = generator.generate.await_args
+    assert call.kwargs["self_introduction"] == "결제 시스템을 설계한 백엔드 3년차입니다."
+
+
+@pytest.mark.asyncio
 async def test_consumer_skips_when_message_id_already_seen():
     generator = MagicMock()
     generator.generate = AsyncMock()

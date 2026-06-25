@@ -39,6 +39,8 @@ class GenerateQuestionsRequest(BaseModel):
     max_questions: int = 10
     # 같은 유저가 최근 면접에서 받은 질문들. 의미 중복 회피에 사용.
     recent_questions: list[str] = []
+    # 지원자의 자기소개 답변. 모든 면접의 첫 질문이며 질문 생성의 1차 근거. 없으면 빈 문자열.
+    self_intro_answer: str = ""
 
 
 class GeneratedQuestion(BaseModel):

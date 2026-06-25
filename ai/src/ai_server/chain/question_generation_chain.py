@@ -24,6 +24,11 @@ def _format_recent_questions(recent_questions: list[str] | None) -> str:
     return "\n".join(f"- {q}" for q in recent_questions)
 
 
+def _format_self_introduction(self_introduction: str | None) -> str:
+    text = (self_introduction or "").strip()
+    return text if text else "(자기소개 없음)"
+
+
 class QuestionGenerator(Protocol):
     async def generate(
         self,
@@ -33,6 +38,7 @@ class QuestionGenerator(Protocol):
         max_questions: int,
         context: str,
         recent_questions: list[str] | None = None,
+        self_introduction: str | None = None,
     ) -> GeneratedQuestionPool: ...
 
 
@@ -48,6 +54,7 @@ class LlmQuestionGenerator:
         max_questions: int,
         context: str,
         recent_questions: list[str] | None = None,
+        self_introduction: str | None = None,
     ) -> GeneratedQuestionPool:
         result = await self._chain.ainvoke(
             {
@@ -56,6 +63,7 @@ class LlmQuestionGenerator:
                 "max_questions": max_questions,
                 "context": context,
                 "recent_questions": _format_recent_questions(recent_questions),
+                "self_introduction": _format_self_introduction(self_introduction),
             }
         )
         if not isinstance(result, GeneratedQuestionPool):

@@ -86,6 +86,7 @@ class QuestionsConsumer:
                 max_questions=effective_pool_size,
                 context=context_text,
                 recent_questions=req.recent_questions,
+                self_introduction=req.self_intro_answer,
             )
 
             payload = QuestionPoolCallbackPayload(

@@ -48,24 +48,24 @@
 
 ## 3. 면접 세션 흐름 (US-13 ~ US-20)
 
-### 3.1 세션 생성 단계
+### 3.1 세션 생성 단계 — 첫 질문은 자기소개 고정
+
+> **모든 면접의 첫 질문은 자기소개로 고정**한다. 이력서/레포 기반 질문 풀은 세션 생성 시점이
+> 아니라 **자기소개 답변을 받은 뒤** 그 답변을 1차 근거로 생성한다 (실제 면접과 동일).
 
 ```
 [사용자] 세션 설정 (모드/유형/직군/최대 질문 수/참조 문서)
   → [Core] interview_sessions INSERT (status=READY)
         → session_contexts INSERT (선택된 analyzed_documents 연결)
-  → [Core] RabbitMQ publish: stackup.core-to-ai / generate.questions
-  → [AI] RAG 검색 (pgvector 유사도, Core API 경유) → 컨텍스트 추출
-  → [AI] Gemini 3.1 Pro → 질문 풀 생성 (10~15개)
-  → [AI] RabbitMQ publish: stackup.ai-to-core / callback.questions (kind=POOL)
-  → [Core] 질문 풀을 interview_sessions row 또는 별도 테이블에 저장
-        (Redis 미사용 — 세션 단위 데이터이므로 PG로 충분)
+  → [Core] SessionCreatedEvent(AFTER_COMMIT) → 자기소개 질문(seq=1, category=SELF_INTRODUCTION) 고정 삽입
+        (AI 호출 없음. TTS 만 요청. totalQuestionCount=1 — 자기소개가 첫 일반질문 1자리를 차지)
+  → [Core] QuestionPersistedEvent → 첫 질문(자기소개) push + TTS
 ```
 
 ### 3.2 질문-답변 사이클 (반복)
 
 ```
-[Core] 영속 후 RealtimeNotifyPublisher.publishToSession → [RealTime] SSE/WS → 첫 질문 push
+[Core] 영속 후 RealtimeNotifyPublisher.publishToSession → [RealTime] SSE/WS → 첫 질문(자기소개) push
   → [Frontend] 표시 + 마이크 활성화
   → [사용자] 음성 답변 (Phase 2) 또는 텍스트
   → [Frontend] (음성 모드) WebRTC stream → RealTime
@@ -74,6 +74,13 @@
   → [Frontend] (텍스트 모드) WS send {type:"answer", content} → [RealTime] → POST /api/internal/sessions/{id}/messages
         ㄴ 레거시 직접 경로: POST /api/sessions/{id}/messages (프론트 WS 전환 전까지 병행)
   → [Core] interview_messages INSERT (role=INTERVIEWEE, parent=직전 질문)
+  ── 직전 질문이 자기소개(SELF_INTRODUCTION)인 경우 ─────────────────────────────
+  → [Core] SelfIntroAnsweredEvent → RabbitMQ publish: stackup.core-to-ai / generate.questions
+        (payload.selfIntroAnswer = 자기소개 답변. 풀 크기 = generalQuestionCount-1 — 자기소개 1자리 예약. 꼬리질문 없음)
+  → [AI] RAG 검색 + Gemini 3.1 Pro → 자기소개 답변을 1차 근거로 질문 풀 생성
+  → [AI] RabbitMQ publish: stackup.ai-to-core / callback.questions (kind=POOL)
+  → [Core] session_question_pool 저장 + 첫 일반질문 삽입 → 다음 질문 push
+  ── 그 외 일반/꼬리질문 답변인 경우 ───────────────────────────────────────────
   → [Core] RabbitMQ publish: stackup.core-to-ai / generate.followup
   → [AI] 답변 평가 + 꼬리질문 생성 (Gemini 3.1 Flash + RAG)
         → 답변이 음성이면 음성 분석도 병행

@@ -78,6 +78,26 @@ public class QuestionsCallbackService {
         markProcessed(envelope.messageId());
     }
 
+    // 세션 생성 직후 호출: 모든 면접의 첫 질문인 자기소개 질문(seq=1)을 AI 없이 고정 삽입한다.
+    // 이력서/레포 기반 질문 풀은 이 자기소개 답변을 받은 뒤에 생성된다(SessionQuestionsRequester).
+    @Transactional
+    public void insertSelfIntroduction(Long sessionId) {
+        InterviewSession session = sessionRepository.findById(sessionId).orElse(null);
+        if (session == null || session.isDeleted()) {
+            log.warn("self-intro insert skipped — session not found or deleted. id={}", sessionId);
+            return;
+        }
+        // 멱등: 이미 메시지가 있으면(중복 이벤트) skip.
+        if (messageRepository.countBySession_Id(sessionId) > 0) {
+            log.info("self-intro insert skipped — messages already exist. sessionId={}", sessionId);
+            return;
+        }
+        InterviewMessage message = messageRepository.save(InterviewMessage.selfIntroduction(session, 1));
+        session.incrementQuestionCount();
+        publishQuestionEvents(session, message, "SELF_INTRO_READY");
+        log.info("self-intro question inserted. sessionId={}, msg={}", sessionId, message.getId());
+    }
+
     // POOL 콜백: AI 가 만든 일반질문들을 풀에 저장하고 첫 질문을 삽입한다.
     private void applyInitialQuestion(InterviewSession session, QuestionsCallbackPayload payload) {
         List<GeneratedQuestion> questions = payload.questions();
