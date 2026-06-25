@@ -2828,6 +2828,21 @@
           },
           "coachingComment" : {
             "type" : "string"
+          },
+          "speakingRateWpm" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "silenceDurationSec" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "fillerWordCounts" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "integer",
+              "format" : "int32"
+            }
           }
         }
       },

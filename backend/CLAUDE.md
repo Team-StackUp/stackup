@@ -362,8 +362,8 @@ docker compose up -d
 - **질문별 복기 본 구현**: V19 로 `interview_messages` 에 `model_answer`/`answer_rewrite`/`coaching_comment`
   추가. AI 가 `callback.feedback.answerCoaching[{messageId,…}]` 로 답변별 모범 답안·리라이트·코칭을 보내면
   `FeedbackCallbackService` 가 각 메시지에 `recordCoaching` 기록. `MessageResult`/`MessageResponse` 가 답변
-  평가 점수 + 복기를 노출하되 **종료 세션 조회에서만**(`expectedSignal` 과 동일 게이팅). 프론트는 답변 버블
-  아래 '복기' 아코디언으로 표시.
+  평가 점수 + 복기 + **답변 전달력 메트릭(WPM·무음·간투어, `MessageVoiceAnalysis` 에서 파싱)** 을 노출하되
+  **종료 세션 조회에서만**(`expectedSignal` 과 동일 게이팅). 프론트는 답변 버블 아래 '복기' 아코디언으로 표시.
 - **직무 맞춤 면접 모드(JOB_TAILORED) 본 구현**: `SessionMode.JOB_TAILORED` 추가(V18 — mode CHECK 갱신 +
   `target_company_name`/`target_job_description` 컬럼). 이 모드는 회사명+채용공고(JD)를 받아(JD 필수,
   `SessionService` 검증 `SESSION_JD_REQUIRED`) `InterviewSession.assignTargetRole` 로 보관. JD 는
