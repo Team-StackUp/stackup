@@ -369,8 +369,9 @@
 ### 5.11 `callback.feedback`
 
 > `panelBreakdown[]` 에 평가위원별 항목이 담긴다. 자기소개가 있던 세션은 **`evaluator="첫인상"`**,
-> 직무 맞춤 모드는 **`evaluator="직무 적합도"`** 항목이 추가로 포함된다 — 둘 다 **종합 점수(overallScore)
-> 집계에서 제외**된 별도 정성 평가다(메인 generator 가 모른 채 overall 계산 후 표시용으로 append).
+> 직무 맞춤 모드는 **`evaluator="직무 적합도"`(역량 매칭)** + **`evaluator="직무 이해도"`(직무 이해·동기)**
+> 항목이 추가로 포함된다 — 모두 **종합 점수(overallScore) 집계에서 제외**된 별도 정성 평가다(메인
+> generator 가 모른 채 overall 계산 후 표시용으로 append).
 
 ```json
 {

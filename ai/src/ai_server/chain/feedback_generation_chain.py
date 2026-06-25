@@ -388,21 +388,32 @@ class LlmSelfIntroEvaluator:
         return result
 
 
-# ── 직무 적합도 평가 (직무 맞춤 모드 전용) ────────────────────────────────────
-# 채용공고(JD) 요구사항 대비 지원자 적합도를 별도 평가해 패널의 '직무 적합도' 항목으로 표시.
-# 종합 점수 집계에는 포함하지 않는다(별도 정성 평가).
+# ── 직무 적합도 + 직무 이해도 평가 (직무 맞춤 모드 전용) ───────────────────────
+# 면접의 핵심은 직무 적합성이므로 두 축을 분리해 평가한다(한 번의 호출로 구조화 출력):
+#   · 직무 적합도(fit)  — JD 요구 기술·경험·책임을 실제로 갖췄는가(역량 매칭).
+#   · 직무 이해도(understanding) — 직무가 무엇을 하는 자리인지·핵심 책임을 이해하고 동기로 연결했는가.
+# 둘 다 패널 항목으로 표시하되 종합 점수 집계에는 포함하지 않는다(별도 정성 평가).
 
 JOB_FIT_EVALUATOR_LABEL = "직무 적합도"
-JOB_FIT_DIMENSION = "채용공고(JD) 요구 대비 적합도·갭"
+JOB_FIT_DIMENSION = "채용공고(JD) 요구 대비 역량 적합도·갭"
+ROLE_UNDERSTANDING_LABEL = "직무 이해도"
+ROLE_UNDERSTANDING_DIMENSION = "직무 이해·지원동기 연결"
+
+
+class JobFitResult(BaseModel):
+    """직무 맞춤 평가의 두 축. 각 축은 EvaluatorResult 형태(score/strength/weakness/detail/rationale)."""
+
+    fit: EvaluatorResult = Field(default_factory=EvaluatorResult)
+    understanding: EvaluatorResult = Field(default_factory=EvaluatorResult)
 
 
 def build_job_fit_evaluation_chain(
     settings: Settings, core_client: CoreClient | None = None
 ) -> Runnable:
-    """면접 답변·자료를 JD 요구사항과 대조해 직무 적합도를 평가하는 체인(Pro — 갭 추론)."""
+    """면접 답변·자료를 JD 와 대조해 직무 적합도·직무 이해도를 함께 평가하는 체인(Pro — 갭 추론)."""
     from langchain_openai import ChatOpenAI
 
-    parser = PydanticOutputParser(pydantic_object=EvaluatorResult)
+    parser = PydanticOutputParser(pydantic_object=JobFitResult)
     prompt = ChatPromptTemplate.from_messages(
         [
             ("system", job_fit_evaluation.SYSTEM_PROMPT),
@@ -440,7 +451,7 @@ class JobFitEvaluator(Protocol):
         mode: str,
         transcript: str,
         rag_context: str = "(none)",
-    ) -> EvaluatorResult: ...
+    ) -> JobFitResult: ...
 
 
 class LlmJobFitEvaluator:
@@ -456,7 +467,7 @@ class LlmJobFitEvaluator:
         mode: str,
         transcript: str,
         rag_context: str = "(none)",
-    ) -> EvaluatorResult:
+    ) -> JobFitResult:
         result = await self._chain.ainvoke(
             {
                 "company_name": company_name or "(회사명 미입력)",
@@ -467,9 +478,9 @@ class LlmJobFitEvaluator:
                 "rag_context": rag_context or "(none)",
             }
         )
-        if not isinstance(result, EvaluatorResult):
+        if not isinstance(result, JobFitResult):
             raise TypeError(
-                f"chain returned {type(result).__name__}, expected EvaluatorResult"
+                f"chain returned {type(result).__name__}, expected JobFitResult"
             )
         return result
 

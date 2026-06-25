@@ -8,6 +8,7 @@ import pytest
 from ai_server.chain.feedback_generation_chain import (
     EvaluatorResult,
     FeedbackResult,
+    JobFitResult,
     LlmFeedbackGenerator,
     LlmJobFitEvaluator,
     LlmSelfIntroEvaluator,
@@ -540,12 +541,21 @@ def _job_tailored_envelope(
 def _job_fit_evaluator():
     ev = MagicMock()
     ev.evaluate = AsyncMock(
-        return_value=EvaluatorResult(
-            score=72.0,
-            strength="결제 도메인 경험이 JD 핵심 요구와 일치",
-            weakness="대용량 트래픽 처리 근거는 미검증",
-            detail="JD의 '대용량 결제' 요구에 결제 경험은 부합하나, 처리량 수치 근거가 약함.",
-            score_rationale="핵심 요구 충족하나 일부 갭",
+        return_value=JobFitResult(
+            fit=EvaluatorResult(
+                score=72.0,
+                strength="결제 도메인 경험이 JD 핵심 요구와 일치",
+                weakness="대용량 트래픽 처리 근거는 미검증",
+                detail="JD의 '대용량 결제' 요구에 결제 경험은 부합하나, 처리량 근거가 약함.",
+                score_rationale="핵심 요구 충족하나 일부 갭",
+            ),
+            understanding=EvaluatorResult(
+                score=60.0,
+                strength="결제 도메인 책임은 인지",
+                weakness="직무가 다루는 범위를 피상적으로만 이해",
+                detail="이 직무의 핵심 책임을 구체적으로 짚지 못함.",
+                score_rationale="동기 연결이 약함",
+            ),
         )
     )
     return ev
@@ -577,6 +587,10 @@ async def test_consumer_appends_job_fit_panel_item():
     fit_items = [b for b in payload.panel_breakdown if b.evaluator == "직무 적합도"]
     assert len(fit_items) == 1
     assert fit_items[0].score == 72.0
+    # 직무 이해도가 별도 항목으로 분리되어 포함된다.
+    und_items = [b for b in payload.panel_breakdown if b.evaluator == "직무 이해도"]
+    assert len(und_items) == 1
+    assert und_items[0].score == 60.0
 
 
 @pytest.mark.asyncio
@@ -634,12 +648,15 @@ async def test_job_fit_evaluator_forwards_inputs_to_chain():
 
         async def ainvoke(self, value):
             self.input = value
-            return EvaluatorResult(score=70.0)
+            return JobFitResult(
+                fit=EvaluatorResult(score=70.0),
+                understanding=EvaluatorResult(score=55.0),
+            )
 
     chain = _FakeChain()
     evaluator = LlmJobFitEvaluator(chain)
 
-    await evaluator.evaluate(
+    result = await evaluator.evaluate(
         company_name="토스",
         job_description="대용량 결제 백엔드",
         job_category="BACKEND",
@@ -651,6 +668,8 @@ async def test_job_fit_evaluator_forwards_inputs_to_chain():
     assert chain.input["company_name"] == "토스"
     assert chain.input["job_description"] == "대용량 결제 백엔드"
     assert chain.input["transcript"] == "Q/A"
+    assert result.fit.score == 70.0
+    assert result.understanding.score == 55.0
 
 
 def test_build_transcript_annotates_interviewee_evaluation():
