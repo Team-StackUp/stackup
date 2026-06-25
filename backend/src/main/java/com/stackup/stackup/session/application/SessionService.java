@@ -168,7 +168,13 @@ public class SessionService {
         String jobs = command.jobCategories().stream()
             .map(JobCategory::koreanLabel)
             .collect(Collectors.joining("·"));
-        return jobs + " " + command.mode().koreanLabel();
+        String base = jobs + " " + command.mode().koreanLabel();
+        // 직무 맞춤 면접은 회사명을 제목 앞에 붙여 히스토리·라이브 헤더에서 대상이 드러나게 한다.
+        if (command.mode() == SessionMode.JOB_TAILORED
+            && command.targetCompanyName() != null && !command.targetCompanyName().isBlank()) {
+            return command.targetCompanyName().trim() + " " + base;
+        }
+        return base;
     }
 
     private User loadUser(Long userId) {

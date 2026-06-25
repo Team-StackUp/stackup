@@ -149,12 +149,14 @@ class SessionServiceTest {
         });
 
         SessionResult result = service.create(1L, new SessionCreateCommand(
-            "t", null, SessionMode.JOB_TAILORED, List.of(JobCategory.BACKEND),
+            "  ", null, SessionMode.JOB_TAILORED, List.of(JobCategory.BACKEND),
             5, 30, null, null, List.of(), "토스", "백엔드 엔지니어. Kotlin/Spring, 대용량 결제."
         ));
 
         assertThat(result.targetCompanyName()).isEqualTo("토스");
         assertThat(result.targetJobDescription()).contains("결제");
+        // 제목 미입력 시 회사명이 앞에 붙는다.
+        assertThat(result.title()).isEqualTo("토스 백엔드 직무 맞춤 면접");
     }
 
     @Test
