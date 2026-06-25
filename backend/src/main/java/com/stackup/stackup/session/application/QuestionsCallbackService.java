@@ -14,6 +14,7 @@ import com.stackup.stackup.session.domain.InterviewMessage;
 import com.stackup.stackup.session.domain.InterviewMessageRepository;
 import com.stackup.stackup.session.domain.InterviewSession;
 import com.stackup.stackup.session.domain.InterviewSessionRepository;
+import com.stackup.stackup.session.domain.MessageRole;
 import com.stackup.stackup.session.domain.SessionQuestionPool;
 import com.stackup.stackup.session.domain.SessionQuestionPoolRepository;
 import com.stackup.stackup.session.domain.SessionStatus;
@@ -236,11 +237,14 @@ public class QuestionsCallbackService {
         if (eval == null || payload.answerMessageId() == null) {
             return;
         }
-        messageRepository.findById(payload.answerMessageId()).ifPresent(answer -> {
-            answer.recordAnswerEvaluation(
-                eval.specificity(), eval.logic(), eval.structure(), eval.correctness());
-            messageRepository.save(answer);
-        });
+        messageRepository.findById(payload.answerMessageId())
+            // 답변(INTERVIEWEE) 메시지에만 평가 기록 — 잘못된 messageId 로 질문에 점수가 달리는 것 방지.
+            .filter(answer -> answer.getRole() == MessageRole.INTERVIEWEE)
+            .ifPresent(answer -> {
+                answer.recordAnswerEvaluation(
+                    eval.specificity(), eval.logic(), eval.structure(), eval.correctness());
+                messageRepository.save(answer);
+            });
     }
 
     private boolean isProcessed(String messageId) {

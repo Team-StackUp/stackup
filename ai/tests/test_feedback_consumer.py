@@ -596,6 +596,37 @@ async def test_consumer_appends_job_fit_panel_item():
 
 
 @pytest.mark.asyncio
+async def test_consumer_drops_empty_job_fit_axis():
+    # understanding 축이 빈(점수·내용 없음) 경우 그 패널 항목은 표시에서 제외된다.
+    generator = _generator()
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+    evaluator = MagicMock()
+    evaluator.evaluate = AsyncMock(
+        return_value=JobFitResult(
+            fit=EvaluatorResult(score=72.0, detail="결제 경험 부합"),
+            understanding=EvaluatorResult(),  # 빈 축
+        )
+    )
+
+    consumer = FeedbackConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.feedback",
+        core_client=MagicMock(),
+        embedder=None,
+        job_fit_evaluator=evaluator,
+    )
+    await consumer.handle(_StubMessage(_job_tailored_envelope()))
+
+    payload: FeedbackCallbackPayload = publisher.publish.await_args.kwargs["payload"]
+    labels = [b.evaluator for b in payload.panel_breakdown]
+    assert "직무 적합도" in labels
+    assert "직무 이해도" not in labels  # 빈 축은 제외
+
+
+@pytest.mark.asyncio
 async def test_consumer_skips_job_fit_when_not_job_tailored():
     generator = _generator()
     publisher = MagicMock()

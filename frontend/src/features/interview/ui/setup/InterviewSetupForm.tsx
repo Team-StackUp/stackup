@@ -85,7 +85,17 @@ export function InterviewSetupForm({
       </section>
       <section className="flex flex-col gap-2">
         <h2 className="text-h6 text-fg">면접 모드</h2>
-        <ModeSelector value={mode} onChange={setMode} />
+        <ModeSelector
+          value={mode}
+          onChange={(m) => {
+            setMode(m)
+            // 직무 맞춤이 아니면 회사명·JD 입력값을 비운다(전송엔 이미 미포함이지만 상태도 정리).
+            if (m !== 'JOB_TAILORED') {
+              setCompanyName('')
+              setJobDescription('')
+            }
+          }}
+        />
       </section>
       {isJobTailored && (
         <section className="flex flex-col gap-3">
@@ -176,9 +186,16 @@ export function InterviewSetupForm({
         <h2 className="text-h6 text-fg">참고 문서 (선택)</h2>
         <ContextDocumentPicker documents={documents} selected={selected} onToggle={toggle} />
       </section>
-      <Button type="submit" size="lg" loading={isSubmitting} disabled={!valid}>
-        면접 생성
-      </Button>
+      <div className="flex flex-col gap-2">
+        {isJobTailored && jobDescription.trim().length === 0 && (
+          <p className="text-caption text-warning-700">
+            채용공고(JD)를 입력해야 직무 맞춤 면접을 생성할 수 있어요.
+          </p>
+        )}
+        <Button type="submit" size="lg" loading={isSubmitting} disabled={!valid}>
+          면접 생성
+        </Button>
+      </div>
     </form>
   )
 }
