@@ -33,7 +33,11 @@ public record MessageResponse(
     Double answerCorrectness,
     String modelAnswer,
     String answerRewrite,
-    String coachingComment
+    String coachingComment,
+    // 답변 전달력 메트릭(음성 답변·종료 세션에서만).
+    Double speakingRateWpm,
+    Double silenceDurationSec,
+    java.util.Map<String, Integer> fillerWordCounts
 ) {
     public static MessageResponse from(MessageResult r) {
         return new MessageResponse(
@@ -60,7 +64,10 @@ public record MessageResponse(
             r.answerCorrectness(),
             r.modelAnswer(),
             r.answerRewrite(),
-            r.coachingComment()
+            r.coachingComment(),
+            r.speakingRateWpm(),
+            r.silenceDurationSec(),
+            r.fillerWordCounts()
         );
     }
 }

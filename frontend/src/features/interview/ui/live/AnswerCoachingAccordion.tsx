@@ -12,14 +12,31 @@ function score5(v?: number | null): string | null {
   return typeof v === 'number' ? `${v}/5` : null
 }
 
-// 종료된 세션의 답변 아래 붙는 '복기' 아코디언: 평가 점수 → 한 줄 코칭 → 모범 답안 → 내 답변 리라이트.
-// 코칭 데이터가 없으면(라이브 중·자기소개 답변 등) 렌더하지 않는다.
+// 답변 음성 전달력 메트릭 → 표시용 칩 문자열들.
+function deliveryChips(message: Message): string[] {
+  const chips: string[] = []
+  if (typeof message.speakingRateWpm === 'number') {
+    chips.push(`${Math.round(message.speakingRateWpm)} WPM`)
+  }
+  if (typeof message.silenceDurationSec === 'number' && message.silenceDurationSec > 0) {
+    chips.push(`무음 ${Math.round(message.silenceDurationSec)}초`)
+  }
+  const fillers = Object.entries(message.fillerWordCounts ?? {}).filter(([, c]) => c > 0)
+  if (fillers.length > 0) {
+    chips.push('간투어 ' + fillers.map(([w, c]) => `${w} ${c}`).join(' · '))
+  }
+  return chips
+}
+
+// 종료된 세션의 답변 아래 붙는 '복기' 아코디언: 전달력 메트릭 → 평가 점수 → 한 줄 코칭 → 모범 답안 → 리라이트.
+// 코칭·전달력 데이터가 모두 없으면(라이브 중·자기소개 답변 등) 렌더하지 않는다.
 export function AnswerCoachingAccordion({ message }: { message: Message }) {
   const [open, setOpen] = useState(false)
-  const hasCoaching = Boolean(
-    message.modelAnswer || message.answerRewrite || message.coachingComment,
+  const delivery = deliveryChips(message)
+  const hasContent = Boolean(
+    message.modelAnswer || message.answerRewrite || message.coachingComment || delivery.length > 0,
   )
-  if (!hasCoaching) return null
+  if (!hasContent) return null
 
   const spec = score5(message.answerSpecificity)
   const logic = score5(message.answerLogic)
@@ -44,6 +61,21 @@ export function AnswerCoachingAccordion({ message }: { message: Message }) {
       </button>
       {open && (
         <div className="mt-1.5 flex flex-col gap-3 rounded-lg border border-border bg-surface px-4 py-3 text-left">
+          {delivery.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <span className="text-caption text-fg-subtle">전달력</span>
+              <div className="flex flex-wrap gap-1.5">
+                {delivery.map((d) => (
+                  <span
+                    key={d}
+                    className="rounded-pill bg-info-50 px-2 py-0.5 text-caption text-info-700"
+                  >
+                    {d}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
           {evals.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {evals.map((e) => (

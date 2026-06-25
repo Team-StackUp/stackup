@@ -18,8 +18,11 @@ import com.stackup.stackup.session.domain.InterviewMessageRepository;
 import com.stackup.stackup.session.domain.InterviewSession;
 import com.stackup.stackup.session.domain.InterviewSessionRepository;
 import com.stackup.stackup.session.domain.JobCategory;
+import com.stackup.stackup.session.domain.MessageVoiceAnalysis;
+import com.stackup.stackup.session.domain.MessageVoiceAnalysisRepository;
 import com.stackup.stackup.session.domain.SessionMode;
 import com.stackup.stackup.user.domain.User;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,9 +42,36 @@ class InterviewMessageServiceTest {
 
     @Mock InterviewSessionRepository sessionRepository;
     @Mock InterviewMessageRepository messageRepository;
+    @Mock MessageVoiceAnalysisRepository voiceAnalysisRepository;
     @Mock ObjectStorageClient storage;
     @Mock ApplicationEventPublisher events;
     @InjectMocks InterviewMessageService service;
+
+    @Test
+    void list_exposesPerAnswerVoiceMetricsForEndedSession() {
+        User user = User.createGithubUser(1L, "u", null, null, "t");
+        ReflectionTestUtils.setField(user, "id", USER_ID);
+        InterviewSession session = InterviewSession.create(
+            user, "t", null, SessionMode.TECHNICAL, JobCategory.BACKEND, 5, 30, null, null);
+        ReflectionTestUtils.setField(session, "id", SESSION_ID);
+        session.start();
+        session.end();  // COMPLETED → revealInsights=true
+        InterviewMessage answer = InterviewMessage.interviewee(session, 2, "내 답변", null, null);
+        ReflectionTestUtils.setField(answer, "id", 600L);
+        MessageVoiceAnalysis va = MessageVoiceAnalysis.of(answer, 145.0, 6.0, "{\"음\":4,\"어\":2}", -0.3);
+
+        when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(SESSION_ID, USER_ID))
+            .thenReturn(Optional.of(session));
+        when(voiceAnalysisRepository.findByMessage_Session_Id(SESSION_ID)).thenReturn(List.of(va));
+        when(messageRepository.findBySession_IdOrderBySequenceNumberAsc(SESSION_ID))
+            .thenReturn(List.of(answer));
+
+        MessageResult r = service.list(USER_ID, SESSION_ID).get(0);
+
+        assertThat(r.speakingRateWpm()).isEqualTo(145.0);
+        assertThat(r.silenceDurationSec()).isEqualTo(6.0);
+        assertThat(r.fillerWordCounts()).containsEntry("음", 4).containsEntry("어", 2);
+    }
 
     @Test
     void submitAnswer_insertsIntervieweeAndPublishesEvent() {

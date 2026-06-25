@@ -1,5 +1,7 @@
 package com.stackup.stackup.session.application;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.stackup.stackup.common.exception.ApiErrorCode;
 import com.stackup.stackup.common.exception.DomainException;
 import com.stackup.stackup.common.storage.ObjectStorageClient;
@@ -11,11 +13,14 @@ import com.stackup.stackup.session.domain.InterviewSession;
 import com.stackup.stackup.session.domain.InterviewSessionRepository;
 import com.stackup.stackup.session.domain.MessageRole;
 import com.stackup.stackup.session.domain.MessageStatus;
+import com.stackup.stackup.session.domain.MessageVoiceAnalysis;
+import com.stackup.stackup.session.domain.MessageVoiceAnalysisRepository;
 import com.stackup.stackup.session.domain.SessionStatus;
 import com.stackup.stackup.session.domain.TtsStatus;
 import java.net.URI;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,29 +38,55 @@ public class InterviewMessageService {
     private static final Logger log = LoggerFactory.getLogger(InterviewMessageService.class);
     private static final Duration AUDIO_URL_TTL = Duration.ofMinutes(30);
 
+    private static final JsonMapper JSON = JsonMapper.builder().build();
+    private static final TypeReference<Map<String, Integer>> FILLER_TYPE = new TypeReference<>() {};
+
     private final InterviewSessionRepository sessionRepository;
     private final InterviewMessageRepository messageRepository;
+    private final MessageVoiceAnalysisRepository voiceAnalysisRepository;
     private final ObjectStorageClient storage;
     private final ApplicationEventPublisher events;
 
     public List<MessageResult> list(Long userId, Long sessionId) {
         InterviewSession session = ownedSession(userId, sessionId);
-        // 종료된 세션에서만 expected_signal 노출(라이브/대기 중엔 정답 유출 방지).
-        boolean revealExpectedSignal =
+        // 종료된 세션에서만 평가·복기·전달력 노출(라이브/대기 중엔 정답 유출 방지).
+        boolean revealInsights =
             session.getStatus() != SessionStatus.IN_PROGRESS
                 && session.getStatus() != SessionStatus.READY;
+        // 답변별 음성 분석(전달력 메트릭) — 메시지 id 로 매핑. 종료 세션에서만 조회.
+        Map<Long, MessageVoiceAnalysis> voiceByMessageId = revealInsights
+            ? voiceAnalysisRepository.findByMessage_Session_Id(sessionId).stream()
+                .collect(java.util.stream.Collectors.toMap(
+                    v -> v.getMessage().getId(), v -> v, (a, b) -> a))
+            : Map.of();
         return messageRepository.findBySession_IdOrderBySequenceNumberAsc(sessionId).stream()
-            .map(m -> toResultWithAudioUrls(m, revealExpectedSignal))
+            .map(m -> toResultWithAudioUrls(m, revealInsights, voiceByMessageId.get(m.getId())))
             .toList();
     }
 
     // 재생용 presigned URL 동봉: 질문 TTS(SUCCEEDED) + 음성 답변 원본.
     // presign 실패가 메시지 조회 전체를 깨뜨리지 않도록 개별 try/catch.
-    private MessageResult toResultWithAudioUrls(InterviewMessage m, boolean revealInsights) {
+    private MessageResult toResultWithAudioUrls(
+        InterviewMessage m, boolean revealInsights, MessageVoiceAnalysis voice) {
         String ttsUrl = m.getTtsStatus() == TtsStatus.SUCCEEDED
             ? presign(m.getTtsAudioPath()) : null;
         String audioUrl = presign(m.getAudioFilePath());
-        return MessageResult.of(m, ttsUrl, audioUrl, revealInsights);
+        Double wpm = voice == null ? null : voice.getSpeakingRateWpm();
+        Double silence = voice == null ? null : voice.getSilenceDurationSec();
+        Map<String, Integer> fillers = voice == null ? null : parseFillers(voice.getFillerWordCounts());
+        return MessageResult.of(m, ttsUrl, audioUrl, revealInsights, wpm, silence, fillers);
+    }
+
+    private Map<String, Integer> parseFillers(String json) {
+        if (json == null || json.isBlank()) {
+            return null;
+        }
+        try {
+            return JSON.readValue(json, FILLER_TYPE);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            log.warn("filler_word_counts parse failed", e);
+            return null;
+        }
     }
 
     private String presign(String key) {

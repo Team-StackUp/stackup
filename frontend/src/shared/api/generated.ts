@@ -910,6 +910,13 @@ export interface components {
             modelAnswer?: string;
             answerRewrite?: string;
             coachingComment?: string;
+            /** Format: double */
+            speakingRateWpm?: number;
+            /** Format: double */
+            silenceDurationSec?: number;
+            fillerWordCounts?: {
+                [key: string]: number;
+            };
         };
         VoiceStreamBeginResponse: {
             /** Format: int64 */

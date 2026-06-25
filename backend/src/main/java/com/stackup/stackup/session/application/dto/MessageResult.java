@@ -5,6 +5,7 @@ import com.stackup.stackup.session.domain.MessageRole;
 import com.stackup.stackup.session.domain.MessageStatus;
 import com.stackup.stackup.session.domain.TtsStatus;
 import java.time.Instant;
+import java.util.Map;
 
 public record MessageResult(
     Long id,
@@ -34,7 +35,11 @@ public record MessageResult(
     Double answerCorrectness,
     String modelAnswer,
     String answerRewrite,
-    String coachingComment
+    String coachingComment,
+    // 답변 전달력 메트릭(음성 답변에만, 종료 세션 조회에서만). 별도 엔티티(MessageVoiceAnalysis)에서 온다.
+    Double speakingRateWpm,
+    Double silenceDurationSec,
+    Map<String, Integer> fillerWordCounts
 ) {
     public static MessageResult of(InterviewMessage m) {
         return of(m, null, null, false);
@@ -44,9 +49,15 @@ public record MessageResult(
         return of(m, ttsAudioUrl, audioFileUrl, false);
     }
 
-    // revealInsights=true 면 답변 평가·복기·expectedSignal 노출(종료 세션). 라이브/대기 중엔 false.
     public static MessageResult of(
         InterviewMessage m, String ttsAudioUrl, String audioFileUrl, boolean revealInsights) {
+        return of(m, ttsAudioUrl, audioFileUrl, revealInsights, null, null, null);
+    }
+
+    // revealInsights=true 면 답변 평가·복기·전달력 메트릭·expectedSignal 노출(종료 세션). 라이브/대기 중엔 false.
+    public static MessageResult of(
+        InterviewMessage m, String ttsAudioUrl, String audioFileUrl, boolean revealInsights,
+        Double speakingRateWpm, Double silenceDurationSec, Map<String, Integer> fillerWordCounts) {
         return new MessageResult(
             m.getId(),
             m.getSession().getId(),
@@ -71,7 +82,10 @@ public record MessageResult(
             revealInsights ? m.getAnswerCorrectness() : null,
             revealInsights ? m.getModelAnswer() : null,
             revealInsights ? m.getAnswerRewrite() : null,
-            revealInsights ? m.getCoachingComment() : null
+            revealInsights ? m.getCoachingComment() : null,
+            revealInsights ? speakingRateWpm : null,
+            revealInsights ? silenceDurationSec : null,
+            revealInsights ? fillerWordCounts : null
         );
     }
 }
