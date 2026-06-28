@@ -78,6 +78,11 @@ public class RabbitMqConfig {
     }
 
     @Bean
+    public Queue aiAnalyzeCoverLetterQueue() {
+        return workQueue(properties.queues().names().aiAnalyzeCoverLetter());
+    }
+
+    @Bean
     public Queue aiGenerateQuestionsQueue() {
         return workQueue(properties.queues().names().aiGenerateQuestions());
     }
@@ -135,6 +140,7 @@ public class RabbitMqConfig {
         DirectExchange deadLetterExchange,
         Queue aiAnalyzeResumeQueue,
         Queue aiAnalyzeRepositoryQueue,
+        Queue aiAnalyzeCoverLetterQueue,
         Queue aiGenerateQuestionsQueue,
         Queue aiGenerateFollowupQueue,
         Queue aiGenerateFeedbackQueue,
@@ -148,6 +154,7 @@ public class RabbitMqConfig {
     ) {
         Queue dlqAiAnalyzeResume = dlq(properties.queues().names().aiAnalyzeResume());
         Queue dlqAiAnalyzeRepository = dlq(properties.queues().names().aiAnalyzeRepository());
+        Queue dlqAiAnalyzeCoverLetter = dlq(properties.queues().names().aiAnalyzeCoverLetter());
         Queue dlqAiGenerateQuestions = dlq(properties.queues().names().aiGenerateQuestions());
         Queue dlqAiGenerateFollowup = dlq(properties.queues().names().aiGenerateFollowup());
         Queue dlqAiGenerateFeedback = dlq(properties.queues().names().aiGenerateFeedback());
@@ -166,6 +173,7 @@ public class RabbitMqConfig {
             deadLetterExchange,
             aiAnalyzeResumeQueue,
             aiAnalyzeRepositoryQueue,
+            aiAnalyzeCoverLetterQueue,
             aiGenerateQuestionsQueue,
             aiGenerateFollowupQueue,
             aiGenerateFeedbackQueue,
@@ -178,6 +186,7 @@ public class RabbitMqConfig {
             coreCallbackTtsQueue,
             dlqAiAnalyzeResume,
             dlqAiAnalyzeRepository,
+            dlqAiAnalyzeCoverLetter,
             dlqAiGenerateQuestions,
             dlqAiGenerateFollowup,
             dlqAiGenerateFeedback,
@@ -190,6 +199,7 @@ public class RabbitMqConfig {
             dlqCoreCallbackTts,
             BindingBuilder.bind(aiAnalyzeResumeQueue).to(coreToAiExchange).with(properties.routingKeys().analyzeResume()),
             BindingBuilder.bind(aiAnalyzeRepositoryQueue).to(coreToAiExchange).with(properties.routingKeys().analyzeRepository()),
+            BindingBuilder.bind(aiAnalyzeCoverLetterQueue).to(coreToAiExchange).with(properties.routingKeys().analyzeCoverLetter()),
             BindingBuilder.bind(aiGenerateQuestionsQueue).to(coreToAiExchange).with(properties.routingKeys().generateQuestions()),
             BindingBuilder.bind(aiGenerateFollowupQueue).to(coreToAiExchange).with(properties.routingKeys().generateFollowup()),
             BindingBuilder.bind(aiGenerateFeedbackQueue).to(coreToAiExchange).with(properties.routingKeys().generateFeedback()),
@@ -202,6 +212,7 @@ public class RabbitMqConfig {
             BindingBuilder.bind(coreCallbackTtsQueue).to(aiToCoreExchange).with(properties.routingKeys().callbackTts()),
             BindingBuilder.bind(dlqAiAnalyzeResume).to(deadLetterExchange).with(dlqAiAnalyzeResume.getName()),
             BindingBuilder.bind(dlqAiAnalyzeRepository).to(deadLetterExchange).with(dlqAiAnalyzeRepository.getName()),
+            BindingBuilder.bind(dlqAiAnalyzeCoverLetter).to(deadLetterExchange).with(dlqAiAnalyzeCoverLetter.getName()),
             BindingBuilder.bind(dlqAiGenerateQuestions).to(deadLetterExchange).with(dlqAiGenerateQuestions.getName()),
             BindingBuilder.bind(dlqAiGenerateFollowup).to(deadLetterExchange).with(dlqAiGenerateFollowup.getName()),
             BindingBuilder.bind(dlqAiGenerateFeedback).to(deadLetterExchange).with(dlqAiGenerateFeedback.getName()),

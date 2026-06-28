@@ -90,6 +90,7 @@ class RabbitMessagePublisherTest {
                 new RabbitMqProperties.Queues.Names(
                     "ai.analyze.resume",
                     "ai.analyze.repository",
+                    "ai.analyze.cover_letter",
                     "ai.generate.questions",
                     "ai.generate.followup",
                     "ai.generate.feedback",
@@ -105,6 +106,7 @@ class RabbitMessagePublisherTest {
             new RabbitMqProperties.RoutingKeyProperties(
                 "analyze.resume",
                 "analyze.repository",
+                "analyze.cover_letter",
                 "generate.questions",
                 "generate.followup",
                 "generate.feedback",

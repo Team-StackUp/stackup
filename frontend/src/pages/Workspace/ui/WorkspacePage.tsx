@@ -5,14 +5,16 @@ import { useWorkspaceAnalysisStream } from '../model/useWorkspaceAnalysisStream'
 import { HomeView } from './HomeView'
 import { ResumesView } from './ResumesView'
 import { ReposView } from './ReposView'
+import { CoverLettersView } from './CoverLettersView'
 import { HistoryView } from './HistoryView'
 
-type View = 'home' | 'resumes' | 'repos' | 'history'
+type View = 'home' | 'resumes' | 'repos' | 'cover-letters' | 'history'
 
 function resolveView(pathname: string): View {
   if (pathname.startsWith('/workspace/history')) return 'history'
   if (pathname.startsWith('/workspace/resumes')) return 'resumes'
   if (pathname.startsWith('/workspace/repos')) return 'repos'
+  if (pathname.startsWith('/workspace/cover-letters')) return 'cover-letters'
   return 'home'
 }
 
@@ -37,6 +39,10 @@ export default function WorkspacePage() {
       title: '레포지토리',
       description: 'GitHub 레포를 등록하고 분석 결과를 확인하세요.',
     },
+    'cover-letters': {
+      title: '자소서',
+      description: '공채 자소서를 문항별로 입력하고 분석 결과를 확인하세요.',
+    },
     history: {
       title: '면접 히스토리',
       description: '지난 면접 기록과 점수 추이를 확인하세요.',
@@ -58,6 +64,7 @@ export default function WorkspacePage() {
           {view === 'home' && <HomeView />}
           {view === 'resumes' && <ResumesView />}
           {view === 'repos' && <ReposView />}
+          {view === 'cover-letters' && <CoverLettersView />}
           {view === 'history' && <HistoryView />}
         </div>
       </main>

@@ -45,6 +45,14 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: '/workspace/cover-letters',
+        element: (
+          <RequireAuth>
+            <WorkspacePage />
+          </RequireAuth>
+        ),
+      },
+      {
         path: '/sessions/new',
         element: (
           <RequireAuth>

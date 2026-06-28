@@ -8,6 +8,7 @@ from ai_server.analyzer.sources.github_repo import (
     RepositoryFetchError,
 )
 from ai_server.analyzer.sources.pdf import PdfSourceExtractor
+from ai_server.analyzer.sources.text import TextSourceExtractor
 from ai_server.analyzer.sources.web import WebFetchError, WebSourceExtractor
 
 __all__ = [
@@ -15,6 +16,7 @@ __all__ = [
     "SourceExtractor",
     "SourceType",
     "PdfSourceExtractor",
+    "TextSourceExtractor",
     "GitHubRepoSourceExtractor",
     "RepositoryFetchError",
     "WebSourceExtractor",

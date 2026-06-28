@@ -1,8 +1,13 @@
 package com.stackup.stackup.document.application;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.stackup.stackup.common.config.properties.RabbitMqProperties;
 import com.stackup.stackup.common.messaging.MessageContext;
 import com.stackup.stackup.common.messaging.RabbitMessagePublisher;
+import com.stackup.stackup.coverletter.domain.CoverLetter;
+import com.stackup.stackup.coverletter.domain.CoverLetterRepository;
+import com.stackup.stackup.document.application.dto.AnalyzeCoverLetterPayload;
 import com.stackup.stackup.document.application.dto.AnalyzeRepositoryPayload;
 import com.stackup.stackup.document.application.dto.AnalyzeResumePayload;
 import com.stackup.stackup.document.domain.AnalyzedDocument;
@@ -26,8 +31,11 @@ import org.springframework.transaction.event.TransactionalEventListener;
 @RequiredArgsConstructor
 public class AnalysisRequestService {
 
+    private static final JsonMapper JSON = JsonMapper.builder().build();
+
     private final ResumeRepository resumeRepository;
     private final GithubRepositoryRepository githubRepositoryRepository;
+    private final CoverLetterRepository coverLetterRepository;
     private final AnalyzedDocumentRepository analyzedDocumentRepository;
     private final RabbitMessagePublisher publisher;
     private final RabbitMqProperties properties;
@@ -74,6 +82,53 @@ public class AnalysisRequestService {
         return new AnalysisHandle(doc.getId(), null, repo.getId());
     }
 
+    @Transactional
+    public AnalysisHandle requestCoverLetterAnalysis(Long userId, Long coverLetterId) {
+        CoverLetter coverLetter = coverLetterRepository.findById(coverLetterId)
+            .orElseThrow(() -> new IllegalArgumentException("cover letter not found: " + coverLetterId));
+        if (!coverLetter.getUser().getId().equals(userId)) {
+            throw new IllegalArgumentException("cover letter does not belong to user");
+        }
+        AnalyzedDocument doc = analyzedDocumentRepository.save(AnalyzedDocument.forCoverLetter(coverLetter));
+        coverLetter.markAnalyzing();
+
+        String content = buildMarkdown(coverLetter.getTitle(), coverLetter.getItems());
+        events.publishEvent(new CoverLetterAnalysisRequestedEvent(
+            userId,
+            doc.getId(),
+            new AnalyzeCoverLetterPayload(coverLetter.getId(), content, doc.getId())
+        ));
+        return new AnalysisHandle(doc.getId(), null, null);
+    }
+
+    // 문항 JSON([{question, answer}]) → 분석·임베딩용 마크다운. 문항 구조를 보존해 질문 생성의 근거가 되게 한다.
+    private String buildMarkdown(String title, String itemsJson) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("# 자기소개서");
+        if (title != null && !title.isBlank()) {
+            sb.append(" — ").append(title.trim());
+        }
+        sb.append("\n\n");
+        try {
+            JsonNode root = JSON.readTree(itemsJson == null ? "[]" : itemsJson);
+            if (root.isArray()) {
+                for (JsonNode item : root) {
+                    String question = item.path("question").asText("").trim();
+                    String answer = item.path("answer").asText("").trim();
+                    if (answer.isEmpty()) {
+                        continue;
+                    }
+                    sb.append("## ").append(question.isEmpty() ? "문항" : question).append("\n");
+                    sb.append(answer).append("\n\n");
+                }
+            }
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            // 파싱 실패 시 원문이라도 분석에 넘긴다(빈 분석 방지).
+            sb.append(itemsJson == null ? "" : itemsJson);
+        }
+        return sb.toString();
+    }
+
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onResumeAnalysisRequested(ResumeAnalysisRequestedEvent event) {
@@ -94,6 +149,16 @@ public class AnalysisRequestService {
         );
     }
 
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onCoverLetterAnalysisRequested(CoverLetterAnalysisRequestedEvent event) {
+        publisher.publishToAi(
+            properties.routingKeys().analyzeCoverLetter(),
+            event.payload(),
+            new MessageContext(event.userId(), null, event.documentId(), null)
+        );
+    }
+
     public record AnalysisHandle(Long analyzedDocumentId, Long resumeId, Long repositoryId) {
     }
 
@@ -101,5 +166,8 @@ public class AnalysisRequestService {
     }
 
     record RepositoryAnalysisRequestedEvent(Long userId, Long documentId, AnalyzeRepositoryPayload payload) {
+    }
+
+    record CoverLetterAnalysisRequestedEvent(Long userId, Long documentId, AnalyzeCoverLetterPayload payload) {
     }
 }

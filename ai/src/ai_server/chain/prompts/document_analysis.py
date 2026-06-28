@@ -30,6 +30,10 @@ HUMAN_PROMPT = (
     "5. summary: 위 추출 내용만 근거로 한 2~4문장 한국어 요약.\n"
     "6. markdown: 면접관이 훑어볼 한국어 마크다운. 섹션 구조는 "
     "'## 개요', '## 주요 경험', '## 기술', '## 추가 메모' 사용. "
-    "추출된 projects/experiences/skills 를 반영하되 추측은 넣지 마세요.\n\n"
+    "추출된 projects/experiences/skills 를 반영하되 추측은 넣지 마세요.\n"
+    "※ 출처 유형이 COVER_LETTER(자기소개서)이면: 기술 나열보다 **지원동기·가치관·성장 경험·"
+    "직무 적합성·핵심 강점/소재**를 우선 추출하세요. experiences 에 자소서 문항별 핵심 주장과 "
+    "근거 일화를 담고, tech_stack 은 자소서에 실제 언급된 기술만(없으면 빈 배열). markdown 에는 "
+    "면접에서 파고들 만한 주장·수치·경험을 정리해 질문의 근거가 되게 하세요.\n\n"
     "{format_instructions}"
 )

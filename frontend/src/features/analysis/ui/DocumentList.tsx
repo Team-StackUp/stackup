@@ -20,6 +20,7 @@ const SOURCE_LABEL: Record<AnalysisSourceType, string> = {
   RESUME: '이력서',
   REPOSITORY: '레포지토리',
   WEB: '웹',
+  COVER_LETTER: '자소서',
 }
 
 const TECH_PREVIEW_COUNT = 4

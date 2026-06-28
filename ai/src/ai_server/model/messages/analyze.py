@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from ai_server.model._config import camel_config
 
-TargetType = Literal["RESUME", "REPOSITORY", "WEB"]
+TargetType = Literal["RESUME", "REPOSITORY", "WEB", "COVER_LETTER"]
 AnalysisStatus = Literal["ANALYZED", "FAILED"]
 
 
@@ -30,6 +30,15 @@ class WebResumeAnalyzeRequest(BaseModel):
 
     resume_id: int
     url: str
+    analyzed_document_id: int
+
+
+class CoverLetterAnalyzeRequest(BaseModel):
+    model_config = camel_config()
+
+    cover_letter_id: int
+    # 문항을 합친 마크다운 본문(S3 가 아니라 inline). TextSourceExtractor 가 그대로 사용.
+    content: str
     analyzed_document_id: int
 
 

@@ -21,6 +21,7 @@
 |-------|----------|-------------|----------|
 | `ai.analyze.repository` | `stackup.core-to-ai` | `analyze.repository` | AI Server |
 | `ai.analyze.resume` | `stackup.core-to-ai` | `analyze.resume` | AI Server |
+| `ai.analyze.cover_letter` | `stackup.core-to-ai` | `analyze.cover_letter` | AI Server |
 | `ai.analyze.web` | `stackup.core-to-ai` | `analyze.web` | AI Server |
 | `ai.generate.questions` | `stackup.core-to-ai` | `generate.questions` | AI Server |
 | `ai.generate.followup` | `stackup.core-to-ai` | `generate.followup` | AI Server |
@@ -37,6 +38,7 @@
 | DLQ | Bound to | Routing Key | 격리 대상 |
 |-----|----------|-------------|-----------|
 | `dlq.ai.analyze.resume` | `stackup.dlx` | `dlq.ai.analyze.resume` | `ai.analyze.resume` 처리 실패 |
+| `dlq.ai.analyze.cover_letter` | `stackup.dlx` | `dlq.ai.analyze.cover_letter` | `ai.analyze.cover_letter` 처리 실패 |
 | `dlq.ai.analyze.repository` | `stackup.dlx` | `dlq.ai.analyze.repository` | `ai.analyze.repository` 처리 실패 |
 | `dlq.ai.analyze.web` | `stackup.dlx` | `dlq.ai.analyze.web` | `ai.analyze.web` 처리 실패 |
 | `dlq.ai.generate.questions` | `stackup.dlx` | `dlq.ai.generate.questions` | `ai.generate.questions` 처리 실패 |

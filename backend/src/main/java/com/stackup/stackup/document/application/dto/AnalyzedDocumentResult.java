@@ -9,7 +9,7 @@ import java.util.List;
 
 public record AnalyzedDocumentResult(
     Long id,
-    String sourceType,             // "RESUME" | "REPOSITORY"
+    String sourceType,             // "RESUME" | "REPOSITORY" | "COVER_LETTER"
     Long sourceId,
     String documentPath,           // S3 키 (raw 경로)
     URI documentDownloadUrl,       // presigned (detail 응답에서만 채움)
@@ -45,12 +45,14 @@ public record AnalyzedDocumentResult(
     private static String resolveSourceType(AnalyzedDocument doc) {
         if (doc.getResume() != null) return "RESUME";
         if (doc.getRepository() != null) return "REPOSITORY";
+        if (doc.getCoverLetter() != null) return "COVER_LETTER";
         return null;
     }
 
     private static Long resolveSourceId(AnalyzedDocument doc) {
         if (doc.getResume() != null) return doc.getResume().getId();
         if (doc.getRepository() != null) return doc.getRepository().getId();
+        if (doc.getCoverLetter() != null) return doc.getCoverLetter().getId();
         return null;
     }
 }

@@ -108,7 +108,7 @@ class SessionQuestionsRequesterTest {
 
     private RabbitMqProperties.RoutingKeyProperties mockRoutingKeys() {
         return new RabbitMqProperties.RoutingKeyProperties(
-            "analyze.resume", "analyze.repository",
+            "analyze.resume", "analyze.repository", "analyze.cover_letter",
             "generate.questions", "generate.followup", "generate.feedback", "analyze.voice",
             "generate.tts",
             "callback.analysis", "callback.questions", "callback.feedback", "callback.voice",

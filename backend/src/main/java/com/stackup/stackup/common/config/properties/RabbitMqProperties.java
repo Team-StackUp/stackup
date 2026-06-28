@@ -65,6 +65,7 @@ public record RabbitMqProperties(
 		public record Names(
 			@NotBlank String aiAnalyzeResume,
 			@NotBlank String aiAnalyzeRepository,
+			@NotBlank String aiAnalyzeCoverLetter,
 			@NotBlank String aiGenerateQuestions,
 			@NotBlank String aiGenerateFollowup,
 			@NotBlank String aiGenerateFeedback,
@@ -82,6 +83,7 @@ public record RabbitMqProperties(
 	public record RoutingKeyProperties(
 		@NotBlank String analyzeResume,
 		@NotBlank String analyzeRepository,
+		@NotBlank String analyzeCoverLetter,
 		@NotBlank String generateQuestions,
 		@NotBlank String generateFollowup,
 		@NotBlank String generateFeedback,

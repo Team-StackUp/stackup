@@ -1,6 +1,6 @@
 export type AnalysisStatus = 'PROCESSING' | 'ANALYZED' | 'FAILED'
 
-export type AnalysisSourceType = 'RESUME' | 'REPOSITORY' | 'WEB'
+export type AnalysisSourceType = 'RESUME' | 'REPOSITORY' | 'WEB' | 'COVER_LETTER'
 
 export type AnalyzedDocument = {
   id: number

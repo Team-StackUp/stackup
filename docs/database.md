@@ -26,7 +26,8 @@ interview_sessions → session_feedbacks
 | 3 | `user_consents` | 개인정보처리동의 이력 |
 | 4 | `repositories` | 면접 분석용 GitHub 레포 메타 |
 | 5 | `resumes` | 이력서 메타 (실 파일은 S3) |
-| 6 | `analyzed_documents` | AI 분석 결과 메타 + S3 경로 |
+| 5-1 | `cover_letters` | 자소서(공채) 문항별 텍스트 (`items` JSONB: `[{question,answer}]`). V20 |
+| 6 | `analyzed_documents` | AI 분석 결과 메타 + S3 경로. 다형성 FK `resume_id`/`repository_id`/`cover_letter_id`(V20) 중 정확히 하나 |
 | 7 | `interview_sessions` | 면접 세션 설정·상태·히스토리 |
 | 7-1 | `session_job_categories` | 세션 직군 다중 선택 (대표 직군은 interview_sessions) |
 | 8 | `session_contexts` | 세션 ↔ 분석 문서 N:M |

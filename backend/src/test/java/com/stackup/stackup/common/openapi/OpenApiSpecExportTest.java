@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stackup.stackup.auth.domain.OAuthStateRepository;
 import com.stackup.stackup.auth.domain.RefreshTokenRepository;
 import com.stackup.stackup.common.messaging.domain.ProcessedMessageRepository;
+import com.stackup.stackup.coverletter.domain.CoverLetterRepository;
 import com.stackup.stackup.document.domain.AnalyzedDocumentRepository;
 import com.stackup.stackup.document.domain.DocumentEmbeddingRepository;
 import com.stackup.stackup.github.domain.GithubRepositoryRepository;
@@ -54,6 +55,7 @@ class OpenApiSpecExportTest {
   @MockitoBean private RefreshTokenRepository refreshTokenRepository;
   @MockitoBean private UserRepository userRepository;
   @MockitoBean private ResumeRepository resumeRepository;
+  @MockitoBean private CoverLetterRepository coverLetterRepository;
   @MockitoBean private GithubRepositoryRepository githubRepositoryRepository;
   @MockitoBean private AnalyzedDocumentRepository analyzedDocumentRepository;
   @MockitoBean private ProcessedMessageRepository processedMessageRepository;

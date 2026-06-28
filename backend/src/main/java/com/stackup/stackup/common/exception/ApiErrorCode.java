@@ -18,6 +18,9 @@ public enum ApiErrorCode {
     RESUME_NOT_FOUND(HttpStatus.NOT_FOUND, "이력서를 찾을 수 없습니다."),
     RESUME_IN_USE(HttpStatus.CONFLICT, "사용 중인 이력서입니다."),
 
+    COVER_LETTER_EMPTY(HttpStatus.BAD_REQUEST, "답변이 입력된 문항이 최소 1개 필요합니다."),
+    COVER_LETTER_NOT_FOUND(HttpStatus.NOT_FOUND, "자소서를 찾을 수 없습니다."),
+
     REPO_NOT_FOUND(HttpStatus.NOT_FOUND, "레포지토리를 찾을 수 없습니다."),
     REPO_ALREADY_REGISTERED(HttpStatus.CONFLICT, "이미 등록된 레포지토리입니다."),
     REPO_GITHUB_API_FAILED(HttpStatus.BAD_GATEWAY, "GitHub API 요청에 실패했습니다."),

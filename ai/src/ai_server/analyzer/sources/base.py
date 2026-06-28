@@ -5,7 +5,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-SourceType = Literal["PDF", "REPOSITORY", "WEB"]
+SourceType = Literal["PDF", "REPOSITORY", "WEB", "COVER_LETTER"]
 
 
 # 모든 Source Extractor가 공통으로 반환하는 결과 모델
