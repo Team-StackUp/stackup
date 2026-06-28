@@ -8,6 +8,7 @@ from ai_server.voice.stt.base import (
     TranscriptionResult,
     TranscriptionSegment,
 )
+from ai_server.voice.stt.sanitize import sanitize_transcription
 
 log = structlog.get_logger(__name__)
 
@@ -119,13 +120,15 @@ class OpenAiWhisperSttProvider:
                     ),
                 )
             )
-        return TranscriptionResult(
-            text=str(data_resp.get("text", "")),
-            language=data_resp.get("language"),
-            duration_sec=(
-                float(data_resp["duration"]) if "duration" in data_resp else None
-            ),
-            segments=segments,
+        return sanitize_transcription(
+            TranscriptionResult(
+                text=str(data_resp.get("text", "")),
+                language=data_resp.get("language"),
+                duration_sec=(
+                    float(data_resp["duration"]) if "duration" in data_resp else None
+                ),
+                segments=segments,
+            )
         )
 
 

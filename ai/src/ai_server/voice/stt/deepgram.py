@@ -8,6 +8,7 @@ from ai_server.voice.stt.base import (
     TranscriptionResult,
     TranscriptionSegment,
 )
+from ai_server.voice.stt.sanitize import sanitize_transcription
 
 log = structlog.get_logger(__name__)
 
@@ -149,11 +150,13 @@ class DeepgramSttProvider:
                 )
             )
 
-        return TranscriptionResult(
-            text=text,
-            language=self._language,
-            duration_sec=(float(duration) if duration is not None else None),
-            segments=segments,
+        return sanitize_transcription(
+            TranscriptionResult(
+                text=text,
+                language=self._language,
+                duration_sec=(float(duration) if duration is not None else None),
+                segments=segments,
+            )
         )
 
 
