@@ -61,10 +61,9 @@ public class SessionFeedbackRequester {
             return;
         }
 
-        List<MessageItem> messages = messageRepository
-            .findBySession_IdOrderBySequenceNumberAsc(event.sessionId()).stream()
-            .map(this::toItem)
-            .toList();
+        List<InterviewMessage> msgEntities =
+            messageRepository.findBySession_IdOrderBySequenceNumberAsc(event.sessionId());
+        List<MessageItem> messages = msgEntities.stream().map(this::toItem).toList();
         List<Long> contextDocumentIds = contextRepository.findBySession_Id(event.sessionId()).stream()
             .map(c -> c.getDocument().getId())
             .toList();
@@ -76,6 +75,8 @@ public class SessionFeedbackRequester {
             domainQuestionCounts.merge(jc, 1, Integer::sum);
         }
 
+        List<MessageVoiceAnalysis> voiceAnalyses =
+            voiceAnalysisRepository.findByMessage_Session_Id(event.sessionId());
         GenerateFeedbackPayload payload = new GenerateFeedbackPayload(
             session.getId(),
             session.getMode().name(),
@@ -84,10 +85,11 @@ public class SessionFeedbackRequester {
             event.reason(),
             messages,
             contextDocumentIds,
-            summarizeVoiceAnalysis(event.sessionId()),
+            summarize(voiceAnalyses),
             domainQuestionCounts,
             session.getTargetCompanyName(),
-            session.getTargetJobDescription()
+            session.getTargetJobDescription(),
+            selfIntroVoiceAnalysis(msgEntities, voiceAnalyses)
         );
 
         publisher.publishToAi(
@@ -124,8 +126,31 @@ public class SessionFeedbackRequester {
         );
     }
 
-    private VoiceAnalysisSummary summarizeVoiceAnalysis(Long sessionId) {
-        List<MessageVoiceAnalysis> analyses = voiceAnalysisRepository.findByMessage_Session_Id(sessionId);
+    // 자기소개 답변(첫 질문에 대한 INTERVIEWEE 답변)의 음성 메트릭만 따로 요약. 첫인상 평가에서
+    // 세션 평균 대신 자기소개 단독 전달력을 보게 한다. 자기소개 답변·음성 분석이 없으면 null.
+    private VoiceAnalysisSummary selfIntroVoiceAnalysis(
+        List<InterviewMessage> msgEntities, List<MessageVoiceAnalysis> analyses) {
+        InterviewMessage selfIntroQuestion = msgEntities.stream()
+            .filter(InterviewMessage::isSelfIntroduction)
+            .findFirst().orElse(null);
+        if (selfIntroQuestion == null) {
+            return null;
+        }
+        Long answerId = msgEntities.stream()
+            .filter(m -> m.getParentMessage() != null
+                && selfIntroQuestion.getId().equals(m.getParentMessage().getId()))
+            .map(InterviewMessage::getId)
+            .findFirst().orElse(null);
+        if (answerId == null) {
+            return null;
+        }
+        List<MessageVoiceAnalysis> own = analyses.stream()
+            .filter(a -> answerId.equals(a.getMessage().getId()))
+            .toList();
+        return own.isEmpty() ? null : summarize(own);
+    }
+
+    private VoiceAnalysisSummary summarize(List<MessageVoiceAnalysis> analyses) {
         if (analyses.isEmpty()) {
             return new VoiceAnalysisSummary(0, null, 0.0, Map.of());
         }

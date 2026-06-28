@@ -183,13 +183,19 @@ class FeedbackConsumer:
         if pair is None:
             return None  # 레거시 세션(자기소개 없음) 또는 빈 답변 — 건너뜀
         question, answer = pair
+        # 자기소개 답변 단독 음성 지표가 있으면 그걸, 없으면 세션 평균을 폴백으로 사용.
+        intro_voice_summary = (
+            _build_voice_analysis_summary(req.self_intro_voice_analysis)
+            if req.self_intro_voice_analysis is not None
+            else voice_analysis_summary
+        )
         try:
             ev = await self._self_intro_evaluator.evaluate(
                 job_category=req.job_category,
                 mode=req.mode,
                 self_intro_question=question.content,
                 self_intro_answer=answer.content,
-                voice_analysis_summary=voice_analysis_summary,
+                voice_analysis_summary=intro_voice_summary,
             )
         except Exception as exc:  # noqa: BLE001
             log.warning(

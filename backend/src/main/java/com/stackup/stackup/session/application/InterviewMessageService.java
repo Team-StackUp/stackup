@@ -74,7 +74,9 @@ public class InterviewMessageService {
         Double wpm = voice == null ? null : voice.getSpeakingRateWpm();
         Double silence = voice == null ? null : voice.getSilenceDurationSec();
         Map<String, Integer> fillers = voice == null ? null : parseFillers(voice.getFillerWordCounts());
-        return MessageResult.of(m, ttsUrl, audioUrl, revealInsights, wpm, silence, fillers);
+        Double pronunciation = voice == null ? null : voice.getPronunciationAccuracy();
+        return MessageResult.of(
+            m, ttsUrl, audioUrl, revealInsights, wpm, silence, fillers, pronunciation);
     }
 
     private Map<String, Integer> parseFillers(String json) {

@@ -376,6 +376,11 @@ docker compose up -d
   `FeedbackCallbackService` 가 각 메시지에 `recordCoaching` 기록. `MessageResult`/`MessageResponse` 가 답변
   평가 점수 + 복기 + **답변 전달력 메트릭(WPM·무음·간투어, `MessageVoiceAnalysis` 에서 파싱)** 을 노출하되
   **종료 세션 조회에서만**(`expectedSignal` 과 동일 게이팅). 프론트는 답변 버블 아래 '복기' 아코디언으로 표시.
+- **전달력 피드백 강화 본 구현**: `MessageResult`/`MessageResponse` 가 `pronunciationAccuracy`(STT 신뢰도 근사)
+  와 **결정론적 전달력 평가**(`DeliveryFeedback.assess` — 어절/분·무음 비율·100어절당 간투어·발음 임계치 →
+  `deliveryRating` GOOD/FAIR/POOR + `deliveryComment` 한 줄 코칭, LLM 비호출)를 추가 노출(종료 세션만, 음성 답변만).
+  자기소개 첫인상은 세션 평균이 아니라 **자기소개 답변 단독 음성 지표**로 평가 — `SessionFeedbackRequester` 가
+  `generate.feedback.selfIntroVoiceAnalysis`(자기소개 답변의 WPM/무음/간투어)를 동봉하고 AI 첫인상 평가가 이를 사용.
 - **직무 맞춤 면접 모드(JOB_TAILORED) 본 구현**: `SessionMode.JOB_TAILORED` 추가(V18 — mode CHECK 갱신 +
   `target_company_name`/`target_job_description` 컬럼). 이 모드는 회사명+채용공고(JD)를 받아(JD 필수,
   `SessionService` 검증 `SESSION_JD_REQUIRED`) `InterviewSession.assignTargetRole` 로 보관. JD 는

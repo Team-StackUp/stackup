@@ -37,7 +37,11 @@ public record MessageResponse(
     // 답변 전달력 메트릭(음성 답변·종료 세션에서만).
     Double speakingRateWpm,
     Double silenceDurationSec,
-    java.util.Map<String, Integer> fillerWordCounts
+    java.util.Map<String, Integer> fillerWordCounts,
+    Double pronunciationAccuracy,
+    // 전달력 메트릭에서 산정한 배지(GOOD/FAIR/POOR)와 한 줄 코칭.
+    String deliveryRating,
+    String deliveryComment
 ) {
     public static MessageResponse from(MessageResult r) {
         return new MessageResponse(
@@ -67,7 +71,10 @@ public record MessageResponse(
             r.coachingComment(),
             r.speakingRateWpm(),
             r.silenceDurationSec(),
-            r.fillerWordCounts()
+            r.fillerWordCounts(),
+            r.pronunciationAccuracy(),
+            r.deliveryRating(),
+            r.deliveryComment()
         );
     }
 }

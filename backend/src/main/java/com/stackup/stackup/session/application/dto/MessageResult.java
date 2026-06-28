@@ -39,7 +39,11 @@ public record MessageResult(
     // 답변 전달력 메트릭(음성 답변에만, 종료 세션 조회에서만). 별도 엔티티(MessageVoiceAnalysis)에서 온다.
     Double speakingRateWpm,
     Double silenceDurationSec,
-    Map<String, Integer> fillerWordCounts
+    Map<String, Integer> fillerWordCounts,
+    Double pronunciationAccuracy,
+    // 위 메트릭에서 결정론적으로 산정한 전달력 평가(배지 GOOD/FAIR/POOR + 한 줄 코칭). 음성 답변에만.
+    String deliveryRating,
+    String deliveryComment
 ) {
     public static MessageResult of(InterviewMessage m) {
         return of(m, null, null, false);
@@ -51,13 +55,19 @@ public record MessageResult(
 
     public static MessageResult of(
         InterviewMessage m, String ttsAudioUrl, String audioFileUrl, boolean revealInsights) {
-        return of(m, ttsAudioUrl, audioFileUrl, revealInsights, null, null, null);
+        return of(m, ttsAudioUrl, audioFileUrl, revealInsights, null, null, null, null);
     }
 
     // revealInsights=true 면 답변 평가·복기·전달력 메트릭·expectedSignal 노출(종료 세션). 라이브/대기 중엔 false.
     public static MessageResult of(
         InterviewMessage m, String ttsAudioUrl, String audioFileUrl, boolean revealInsights,
-        Double speakingRateWpm, Double silenceDurationSec, Map<String, Integer> fillerWordCounts) {
+        Double speakingRateWpm, Double silenceDurationSec, Map<String, Integer> fillerWordCounts,
+        Double pronunciationAccuracy) {
+        DeliveryFeedback delivery = revealInsights
+            ? DeliveryFeedback.assess(
+                m.getContent(), speakingRateWpm, silenceDurationSec,
+                fillerWordCounts, pronunciationAccuracy)
+            : null;
         return new MessageResult(
             m.getId(),
             m.getSession().getId(),
@@ -85,7 +95,10 @@ public record MessageResult(
             revealInsights ? m.getCoachingComment() : null,
             revealInsights ? speakingRateWpm : null,
             revealInsights ? silenceDurationSec : null,
-            revealInsights ? fillerWordCounts : null
+            revealInsights ? fillerWordCounts : null,
+            revealInsights ? pronunciationAccuracy : null,
+            delivery == null ? null : delivery.rating(),
+            delivery == null ? null : delivery.comment()
         );
     }
 }

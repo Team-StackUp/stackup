@@ -23,6 +23,7 @@ HUMAN_PROMPT = (
     "지원 직군: {job_category} / 면접 모드: {mode}\n\n"
     "=== 면접관 질문(자기소개) ===\n{self_intro_question}\n\n"
     "=== 지원자 자기소개 답변 ===\n{self_intro_answer}\n\n"
-    "=== (참고) 세션 전체 음성 지표 — 자기소개 단독이 아님 ===\n{voice_analysis_summary}\n\n"
+    "=== 자기소개 답변의 음성 지표(없으면 세션 평균) ===\n{voice_analysis_summary}\n\n"
+    "전달력 평가 시 위 음성 지표(발화 속도·무음·간투어)를 적극 반영하세요.\n\n"
     "{format_instructions}"
 )

@@ -12,6 +12,13 @@ function score5(v?: number | null): string | null {
   return typeof v === 'number' ? `${v}/5` : null
 }
 
+// 전달력 배지(결정론적 평가) → 라벨 + 색상 토큰.
+const DELIVERY_RATING: Record<string, { label: string; cls: string }> = {
+  GOOD: { label: '전달력 우수', cls: 'bg-success-50 text-success-700' },
+  FAIR: { label: '전달력 보통', cls: 'bg-warning-50 text-warning-700' },
+  POOR: { label: '전달력 미흡', cls: 'bg-danger-50 text-danger-700' },
+}
+
 // 답변 음성 전달력 메트릭 → 표시용 칩 문자열들.
 function deliveryChips(message: Message): string[] {
   const chips: string[] = []
@@ -25,6 +32,9 @@ function deliveryChips(message: Message): string[] {
   if (fillers.length > 0) {
     chips.push('간투어 ' + fillers.map(([w, c]) => `${w} ${c}`).join(' · '))
   }
+  if (typeof message.pronunciationAccuracy === 'number') {
+    chips.push(`발음 정확도 ${Math.round(message.pronunciationAccuracy * 100)}%`)
+  }
   return chips
 }
 
@@ -33,8 +43,13 @@ function deliveryChips(message: Message): string[] {
 export function AnswerCoachingAccordion({ message }: { message: Message }) {
   const [open, setOpen] = useState(false)
   const delivery = deliveryChips(message)
+  const rating = message.deliveryRating ? DELIVERY_RATING[message.deliveryRating] : undefined
   const hasContent = Boolean(
-    message.modelAnswer || message.answerRewrite || message.coachingComment || delivery.length > 0,
+    message.modelAnswer ||
+      message.answerRewrite ||
+      message.coachingComment ||
+      message.deliveryComment ||
+      delivery.length > 0,
   )
   if (!hasContent) return null
 
@@ -61,19 +76,33 @@ export function AnswerCoachingAccordion({ message }: { message: Message }) {
       </button>
       {open && (
         <div className="mt-1.5 flex flex-col gap-3 rounded-lg border border-border bg-surface px-4 py-3 text-left">
-          {delivery.length > 0 && (
+          {(delivery.length > 0 || rating || message.deliveryComment) && (
             <div className="flex flex-col gap-1">
-              <span className="text-caption text-fg-subtle">전달력</span>
-              <div className="flex flex-wrap gap-1.5">
-                {delivery.map((d) => (
+              <div className="flex items-center gap-2">
+                <span className="text-caption text-fg-subtle">전달력</span>
+                {rating && (
                   <span
-                    key={d}
-                    className="rounded-pill bg-info-50 px-2 py-0.5 text-caption text-info-700"
+                    className={`rounded-pill px-2 py-0.5 text-caption font-medium ${rating.cls}`}
                   >
-                    {d}
+                    {rating.label}
                   </span>
-                ))}
+                )}
               </div>
+              {delivery.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {delivery.map((d) => (
+                    <span
+                      key={d}
+                      className="rounded-pill bg-info-50 px-2 py-0.5 text-caption text-info-700"
+                    >
+                      {d}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {message.deliveryComment && (
+                <p className="text-caption text-fg-muted">{message.deliveryComment}</p>
+              )}
             </div>
           )}
           {evals.length > 0 && (

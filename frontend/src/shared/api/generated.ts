@@ -917,6 +917,10 @@ export interface components {
             fillerWordCounts?: {
                 [key: string]: number;
             };
+            /** Format: double */
+            pronunciationAccuracy?: number;
+            deliveryRating?: string;
+            deliveryComment?: string;
         };
         VoiceStreamBeginResponse: {
             /** Format: int64 */
