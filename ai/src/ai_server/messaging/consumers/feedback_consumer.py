@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 
 import structlog
 from aio_pika.abc import AbstractIncomingMessage
@@ -343,8 +344,25 @@ def _collect_coachable_pairs(
             continue
         if (question.category or "") == _SELF_INTRO_CATEGORY:
             continue  # 자기소개는 첫인상 평가가 커버
+        if _is_short_confirmation(m.content):
+            continue  # 확인형 질문에 대한 단답('네 맞습니다' 등) — 모범답안 코칭 무의미
         pairs.append((question, m))
     return pairs
+
+
+# 확인형 질문에 대한 단답(예/아니오 + 짧은 정정)으로 시작하는지. 짧고(어절 수·길이) 확인/부정
+# 표현으로 시작할 때만 True — 부연이 충분히 길면 일반 답변으로 보고 코칭 대상에 남긴다.
+_CONFIRMATION_PREFIX_RE = re.compile(
+    r"^(네|예|응|맞(습니다|아요|네요)|그렇(습니다|죠|네요)|"
+    r"아(뇨|니요|닙니다|니에요)|아니(요|에요)?|모르(겠습니다|겠어요))"
+)
+
+
+def _is_short_confirmation(text: str | None) -> bool:
+    s = (text or "").strip()
+    if not s or len(s) > 25 or len(s.split()) > 6:
+        return False
+    return bool(_CONFIRMATION_PREFIX_RE.match(s))
 
 
 def _coaching_target_role(req: GenerateFeedbackRequest) -> str:
