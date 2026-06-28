@@ -25,6 +25,12 @@ from ai_server.voice.stt.sanitize import (
         ),
         ("좋은 경험이었습니다. 다음 영상에서 만나요", "좋은 경험이었습니다."),
         ("That is my answer. Thanks for watching!", "That is my answer."),
+        # CTA 동사가 있는 진짜 구독 유도 환각은 제거.
+        ("이상입니다. 구독과 좋아요 눌러주세요.", "이상입니다."),
+        ("정리하겠습니다. 구독 부탁드립니다.", "정리하겠습니다."),
+        # 누락 보강(봐주셔서/오늘 영상은 여기까지/도움이 되셨다면)
+        ("답변 마칩니다. 끝까지 봐주셔서 감사합니다.", "답변 마칩니다."),
+        ("이상입니다. 오늘 영상은 여기까지입니다.", "이상입니다."),
     ],
 )
 def test_strips_known_hallucinations(raw: str, expected: str) -> None:
@@ -39,6 +45,11 @@ def test_strips_known_hallucinations(raw: str, expected: str) -> None:
         "구독자 수를 늘리는 추천 알고리즘을 구현했습니다.",  # '구독' 일반 명사
         "다음 영상 처리 파이프라인을 설계했습니다.",  # '다음 영상' 일반 명사구
         "Explain 으로 실행 계획을 분석했습니다.",
+        # 회의적 리뷰가 잡은 오탐 회귀 케이스 — CTA 동사 없는 기능 설명은 보존.
+        "유튜브 클론에서 구독과 좋아요 기능을 리액트로 구현했습니다.",
+        "좋아요와 구독 수를 집계하는 배치를 만들었습니다.",
+        "푸시 알림 설정 화면을 구현했습니다.",
+        "구독 모델 기반 결제 시스템을 설계했습니다.",
     ],
 )
 def test_keeps_legitimate_answers(text: str) -> None:
