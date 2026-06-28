@@ -98,7 +98,8 @@ public class CoverLetterService {
         try {
             return JSON.readValue(json, ITEM_LIST);
         } catch (JsonProcessingException e) {
-            log.warn("cover letter items parse failed, return empty. raw={}", json, e);
+            // 자소서 답변 본문(PII)은 로그에 남기지 않는다 — 길이만 기록.
+            log.warn("cover letter items parse failed, return empty. length={}", json.length(), e);
             return List.of();
         }
     }
