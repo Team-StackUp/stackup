@@ -362,8 +362,15 @@ docker compose up -d
 - **세션 시간초과 자동 종료 본 구현**: `@EnableScheduling`(`common/config/SchedulingConfig`) + `SessionTimeoutSweeper`
   (`@Scheduled` 기본 5분 주기)가 `maxDurationMinutes` 초과한 IN_PROGRESS 세션을 찾아 `SessionTimeoutService.endTimedOut`
   호출 — 답변 있으면 COMPLETED(→`SessionEndedEvent(DURATION_EXCEEDED)`→피드백), 없으면 INTERRUPTED(피드백 없음).
-  좀비 세션(자기소개 미답변·STT 실패·탭 종료) 방지. 멀티 인스턴스 중복 실행도 IN_PROGRESS 재확인+피드백 멱등으로 안전.
+  좀비 세션(자기소개 미답변·STT 실패·탭 종료) 방지.
   주기: `interview.session.sweep-interval-ms`(기본 300000)·`sweep-initial-delay-ms`(기본 60000).
+  - **동시 종료 안전(원자적 전이)**: 모든 종료 경로(스위퍼·수동 `SessionService.end`·콜백 `endSession`)는
+    `InterviewSessionRepository.finishIfInProgress`(조건부 UPDATE `WHERE status=IN_PROGRESS`)로 전이를
+    차지하고, **영향 행 1인 트랜잭션만** `SessionEndedEvent` 를 발행한다 → DB 행 락으로 직렬화돼 동시
+    종료 시에도 `generate.feedback` 가 중복 발행되지 않는다.
+  - **종료 후 콜백 드롭**: `QuestionsCallbackService.apply` 와 `SessionFollowupRequester.onAnswerSubmitted` 는
+    세션이 `isTerminal()` 이면 처리를 건너뛴다 → 자동종료 뒤 늦게 도착한 POOL/FOLLOWUP 콜백이나
+    막판 답변 발화가 종료 세션에 질문·placeholder 를 추가하는 사후 변조를 차단.
 - **질문별 복기 본 구현**: V19 로 `interview_messages` 에 `model_answer`/`answer_rewrite`/`coaching_comment`
   추가. AI 가 `callback.feedback.answerCoaching[{messageId,…}]` 로 답변별 모범 답안·리라이트·코칭을 보내면
   `FeedbackCallbackService` 가 각 메시지에 `recordCoaching` 기록. `MessageResult`/`MessageResponse` 가 답변

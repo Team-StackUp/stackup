@@ -14,6 +14,7 @@ import com.stackup.stackup.session.domain.InterviewMessageRepository;
 import com.stackup.stackup.session.domain.InterviewSession;
 import com.stackup.stackup.session.domain.MessageRole;
 import com.stackup.stackup.session.domain.SessionContextRepository;
+import com.stackup.stackup.session.domain.SessionStatus;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -52,6 +53,15 @@ public class SessionFollowupRequester {
             return;
         }
         InterviewSession session = parent.getSession();
+
+        // 종료된 세션이면 꼬리질문/풀 생성을 요청하지 않는다. maxDuration 직전 제출한 답변의
+        // AFTER_COMMIT 발화가 스위퍼 자동종료와 겹칠 때, 종료 세션에 placeholder·질문이
+        // 추가되거나 불필요한 AI 호출이 발생하는 것을 방지(콜백단 terminal 가드와 같은 선상).
+        if (session.getStatus().isTerminal()) {
+            log.info("generate.followup skipped — session already terminal. sessionId={}, status={}",
+                session.getId(), session.getStatus());
+            return;
+        }
 
         // RAG(자료 근거/correctness) 용 세션 컨텍스트 문서 — 피드백 발행부와 동일 패턴.
         List<Long> contextDocumentIds = contextRepository.findBySession_Id(session.getId()).stream()

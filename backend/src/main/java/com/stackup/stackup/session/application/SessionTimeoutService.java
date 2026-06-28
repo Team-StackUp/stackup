@@ -8,6 +8,7 @@ import com.stackup.stackup.session.domain.InterviewSession;
 import com.stackup.stackup.session.domain.InterviewSessionRepository;
 import com.stackup.stackup.session.domain.MessageRole;
 import com.stackup.stackup.session.domain.SessionStatus;
+import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,28 +39,30 @@ public class SessionTimeoutService {
         boolean hasAnswer =
             messageRepository.existsBySession_IdAndRole(sessionId, MessageRole.INTERVIEWEE);
         Long userId = session.getUser().getId();
-        try {
-            if (hasAnswer) {
-                session.end();  // COMPLETED → SessionEndedEvent 로 피드백 생성
-                publishState(session, userId);
-                events.publishEvent(new SessionEndedEvent(userId, sessionId, REASON));
-                log.info("session auto-completed (timeout). sessionId={}", sessionId);
-            } else {
-                session.interrupt();  // 답변 없음 → 피드백 없이 정리
-                publishState(session, userId);
-                log.info("session auto-interrupted (timeout, no answers). sessionId={}", sessionId);
-            }
-        } catch (IllegalStateException e) {
-            log.warn("auto-end skipped — session not IN_PROGRESS. sessionId={}, status={}",
-                sessionId, session.getStatus());
+        SessionStatus target = hasAnswer ? SessionStatus.COMPLETED : SessionStatus.INTERRUPTED;
+
+        // 원자적 종료 전이: IN_PROGRESS 일 때만 1행이 갱신된다. 0이면 다른 트랜잭션
+        // (다른 스위퍼 인스턴스·수동 종료·콜백 종료)이 먼저 종료한 것 → 부수효과 미발행.
+        int claimed = sessionRepository.finishIfInProgress(sessionId, target, Instant.now());
+        if (claimed == 0) {
+            log.info("session auto-end skipped — already ended by another tx. sessionId={}", sessionId);
+            return;
+        }
+
+        publishState(sessionId, userId, target);
+        if (target == SessionStatus.COMPLETED) {
+            // COMPLETED → SessionEndedEvent 로 피드백 생성. 전이를 차지한 트랜잭션에서 단 한 번만.
+            events.publishEvent(new SessionEndedEvent(userId, sessionId, REASON));
+            log.info("session auto-completed (timeout). sessionId={}", sessionId);
+        } else {
+            log.info("session auto-interrupted (timeout, no answers). sessionId={}", sessionId);
         }
     }
 
-    private void publishState(InterviewSession session, Long userId) {
-        SessionStateNotice notice =
-            new SessionStateNotice(session.getId(), session.getStatus().name(), REASON);
+    private void publishState(Long sessionId, Long userId, SessionStatus status) {
+        SessionStateNotice notice = new SessionStateNotice(sessionId, status.name(), REASON);
         events.publishEvent(RealtimeNotifyEvent.session(
-            session.getId(), SseEventType.SESSION_STATE, notice));
+            sessionId, SseEventType.SESSION_STATE, notice));
         events.publishEvent(RealtimeNotifyEvent.user(
             userId, SseEventType.SESSION_STATE, notice));
     }

@@ -187,6 +187,7 @@ class SessionServiceTest {
         session.start();
         when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(50L, 1L))
             .thenReturn(Optional.of(session));
+        when(sessionRepository.finishIfInProgress(any(), any(), any())).thenReturn(1);
 
         SessionResult result = service.end(1L, 50L);
 

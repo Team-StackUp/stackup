@@ -306,6 +306,8 @@ class QuestionsCallbackServiceTest {
         // advanceToNextGeneral 내부에서 sessionRepository.findById 재호출
         when(poolRepository.findFirstBySessionIdAndUsedFalseOrderByIdxAsc(22L))
             .thenReturn(java.util.Optional.empty());
+        // endSession 의 원자적 종료 전이 — 전이를 차지(1).
+        when(sessionRepository.finishIfInProgress(any(), any(), any())).thenReturn(1);
 
         service.apply(env);
 
@@ -322,6 +324,8 @@ class QuestionsCallbackServiceTest {
         // maxQuestions=5; 메인질문 5개를 이미 던진 상태 → 다음 advance 에서 풀을 보지 않고 종료.
         ReflectionTestUtils.setField(session, "totalQuestionCount", 5);
         when(sessionRepository.findById(33L)).thenReturn(Optional.of(session));
+        // endSession 의 원자적 종료 전이 — 전이를 차지(1).
+        when(sessionRepository.finishIfInProgress(any(), any(), any())).thenReturn(1);
 
         service.advanceToNextGeneral(33L);
 

@@ -16,8 +16,10 @@ import com.stackup.stackup.session.domain.JobCategory;
 import com.stackup.stackup.session.domain.SessionMode;
 import com.stackup.stackup.session.domain.SessionContext;
 import com.stackup.stackup.session.domain.SessionContextRepository;
+import com.stackup.stackup.session.domain.SessionStatus;
 import com.stackup.stackup.user.domain.User;
 import com.stackup.stackup.user.domain.UserRepository;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -108,11 +110,14 @@ public class SessionService {
     @Transactional
     public SessionResult end(Long userId, Long sessionId) {
         InterviewSession session = loadOwned(userId, sessionId);
-        try {
-            session.end();
-        } catch (IllegalStateException e) {
+        // 원자적 종료 전이: IN_PROGRESS 일 때만 1행 갱신. 0이면 다른 트랜잭션(스위퍼 등)이
+        // 먼저 종료한 것 → 기존 동작과 동일하게 INVALID_STATE. 1을 받은 호출자만 종료 이벤트 발행.
+        int claimed = sessionRepository.finishIfInProgress(
+            sessionId, SessionStatus.COMPLETED, Instant.now());
+        if (claimed == 0) {
             throw new DomainException(ApiErrorCode.SESSION_INVALID_STATE);
         }
+        session.end();  // 응답·인메모리 동기화(DB는 위 조건부 UPDATE 로 이미 COMPLETED).
         events.publishEvent(new SessionEndedEvent(userId, sessionId, "USER_REQUEST"));
         return SessionResult.of(session, contextDocumentIds(sessionId));
     }

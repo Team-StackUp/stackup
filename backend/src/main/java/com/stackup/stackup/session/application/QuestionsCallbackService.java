@@ -18,6 +18,7 @@ import com.stackup.stackup.session.domain.MessageRole;
 import com.stackup.stackup.session.domain.SessionQuestionPool;
 import com.stackup.stackup.session.domain.SessionQuestionPoolRepository;
 import com.stackup.stackup.session.domain.SessionStatus;
+import java.time.Instant;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -65,6 +66,14 @@ public class QuestionsCallbackService {
         if (session == null || session.isDeleted()) {
             log.warn("callback.questions session not found or deleted. id={}, messageId={}",
                 sessionId, envelope.messageId());
+            markProcessed(envelope.messageId());
+            return;
+        }
+        // 종료된 세션에 늦게 도착한 콜백은 드롭(멱등 마킹). 스위퍼 자동종료·수동종료 후
+        // 처리 대기 중이던 POOL/FOLLOWUP 콜백이 종료 세션을 사후 변조하는 것을 방지.
+        if (session.getStatus().isTerminal()) {
+            log.info("callback.questions for terminal session, drop. id={}, status={}, messageId={}",
+                sessionId, session.getStatus(), envelope.messageId());
             markProcessed(envelope.messageId());
             return;
         }
@@ -163,18 +172,22 @@ public class QuestionsCallbackService {
     }
 
     private void endSession(InterviewSession session, String reason) {
-        try {
-            session.end();
-            events.publishEvent(RealtimeNotifyEvent.session(session.getId(), SseEventType.SESSION_STATE,
-                new SessionStateNotice(session.getId(), session.getStatus().name(), reason)));
-            events.publishEvent(RealtimeNotifyEvent.user(session.getUser().getId(), SseEventType.SESSION_STATE,
-                new SessionStateNotice(session.getId(), session.getStatus().name(), reason)));
-            events.publishEvent(new SessionEndedEvent(session.getUser().getId(), session.getId(), reason));
-            log.info("session auto-completed. sessionId={}, reason={}", session.getId(), reason);
-        } catch (IllegalStateException e) {
-            log.warn("auto-end skipped — session not IN_PROGRESS. sessionId={}, status={}",
+        // 원자적 종료 전이: IN_PROGRESS 일 때만 1행 갱신. 0이면 다른 트랜잭션(스위퍼·수동 종료)이
+        // 먼저 종료한 것 → 종료 부수효과 미발행(중복 피드백 방지).
+        int claimed = sessionRepository.finishIfInProgress(
+            session.getId(), SessionStatus.COMPLETED, Instant.now());
+        if (claimed == 0) {
+            log.warn("auto-end skipped — session already ended. sessionId={}, status={}",
                 session.getId(), session.getStatus());
+            return;
         }
+        session.end();  // 인메모리 동기화(SSE status 표기용). DB는 위 조건부 UPDATE 로 이미 COMPLETED.
+        events.publishEvent(RealtimeNotifyEvent.session(session.getId(), SseEventType.SESSION_STATE,
+            new SessionStateNotice(session.getId(), session.getStatus().name(), reason)));
+        events.publishEvent(RealtimeNotifyEvent.user(session.getUser().getId(), SseEventType.SESSION_STATE,
+            new SessionStateNotice(session.getId(), session.getStatus().name(), reason)));
+        events.publishEvent(new SessionEndedEvent(session.getUser().getId(), session.getId(), reason));
+        log.info("session auto-completed. sessionId={}, reason={}", session.getId(), reason);
     }
 
     private void applyFollowup(InterviewSession session, QuestionsCallbackPayload payload) {
