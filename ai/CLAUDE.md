@@ -94,6 +94,7 @@ ai/
 | `ai.analyze.resume` | `analyze.resume` | 본 구현 (PDF → MD) |
 | `ai.analyze.repository` | `analyze.repository` | 본 구현 (GitHub README + tree + 소스 sampling) |
 | `ai.analyze.web` | `analyze.web` | 본 구현 (URL → trafilatura) |
+| `ai.analyze.cover_letter` | `analyze.cover_letter` | 본 구현 (자소서 문항 inline 텍스트 → MD, `TextSourceExtractor`) |
 | `ai.generate.questions` | `generate.questions` | 본 구현 (Pro 모델, 질문 풀 생성, US-18) |
 | `ai.generate.followup` | `generate.followup` | 본 구현 (Flash 모델, 답변 평가+꼬리질문, US-19) |
 | `ai.generate.tts` | `generate.tts` | 본 구현 (질문 음성화, OpenAI TTS → S3 → `callback.tts`) |

@@ -308,6 +308,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cover-letters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 내 자소서 목록 */
+        get: operations["listCoverLetters"];
+        put?: never;
+        /**
+         * 자소서 입력 + 분석 트리거
+         * @description 문항별(질문+답변) 텍스트 자소서를 받아 DB row 생성(status=PENDING) → AI 분석 자동 발행. 답변이 비어있지 않은 문항이 1개 이상 필요.
+         */
+        post: operations["createCoverLetter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/stream-token": {
         parameters: {
             query?: never;
@@ -759,6 +780,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cover-letters/{coverLetterId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** 자소서 soft delete */
+        delete: operations["deleteCoverLetter"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/logout": {
         parameters: {
             query?: never;
@@ -1024,6 +1062,26 @@ export interface components {
             latencyMs?: number;
             status: string;
             errorMessage?: string;
+        };
+        CoverLetterCreateRequest: {
+            title?: string;
+            items: components["schemas"]["Item"][];
+        };
+        Item: {
+            question?: string;
+            answer?: string;
+        };
+        CoverLetterResponse: {
+            /** Format: int64 */
+            id?: number;
+            title?: string;
+            items?: components["schemas"]["Item"][];
+            /** @enum {string} */
+            status?: "PENDING" | "ANALYZING" | "ANALYZED" | "FAILED";
+            /** Format: date-time */
+            createdAt?: string;
+            /** Format: date-time */
+            updatedAt?: string;
         };
         RefreshTokenResponse: {
             /**
@@ -2228,6 +2286,77 @@ export interface operations {
             };
         };
     };
+    listCoverLetters: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 사용자 소유 자소서 목록 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CoverLetterResponse"][];
+                };
+            };
+            /** @description 인증 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CoverLetterResponse"][];
+                };
+            };
+        };
+    };
+    createCoverLetter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CoverLetterCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description 생성 + 분석 트리거 성공 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CoverLetterResponse"];
+                };
+            };
+            /** @description 문항 없음 / 빈 답변 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CoverLetterResponse"];
+                };
+            };
+            /** @description 인증 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CoverLetterResponse"];
+                };
+            };
+        };
+    };
     createStreamToken: {
         parameters: {
             query?: never;
@@ -3297,6 +3426,40 @@ export interface operations {
             };
             /** @description 인증 실패 */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    deleteCoverLetter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                coverLetterId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 삭제 완료 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 인증 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 자소서 없음 */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

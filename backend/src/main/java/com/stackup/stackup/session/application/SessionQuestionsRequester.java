@@ -140,6 +140,7 @@ public class SessionQuestionsRequester {
     private String resolveSourceType(AnalyzedDocument doc) {
         if (doc.getResume() != null) return "RESUME";
         if (doc.getRepository() != null) return "REPOSITORY";
+        if (doc.getCoverLetter() != null) return "COVER_LETTER";
         return "UNKNOWN";
     }
 

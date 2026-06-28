@@ -71,6 +71,16 @@
       }
     },
     {
+      "name": "ai.analyze.cover_letter",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "stackup.dlx",
+        "x-dead-letter-routing-key": "dlq.ai.analyze.cover_letter"
+      }
+    },
+    {
       "name": "ai.analyze.web",
       "vhost": "/",
       "durable": true,
@@ -205,6 +215,13 @@
       "arguments": {}
     },
     {
+      "name": "dlq.ai.analyze.cover_letter",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
       "name": "dlq.ai.analyze.web",
       "vhost": "/",
       "durable": true,
@@ -303,6 +320,13 @@
       "destination": "ai.analyze.resume",
       "destination_type": "queue",
       "routing_key": "analyze.resume"
+    },
+    {
+      "source": "stackup.core-to-ai",
+      "vhost": "/",
+      "destination": "ai.analyze.cover_letter",
+      "destination_type": "queue",
+      "routing_key": "analyze.cover_letter"
     },
     {
       "source": "stackup.core-to-ai",
@@ -415,6 +439,13 @@
       "destination": "dlq.ai.analyze.resume",
       "destination_type": "queue",
       "routing_key": "dlq.ai.analyze.resume"
+    },
+    {
+      "source": "stackup.dlx",
+      "vhost": "/",
+      "destination": "dlq.ai.analyze.cover_letter",
+      "destination_type": "queue",
+      "routing_key": "dlq.ai.analyze.cover_letter"
     },
     {
       "source": "stackup.dlx",

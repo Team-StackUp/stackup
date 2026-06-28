@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     # AI consumer (큐 이름, prefetch, 콜백 라우팅 등)
     ai_queue_resume: str = "ai.analyze.resume"
     ai_queue_repository: str = "ai.analyze.repository"
+    ai_queue_cover_letter: str = "ai.analyze.cover_letter"
     ai_queue_web: str = "ai.analyze.web"
     ai_queue_questions: str = "ai.generate.questions"
     ai_queue_followup: str = "ai.generate.followup"
@@ -109,6 +110,11 @@ class Settings(BaseSettings):
     )
     analyzed_web_resume_md_key_template: str = (
         "analyzed/web-resume/{resume_id}/summary.md"
+    )
+    # 자소서 분석 마크다운 키. ResumeAnalyzer 재사용으로 placeholder 이름은 resume_id 를 따른다
+    # (실제 값은 cover_letter_id).
+    analyzed_cover_letter_md_key_template: str = (
+        "analyzed/cover-letter/{resume_id}/summary.md"
     )
 
     # Core 서버 internal API (사용자별 GitHub access_token 조회 등)

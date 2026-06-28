@@ -13,6 +13,7 @@ const navItems: NavItem[] = [
   { to: '/workspace', label: '홈', icon: <HomeIcon />, end: true },
   { to: '/workspace/resumes', label: '이력서', icon: <ResumeIcon /> },
   { to: '/workspace/repos', label: '레포지토리', icon: <RepoIcon /> },
+  { to: '/workspace/cover-letters', label: '자소서', icon: <CoverLetterIcon /> },
   { to: '/workspace/history', label: '히스토리', icon: <HistoryIcon /> },
 ]
 
@@ -143,6 +144,24 @@ function ResumeIcon() {
       <path d="M5 2.5h6l4 4V16a1.5 1.5 0 0 1-1.5 1.5h-8A1.5 1.5 0 0 1 4 16V4A1.5 1.5 0 0 1 5 2.5Z" />
       <path d="M11 2.5V6a1 1 0 0 0 1 1h3" />
       <path d="M7 10.5h6M7 13.5h4" />
+    </svg>
+  )
+}
+
+function CoverLetterIcon() {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      width="18"
+      height="18"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3.5 5.5A1.5 1.5 0 0 1 5 4h10a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 15 16H5a1.5 1.5 0 0 1-1.5-1.5Z" />
+      <path d="M6.5 8h7M6.5 11h7M6.5 13.5h4" />
     </svg>
   )
 }

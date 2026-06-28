@@ -45,6 +45,9 @@
     "name" : "Internal: Document Embeddings",
     "description" : "X-Internal-API-Key 필요. AI 서버가 분석 결과 청크/임베딩을 pgvector 에 idempotent upsert 할 때 호출."
   }, {
+    "name" : "CoverLetters",
+    "description" : "자소서(공채용 문항별 텍스트) 입력/관리. 생성 시 분석 파이프라인이 자동 트리거되며 결과는 /realtime/stream/me (DOC_STATE) 로 통지됨."
+  }, {
     "name" : "User Consents",
     "description" : "개인정보처리/이용약관/마케팅 동의 제출·이력·철회 (append-only audit)."
   }, {
@@ -1211,6 +1214,89 @@
           },
           "401" : {
             "description" : "X-Internal-API-Key 인증 실패"
+          }
+        }
+      }
+    },
+    "/api/cover-letters" : {
+      "get" : {
+        "tags" : [ "CoverLetters" ],
+        "summary" : "내 자소서 목록",
+        "operationId" : "listCoverLetters",
+        "responses" : {
+          "200" : {
+            "description" : "사용자 소유 자소서 목록",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/CoverLetterResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/CoverLetterResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "CoverLetters" ],
+        "summary" : "자소서 입력 + 분석 트리거",
+        "description" : "문항별(질문+답변) 텍스트 자소서를 받아 DB row 생성(status=PENDING) → AI 분석 자동 발행. 답변이 비어있지 않은 문항이 1개 이상 필요.",
+        "operationId" : "createCoverLetter",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CoverLetterCreateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "생성 + 분석 트리거 성공",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CoverLetterResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "문항 없음 / 빈 답변",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CoverLetterResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CoverLetterResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -2457,6 +2543,33 @@
         }
       }
     },
+    "/api/cover-letters/{coverLetterId}" : {
+      "delete" : {
+        "tags" : [ "CoverLetters" ],
+        "summary" : "자소서 soft delete",
+        "operationId" : "deleteCoverLetter",
+        "parameters" : [ {
+          "name" : "coverLetterId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "삭제 완료"
+          },
+          "401" : {
+            "description" : "인증 실패"
+          },
+          "404" : {
+            "description" : "자소서 없음"
+          }
+        }
+      }
+    },
     "/api/auth/logout" : {
       "delete" : {
         "tags" : [ "Auth" ],
@@ -3111,6 +3224,63 @@
           }
         },
         "required" : [ "requestType", "status" ]
+      },
+      "CoverLetterCreateRequest" : {
+        "type" : "object",
+        "properties" : {
+          "title" : {
+            "type" : "string"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Item"
+            },
+            "minItems" : 1
+          }
+        },
+        "required" : [ "items" ]
+      },
+      "Item" : {
+        "type" : "object",
+        "properties" : {
+          "question" : {
+            "type" : "string"
+          },
+          "answer" : {
+            "type" : "string"
+          }
+        }
+      },
+      "CoverLetterResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Item"
+            }
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "PENDING", "ANALYZING", "ANALYZED", "FAILED" ]
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
       },
       "RefreshTokenResponse" : {
         "type" : "object",

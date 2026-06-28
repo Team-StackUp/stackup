@@ -7,6 +7,7 @@ from ai_server.analyzer.repository_analyzer import RepositoryAnalyzer
 from ai_server.analyzer.resume_analyzer import ResumeAnalyzer
 from ai_server.analyzer.sources.github_repo import GitHubRepoSourceExtractor
 from ai_server.analyzer.sources.pdf import PdfSourceExtractor
+from ai_server.analyzer.sources.text import TextSourceExtractor
 from ai_server.analyzer.sources.web import WebSourceExtractor
 from ai_server.analyzer.web_resume_analyzer import WebResumeAnalyzer
 from ai_server.chain.document_analysis_chain import (
@@ -46,6 +47,7 @@ from ai_server.messaging.consumers.tts_consumer import TtsConsumer
 from ai_server.messaging.consumers.voice_consumer import VoiceConsumer
 from ai_server.voice.stt.factory import build_stt_provider
 from ai_server.voice.tts.factory import build_tts_provider
+from ai_server.messaging.consumers.cover_letter_consumer import CoverLetterConsumer
 from ai_server.messaging.consumers.repository_consumer import RepositoryConsumer
 from ai_server.messaging.consumers.resume_consumer import ResumeConsumer
 from ai_server.messaging.consumers.web_consumer import WebResumeConsumer
@@ -123,6 +125,17 @@ class MessagingRuntime:
             analyzed_key_template=settings.analyzed_resume_md_key_template,
         )
 
+        # 자소서(inline 텍스트) — 이력서와 동일 분석·임베딩 파이프라인, extractor/키만 다름.
+        cover_letter_analyzer = ResumeAnalyzer(
+            extractor=TextSourceExtractor(source_type="COVER_LETTER"),
+            chain=chain_analyzer,
+            storage=storage,
+            chunker=chunker,
+            embedder=embedder,
+            core_client=core_client,
+            analyzed_key_template=settings.analyzed_cover_letter_md_key_template,
+        )
+
         # 리포지토리
         repo_analyzer = RepositoryAnalyzer(
             extractor=GitHubRepoSourceExtractor(
@@ -173,6 +186,13 @@ class MessagingRuntime:
             publisher=self._publisher,
             idempotency=self._idempotency,
             callback_routing_key=settings.ai_callback_routing_analysis,
+        )
+        self._cover_letter_consumer = CoverLetterConsumer(
+            analyzer=cover_letter_analyzer,
+            publisher=self._publisher,
+            idempotency=self._idempotency,
+            callback_routing_key=settings.ai_callback_routing_analysis,
+            progress_notifier=self._progress_notifier,
         )
 
         # 질문 풀 생성 (US-18)
@@ -299,6 +319,11 @@ class MessagingRuntime:
             channel,
             queue_name=self._settings.ai_queue_web,
             handler=self._web_consumer.handle,
+        )
+        await self._start_consumer(
+            channel,
+            queue_name=self._settings.ai_queue_cover_letter,
+            handler=self._cover_letter_consumer.handle,
         )
         await self._start_consumer(
             channel,

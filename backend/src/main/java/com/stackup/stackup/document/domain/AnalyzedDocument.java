@@ -1,6 +1,7 @@
 package com.stackup.stackup.document.domain;
 
 import com.stackup.stackup.common.entity.BaseSoftDeleteEntity;
+import com.stackup.stackup.coverletter.domain.CoverLetter;
 import com.stackup.stackup.github.domain.GithubRepository;
 import com.stackup.stackup.resume.domain.Resume;
 import jakarta.persistence.Column;
@@ -27,7 +28,8 @@ import org.hibernate.type.SqlTypes;
         name = "analyzed_documents",
         indexes = {
                 @Index(name = "idx_analyzed_documents_resume_id", columnList = "resume_id"),
-                @Index(name = "idx_analyzed_documents_repository_id", columnList = "repository_id")
+                @Index(name = "idx_analyzed_documents_repository_id", columnList = "repository_id"),
+                @Index(name = "idx_analyzed_documents_cover_letter_id", columnList = "cover_letter_id")
         }
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -44,6 +46,10 @@ public class AnalyzedDocument extends BaseSoftDeleteEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "repository_id")
     private GithubRepository repository;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cover_letter_id")
+    private CoverLetter coverLetter;
 
     @Column(name = "document_path", length = 1000)
     private String documentPath;
@@ -72,23 +78,31 @@ public class AnalyzedDocument extends BaseSoftDeleteEntity {
     @Column(name = "embedding_chunk_count", nullable = false)
     private int embeddingChunkCount = 0;
 
-    private AnalyzedDocument(Resume resume, GithubRepository repository) {
+    private AnalyzedDocument(Resume resume, GithubRepository repository, CoverLetter coverLetter) {
         this.resume = resume;
         this.repository = repository;
+        this.coverLetter = coverLetter;
     }
 
     public static AnalyzedDocument forResume(Resume resume) {
         if (resume == null) {
             throw new IllegalArgumentException("resume must not be null");
         }
-        return new AnalyzedDocument(resume, null);
+        return new AnalyzedDocument(resume, null, null);
     }
 
     public static AnalyzedDocument forRepository(GithubRepository repository) {
         if (repository == null) {
             throw new IllegalArgumentException("repository must not be null");
         }
-        return new AnalyzedDocument(null, repository);
+        return new AnalyzedDocument(null, repository, null);
+    }
+
+    public static AnalyzedDocument forCoverLetter(CoverLetter coverLetter) {
+        if (coverLetter == null) {
+            throw new IllegalArgumentException("coverLetter must not be null");
+        }
+        return new AnalyzedDocument(null, null, coverLetter);
     }
 
     public void markAnalyzed(String documentPath, String summary, String techStackJson, int embeddingChunkCount) {

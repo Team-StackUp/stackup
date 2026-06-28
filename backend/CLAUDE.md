@@ -86,7 +86,8 @@ com.stackup.stackup.{domain}/
 | `user.consent` | 개인정보처리동의 기록·조회·철회 | US-03 |
 | `github` | GitHub API 연동, 레포 목록/등록/메타 동기화 | US-07, US-08 |
 | `resume` | 이력서 업로드(S3)·메타 저장·목록·삭제 | US-05, US-06 |
-| `document` | 분석 문서(이력서/레포 공통) 메타 + S3 경로 | US-09~12 |
+| `coverletter` | 자소서(공채) 문항별 텍스트 입력·메타 저장·목록·삭제. inline 텍스트→`analyze.cover_letter`→분석 파이프라인 재사용. AnalyzedDocument 에 `cover_letter_id` 다형성 FK 추가 | — |
+| `document` | 분석 문서(이력서/레포/자소서 공통) 메타 + S3 경로 | US-09~12 |
 | `session` | 면접 세션·메시지·피드백 (가장 큰 도메인) | US-13~20, US-24~27 |
 | `log.activity` | 사용자 행동 로그 | US-31 |
 | `log.ai` | AI 요청/응답 로깅 | US-30 |

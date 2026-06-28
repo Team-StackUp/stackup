@@ -36,6 +36,9 @@ class StackupApplicationTests {
 	private ResumeRepository resumeRepository;
 
 	@MockitoBean
+	private com.stackup.stackup.coverletter.domain.CoverLetterRepository coverLetterRepository;
+
+	@MockitoBean
 	private GithubRepositoryRepository githubRepositoryRepository;
 
 	@MockitoBean

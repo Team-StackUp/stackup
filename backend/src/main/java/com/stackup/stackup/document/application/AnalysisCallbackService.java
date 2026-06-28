@@ -7,6 +7,7 @@ import com.stackup.stackup.common.messaging.domain.ProcessedMessageRepository;
 import com.stackup.stackup.common.messaging.RealtimeNotifyEvent;
 import com.stackup.stackup.common.sse.SseEventType;
 import org.springframework.context.ApplicationEventPublisher;
+import com.stackup.stackup.coverletter.domain.CoverLetter;
 import com.stackup.stackup.document.application.dto.AnalysisCallbackEnvelope;
 import com.stackup.stackup.document.application.dto.AnalysisCallbackPayload;
 import com.stackup.stackup.document.domain.AnalyzedDocument;
@@ -89,6 +90,10 @@ public class AnalysisCallbackService {
         if (repo != null) {
             repo.markAnalyzed();
         }
+        CoverLetter coverLetter = doc.getCoverLetter();
+        if (coverLetter != null) {
+            coverLetter.markAnalyzed();
+        }
     }
 
     private void applyFailed(AnalyzedDocument doc, AnalysisCallbackPayload payload) {
@@ -100,6 +105,10 @@ public class AnalysisCallbackService {
         GithubRepository repo = doc.getRepository();
         if (repo != null) {
             repo.markFailed();
+        }
+        CoverLetter coverLetter = doc.getCoverLetter();
+        if (coverLetter != null) {
+            coverLetter.markFailed();
         }
     }
 
@@ -119,6 +128,9 @@ public class AnalysisCallbackService {
         }
         if (doc.getRepository() != null && doc.getRepository().getUser() != null) {
             return doc.getRepository().getUser().getId();
+        }
+        if (doc.getCoverLetter() != null && doc.getCoverLetter().getUser() != null) {
+            return doc.getCoverLetter().getUser().getId();
         }
         return null;
     }

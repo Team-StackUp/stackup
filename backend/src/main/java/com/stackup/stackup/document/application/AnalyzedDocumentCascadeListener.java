@@ -1,5 +1,6 @@
 package com.stackup.stackup.document.application;
 
+import com.stackup.stackup.coverletter.application.event.CoverLetterDeletedEvent;
 import com.stackup.stackup.document.domain.AnalyzedDocument;
 import com.stackup.stackup.document.domain.AnalyzedDocumentRepository;
 import com.stackup.stackup.github.application.event.RepositoryDeletedEvent;
@@ -47,6 +48,20 @@ public class AnalyzedDocumentCascadeListener {
         if (!docs.isEmpty()) {
             log.info("AnalyzedDocument cascade soft delete (repository). userId={}, repositoryId={}, count={}",
                 event.userId(), event.repositoryId(), docs.size());
+        }
+    }
+
+    @EventListener
+    @Transactional
+    public void on(CoverLetterDeletedEvent event) {
+        List<AnalyzedDocument> docs = analyzedDocumentRepository
+            .findActiveByCoverLetterIdAndOwner(event.coverLetterId(), event.userId());
+        for (AnalyzedDocument doc : docs) {
+            doc.markDeleted();
+        }
+        if (!docs.isEmpty()) {
+            log.info("AnalyzedDocument cascade soft delete (cover letter). userId={}, coverLetterId={}, count={}",
+                event.userId(), event.coverLetterId(), docs.size());
         }
     }
 }

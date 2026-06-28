@@ -24,8 +24,10 @@ public interface AnalyzedDocumentRepository extends JpaRepository<AnalyzedDocume
         LEFT JOIN rs.user ru
         LEFT JOIN d.repository rp
         LEFT JOIN rp.user pu
+        LEFT JOIN d.coverLetter cl
+        LEFT JOIN cl.user cu
         WHERE d.deleted = false
-          AND (ru.id = :userId OR pu.id = :userId)
+          AND (ru.id = :userId OR pu.id = :userId OR cu.id = :userId)
         ORDER BY d.id DESC
         """)
     List<AnalyzedDocument> findActiveByOwner(@Param("userId") Long userId);
@@ -36,11 +38,23 @@ public interface AnalyzedDocumentRepository extends JpaRepository<AnalyzedDocume
         LEFT JOIN rs.user ru
         LEFT JOIN d.repository rp
         LEFT JOIN rp.user pu
+        LEFT JOIN d.coverLetter cl
+        LEFT JOIN cl.user cu
         WHERE d.id = :id
           AND d.deleted = false
-          AND (ru.id = :userId OR pu.id = :userId)
+          AND (ru.id = :userId OR pu.id = :userId OR cu.id = :userId)
         """)
     Optional<AnalyzedDocument> findActiveByIdAndOwner(@Param("id") Long id, @Param("userId") Long userId);
+
+    @Query("""
+        SELECT d FROM AnalyzedDocument d
+        WHERE d.coverLetter.id = :coverLetterId
+          AND d.coverLetter.user.id = :userId
+          AND d.deleted = false
+        ORDER BY d.id DESC
+        """)
+    List<AnalyzedDocument> findActiveByCoverLetterIdAndOwner(
+        @Param("coverLetterId") Long coverLetterId, @Param("userId") Long userId);
 
     @Query("""
         SELECT d FROM AnalyzedDocument d
