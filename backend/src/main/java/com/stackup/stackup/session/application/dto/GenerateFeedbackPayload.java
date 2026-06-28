@@ -18,7 +18,9 @@ public record GenerateFeedbackPayload(
     Map<String, Integer> domainQuestionCounts,
     // 직무 맞춤 모드 전용. 회사명 + 채용공고(JD). '직무 적합도' 평가의 근거. 다른 모드는 null.
     String targetCompanyName,
-    String targetJobDescription
+    String targetJobDescription,
+    // 자기소개 답변 단독의 음성 메트릭. 첫인상 평가에서 세션 평균 대신 사용. 없으면 null.
+    VoiceAnalysisSummary selfIntroVoiceAnalysis
 ) {
 
     public record MessageItem(

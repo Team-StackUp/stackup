@@ -62,6 +62,8 @@ class GenerateFeedbackRequest(BaseModel):
     messages: list[FeedbackMessageItem] = Field(default_factory=list)
     context_document_ids: list[int] = Field(default_factory=list)
     voice_analysis_summary: VoiceAnalysisSummary | None = None
+    # 자기소개 답변 단독의 음성 메트릭. 첫인상 평가에서 세션 평균 대신 사용. 없으면 None.
+    self_intro_voice_analysis: VoiceAnalysisSummary | None = None
     # 다직군 패널 가중: 사용된 일반질문의 직군별 개수. 비면 단일 직군 평가.
     domain_question_counts: dict[str, int] = Field(default_factory=dict)
     # 직무 맞춤(JOB_TAILORED) 모드 전용. 회사명 + 채용공고(JD). '직무 적합도' 평가의 근거.

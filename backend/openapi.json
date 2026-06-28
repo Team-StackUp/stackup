@@ -2843,6 +2843,16 @@
               "type" : "integer",
               "format" : "int32"
             }
+          },
+          "pronunciationAccuracy" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "deliveryRating" : {
+            "type" : "string"
+          },
+          "deliveryComment" : {
+            "type" : "string"
           }
         }
       },
