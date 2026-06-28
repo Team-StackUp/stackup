@@ -11,6 +11,10 @@ import websockets
 
 from ai_server.voice.stt.base import TranscriptionResult, TranscriptionSegment
 from ai_server.voice.stt.live import LiveSttProvider, LiveSttSession, LiveTranscriptEvent
+from ai_server.voice.stt.sanitize import (
+    sanitize_transcription,
+    strip_stt_hallucinations,
+)
 
 log = structlog.get_logger(__name__)
 
@@ -63,6 +67,9 @@ class _DeepgramLiveSession(LiveSttSession):
                     text = str(alt.get("transcript") or "")
                     is_final = bool(msg.get("is_final"))
                     speech_final = bool(msg.get("speech_final"))
+                    # 최종 자막에서만 환각 제거(부분 자막은 변동성이 커 손대지 않음).
+                    if is_final and text:
+                        text = strip_stt_hallucinations(text)
                     if text:
                         await self._queue.put(
                             LiveTranscriptEvent(
@@ -109,11 +116,13 @@ class _DeepgramLiveSession(LiveSttSession):
     async def result(self) -> TranscriptionResult:
         text = " ".join(self._finals).strip()
         dur = self._segments[-1].end_sec if self._segments else None
-        return TranscriptionResult(
-            text=text,
-            language=self._language,
-            duration_sec=dur,
-            segments=list(self._segments),
+        return sanitize_transcription(
+            TranscriptionResult(
+                text=text,
+                language=self._language,
+                duration_sec=dur,
+                segments=list(self._segments),
+            )
         )
 
     async def close(self) -> None:
