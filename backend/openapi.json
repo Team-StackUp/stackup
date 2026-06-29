@@ -3229,14 +3229,17 @@
         "type" : "object",
         "properties" : {
           "title" : {
-            "type" : "string"
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
           },
           "items" : {
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/Item"
             },
-            "minItems" : 1
+            "maxItems" : 30,
+            "minItems" : 0
           }
         },
         "required" : [ "items" ]
@@ -3245,10 +3248,14 @@
         "type" : "object",
         "properties" : {
           "question" : {
-            "type" : "string"
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
           },
           "answer" : {
-            "type" : "string"
+            "type" : "string",
+            "maxLength" : 5000,
+            "minLength" : 0
           }
         }
       },
