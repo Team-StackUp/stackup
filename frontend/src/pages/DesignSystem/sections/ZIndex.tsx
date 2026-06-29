@@ -56,7 +56,7 @@ export function ZIndexSection() {
                   className="flex items-center gap-3 px-3 py-1.5 rounded-sm"
                   style={{
                     backgroundColor: `rgba(98,110,92,${intensity})`,
-                    color: intensity > 0.5 ? '#ffffff' : '#1f271b',
+                    color: intensity > 0.5 ? '#ffffff' : '#1e2a44',
                   }}
                 >
                   <span className="font-mono text-[11px] w-10 text-right shrink-0">

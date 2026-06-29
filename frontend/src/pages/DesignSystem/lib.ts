@@ -9,5 +9,5 @@ export function luminance(hex: string): number {
 }
 
 export function readableFg(hex: string): string {
-  return luminance(hex) > 0.45 ? '#1f271b' : '#ffffff'
+  return luminance(hex) > 0.45 ? '#1e2a44' : '#ffffff'
 }

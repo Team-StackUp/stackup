@@ -11,23 +11,25 @@
    * ========================================================= */
   --color-white: #ffffff;
   --color-black: #000000;
-  --color-background: #e9e8e7;
+  --color-background: #eceef3;
 
   /* =========================================================
    * 2. Color — Sage / Neutral Scale (Main Theme)
    *    bg-sage-500, text-sage-800, border-sage-200 ...
+   *    NOTE: 토큰 이름은 'sage' 로 유지하되 값은 로고(#3E63D8)에 맞춘
+   *    쿨 블루그레이 모노크롬 램프다(저채도 — 본문/중립용). 브랜드 강조색은 §3 primary.
    * ========================================================= */
-  --color-sage-50: #e8e7e1;
-  --color-sage-100: #d4cfcb;
-  --color-sage-200: #c9ccc8;
-  --color-sage-300: #b4bdaf;
-  --color-sage-400: #a0a89d;
-  --color-sage-500: #626e5c;
-  --color-sage-600: #3e4739;
-  --color-sage-700: #2b3625;
-  --color-sage-800: #1f271b;
-  --color-sage-900: #181e15;
-  --color-sage-950: #141a11;
+  --color-sage-50: #eef1f6;
+  --color-sage-100: #dbe2ec;
+  --color-sage-200: #c6cedd;
+  --color-sage-300: #9fafc9;
+  --color-sage-400: #6e7f9f;
+  --color-sage-500: #4a5a7e;
+  --color-sage-600: #38486a;
+  --color-sage-700: #2b3a59;
+  --color-sage-800: #1e2a44;
+  --color-sage-900: #161f33;
+  --color-sage-950: #101627;
 
   /* =========================================================
    * 3. Color — Semantic Aliases
@@ -47,9 +49,11 @@
   --color-fg-disabled: var(--color-sage-200);
   --color-fg-on-primary: var(--color-white);
 
-  --color-primary: var(--color-sage-500);
-  --color-primary-hover: var(--color-sage-600);
-  --color-primary-pressed: var(--color-sage-700);
+  /* 브랜드 강조색 — 로고 블루(#3E63D8). 중립 스케일과 분리(고채도라 본문엔 미사용,
+   * 버튼·링크·강조에만). bg-primary / text-primary / border-primary 가 이 값을 쓴다. */
+  --color-primary: #3e63d8;
+  --color-primary-hover: #3050be;
+  --color-primary-pressed: #274099;
 
   /* =========================================================
    * 4. Color — Status (Success / Warning / Danger / Info)
@@ -201,14 +205,14 @@
    * 9. Shadow / Elevation (sage-tint)
    *    shadow-sm, shadow-md, shadow-lg, shadow-focus-ring
    * ========================================================= */
-  --shadow-sm: 0 1px 2px rgba(31, 39, 27, 0.06);
+  --shadow-sm: 0 1px 2px rgba(16, 22, 39, 0.06);
   --shadow-md:
-    0 4px 6px -1px rgba(31, 39, 27, 0.10),
-    0 2px 4px -2px rgba(31, 39, 27, 0.06);
+    0 4px 6px -1px rgba(16, 22, 39, 0.10),
+    0 2px 4px -2px rgba(16, 22, 39, 0.06);
   --shadow-lg:
-    0 10px 15px -3px rgba(31, 39, 27, 0.10),
-    0 4px 6px -4px rgba(31, 39, 27, 0.05);
-  --shadow-focus-ring: 0 0 0 3px rgba(98, 110, 92, 0.45);
+    0 10px 15px -3px rgba(16, 22, 39, 0.10),
+    0 4px 6px -4px rgba(16, 22, 39, 0.05);
+  --shadow-focus-ring: 0 0 0 3px rgba(62, 99, 216, 0.45);
 
   /* =========================================================
    * 10. Motion
