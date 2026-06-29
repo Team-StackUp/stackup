@@ -113,6 +113,8 @@ class FeedbackCallbackPayload(BaseModel):
     improvement_keywords: list[str] = Field(default_factory=list)
     # 패널을 통합한 학습 방향/다음 단계 액션 아이템.
     study_plan: list[str] = Field(default_factory=list)
+    # 강조 표시용 핵심 구절(강점·개선 본문에서 발췌). 프론트가 부분 문자열 매칭해 하이라이트.
+    highlights: list[str] = Field(default_factory=list)
     # 평가위원별 분해(패널). 비어 있으면 단일/레거시 경로.
     panel_breakdown: list[PanelBreakdownItem] = Field(default_factory=list)
     # 질문별 복기(답변 메시지별 모범 답안·리라이트·코칭). 비면 복기 없음.

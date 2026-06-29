@@ -35,6 +35,8 @@ class FeedbackResult(BaseModel):
     weaknesses_summary: str | None = Field(None)
     improvement_keywords: list[str] = Field(default_factory=list)
     study_plan: list[str] = Field(default_factory=list)
+    # 강조 표시용 핵심 구절(강점·개선 본문에서 그대로 발췌). 프론트가 부분 문자열 매칭해 하이라이트.
+    highlights: list[str] = Field(default_factory=list)
     panel_breakdown: list[PanelBreakdownItem] = Field(default_factory=list)
 
 
@@ -143,6 +145,8 @@ class SynthesisResult(BaseModel):
     weaknesses_summary: str | None = None
     improvement_keywords: list[str] = Field(default_factory=list)
     study_plan: list[str] = Field(default_factory=list)
+    # strengths/weaknesses 본문에서 그대로 발췌한 핵심 구절(강조 표시용).
+    highlights: list[str] = Field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -609,6 +613,30 @@ def _dedup_keywords(keywords: list[str], cap: int = 8) -> list[str]:
     return out
 
 
+def _filter_highlights(
+    highlights: list[str],
+    strengths: str | None,
+    weaknesses: str | None,
+    cap: int = 6,
+) -> list[str]:
+    """LLM 이 뽑은 핵심 구절 중 강점·개선 본문에 실제로 등장하는 것만 남긴다.
+    프론트가 부분 문자열 매칭으로 하이라이트하므로, 본문에 없는(지어낸/바꿔쓴) 구절은 버려
+    매칭 실패를 막는다. 중복 제거 + cap 개로 제한."""
+    corpus = f"{strengths or ''}\n{weaknesses or ''}"
+    seen: set[str] = set()
+    out: list[str] = []
+    for h in highlights:
+        phrase = (h or "").strip()
+        if len(phrase) < 2 or phrase in seen:
+            continue
+        if phrase in corpus:
+            seen.add(phrase)
+            out.append(phrase)
+        if len(out) >= cap:
+            break
+    return out
+
+
 class PanelFeedbackGenerator:
     """직군·논리·커뮤니케이션 평가위원을 병렬 호출 → 가중평균 종합. FeedbackGenerator 호환."""
 
@@ -740,10 +768,13 @@ class PanelFeedbackGenerator:
             )
 
         # 종합 서술형 + 학습 방향(synthesis). 미설정/실패 시 기계적 병합으로 폴백.
-        strengths, weaknesses, keywords, study_plan = (
+        # highlights 는 synthesis 가 만든 strengths/weaknesses 본문에서 발췌되므로 synthesis 가
+        # 없거나 실패하면 빈 리스트(불일치 하이라이트 방지).
+        strengths, weaknesses, keywords, study_plan, highlights = (
             fb_strengths,
             fb_weaknesses,
             fb_keywords,
+            [],
             [],
         )
         if self._synthesis is not None:
@@ -767,6 +798,9 @@ class PanelFeedbackGenerator:
                     weaknesses = syn.weaknesses_summary or fb_weaknesses
                     keywords = _dedup_keywords(syn.improvement_keywords) or fb_keywords
                     study_plan = syn.study_plan or []
+                    highlights = _filter_highlights(
+                        syn.highlights, strengths, weaknesses
+                    )
             except Exception as exc:  # noqa: BLE001
                 log.warning("feedback.synthesis.failed", error=str(exc))
 
@@ -779,5 +813,6 @@ class PanelFeedbackGenerator:
             weaknesses_summary=weaknesses,
             improvement_keywords=keywords,
             study_plan=study_plan,
+            highlights=highlights,
             panel_breakdown=breakdown,
         )

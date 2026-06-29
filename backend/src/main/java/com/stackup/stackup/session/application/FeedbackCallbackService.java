@@ -82,6 +82,7 @@ public class FeedbackCallbackService {
             keywordsToJson(payload.improvementKeywords()),
             breakdownToJson(payload.panelBreakdown()),
             keywordsToJson(payload.studyPlan()),
+            keywordsToJson(payload.highlights()),
             payload.reportS3Key()
         );
         try {

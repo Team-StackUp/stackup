@@ -154,6 +154,7 @@ class FeedbackConsumer:
                 weaknesses_summary=result.weaknesses_summary,
                 improvement_keywords=result.improvement_keywords,
                 study_plan=result.study_plan,
+                highlights=result.highlights,
                 panel_breakdown=result.panel_breakdown,
                 answer_coaching=answer_coaching,
                 report_s3_key=None,
