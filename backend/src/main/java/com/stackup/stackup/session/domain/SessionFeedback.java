@@ -62,6 +62,11 @@ public class SessionFeedback extends BaseSoftDeleteEntity {
     @Column(name = "study_plan", columnDefinition = "jsonb")
     private String studyPlan;
 
+    // 강조 표시용 핵심 구절 JSON 배열(강점·개선 본문에서 발췌). 프론트가 부분 문자열 매칭해 하이라이트.
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "highlights", columnDefinition = "jsonb")
+    private String highlights;
+
     @Column(name = "report_file_path", length = 1000)
     private String reportFilePath;
 
@@ -73,7 +78,7 @@ public class SessionFeedback extends BaseSoftDeleteEntity {
                             Double logicScore, Double communicationScore,
                             String strengthsSummary, String weaknessesSummary,
                             String improvementKeywordsJson, String panelBreakdownJson,
-                            String studyPlanJson, String reportFilePath) {
+                            String studyPlanJson, String highlightsJson, String reportFilePath) {
         if (session == null) {
             throw new IllegalArgumentException("session must not be null");
         }
@@ -87,6 +92,7 @@ public class SessionFeedback extends BaseSoftDeleteEntity {
         this.improvementKeywords = improvementKeywordsJson;
         this.panelBreakdown = panelBreakdownJson;
         this.studyPlan = studyPlanJson;
+        this.highlights = highlightsJson;
         this.reportFilePath = reportFilePath;
     }
 
@@ -95,10 +101,12 @@ public class SessionFeedback extends BaseSoftDeleteEntity {
                                      Double communicationScore,
                                      String strengthsSummary, String weaknessesSummary,
                                      String improvementKeywordsJson, String panelBreakdownJson,
-                                     String studyPlanJson, String reportFilePath) {
+                                     String studyPlanJson, String highlightsJson,
+                                     String reportFilePath) {
         return new SessionFeedback(session, overallScore, technicalAccuracy, logicScore,
             communicationScore, strengthsSummary, weaknessesSummary,
-            improvementKeywordsJson, panelBreakdownJson, studyPlanJson, reportFilePath);
+            improvementKeywordsJson, panelBreakdownJson, studyPlanJson, highlightsJson,
+            reportFilePath);
     }
 
     // 공유 토큰을 보장(없으면 발급)하고 현재 토큰 반환. 멱등.

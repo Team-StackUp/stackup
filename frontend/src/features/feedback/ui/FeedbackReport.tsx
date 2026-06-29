@@ -6,6 +6,7 @@ import { useCopyToClipboard } from '@/shared/hooks'
 import type { Feedback } from '../api/feedbackApi'
 import { downloadElementAsPdf } from '../lib/downloadPdf'
 import { useShareFeedback } from '../model/useFeedback'
+import { HighlightedText } from './HighlightedText'
 
 // AI 가 별도 정성 평가를 패널 항목으로 실어 보낼 때 쓰는 라벨(모두 종합 점수엔 미포함).
 const SELF_INTRO_LABEL = '첫인상'
@@ -41,6 +42,11 @@ export function FeedbackReport({
   }
 
   const overall = feedback.overallScore
+  // 강조 대상: AI 가 고른 핵심 구절 ∪ 다음에 채울 키워드. 본문 문단에서 <mark> 처리.
+  const highlightTerms = [
+    ...(feedback.highlights ?? []),
+    ...(feedback.improvementKeywords ?? []),
+  ]
   // '첫인상'·'직무 적합도'는 종합 점수에 포함되지 않는 별도 정성 평가 → 패널과 분리해 전용 섹션으로.
   const panel = feedback.panelBreakdown ?? []
   const selfIntro = panel.find((b) => b.evaluator === SELF_INTRO_LABEL)
@@ -90,7 +96,7 @@ export function FeedbackReport({
               <ScoreBar label="직무 적합도" score={jobFit.score} />
               {jobFit.detail && (
                 <p className="whitespace-pre-wrap pl-1 text-caption text-fg-muted">
-                  {jobFit.detail}
+                  <HighlightedText text={jobFit.detail} terms={highlightTerms} />
                 </p>
               )}
               {(jobFit.strength || jobFit.weakness) && (
@@ -119,7 +125,7 @@ export function FeedbackReport({
               <ScoreBar label="직무 이해도" score={roleUnderstanding.score} />
               {roleUnderstanding.detail && (
                 <p className="whitespace-pre-wrap pl-1 text-caption text-fg-muted">
-                  {roleUnderstanding.detail}
+                  <HighlightedText text={roleUnderstanding.detail} terms={highlightTerms} />
                 </p>
               )}
               {(roleUnderstanding.strength || roleUnderstanding.weakness) && (
@@ -147,7 +153,7 @@ export function FeedbackReport({
               <ScoreBar label="첫인상" score={selfIntro.score} />
               {selfIntro.detail && (
                 <p className="whitespace-pre-wrap pl-1 text-caption text-fg-muted">
-                  {selfIntro.detail}
+                  <HighlightedText text={selfIntro.detail} terms={highlightTerms} />
                 </p>
               )}
               {(selfIntro.strength || selfIntro.weakness) && (
@@ -174,7 +180,7 @@ export function FeedbackReport({
                   <ScoreBar label={`${b.evaluator} 면접관`} score={b.score} />
                   {b.detail && (
                     <p className="whitespace-pre-wrap pl-1 text-caption text-fg-muted">
-                      {b.detail}
+                      <HighlightedText text={b.detail} terms={highlightTerms} />
                     </p>
                   )}
                   {(b.strength || b.weakness) && (
@@ -196,7 +202,7 @@ export function FeedbackReport({
           <section className="flex flex-col gap-2">
             <h2 className="text-h6 text-fg">강점</h2>
             <p className="whitespace-pre-wrap text-body text-fg-muted">
-              {feedback.strengthsSummary}
+              <HighlightedText text={feedback.strengthsSummary} terms={highlightTerms} />
             </p>
           </section>
         )}
@@ -205,7 +211,7 @@ export function FeedbackReport({
           <section className="flex flex-col gap-2">
             <h2 className="text-h6 text-fg">개선할 점</h2>
             <p className="whitespace-pre-wrap text-body text-fg-muted">
-              {feedback.weaknessesSummary}
+              <HighlightedText text={feedback.weaknessesSummary} terms={highlightTerms} />
             </p>
           </section>
         )}
@@ -230,7 +236,9 @@ export function FeedbackReport({
               {feedback.studyPlan.map((step, i) => (
                 <li key={i} className="flex gap-2 text-body text-fg-muted">
                   <span aria-hidden className="text-primary">›</span>
-                  <span className="whitespace-pre-wrap">{step}</span>
+                  <span className="whitespace-pre-wrap">
+                    <HighlightedText text={step} terms={highlightTerms} />
+                  </span>
                 </li>
               ))}
             </ul>

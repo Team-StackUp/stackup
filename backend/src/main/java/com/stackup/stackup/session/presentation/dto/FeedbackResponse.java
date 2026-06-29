@@ -21,6 +21,8 @@ public record FeedbackResponse(
     List<PanelBreakdownItem> panelBreakdown,
     @Schema(description = "Study plan / next-step action items synthesized from the panel.")
     List<String> studyPlan,
+    @Schema(description = "Key phrases (verbatim excerpts from strengths/weaknesses) for the report to highlight.")
+    List<String> highlights,
     @Schema(description = "Stored report path when AI generates a detailed learning guide/report.")
     String reportFilePath,
     Instant createdAt
@@ -31,7 +33,7 @@ public record FeedbackResponse(
             r.id(), r.sessionId(),
             r.overallScore(), r.technicalAccuracy(), r.logicScore(), r.communicationScore(),
             r.strengthsSummary(), r.weaknessesSummary(),
-            r.improvementKeywords(), r.panelBreakdown(), r.studyPlan(),
+            r.improvementKeywords(), r.panelBreakdown(), r.studyPlan(), r.highlights(),
             r.reportFilePath(), r.createdAt()
         );
     }

@@ -1239,6 +1239,8 @@ export interface components {
             panelBreakdown?: components["schemas"]["PanelBreakdownItem"][];
             /** @description Study plan / next-step action items synthesized from the panel. */
             studyPlan?: string[];
+            /** @description Key phrases (verbatim excerpts from strengths/weaknesses) for the report to highlight. */
+            highlights?: string[];
             /** @description Stored report path when AI generates a detailed learning guide/report. */
             reportFilePath?: string;
             /** Format: date-time */

@@ -372,6 +372,10 @@ docker compose up -d
   - **종료 후 콜백 드롭**: `QuestionsCallbackService.apply` 와 `SessionFollowupRequester.onAnswerSubmitted` 는
     세션이 `isTerminal()` 이면 처리를 건너뛴다 → 자동종료 뒤 늦게 도착한 POOL/FOLLOWUP 콜백이나
     막판 답변 발화가 종료 세션에 질문·placeholder 를 추가하는 사후 변조를 차단.
+- **피드백 하이라이트 본 구현**: V21 로 `session_feedbacks.highlights`(JSONB) 추가. AI 가 강점/개선점 본문에서
+  핵심 구절 3~6개를 **그대로 발췌**(부분 문자열 매칭 보장)해 `callback.feedback.highlights[]` 로 보내고,
+  `FeedbackResponse` 가 소유자·공유 엔드포인트 모두에 노출. 프론트는 이 구절 ∪ 다음에 채울 키워드를
+  리포트 문단에서 `<mark>` 강조(`HighlightedText`).
 - **질문별 복기 본 구현**: V19 로 `interview_messages` 에 `model_answer`/`answer_rewrite`/`coaching_comment`
   추가. AI 가 `callback.feedback.answerCoaching[{messageId,…}]` 로 답변별 모범 답안·리라이트·코칭을 보내면
   `FeedbackCallbackService` 가 각 메시지에 `recordCoaching` 기록. `MessageResult`/`MessageResponse` 가 답변
