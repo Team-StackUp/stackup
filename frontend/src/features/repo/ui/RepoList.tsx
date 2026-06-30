@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { isApiError } from '@/shared/api'
 import { useAnalysisProgress } from '@/shared/hooks'
-import { ConfirmDialog, EmptyState, StatusBadge, type StatusTone } from '@/shared/ui'
+import { ConfirmDialog, EmptyState, ListSkeleton, StatusBadge, type StatusTone } from '@/shared/ui'
 import {
   useDeleteRepository,
   useRegisteredRepositories,
@@ -23,7 +23,7 @@ export function RepoList() {
   const remove = useDeleteRepository()
 
   if (isPending) {
-    return <p className="text-body text-fg-muted">레포지토리를 불러오는 중…</p>
+    return <ListSkeleton label="레포지토리를 불러오는 중…" />
   }
   if (isError) {
     return (

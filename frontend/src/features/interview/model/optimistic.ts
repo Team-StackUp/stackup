@@ -27,6 +27,8 @@ export function pendingAnswers(
   return pending
 }
 
+// 아직 서버에 반영 전인 낙관적 답변은 '전송 중'(CREATED)으로 표시한다.
+// 서버 메시지(COMPLETED)가 도착하면 pendingAnswers 가 이 항목을 소진해 자연 대체된다.
 export function toOptimisticMessage(answer: OptimisticAnswer): Message {
-  return { role: 'INTERVIEWEE', content: answer.content, status: 'COMPLETED' } as Message
+  return { role: 'INTERVIEWEE', content: answer.content, status: 'CREATED' } as Message
 }

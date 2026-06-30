@@ -34,16 +34,26 @@ export function AnswerComposer({
   disabled = false,
   submitLocked = false,
   onSubmit,
+  restoreDraft,
   onSubmitVoice,
   voiceUploading = false,
 }: {
   disabled?: boolean
   submitLocked?: boolean
   onSubmit: (content: string) => void
+  restoreDraft?: { content: string; nonce: number } | null
   onSubmitVoice?: (audio: Blob) => void
   voiceUploading?: boolean
 }) {
   const [value, setValue] = useState('')
+
+  // 전송 실패로 롤백된 답변을 입력창에 복원(입력 중인 새 내용은 덮어쓰지 않음).
+  // 프롭 변화에 따른 상태 보정은 effect 대신 렌더 중 직접 처리(React 권장 패턴).
+  const [restoredNonce, setRestoredNonce] = useState<number | undefined>(undefined)
+  if (restoreDraft && restoreDraft.nonce !== restoredNonce) {
+    setRestoredNonce(restoreDraft.nonce)
+    if (value.trim().length === 0 && restoreDraft.content) setValue(restoreDraft.content)
+  }
   const { status: recStatus, stream, start, stop, cancel } = useVoiceRecorder()
   const recording = recStatus === 'recording' || recStatus === 'requesting'
   const voiceSupported = recStatus !== 'unsupported' && Boolean(onSubmitVoice)

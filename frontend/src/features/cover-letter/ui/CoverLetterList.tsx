@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { isApiError } from '@/shared/api'
 import { useAnalysisProgress } from '@/shared/hooks'
-import { ConfirmDialog, EmptyState, StatusBadge, type StatusTone } from '@/shared/ui'
+import { ConfirmDialog, EmptyState, ListSkeleton, StatusBadge, type StatusTone } from '@/shared/ui'
 import { useCoverLetters, useDeleteCoverLetter } from '../model/useCoverLetters'
 import type { CoverLetter, CoverLetterStatus } from '../model/types'
 
@@ -17,7 +17,7 @@ export function CoverLetterList() {
   const remove = useDeleteCoverLetter()
 
   if (isPending) {
-    return <p className="text-body text-fg-muted">자소서를 불러오는 중…</p>
+    return <ListSkeleton label="자소서를 불러오는 중…" />
   }
   if (isError) {
     return (

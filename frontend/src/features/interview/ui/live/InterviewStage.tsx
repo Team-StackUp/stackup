@@ -53,6 +53,7 @@ export function InterviewStage({
   awaitingQuestion,
   questionStreaming,
   onSubmit,
+  restoreDraft,
   onSubmitVoice,
   voiceUploading,
   onEnd,
@@ -67,6 +68,7 @@ export function InterviewStage({
   awaitingQuestion: boolean
   questionStreaming: boolean
   onSubmit: (content: string) => void
+  restoreDraft?: { content: string; nonce: number } | null
   onSubmitVoice: (audio: Blob) => void
   voiceUploading: boolean
   onEnd: () => void
@@ -158,6 +160,7 @@ export function InterviewStage({
           disabled={awaitingQuestion || connection !== 'open'}
           submitLocked={questionStreaming}
           onSubmit={onSubmit}
+          restoreDraft={restoreDraft}
           onSubmitVoice={onSubmitVoice}
           voiceUploading={voiceUploading}
         />

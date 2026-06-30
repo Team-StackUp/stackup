@@ -94,118 +94,7 @@ export function FeedbackReport({
           <ScoreBar label="전달력" score={feedback.communicationScore} />
         </section>
 
-        {jobFit && (
-          <section className="flex flex-col gap-2">
-            <h2 className="text-h6 text-fg">직무 적합도</h2>
-            <p className="text-caption text-fg-subtle">
-              채용공고(JD) 요구 대비 적합도·갭 평가입니다. 종합 점수에는 반영되지 않습니다.
-            </p>
-            <div className="flex flex-col gap-1.5">
-              <ScoreBar label="직무 적합도" score={jobFit.score} />
-              {jobFit.detail && (
-                <p className="whitespace-pre-wrap pl-1 text-caption text-fg-muted">
-                  <HighlightedText text={jobFit.detail} terms={highlightTerms} />
-                </p>
-              )}
-              {(jobFit.strength || jobFit.weakness) && (
-                <div className="flex flex-col gap-0.5 pl-1 text-caption text-fg-muted">
-                  {jobFit.strength && <span>충족 · {jobFit.strength}</span>}
-                  {jobFit.weakness && <span>갭 · {jobFit.weakness}</span>}
-                </div>
-              )}
-              {jobFit.scoreRationale && (
-                <p className="pl-1 text-caption text-fg-subtle">
-                  점수 근거 · {jobFit.scoreRationale}
-                </p>
-              )}
-            </div>
-          </section>
-        )}
-
-        {roleUnderstanding && (
-          <section className="flex flex-col gap-2">
-            <h2 className="text-h6 text-fg">직무 이해도</h2>
-            <p className="text-caption text-fg-subtle">
-              직무가 무엇을 하는 자리인지에 대한 이해·지원동기 평가입니다. 종합 점수에는 반영되지
-              않습니다.
-            </p>
-            <div className="flex flex-col gap-1.5">
-              <ScoreBar label="직무 이해도" score={roleUnderstanding.score} />
-              {roleUnderstanding.detail && (
-                <p className="whitespace-pre-wrap pl-1 text-caption text-fg-muted">
-                  <HighlightedText text={roleUnderstanding.detail} terms={highlightTerms} />
-                </p>
-              )}
-              {(roleUnderstanding.strength || roleUnderstanding.weakness) && (
-                <div className="flex flex-col gap-0.5 pl-1 text-caption text-fg-muted">
-                  {roleUnderstanding.strength && <span>강점 · {roleUnderstanding.strength}</span>}
-                  {roleUnderstanding.weakness && <span>보완 · {roleUnderstanding.weakness}</span>}
-                </div>
-              )}
-              {roleUnderstanding.scoreRationale && (
-                <p className="pl-1 text-caption text-fg-subtle">
-                  점수 근거 · {roleUnderstanding.scoreRationale}
-                </p>
-              )}
-            </div>
-          </section>
-        )}
-
-        {selfIntro && (
-          <section className="flex flex-col gap-2">
-            <h2 className="text-h6 text-fg">자기소개 첫인상</h2>
-            <p className="text-caption text-fg-subtle">
-              전달력·구성·직무적합성 평가입니다. 종합 점수에는 반영되지 않습니다.
-            </p>
-            <div className="flex flex-col gap-1.5">
-              <ScoreBar label="첫인상" score={selfIntro.score} />
-              {selfIntro.detail && (
-                <p className="whitespace-pre-wrap pl-1 text-caption text-fg-muted">
-                  <HighlightedText text={selfIntro.detail} terms={highlightTerms} />
-                </p>
-              )}
-              {(selfIntro.strength || selfIntro.weakness) && (
-                <div className="flex flex-col gap-0.5 pl-1 text-caption text-fg-muted">
-                  {selfIntro.strength && <span>강점 · {selfIntro.strength}</span>}
-                  {selfIntro.weakness && <span>보완 · {selfIntro.weakness}</span>}
-                </div>
-              )}
-              {selfIntro.scoreRationale && (
-                <p className="pl-1 text-caption text-fg-subtle">
-                  점수 근거 · {selfIntro.scoreRationale}
-                </p>
-              )}
-            </div>
-          </section>
-        )}
-
-        {interviewerPanel.length > 0 && (
-          <section className="flex flex-col gap-3">
-            <h2 className="text-h6 text-fg">면접관 패널 평가</h2>
-            <div className="flex flex-col gap-4">
-              {interviewerPanel.map((b) => (
-                <div key={b.evaluator} className="flex flex-col gap-1.5">
-                  <ScoreBar label={`${b.evaluator} 면접관`} score={b.score} />
-                  {b.detail && (
-                    <p className="whitespace-pre-wrap pl-1 text-caption text-fg-muted">
-                      <HighlightedText text={b.detail} terms={highlightTerms} />
-                    </p>
-                  )}
-                  {(b.strength || b.weakness) && (
-                    <div className="flex flex-col gap-0.5 pl-1 text-caption text-fg-muted">
-                      {b.strength && <span>강점 · {b.strength}</span>}
-                      {b.weakness && <span>보완 · {b.weakness}</span>}
-                    </div>
-                  )}
-                  {b.scoreRationale && (
-                    <p className="pl-1 text-caption text-fg-subtle">점수 근거 · {b.scoreRationale}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
+        {/* 핵심 서사: 강점 → 개선 → 키워드 → 학습방향 (점수 직후로 끌어올려 스캔성↑) */}
         {feedback.strengthsSummary && (
           <section className="flex flex-col gap-2">
             <h2 className="text-h6 text-fg">강점</h2>
@@ -250,6 +139,115 @@ export function FeedbackReport({
                 </li>
               ))}
             </ul>
+          </section>
+        )}
+
+        {interviewerPanel.length > 0 && (
+          <section className="flex flex-col gap-3">
+            <h2 className="text-h6 text-fg">면접관 패널 평가</h2>
+            <div className="flex flex-col gap-4">
+              {interviewerPanel.map((b) => (
+                <div key={b.evaluator} className="flex flex-col gap-1.5">
+                  <ScoreBar label={`${b.evaluator} 면접관`} score={b.score} />
+                  {b.detail && (
+                    <p className="whitespace-pre-wrap pl-1 text-caption text-fg-muted">
+                      <HighlightedText text={b.detail} terms={highlightTerms} />
+                    </p>
+                  )}
+                  {(b.strength || b.weakness) && (
+                    <div className="flex flex-col gap-0.5 pl-1 text-caption text-fg-muted">
+                      {b.strength && <span>강점 · {b.strength}</span>}
+                      {b.weakness && <span>보완 · {b.weakness}</span>}
+                    </div>
+                  )}
+                  {b.scoreRationale && (
+                    <p className="pl-1 text-caption text-fg-subtle">점수 근거 · {b.scoreRationale}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* 추가 평가 — 종합 점수에 미반영. 면책은 그룹 헤더에서 한 번만. */}
+        {(jobFit || roleUnderstanding || selfIntro) && (
+          <section className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1">
+              <h2 className="text-h6 text-fg">추가 평가</h2>
+              <p className="text-caption text-fg-subtle">
+                아래 항목은 종합 점수에 반영되지 않는 참고용 평가입니다.
+              </p>
+            </div>
+
+            {jobFit && (
+              <div className="flex flex-col gap-1.5">
+                <h3 className="text-body font-semibold text-fg-strong">직무 적합도</h3>
+                <p className="pl-1 text-caption text-fg-subtle">채용공고(JD) 요구 대비 적합도·갭</p>
+                <ScoreBar label="직무 적합도" score={jobFit.score} />
+                {jobFit.detail && (
+                  <p className="whitespace-pre-wrap pl-1 text-caption text-fg-muted">
+                    <HighlightedText text={jobFit.detail} terms={highlightTerms} />
+                  </p>
+                )}
+                {(jobFit.strength || jobFit.weakness) && (
+                  <div className="flex flex-col gap-0.5 pl-1 text-caption text-fg-muted">
+                    {jobFit.strength && <span>충족 · {jobFit.strength}</span>}
+                    {jobFit.weakness && <span>갭 · {jobFit.weakness}</span>}
+                  </div>
+                )}
+                {jobFit.scoreRationale && (
+                  <p className="pl-1 text-caption text-fg-subtle">점수 근거 · {jobFit.scoreRationale}</p>
+                )}
+              </div>
+            )}
+
+            {roleUnderstanding && (
+              <div className="flex flex-col gap-1.5">
+                <h3 className="text-body font-semibold text-fg-strong">직무 이해도</h3>
+                <p className="pl-1 text-caption text-fg-subtle">직무에 대한 이해·지원동기</p>
+                <ScoreBar label="직무 이해도" score={roleUnderstanding.score} />
+                {roleUnderstanding.detail && (
+                  <p className="whitespace-pre-wrap pl-1 text-caption text-fg-muted">
+                    <HighlightedText text={roleUnderstanding.detail} terms={highlightTerms} />
+                  </p>
+                )}
+                {(roleUnderstanding.strength || roleUnderstanding.weakness) && (
+                  <div className="flex flex-col gap-0.5 pl-1 text-caption text-fg-muted">
+                    {roleUnderstanding.strength && <span>강점 · {roleUnderstanding.strength}</span>}
+                    {roleUnderstanding.weakness && <span>보완 · {roleUnderstanding.weakness}</span>}
+                  </div>
+                )}
+                {roleUnderstanding.scoreRationale && (
+                  <p className="pl-1 text-caption text-fg-subtle">
+                    점수 근거 · {roleUnderstanding.scoreRationale}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {selfIntro && (
+              <div className="flex flex-col gap-1.5">
+                <h3 className="text-body font-semibold text-fg-strong">자기소개 첫인상</h3>
+                <p className="pl-1 text-caption text-fg-subtle">전달력·구성·직무적합성</p>
+                <ScoreBar label="첫인상" score={selfIntro.score} />
+                {selfIntro.detail && (
+                  <p className="whitespace-pre-wrap pl-1 text-caption text-fg-muted">
+                    <HighlightedText text={selfIntro.detail} terms={highlightTerms} />
+                  </p>
+                )}
+                {(selfIntro.strength || selfIntro.weakness) && (
+                  <div className="flex flex-col gap-0.5 pl-1 text-caption text-fg-muted">
+                    {selfIntro.strength && <span>강점 · {selfIntro.strength}</span>}
+                    {selfIntro.weakness && <span>보완 · {selfIntro.weakness}</span>}
+                  </div>
+                )}
+                {selfIntro.scoreRationale && (
+                  <p className="pl-1 text-caption text-fg-subtle">
+                    점수 근거 · {selfIntro.scoreRationale}
+                  </p>
+                )}
+              </div>
+            )}
           </section>
         )}
       </div>

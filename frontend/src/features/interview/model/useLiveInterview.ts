@@ -29,6 +29,8 @@ export function useLiveInterview(sessionId: number, deliveryMode: DeliveryMode =
   const { end } = useSessionLifecycle(sessionId)
 
   const [optimistic, setOptimistic] = useState<OptimisticAnswer[]>([])
+  // 전송 실패로 롤백된 답변 본문 — 컴포저가 입력창을 복원하는 데 사용(nonce 로 매 실패마다 트리거).
+  const [restoreDraft, setRestoreDraft] = useState<{ content: string; nonce: number } | null>(null)
   const [connection, setConnection] = useState<ConnectionStatus>('connecting')
   const [deltaBuffer, setDeltaBuffer] = useState<Record<number, string>>({})
   // 라이브 세그먼트 오디오가 지금 재생 중인 메시지(아바타·질문 카드의 '말하는 중' 표시용).
@@ -46,6 +48,12 @@ export function useLiveInterview(sessionId: number, deliveryMode: DeliveryMode =
   // 소켓 onEvent 클로저에서 최신 모드를 읽기 위한 ref. 텍스트 모드는 음성 자동재생 안 함.
   const deliveryModeRef = useRef(deliveryMode)
   deliveryModeRef.current = deliveryMode
+
+  // 텍스트 답변은 WS fire-and-forget 라 ack 가 없다. 제출 후 일정 시간 내 서버 반영이
+  // 안 되면 stuck 된 낙관적 답변을 롤백한다. tempId 별 타이머 + 최신 optimistic 미러 ref.
+  const optimisticRef = useRef<OptimisticAnswer[]>([])
+  optimisticRef.current = optimistic
+  const answerTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
   if (queueRef.current === null) {
     queueRef.current = createSegmentQueue(async (url) => {
       if (typeof Audio === 'undefined') return
@@ -164,14 +172,34 @@ export function useLiveInterview(sessionId: number, deliveryMode: DeliveryMode =
     },
   })
 
+  const ANSWER_ACK_TIMEOUT_MS = 10_000
+
   const submitAnswer = useCallback(
     (content: string) => {
       const tempId = crypto.randomUUID()
       setOptimistic((prev) => [...prev, { tempId, content }])
       socketSubmit(content, tempId)
+      // ack 타임아웃: 시간 내 서버 반영(낙관적 소진)이 없으면 롤백 + 입력 복원 + 안내.
+      const timer = setTimeout(() => {
+        answerTimers.current.delete(tempId)
+        if (!optimisticRef.current.some((o) => o.tempId === tempId)) return // 이미 반영됨
+        setOptimistic((prev) => prev.filter((o) => o.tempId !== tempId))
+        setRestoreDraft({ content, nonce: Date.now() })
+        toast.error('답변 전송에 실패했어요. 입력을 복원했으니 다시 시도해 주세요.')
+      }, ANSWER_ACK_TIMEOUT_MS)
+      answerTimers.current.set(tempId, timer)
     },
     [socketSubmit],
   )
+
+  // 언마운트 시 남은 ack 타이머 정리(언마운트 후 setState/toast 방지).
+  useEffect(() => {
+    const timers = answerTimers.current
+    return () => {
+      timers.forEach((t) => clearTimeout(t))
+      timers.clear()
+    }
+  }, [])
 
   // 음성 답변은 REST 업로드(multipart). 성공 시 placeholder 메시지를
   // 받으므로 목록을 무효화해 "음성 인식 중…" 버블을 띄운다.
@@ -216,6 +244,7 @@ export function useLiveInterview(sessionId: number, deliveryMode: DeliveryMode =
     turn: currentTurn(items),
     connection,
     submitAnswer,
+    restoreDraft,
     submitVoice,
     voiceUploading: voiceMutation.isPending,
     voiceError: voiceMutation.isError,

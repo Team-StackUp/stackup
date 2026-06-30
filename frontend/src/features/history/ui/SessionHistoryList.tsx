@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { EmptyState } from '@/shared/ui'
+import { EmptyState, ListSkeleton } from '@/shared/ui'
 import { useSessions } from '../model/useHistory'
 import { SessionCard } from './SessionCard'
 
@@ -15,7 +15,7 @@ export function SessionHistoryList() {
   } = useSessions()
 
   if (isLoading) {
-    return <p className="py-8 text-center text-body text-fg-muted">불러오는 중…</p>
+    return <ListSkeleton count={4} label="면접 기록을 불러오는 중…" className="py-2" />
   }
   if (isError) {
     return (
