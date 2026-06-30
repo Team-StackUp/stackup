@@ -12,7 +12,7 @@
 1. **신뢰감 우선** — 면접 도구이므로 가벼운 톤 지양. 진중·차분한 시각 언어.
 2. **집중 환경 보호** — 면접 화면은 노이즈 최소화. 핵심 UI만 노출, 부가 정보는 hover/click 으로 점진적 공개.
 3. **상태 가시성** — 분석 진행, 세션 상태, SSE 이벤트 등 비동기 상태는 항상 명시적으로 표현.
-4. **모노크로매틱 + 의미 컬러** — Sage 단일 베이스로 톤 일관성을 유지하고, Status / Domain 만 muted jewel tone 으로 식별성 부여.
+4. **모노크로매틱 + 의미 컬러** — 로고 블루(#3E63D8) 기반 **쿨 블루그레이** 단일 베이스(토큰명은 `sage-*` 유지)로 톤 일관성을 유지하고, 브랜드 강조는 로고 블루 `primary`, Status / Domain 만 muted jewel tone 으로 식별성 부여.
 5. **접근성 (WCAG 2.1 AA)** — 키보드 only 조작, 명도 대비 4.5:1 이상, focus ring 명확.
 6. **모바일 웹뷰 대응** — 데스크탑 우선이지만 mobile breakpoint(`< lg`)에서도 깨지지 않게.
 
@@ -28,23 +28,25 @@
 |---|---|---|---|
 | `--color-white` | `#ffffff` | `bg-white`, `text-white` | 순백 |
 | `--color-black` | `#000000` | `bg-black` | 순흑 |
-| `--color-background` | `#e9e8e7` | `bg-background` (= `bg-bg`) | 앱 기본 배경 |
+| `--color-background` | `#eceef3` | `bg-background` (= `bg-bg`) | 앱 기본 배경 (쿨 라이트) |
 
 ### 2.2 컬러 — Sage Scale (메인 테마, 11 단계)
 
+> 토큰 이름은 `sage-*` 로 유지하되 **값은 로고(#3E63D8)에 맞춘 쿨 블루그레이 모노크롬** 이다(저채도 — 중립/본문용). 브랜드 강조색은 별도 `primary` (아래 §2.3, 스케일과 분리).
+
 | 토큰 | Hex | 권장 용도 |
 |---|---|---|
-| `sage-50` | `#e8e7e1` | 가장 밝은 컴포넌트 배경 (= `surface`) |
-| `sage-100` | `#d4cfcb` | 분리선 / 보더 (= `border`) |
-| `sage-200` | `#c9ccc8` | 비활성 텍스트 / 보조 배경 (= `border-strong`, `fg-disabled`) |
-| `sage-300` | `#b4bdaf` | 비활성 보조 / placeholder |
-| `sage-400` | `#a0a89d` | 보조 텍스트 (= `fg-subtle`) |
-| `sage-500` | `#626e5c` | **Primary**, 활성 / 포커스, 본문 보조 텍스트 (= `fg-muted`) |
-| `sage-600` | `#3e4739` | Primary hover |
-| `sage-700` | `#2b3625` | Primary pressed / 강조 컴포넌트 |
-| `sage-800` | `#1f271b` | 주요 헤딩 (= `fg-strong`) |
-| `sage-900` | `#181e15` | 본문 (대안) |
-| `sage-950` | `#141a11` | 가장 어두운 텍스트 (= `fg`, 기본) |
+| `sage-50` | `#eef1f6` | 가장 밝은 컴포넌트 배경 (= `surface`) |
+| `sage-100` | `#dbe2ec` | 분리선 / 보더 (= `border`) |
+| `sage-200` | `#c6cedd` | 비활성 텍스트 / 보조 배경 (= `border-strong`, `fg-disabled`) |
+| `sage-300` | `#9fafc9` | 비활성 보조 / placeholder |
+| `sage-400` | `#6e7f9f` | 흐린 텍스트 (= `fg-subtle`) |
+| `sage-500` | `#4a5a7e` | 본문 보조 텍스트 (= `fg-muted`), 활성 / 포커스 |
+| `sage-600` | `#38486a` | 강조 보더 / 표면 |
+| `sage-700` | `#2b3a59` | 강조 컴포넌트 |
+| `sage-800` | `#1e2a44` | 주요 헤딩 · 푸터 네이비 (= `fg-strong`) |
+| `sage-900` | `#161f33` | 본문 (대안) |
+| `sage-950` | `#101627` | 가장 어두운 텍스트 (= `fg`, 기본) |
 
 Tailwind 사용: `bg-sage-{n}`, `text-sage-{n}`, `border-sage-{n}`.
 
@@ -65,9 +67,9 @@ Tailwind 사용: `bg-sage-{n}`, `text-sage-{n}`, `border-sage-{n}`.
 | `--color-fg-subtle` | `sage-400` | `text-fg-subtle` |
 | `--color-fg-disabled` | `sage-200` | `text-fg-disabled` |
 | `--color-fg-on-primary` | `white` | `text-fg-on-primary` |
-| `--color-primary` | `sage-500` | `bg-primary`, `text-primary` |
-| `--color-primary-hover` | `sage-600` | `bg-primary-hover` |
-| `--color-primary-pressed` | `sage-700` | `bg-primary-pressed` |
+| `--color-primary` | `#3e63d8` (로고 블루, 스케일과 분리) | `bg-primary`, `text-primary` |
+| `--color-primary-hover` | `#3050be` | `bg-primary-hover` |
+| `--color-primary-pressed` | `#274099` | `bg-primary-pressed` |
 
 ### 2.4 컬러 — Status
 
@@ -410,6 +412,7 @@ Tailwind v4 기본 `--spacing: 0.25rem` (= 4px) 사용. `p-4` = `16px`.
 
 ## 12. 변경 이력
 
+- **2026-06** — **블루 리테마**: 로고(#3E63D8)에 맞춰 `sage-*` 스케일 값을 쿨 블루그레이 모노크롬으로 교체(토큰명 유지), `primary` 를 스케일에서 분리해 로고 블루로 지정. 배경/그림자/포커스링도 쿨톤·네이비로 재조정. 위젯 하드코딩 hex 일괄 치환. Status / Domain 컬러는 유지.
 - **2026-05** — Tailwind CSS v4 기반 **sage 모노크로매틱** 시스템으로 전면 개편. 이전 `Pretendard + 블루 브랜드` 스펙은 본 문서로 흡수.
 - **2026-05** — Status / Domain 컬러를 muted jewel tone 으로 재정의 (Sage 톤과 조화).
 - **2026-05** — Z-index, Container max-width, 4-State UI 패턴 등 누락 토큰 / 규약 보강.

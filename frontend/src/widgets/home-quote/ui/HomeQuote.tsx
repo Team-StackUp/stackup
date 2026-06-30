@@ -14,7 +14,7 @@ export function HomeQuote() {
                 className="absolute inset-0"
                 style={{
                   background:
-                    'radial-gradient(120% 80% at 20% 30%, #2b3625 0%, #1f271b 60%, #141a11 100%)',
+                    'radial-gradient(120% 80% at 20% 30%, #2b3a59 0%, #1e2a44 60%, #101627 100%)',
                 }}
               />
               <div
@@ -22,8 +22,8 @@ export function HomeQuote() {
                 className="absolute inset-0 opacity-[0.35] mix-blend-screen"
                 style={{
                   background:
-                    'radial-gradient(40% 35% at 70% 25%, #c9ccc8 0%, transparent 60%),' +
-                    'radial-gradient(50% 40% at 30% 80%, #626e5c 0%, transparent 65%)',
+                    'radial-gradient(40% 35% at 70% 25%, #c6cedd 0%, transparent 60%),' +
+                    'radial-gradient(50% 40% at 30% 80%, #4a5a7e 0%, transparent 65%)',
                 }}
               />
               <div className="relative h-full flex items-end p-8 lg:p-10">

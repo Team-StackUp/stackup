@@ -8,7 +8,7 @@ export function HomeHero() {
       className="relative overflow-hidden"
       style={{
         background:
-          'radial-gradient(120% 80% at 50% 0%, #f1ece4 0%, #e9e8e7 60%, #e9e8e7 100%)',
+          'radial-gradient(120% 80% at 50% 0%, #f3f5fa 0%, #eceef3 60%, #eceef3 100%)',
       }}
     >
       <div
