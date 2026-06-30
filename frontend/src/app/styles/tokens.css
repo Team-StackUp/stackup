@@ -45,7 +45,9 @@
   --color-fg-strong: var(--color-sage-800);
   /* 본문 위 보조 텍스트가 밝은 표면에서 충분히 읽히도록 한 단계씩 진하게 (WCAG AA). */
   --color-fg-muted: var(--color-sage-500);
-  --color-fg-subtle: var(--color-sage-400);
+  /* sage-400(#6e7f9f)는 white 4.04:1 로 AA(4.5:1) 미달 — 흐린 텍스트 전용으로 한 톤 진하게.
+   * #586a8e: white 5.43:1 / surface 4.80:1, fg-muted(#4a5a7e)보다 밝아 위계 유지. */
+  --color-fg-subtle: #586a8e;
   --color-fg-disabled: var(--color-sage-200);
   --color-fg-on-primary: var(--color-white);
 
@@ -68,7 +70,7 @@
 
   --color-warning-50: #f4e8d4;
   --color-warning-500: #b88840;
-  --color-warning-700: #8a6529;
+  --color-warning-700: #7e5a22;
   --color-warning: var(--color-warning-500);
 
   --color-danger-50: #f4e0d8;

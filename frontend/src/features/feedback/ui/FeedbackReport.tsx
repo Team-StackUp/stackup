@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { StatusBadge } from '@/shared/ui/StatusBadge'
 import { ScoreBar } from '@/shared/ui/ScoreBar'
 import { Button } from '@/shared/ui/Button'
+import { toast } from '@/shared/ui'
 import { useCopyToClipboard } from '@/shared/hooks'
 import type { Feedback } from '../api/feedbackApi'
 import { downloadElementAsPdf } from '../lib/downloadPdf'
@@ -29,6 +30,8 @@ export function FeedbackReport({
     setDownloading(true)
     try {
       await downloadElementAsPdf(reportRef.current, '면접피드백.pdf')
+    } catch {
+      toast.error('PDF 생성에 실패했어요. 다시 시도해 주세요.')
     } finally {
       setDownloading(false)
     }
@@ -37,8 +40,13 @@ export function FeedbackReport({
   const share = useShareFeedback(feedback.sessionId ?? 0)
   const { copy, copied } = useCopyToClipboard()
   const handleShare = async () => {
-    const token = await share.mutateAsync()
-    if (token) await copy(`${window.location.origin}/share/${token}`)
+    // 실패 토스트는 useShareFeedback.onError 가 띄운다 — 여기선 unhandled rejection 만 방지.
+    try {
+      const token = await share.mutateAsync()
+      if (token) await copy(`${window.location.origin}/share/${token}`)
+    } catch {
+      /* handled by mutation onError */
+    }
   }
 
   const overall = feedback.overallScore

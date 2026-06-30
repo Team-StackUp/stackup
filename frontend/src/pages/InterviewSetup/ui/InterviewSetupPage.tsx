@@ -4,6 +4,7 @@ import { SiteFooter } from '@/widgets/site-footer'
 import { useDocuments } from '@/features/analysis'
 import { InterviewSetupForm, useCreateSession } from '@/features/interview'
 import type { DocOption } from '@/features/interview'
+import { documentSourceLabel } from '@/domain/rag'
 
 export default function InterviewSetupPage() {
   const navigate = useNavigate()
@@ -14,7 +15,7 @@ export default function InterviewSetupPage() {
     .filter((d) => d.analysisStatus === 'ANALYZED')
     .map((d) => ({
       id: d.id,
-      label: d.summary?.slice(0, 40) ?? `${d.sourceType} #${d.sourceId}`,
+      label: d.summary?.slice(0, 40) ?? `${documentSourceLabel(d.sourceType)} #${d.sourceId}`,
       sourceType: d.sourceType,
     }))
 

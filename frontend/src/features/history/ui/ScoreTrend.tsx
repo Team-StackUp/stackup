@@ -66,8 +66,7 @@ export function ScoreTrend({ stats }: { stats: UserStats }) {
       <span className="text-caption text-fg-muted">지표별 점수 추이 (최근 {n}회)</span>
       <svg
         viewBox={`0 0 ${W} ${H}`}
-        className="h-56 w-full"
-        preserveAspectRatio="none"
+        className="aspect-[24/11] w-full"
         role="img"
         aria-label={`지표별 점수 추이, 최근 ${n}회. ${series
           .map((s) => `${s.label} ${s.latest ?? '미산정'}`)

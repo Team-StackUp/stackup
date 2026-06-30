@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { isApiError } from '@/shared/api'
 import { EmptyState, Modal, StatusBadge, type StatusTone } from '@/shared/ui'
+import { DOCUMENT_SOURCE_LABEL as SOURCE_LABEL } from '@/domain/rag'
 import type { DocumentFilter } from '../api/analysis'
 import { useDocuments } from '../model/useDocuments'
 import type {
@@ -15,13 +16,6 @@ const STATUS_META: Record<AnalysisStatus, { tone: StatusTone; label: string }> =
     ANALYZED: { tone: 'success', label: '분석 완료' },
     FAILED: { tone: 'danger', label: '분석 실패' },
   }
-
-const SOURCE_LABEL: Record<AnalysisSourceType, string> = {
-  RESUME: '이력서',
-  REPOSITORY: '레포지토리',
-  WEB: '웹',
-  COVER_LETTER: '자소서',
-}
 
 const TECH_PREVIEW_COUNT = 4
 

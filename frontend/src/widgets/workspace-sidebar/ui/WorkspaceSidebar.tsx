@@ -30,18 +30,41 @@ export function WorkspaceSidebar() {
         'lg:sticky lg:top-0',
       ].join(' ')}
     >
-      <div className="flex items-center justify-between px-6 py-5 lg:py-6">
+      <div className="flex items-center justify-between gap-2 px-6 py-5 lg:py-6">
         <Link
           to="/"
           className="font-heading text-[15px] font-extrabold uppercase tracking-[0.04em] text-sage-900"
         >
           Stack Up
         </Link>
+        {/* 모바일(가로 바): 우측에 아바타 + 로그아웃. lg 이상은 하단 프로필 블록 사용. */}
+        {user ? (
+          <div className="flex items-center gap-2 lg:hidden">
+            {user.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                alt=""
+                aria-hidden
+                className="h-8 w-8 rounded-full border border-border object-cover"
+              />
+            ) : null}
+            <button
+              type="button"
+              onClick={logout}
+              disabled={loggingOut}
+              aria-busy={loggingOut}
+              aria-label="로그아웃"
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-fg-strong/70 transition-colors duration-fast hover:bg-surface hover:text-fg-strong disabled:opacity-60"
+            >
+              <LogoutIcon />
+            </button>
+          </div>
+        ) : null}
       </div>
 
       <nav
         aria-label="Workspace"
-        className="flex gap-1 px-3 pb-4 lg:flex-col lg:gap-1 lg:pb-0"
+        className="flex gap-1 overflow-x-auto px-3 pb-4 lg:flex-col lg:gap-1 lg:overflow-visible lg:pb-0"
       >
         {navItems.map((item) => (
           <NavLink
@@ -50,9 +73,9 @@ export function WorkspaceSidebar() {
             end={item.end}
             className={({ isActive }) =>
               [
-                'flex flex-1 items-center gap-3 rounded-lg px-3 py-2.5 text-button transition-colors duration-fast lg:flex-none',
+                'flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2.5 text-button transition-colors duration-fast lg:flex-none lg:gap-3',
                 isActive
-                  ? 'bg-sage-100 text-fg-strong'
+                  ? 'bg-primary/10 font-semibold text-primary'
                   : 'text-fg-strong/70 hover:bg-surface hover:text-fg-strong',
               ].join(' ')
             }
