@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { isApiError } from '@/shared/api'
-import { EmptyState, Modal, StatusBadge, type StatusTone } from '@/shared/ui'
+import { EmptyState, ListSkeleton, Modal, StatusBadge, type StatusTone } from '@/shared/ui'
 import { DOCUMENT_SOURCE_LABEL as SOURCE_LABEL } from '@/domain/rag'
 import type { DocumentFilter } from '../api/analysis'
 import { useDocuments } from '../model/useDocuments'
@@ -30,7 +30,7 @@ export function DocumentList({ filter = {}, sourceType }: Props) {
   const [activeId, setActiveId] = useState<number | null>(null)
 
   if (isPending) {
-    return <p className="text-body text-fg-muted">분석 결과를 불러오는 중…</p>
+    return <ListSkeleton label="분석 결과를 불러오는 중…" />
   }
   if (isError) {
     return (

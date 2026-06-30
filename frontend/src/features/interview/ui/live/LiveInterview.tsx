@@ -16,6 +16,7 @@ export function LiveInterview({ sessionId }: { sessionId: number }) {
     turn,
     connection,
     submitAnswer,
+    restoreDraft,
     submitVoice,
     voiceUploading,
     endSession,
@@ -53,6 +54,7 @@ export function LiveInterview({ sessionId }: { sessionId: number }) {
       awaitingQuestion={awaitingQuestion}
       questionStreaming={questionStreaming}
       onSubmit={submitAnswer}
+      restoreDraft={restoreDraft}
       onSubmitVoice={submitVoice}
       voiceUploading={voiceUploading}
       onEnd={endSession}

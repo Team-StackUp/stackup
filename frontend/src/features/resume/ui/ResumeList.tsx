@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { isApiError } from '@/shared/api'
 import { useAnalysisProgress } from '@/shared/hooks'
-import { ConfirmDialog, EmptyState, StatusBadge, type StatusTone } from '@/shared/ui'
+import { ConfirmDialog, EmptyState, ListSkeleton, StatusBadge, type StatusTone } from '@/shared/ui'
 import { useDeleteResume, useResumes } from '../model/useResumes'
 import { formatFileSize } from '../lib/format'
 import type { Resume, ResumeStatus } from '../model/types'
@@ -18,7 +18,7 @@ export function ResumeList() {
   const remove = useDeleteResume()
 
   if (isPending) {
-    return <p className="text-body text-fg-muted">이력서를 불러오는 중…</p>
+    return <ListSkeleton label="이력서를 불러오는 중…" />
   }
   if (isError) {
     return (

@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { SiteNav } from '@/widgets/site-nav'
 import { SiteFooter } from '@/widgets/site-footer'
 import { useDocuments } from '@/features/analysis'
@@ -24,7 +24,13 @@ export default function InterviewSetupPage() {
       <SiteNav />
       <main className="flex-1">
         <div className="mx-auto max-w-readable px-4 pt-10">
-          <h1 className="text-h4 text-fg">새 모의 면접</h1>
+          <Link
+            to="/workspace"
+            className="inline-flex items-center gap-1 text-button text-fg-muted transition-colors duration-fast hover:text-fg-strong"
+          >
+            <span aria-hidden>←</span> 워크스페이스로
+          </Link>
+          <h1 className="mt-3 text-h4 text-fg">새 모의 면접</h1>
           <p className="mt-2 text-body text-fg-muted">
             모드와 직군을 선택하면 AI가 맞춤 질문을 생성합니다.
           </p>

@@ -41,6 +41,8 @@ export function InterviewSetupForm({
     jobCategories.length > 0 &&
     maxQuestions >= 2 &&
     maxQuestions <= 30 &&
+    // 총 질문 상한은 최소한 일반질문 수 이상이어야 모순이 없다(상한 < 일반질문 수 차단).
+    maxQuestions >= generalQuestionCount &&
     // 직무 맞춤 면접은 채용공고(JD)가 필수.
     (!isJobTailored || jobDescription.trim().length > 0)
 
@@ -158,7 +160,7 @@ export function InterviewSetupForm({
         <div className="flex items-center justify-between">
           <span className="text-body text-fg">
             질문당 꼬리질문
-            <span className="ml-1 text-caption text-fg-muted">깊이</span>
+            <span className="ml-1 text-caption text-fg-muted">한 주제를 얼마나 파고들지</span>
           </span>
           <Stepper
             ariaLabel="질문당 최대 꼬리질문"
@@ -171,7 +173,7 @@ export function InterviewSetupForm({
         <div className="flex items-center justify-between">
           <span className="text-body text-fg">
             총 질문 상한
-            <span className="ml-1 text-caption text-fg-muted">안전장치</span>
+            <span className="ml-1 text-caption text-fg-muted">꼬리질문 포함 전체 질문 최대 개수</span>
           </span>
           <Stepper
             ariaLabel="총 질문 상한"
@@ -187,6 +189,11 @@ export function InterviewSetupForm({
         <ContextDocumentPicker documents={documents} selected={selected} onToggle={toggle} />
       </section>
       <div className="flex flex-col gap-2">
+        {maxQuestions < generalQuestionCount && (
+          <p className="text-caption text-warning-700">
+            총 질문 상한({maxQuestions})이 일반질문 수({generalQuestionCount})보다 작아요. 상한을 일반질문 수 이상으로 올려주세요.
+          </p>
+        )}
         {isJobTailored && jobDescription.trim().length === 0 && (
           <p className="text-caption text-warning-700">
             채용공고(JD)를 입력해야 직무 맞춤 면접을 생성할 수 있어요.

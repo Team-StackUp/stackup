@@ -18,6 +18,7 @@ export function Stepper({ value, onChange, min = 0, max = 100, step = 1, ariaLab
         size="sm"
         type="button"
         aria-label="감소"
+        className="min-h-11 min-w-11"
         disabled={value <= min}
         onClick={() => onChange(clamp(value - step))}
       >
@@ -29,6 +30,7 @@ export function Stepper({ value, onChange, min = 0, max = 100, step = 1, ariaLab
         size="sm"
         type="button"
         aria-label="증가"
+        className="min-h-11 min-w-11"
         disabled={value >= max}
         onClick={() => onChange(clamp(value + step))}
       >
