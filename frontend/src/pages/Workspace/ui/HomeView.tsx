@@ -17,7 +17,7 @@ export function HomeView() {
         <p className="text-caption uppercase tracking-[0.08em] text-white/60">
           맞춤 모의 면접
         </p>
-        <h2 className="mt-2 font-heading text-h4 font-bold">
+        <h2 className="mt-2 font-heading text-h4 font-bold text-white">
           이력서·레포 기반 맞춤 면접을 시작하세요
         </h2>
         <p className="mt-2 max-w-xl text-body text-white/70">
@@ -50,12 +50,18 @@ export function HomeView() {
         </div>
       </section>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <QuickLink
           to="/workspace/resumes"
           title="이력서"
           description="이력서를 업로드하고 분석 결과를 확인하세요."
           icon={<ResumeIcon />}
+        />
+        <QuickLink
+          to="/workspace/cover-letters"
+          title="자소서"
+          description="자소서 문항을 입력하고 분석 결과를 확인하세요."
+          icon={<CoverLetterIcon />}
         />
         <QuickLink
           to="/workspace/repos"
@@ -147,6 +153,24 @@ function ResumeIcon() {
       <path d="M5 2.5h6l4 4V16a1.5 1.5 0 0 1-1.5 1.5h-8A1.5 1.5 0 0 1 4 16V4A1.5 1.5 0 0 1 5 2.5Z" />
       <path d="M11 2.5V6a1 1 0 0 0 1 1h3" />
       <path d="M7 10.5h6M7 13.5h4" />
+    </svg>
+  )
+}
+
+function CoverLetterIcon() {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      width="20"
+      height="20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="3" width="14" height="14" rx="1.5" />
+      <path d="M6.5 7.5h7M6.5 10.5h7M6.5 13.5h4" />
     </svg>
   )
 }

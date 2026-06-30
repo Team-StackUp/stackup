@@ -104,7 +104,7 @@ export default function LoginPage() {
 
       <footer className="border-t border-border">
         <div className="mx-auto max-w-content px-6 lg:px-12 h-14 flex items-center justify-between text-caption font-mono text-fg-muted">
-          <span>© 2026 StackUp · CNU 종합설계</span>
+          <span>© 2026 StackUp</span>
           <Link to="/" className="hover:text-fg-strong transition-colors duration-fast">
             ← Back to home
           </Link>

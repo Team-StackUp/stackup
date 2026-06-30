@@ -1,8 +1,8 @@
 import type { UserStats } from '../api/historyApi'
 
-const W = 320
-const H = 150
-const PAD = { l: 26, r: 10, t: 14, b: 10 }
+const W = 480
+const H = 220
+const PAD = { l: 30, r: 14, t: 18, b: 16 }
 const IW = W - PAD.l - PAD.r
 const IH = H - PAD.t - PAD.b
 const GRID = [0, 50, 100]
@@ -66,7 +66,7 @@ export function ScoreTrend({ stats }: { stats: UserStats }) {
       <span className="text-caption text-fg-muted">지표별 점수 추이 (최근 {n}회)</span>
       <svg
         viewBox={`0 0 ${W} ${H}`}
-        className="h-36 w-full"
+        className="h-56 w-full"
         preserveAspectRatio="none"
         role="img"
         aria-label={`지표별 점수 추이, 최근 ${n}회. ${series

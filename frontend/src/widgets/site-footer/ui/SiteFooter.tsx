@@ -71,8 +71,8 @@ export function SiteFooter() {
               Stack Up
             </div>
             <p className="mt-4 text-sage-200 max-w-sm leading-relaxed">
-              IT 직군 멀티모달 AI 면접 시뮬레이터. GitHub 레포와 이력서를 분석해
-              개인 맞춤 면접과 음성·비언어적 피드백을 제공합니다.
+              직군을 가리지 않는 멀티모달 AI 면접 시뮬레이터. 이력서·자소서·GitHub
+              레포를 분석해 개인 맞춤 면접과 음성·비언어적 피드백을 제공합니다.
             </p>
           </div>
 
@@ -115,7 +115,7 @@ export function SiteFooter() {
 
         <div className="mt-16 pt-8 border-t border-sage-600/60 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
           <div className="text-caption font-mono text-sage-300">
-            © 2026 StackUp · CNU 종합설계. All rights reserved.
+            © 2026 StackUp. All rights reserved.
           </div>
           <ul className="flex gap-6 text-caption text-sage-300">
             <li>
