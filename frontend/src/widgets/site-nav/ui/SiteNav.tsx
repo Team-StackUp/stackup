@@ -72,7 +72,7 @@ export function SiteNav() {
                 onClick={logout}
                 disabled={loggingOut}
                 aria-busy={loggingOut}
-                className="inline-flex items-center gap-2 pl-5 pr-5 py-2 rounded-pill bg-[#dbe2ec] text-sage-900 text-button hover:bg-[#c6cedd] transition-colors duration-fast disabled:opacity-60 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-2 pl-5 pr-5 py-2 rounded-pill bg-sage-100 text-sage-900 text-button hover:bg-sage-200 transition-colors duration-fast disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {loggingOut ? '로그아웃 중…' : 'Logout'}
               </button>
@@ -87,7 +87,7 @@ export function SiteNav() {
               </Link>
               <Link
                 to="/login"
-                className="inline-flex items-center gap-2 pl-5 pr-2 py-2 rounded-pill bg-[#dbe2ec] text-sage-900 text-button hover:bg-[#c6cedd] transition-colors duration-fast"
+                className="inline-flex items-center gap-2 pl-5 pr-2 py-2 rounded-pill bg-sage-100 text-sage-900 text-button hover:bg-sage-200 transition-colors duration-fast"
               >
                 Get Started
                 <span

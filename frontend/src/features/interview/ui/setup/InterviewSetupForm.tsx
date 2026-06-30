@@ -80,7 +80,7 @@ export function InterviewSetupForm({
           onChange={(e) => setTitle(e.target.value)}
           maxLength={60}
           placeholder="예: 백엔드 기술 면접 2차"
-          className="rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-fg placeholder:text-fg-muted focus:border-border-strong focus:outline-none"
+          className="rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-fg placeholder:text-fg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary)] focus-visible:border-primary"
         />
       </section>
       <section className="flex flex-col gap-2">
@@ -114,7 +114,7 @@ export function InterviewSetupForm({
               onChange={(e) => setCompanyName(e.target.value)}
               maxLength={200}
               placeholder="예: 토스, 우아한형제들"
-              className="rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-fg placeholder:text-fg-muted focus:border-border-strong focus:outline-none"
+              className="rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-fg placeholder:text-fg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary)] focus-visible:border-primary"
             />
           </div>
           <div className="flex flex-col gap-1.5">
@@ -128,7 +128,7 @@ export function InterviewSetupForm({
               maxLength={20000}
               rows={8}
               placeholder="채용공고의 자격요건·우대사항·주요업무를 붙여넣어 주세요. 이 내용으로 적합도·지원동기 질문과 직무 적합도 피드백이 생성됩니다."
-              className="resize-y rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-fg placeholder:text-fg-muted focus:border-border-strong focus:outline-none"
+              className="resize-y rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-fg placeholder:text-fg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary)] focus-visible:border-primary"
             />
           </div>
         </section>

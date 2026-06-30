@@ -37,7 +37,7 @@ export function HomeCta() {
 
             <Link
               to={getStartedTo}
-              className="mt-10 inline-flex items-center gap-2 pl-5 pr-2 py-2.5 rounded-pill bg-[#dbe2ec] text-sage-900 text-button hover:bg-white transition-colors duration-fast"
+              className="mt-10 inline-flex items-center gap-2 pl-5 pr-2 py-2.5 rounded-pill bg-sage-100 text-sage-900 text-button hover:bg-white transition-colors duration-fast"
             >
               Get Started
               <span

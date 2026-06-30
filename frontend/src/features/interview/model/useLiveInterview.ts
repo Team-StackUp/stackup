@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { currentTurn } from '@/domain/session'
 import type { Message } from '@/domain/session'
+import { toast } from '@/shared/ui'
 import { submitVoiceAnswer, fetchMessageSegmentObjectUrl } from '../api/messageApi'
 import { createSegmentQueue } from '../lib/media/segmentAudioQueue'
 import { sessionKeys, useSession } from './useSession'
@@ -179,6 +180,8 @@ export function useLiveInterview(sessionId: number, deliveryMode: DeliveryMode =
     mutationFn: (audio: Blob) => submitVoiceAnswer(sessionId, audio, crypto.randomUUID()),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: messageKeys.list(sessionId) }),
+    onError: () =>
+      toast.error('음성 답변 업로드에 실패했어요. 다시 시도해 주세요.'),
   })
 
   const submitVoice = useCallback(

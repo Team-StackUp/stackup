@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { isApiError } from '@/shared/api'
+import { toast } from '@/shared/ui'
 import { enableShare, getFeedback, getSharedFeedback } from '../api/feedbackApi'
 
 export const feedbackKeys = {
@@ -24,7 +25,10 @@ export function useFeedback(sessionId: number) {
 
 // 공유 토큰 발급(버튼 클릭).
 export function useShareFeedback(sessionId: number) {
-  return useMutation({ mutationFn: () => enableShare(sessionId) })
+  return useMutation({
+    mutationFn: () => enableShare(sessionId),
+    onError: () => toast.error('공유 링크 발급에 실패했어요. 다시 시도해 주세요.'),
+  })
 }
 
 // 공개 페이지: 공유 토큰으로 피드백 조회(비인증, 재시도 없음).

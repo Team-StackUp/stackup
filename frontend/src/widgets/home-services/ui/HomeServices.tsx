@@ -57,7 +57,7 @@ function CardInner({ card }: { card: ServiceCard }) {
         }}
       />
 
-      <span className="absolute top-4 left-4 px-3 py-1 rounded-pill bg-[#dbe2ec] text-sage-900 text-caption font-medium">
+      <span className="absolute top-4 left-4 px-3 py-1 rounded-pill bg-sage-100 text-sage-900 text-caption font-medium">
         {card.tag}
       </span>
 

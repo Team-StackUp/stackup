@@ -15,7 +15,7 @@ export function TextArea({ value, onChange, className = '', rows = 1, ref, ...re
       value={value}
       rows={rows}
       onChange={(e) => onChange(e.target.value)}
-      className={`max-h-40 min-h-10 flex-1 resize-none rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-fg placeholder:text-fg-muted focus:border-border-strong focus:outline-none disabled:opacity-50 ${className}`}
+      className={`max-h-40 min-h-10 flex-1 resize-none rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-fg placeholder:text-fg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary)] focus-visible:border-primary disabled:opacity-50 ${className}`}
       {...rest}
     />
   )
