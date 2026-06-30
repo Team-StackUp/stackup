@@ -58,25 +58,14 @@ export function HomeQuote() {
 
               <blockquote className="-mt-6">
                 <p className="text-white text-[24px] lg:text-[30px] leading-snug font-medium">
-                  Stack Up은 올인원 IT 면접 솔루션입니다. 본인 코드를 가장 잘 아는
-                  면접관 — GitHub 레포에서 출발해, 답변의 깊이까지 따라 들어갑니다.
+                  Stack Up은 직군을 가리지 않는 올인원 모의 면접 솔루션입니다. 이력서·자소서·
+                  GitHub 레포에서 출발해, 답변의 깊이까지 따라 들어갑니다.
                 </p>
               </blockquote>
 
-              <div className="mt-auto pt-12 grid grid-cols-1 sm:grid-cols-2 gap-2 sm:items-end">
-                <div>
-                  <div className="text-white text-button font-semibold">
-                    박상우 · 신재호 · 정준모 · 조서현
-                  </div>
-                  <div className="mt-1 text-sage-300 text-caption font-mono uppercase tracking-[0.18em]">
-                    Team StackUp · CNU
-                  </div>
-                </div>
-                <div className="sm:text-right">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-pill border border-sage-600 text-sage-200 text-caption">
-                    <span className="w-1.5 h-1.5 rounded-full bg-success" aria-hidden />
-                    2026 · Phase 1
-                  </span>
+              <div className="mt-auto pt-12">
+                <div className="text-sage-200 text-button font-medium">
+                  전 직군 · 맞춤 질문 · 음성·비언어 분석까지
                 </div>
               </div>
             </div>
