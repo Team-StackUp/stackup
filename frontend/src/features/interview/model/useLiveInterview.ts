@@ -53,6 +53,9 @@ export function useLiveInterview(sessionId: number, deliveryMode: DeliveryMode =
   // 안 되면 stuck 된 낙관적 답변을 롤백한다. tempId 별 타이머 + 최신 optimistic 미러 ref.
   const optimisticRef = useRef<OptimisticAnswer[]>([])
   optimisticRef.current = optimistic
+  // 타임아웃 클로저에서 최신 연결 상태를 읽기 위한 미러 ref.
+  const connectionRef = useRef<ConnectionStatus>(connection)
+  connectionRef.current = connection
   const answerTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
   if (queueRef.current === null) {
     queueRef.current = createSegmentQueue(async (url) => {
@@ -183,6 +186,11 @@ export function useLiveInterview(sessionId: number, deliveryMode: DeliveryMode =
       const timer = setTimeout(() => {
         answerTimers.current.delete(tempId)
         if (!optimisticRef.current.some((o) => o.tempId === tempId)) return // 이미 반영됨
+        // 연결이 정상('open')이면 전송 실패가 아니라 '서버가 아직 에코 안 함'일 뿐이다.
+        // 특히 자기소개(첫 답변)는 프루닝 트리거인 SESSION_MESSAGE 가 Pro 모델 질문 풀
+        // 생성 이후에야 오므로 10초를 넘길 수 있다 → 오롤백 금지, 이후 메시지가 프루닝한다.
+        // 연결이 끊긴 경우(closed/connecting)에만 진짜 전송 실패로 보고 롤백한다.
+        if (connectionRef.current === 'open') return
         setOptimistic((prev) => prev.filter((o) => o.tempId !== tempId))
         setRestoreDraft({ content, nonce: Date.now() })
         toast.error('답변 전송에 실패했어요. 입력을 복원했으니 다시 시도해 주세요.')
