@@ -37,6 +37,10 @@ log = structlog.get_logger(__name__)
 
 _SELF_INTRO_CATEGORY = "SELF_INTRODUCTION"
 _JOB_TAILORED_MODE = "JOB_TAILORED"
+# 답변별 코칭 RAG 는 해당 화제에 국한된 소수 청크만. 세션 공용 top_k 보다 작게.
+_COACHING_RAG_TOP_K = 3
+# 세션 RAG 질의 상한(문자). 답변 이어붙임이 임베딩 입력 한도를 넘지 않게.
+_SESSION_RAG_QUERY_MAX_CHARS = 2000
 
 
 class FeedbackConsumer:
@@ -135,7 +139,7 @@ class FeedbackConsumer:
                     ),
                     self._evaluate_self_intro(req, voice_analysis_summary),
                     self._evaluate_job_fit(req, transcript, rag_context),
-                    self._coach_answers(req, rag_context),
+                    self._coach_answers(req),
                 )
             )
             # 빈 평가위원 항목(점수·내용 모두 없음)은 표시하지 않는다 — LLM 부분 응답이 빈 패널로 새는 것 방지.
@@ -250,9 +254,13 @@ class FeedbackConsumer:
         ]
 
     async def _coach_answers(
-        self, req: GenerateFeedbackRequest, rag_context: str
+        self, req: GenerateFeedbackRequest
     ) -> list[AnswerCoachingItem]:
-        """자기소개 제외 답변마다 모범 답안·리라이트·코칭을 병렬 생성 → 메시지별 복기 리스트."""
+        """자기소개 제외 답변마다 모범 답안·리라이트·코칭을 병렬 생성 → 메시지별 복기 리스트.
+
+        코칭 근거(RAG)는 **답변별로 개별 검색**한다 — 세션 공용 컨텍스트를 쓰면 마지막 답변
+        화제의 청크로 다른 답변의 모범답안이 오염(경험 날조)되므로, (질문+답변) 쌍으로 질의한다.
+        """
         if self._answer_coach is None:
             return []
         pairs = _collect_coachable_pairs(req.messages)
@@ -275,6 +283,13 @@ class FeedbackConsumer:
         ) -> AnswerCoachingItem | None:
             try:
                 async with sem:
+                    # 이 (질문,답변)에 국한된 근거만 검색해 모범답안이 다른 화제로 새지 않게.
+                    pair_context = await self._retrieve_context(
+                        f"{question.content}\n{answer.content}",
+                        req.context_document_ids,
+                        _COACHING_RAG_TOP_K,
+                        req.session_id,
+                    )
                     res = await self._answer_coach.coach(
                         job_category=req.job_category,
                         mode=req.mode,
@@ -282,7 +297,7 @@ class FeedbackConsumer:
                         question=question.content,
                         expected_signal=question.expected_signal or "",
                         answer=answer.content,
-                        rag_context=rag_context,
+                        rag_context=pair_context,
                     )
             except Exception as exc:  # noqa: BLE001
                 log.warning(
@@ -303,32 +318,56 @@ class FeedbackConsumer:
         return [it for it in items if it is not None]
 
     async def _build_rag_context(self, req: GenerateFeedbackRequest) -> str:
-        if not self._embedder or not req.context_document_ids:
-            return "(none)"
-        last_answer = next(
-            (m.content for m in reversed(req.messages) if m.role == "INTERVIEWEE"),
-            None,
+        # 세션 전체 채점(종합·패널·직무 적합도)용 컨텍스트. 마지막 답변 하나만 쓰면
+        # 그 화제로 근거가 편향되므로, 세션의 모든 실질 답변(짧은 확인 제외)을 질의로 삼는다.
+        query = _session_rag_query(req.messages)
+        return await self._retrieve_context(
+            query, req.context_document_ids, self._rag_top_k, req.session_id
         )
-        if not last_answer:
+
+    async def _retrieve_context(
+        self, query_text: str, document_ids: list[int], top_k: int, session_id: int
+    ) -> str:
+        """query_text 로 pgvector 검색 → 청크를 컨텍스트 문자열로. 실패/무결과는 '(none)'."""
+        if not self._embedder or not document_ids or not query_text.strip():
             return "(none)"
         try:
             query_vec = (
-                await self._embedder.embed([last_answer], task_type="RETRIEVAL_QUERY")
+                await self._embedder.embed([query_text], task_type="RETRIEVAL_QUERY")
             )[0]
             hits = await self._core.search_embeddings(
                 query_embedding=query_vec,
-                query_text=last_answer,
-                document_ids=req.context_document_ids,
-                top_k=self._rag_top_k,
+                query_text=query_text,
+                document_ids=document_ids,
+                top_k=top_k,
             )
-        except Exception as exc:
-            log.warn("feedback.rag.failed", error=str(exc), session_id=req.session_id)
+        except Exception as exc:  # noqa: BLE001
+            log.warn("feedback.rag.failed", error=str(exc), session_id=session_id)
             return "(none)"
         if not hits:
             return "(none)"
         return "\n---\n".join(
             f"[doc#{h.document_id} chunk#{h.chunk_index}] {h.chunk_text}" for h in hits
         )
+
+
+def _session_rag_query(messages: list[FeedbackMessageItem]) -> str:
+    """세션 채점 RAG 검색 질의 — 실질 INTERVIEWEE 답변(짧은 확인 제외)을 이어붙여 상한 절단.
+    마지막 답변 하나만 쓰던 편향을 없앤다. 전부 비면(레거시/전부 확인형) 마지막 답변 폴백."""
+    answers = [
+        (m.content or "").strip()
+        for m in messages
+        if m.role == "INTERVIEWEE"
+        and (m.content or "").strip()
+        and not _is_short_confirmation(m.content)
+    ]
+    joined = "\n".join(answers)
+    if not joined:
+        last = next(
+            (m.content for m in reversed(messages) if m.role == "INTERVIEWEE"), None
+        )
+        joined = (last or "").strip()
+    return joined[:_SESSION_RAG_QUERY_MAX_CHARS]
 
 
 def _collect_coachable_pairs(
