@@ -9,6 +9,8 @@ from aio_pika.abc import AbstractIncomingMessage
 from ai_server.chain.feedback_generation_chain import (
     JOB_FIT_DIMENSION,
     JOB_FIT_EVALUATOR_LABEL,
+    PERSONALITY_DIMENSION,
+    PERSONALITY_EVALUATOR_LABEL,
     ROLE_UNDERSTANDING_DIMENSION,
     ROLE_UNDERSTANDING_LABEL,
     SELF_INTRO_DIMENSION,
@@ -17,6 +19,7 @@ from ai_server.chain.feedback_generation_chain import (
     EvaluatorResult,
     FeedbackGenerator,
     JobFitEvaluator,
+    PersonalityEvaluator,
     SelfIntroEvaluator,
 )
 from ai_server.core.client import CoreClient
@@ -37,6 +40,9 @@ log = structlog.get_logger(__name__)
 
 _SELF_INTRO_CATEGORY = "SELF_INTRODUCTION"
 _JOB_TAILORED_MODE = "JOB_TAILORED"
+_BEHAVIORAL_CATEGORY = "BEHAVIORAL"
+# 인성·자소서 평가위원이 도는 모드. 이 모드에서만 인성/경험형 답변을 별도 축으로 평가한다.
+_PERSONALITY_MODES = {"PERSONALITY", "INTEGRATED"}
 # 답변별 코칭 RAG 는 해당 화제에 국한된 소수 청크만. 세션 공용 top_k 보다 작게.
 _COACHING_RAG_TOP_K = 3
 # 세션 RAG 질의 상한(문자). 답변 이어붙임이 임베딩 입력 한도를 넘지 않게.
@@ -66,6 +72,7 @@ class FeedbackConsumer:
         rag_top_k: int = 5,
         self_intro_evaluator: SelfIntroEvaluator | None = None,
         job_fit_evaluator: JobFitEvaluator | None = None,
+        personality_evaluator: PersonalityEvaluator | None = None,
         answer_coach: AnswerCoach | None = None,
         coaching_max_answers: int = 30,
         coaching_concurrency: int = 5,
@@ -79,6 +86,7 @@ class FeedbackConsumer:
         self._rag_top_k = rag_top_k
         self._self_intro_evaluator = self_intro_evaluator
         self._job_fit_evaluator = job_fit_evaluator
+        self._personality_evaluator = personality_evaluator
         self._answer_coach = answer_coach
         self._coaching_max_answers = coaching_max_answers
         self._coaching_concurrency = max(1, coaching_concurrency)
@@ -124,26 +132,31 @@ class FeedbackConsumer:
 
             # 종합 피드백 + 자기소개 첫인상 + 직무 적합도(직무 맞춤 모드)를 병렬 실행.
             # 첫인상·직무 적합도는 종합 점수(overall)에 미포함 — generator 가 모른 채 계산한 뒤 표시용으로 덧붙인다.
-            result, self_intro_item, job_fit_items, answer_coaching = (
-                await asyncio.gather(
-                    self._generator.generate(
-                        job_category=req.job_category,
-                        mode=req.mode,
-                        total_question_count=req.total_question_count,
-                        end_reason=req.end_reason,
-                        transcript=transcript,
-                        score_basis=score_basis,
-                        rag_context=rag_context,
-                        voice_analysis_summary=voice_analysis_summary,
-                        domain_question_counts=req.domain_question_counts,
-                    ),
-                    self._evaluate_self_intro(req, voice_analysis_summary),
-                    self._evaluate_job_fit(req, transcript, rag_context),
-                    self._coach_answers(req),
-                )
+            (
+                result,
+                self_intro_item,
+                job_fit_items,
+                personality_item,
+                answer_coaching,
+            ) = await asyncio.gather(
+                self._generator.generate(
+                    job_category=req.job_category,
+                    mode=req.mode,
+                    total_question_count=req.total_question_count,
+                    end_reason=req.end_reason,
+                    transcript=transcript,
+                    score_basis=score_basis,
+                    rag_context=rag_context,
+                    voice_analysis_summary=voice_analysis_summary,
+                    domain_question_counts=req.domain_question_counts,
+                ),
+                self._evaluate_self_intro(req, voice_analysis_summary),
+                self._evaluate_job_fit(req, transcript, rag_context),
+                self._evaluate_personality(req),
+                self._coach_answers(req),
             )
             # 빈 평가위원 항목(점수·내용 모두 없음)은 표시하지 않는다 — LLM 부분 응답이 빈 패널로 새는 것 방지.
-            extras = [self_intro_item, *job_fit_items]
+            extras = [self_intro_item, *job_fit_items, personality_item]
             result.panel_breakdown.extend(
                 e for e in extras if e is not None and _panel_has_content(e)
             )
@@ -252,6 +265,42 @@ class FeedbackConsumer:
                 res.understanding,
             ),
         ]
+
+    async def _evaluate_personality(
+        self, req: GenerateFeedbackRequest
+    ) -> PanelBreakdownItem | None:
+        """PERSONALITY·INTEGRATED 모드에서 인성·자소서(경험형) 답변을 기술 축과 별개로 평가.
+        그 외 모드/대상 없음/실패는 None(패널 미표시). 종합 점수엔 미포함."""
+        if self._personality_evaluator is None:
+            return None
+        if (req.mode or "") not in _PERSONALITY_MODES:
+            return None
+        pairs = _collect_coachable_pairs(req.messages)  # 자기소개·빈·짧은확인 제외
+        behavioral = [
+            (q, a) for (q, a) in pairs if (q.category or "") == _BEHAVIORAL_CATEGORY
+        ]
+        # PERSONALITY 인데 카테고리 태깅이 없으면 비자기소개 답변 전체로 폴백. INTEGRATED 는
+        # BEHAVIORAL 이 하나도 없으면 평가할 인성 답변이 없는 것으로 보고 건너뛴다.
+        selected = behavioral or (
+            pairs if (req.mode or "") == "PERSONALITY" else []
+        )
+        if not selected:
+            return None
+        transcript = _qa_transcript(selected)
+        try:
+            ev = await self._personality_evaluator.evaluate(
+                job_category=req.job_category,
+                mode=req.mode,
+                transcript=transcript,
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning(
+                "feedback.personality.failed",
+                error=str(exc),
+                session_id=req.session_id,
+            )
+            return None
+        return _to_panel_item(PERSONALITY_EVALUATOR_LABEL, PERSONALITY_DIMENSION, ev)
 
     async def _coach_answers(
         self, req: GenerateFeedbackRequest
@@ -425,6 +474,19 @@ def _panel_has_content(item: PanelBreakdownItem) -> bool:
         or bool((item.strength or "").strip())
         or bool((item.weakness or "").strip())
     )
+
+
+def _qa_transcript(
+    pairs: list[tuple[FeedbackMessageItem, FeedbackMessageItem]],
+) -> str:
+    """(질문, 답변) 쌍 목록을 인성 평가위원 입력용 전사 문자열로."""
+    lines: list[str] = []
+    for q, a in pairs:
+        lines.append(f"면접관: {q.content}")
+        if q.expected_signal:
+            lines.append(f"  └ 기대 신호: {q.expected_signal}")
+        lines.append(f"지원자: {a.content}")
+    return "\n".join(lines)
 
 
 def _to_panel_item(

@@ -16,6 +16,7 @@ from ai_server.chain.prompts import (
     feedback_panel,
     feedback_synthesis,
     job_fit_evaluation,
+    personality_evaluation,
     self_intro_evaluation,
 )
 from ai_server.config.settings import Settings
@@ -349,6 +350,79 @@ def build_self_intro_evaluation_chain(
         callbacks=callbacks,
     )
     return prompt | llm | parser
+
+
+PERSONALITY_EVALUATOR_LABEL = "인성·자소서"
+PERSONALITY_DIMENSION = "자소서 소유·인성 답변 구체성/STAR"
+
+
+def build_personality_evaluation_chain(
+    settings: Settings, core_client: CoreClient | None = None
+) -> Runnable:
+    """인성·자소서 답변(경험형·BEHAVIORAL)을 기술 축과 별개로 평가하는 경량 체인(Flash)."""
+    from langchain_openai import ChatOpenAI
+
+    parser = PydanticOutputParser(pydantic_object=EvaluatorResult)
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", personality_evaluation.SYSTEM_PROMPT),
+            ("human", personality_evaluation.HUMAN_PROMPT),
+        ]
+    ).partial(format_instructions=parser.get_format_instructions())
+
+    callbacks = []
+    if core_client is not None:
+        callbacks.append(
+            CoreAiLogCallback(
+                core_client=core_client,
+                request_type="generate.feedback.personality",
+                default_model=settings.llm_flash_model,
+            )
+        )
+
+    llm = ChatOpenAI(
+        model=settings.llm_flash_model,
+        temperature=settings.llm_flash_temperature,
+        api_key=settings.llm_api_key or None,
+        base_url=settings.llm_base_url,
+        callbacks=callbacks,
+    )
+    return prompt | llm | parser
+
+
+class PersonalityEvaluator(Protocol):
+    async def evaluate(
+        self,
+        *,
+        job_category: str,
+        mode: str,
+        transcript: str,
+    ) -> EvaluatorResult: ...
+
+
+class LlmPersonalityEvaluator:
+    def __init__(self, chain: Runnable) -> None:
+        self._chain = chain
+
+    async def evaluate(
+        self,
+        *,
+        job_category: str,
+        mode: str,
+        transcript: str,
+    ) -> EvaluatorResult:
+        result = await self._chain.ainvoke(
+            {
+                "job_category": job_category,
+                "mode": mode,
+                "transcript": transcript or "(빈 답변)",
+            }
+        )
+        if not isinstance(result, EvaluatorResult):
+            raise TypeError(
+                f"chain returned {type(result).__name__}, expected EvaluatorResult"
+            )
+        return result
 
 
 class SelfIntroEvaluator(Protocol):

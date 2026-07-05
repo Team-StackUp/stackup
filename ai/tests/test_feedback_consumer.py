@@ -854,3 +854,116 @@ def test_build_transcript_annotates_interviewee_evaluation():
     assert "correctness=1" in out
     # 면접관 줄엔 평가 주석 없음
     assert out.splitlines()[0].endswith("질문?")
+
+
+def _personality_envelope(mode: str) -> bytes:
+    env = {
+        "messageId": "fb-pers",
+        "messageType": "generate.feedback",
+        "version": "v1",
+        "traceId": "t-pers",
+        "publishedAt": "2026-05-30T00:00:00Z",
+        "publisher": "core-server",
+        "payload": {
+            "sessionId": 61,
+            "mode": mode,
+            "jobCategory": "BACKEND",
+            "totalQuestionCount": 2,
+            "endReason": "POOL_EXHAUSTED",
+            "messages": [
+                {
+                    "id": 300,
+                    "sequenceNumber": 1,
+                    "role": "INTERVIEWER",
+                    "content": "리더십을 발휘한 경험을 말해보세요.",
+                    "category": "BEHAVIORAL",
+                },
+                {
+                    "id": 301,
+                    "sequenceNumber": 2,
+                    "role": "INTERVIEWEE",
+                    "content": "배포 지연 문제에서 제가 온콜 로테이션을 제안해 장애 대응 시간을 절반으로 줄였습니다.",
+                    "parentMessageId": 300,
+                },
+            ],
+            "contextDocumentIds": [],
+        },
+        "context": {"userId": 1, "sessionId": 61},
+    }
+    return json.dumps(env).encode()
+
+
+def _personality_evaluator():
+    ev = MagicMock()
+    ev.evaluate = AsyncMock(
+        return_value=EvaluatorResult(
+            score=72.0,
+            strength="구체적 행동·결과 제시",
+            weakness="STAR 상황 설명 부족",
+            detail="온콜 로테이션 제안과 대응시간 절반 감소를 구체적으로 언급.",
+            score_rationale="본인 행동·결과는 명확하나 상황 맥락이 약함",
+        )
+    )
+    return ev
+
+
+def _make_consumer(publisher, generator, evaluator):
+    return FeedbackConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.feedback",
+        core_client=MagicMock(),
+        embedder=None,
+        personality_evaluator=evaluator,
+    )
+
+
+@pytest.mark.asyncio
+async def test_consumer_appends_personality_panel_item():
+    generator = _generator()
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+    evaluator = _personality_evaluator()
+    consumer = _make_consumer(publisher, generator, evaluator)
+
+    await consumer.handle(_StubMessage(_personality_envelope("PERSONALITY")))
+
+    evaluator.evaluate.assert_awaited_once()
+    assert "온콜" in evaluator.evaluate.await_args.kwargs["transcript"]
+    payload: FeedbackCallbackPayload = publisher.publish.await_args.kwargs["payload"]
+    items = [b for b in payload.panel_breakdown if b.evaluator == "인성·자소서"]
+    assert len(items) == 1
+    assert items[0].score == 72.0
+    # 가산·비집계: 종합 점수는 불변.
+    assert payload.overall_score == 85.0
+
+
+@pytest.mark.asyncio
+async def test_consumer_appends_personality_in_integrated():
+    generator = _generator()
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+    evaluator = _personality_evaluator()
+    consumer = _make_consumer(publisher, generator, evaluator)
+
+    await consumer.handle(_StubMessage(_personality_envelope("INTEGRATED")))
+
+    evaluator.evaluate.assert_awaited_once()
+    payload: FeedbackCallbackPayload = publisher.publish.await_args.kwargs["payload"]
+    assert any(b.evaluator == "인성·자소서" for b in payload.panel_breakdown)
+
+
+@pytest.mark.asyncio
+async def test_consumer_skips_personality_in_technical_mode():
+    generator = _generator()
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+    evaluator = _personality_evaluator()
+    consumer = _make_consumer(publisher, generator, evaluator)
+
+    await consumer.handle(_StubMessage(_personality_envelope("TECHNICAL")))
+
+    evaluator.evaluate.assert_not_awaited()
+    payload: FeedbackCallbackPayload = publisher.publish.await_args.kwargs["payload"]
+    assert all(b.evaluator != "인성·자소서" for b in payload.panel_breakdown)
