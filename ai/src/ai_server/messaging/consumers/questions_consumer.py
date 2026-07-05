@@ -150,10 +150,19 @@ class QuestionsConsumer:
         return f"{base_context}\n\n## Retrieved document chunks\n{rag_context}"
 
 
+_SOURCE_LABEL = {
+    "RESUME": "이력서",
+    "REPOSITORY": "GitHub 레포",
+    "COVER_LETTER": "자소서",
+    "WEB": "웹 문서",
+}
+
+
 def _build_context(documents: list[DocumentContext]) -> str:
     parts: list[str] = []
     for d in documents:
-        block = [f"## 문서 #{d.document_id} ({d.source_type})"]
+        label = _SOURCE_LABEL.get(d.source_type, d.source_type)
+        block = [f"## 문서 #{d.document_id} ({label})"]
         if d.summary:
             block.append(f"요약: {d.summary}")
         if d.tech_stack:

@@ -431,11 +431,11 @@ def test_build_context_joins_doc_blocks():
         ),
     ]
     text = _build_context(docs)
-    assert "문서 #1 (RESUME)" in text
+    assert "문서 #1 (이력서)" in text
     assert "요약1" in text
     assert "Java, Spring" in text
     assert "본문1" in text
-    assert "문서 #2 (REPOSITORY)" in text
+    assert "문서 #2 (GitHub 레포)" in text
     assert "readme" in text
 
 
