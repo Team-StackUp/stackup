@@ -171,6 +171,31 @@ _DOMAIN_KO = {
     "DBA": "DBA",
 }
 
+# 직군별 실제 평가 관점. 라벨(persona)만 다르고 내용은 공통이던 문제를 해결하기 위해
+# 직군마다 실무에서 중요도가 높은 관점을 명시한다. 목록에 없는 직군은 _TECH_GUIDE로 대체.
+_DOMAIN_TECH_GUIDE = {
+    "FRONTEND": (
+        "- 렌더링·상태관리 설계, 성능(리렌더링·번들·네트워크) trade-off, 접근성·크로스브라우저 "
+        "대응 근거를 봅니다. 질문의 '기대 신호'를 답변이 얼마나 짚었는지를 핵심 근거로 삼습니다."
+    ),
+    "BACKEND": (
+        "- API·도메인 설계, 동시성·트랜잭션 처리, 장애 격리와 데이터 일관성 확보 근거를 "
+        "봅니다. 질문의 '기대 신호'를 답변이 얼마나 짚었는지를 핵심 근거로 삼습니다."
+    ),
+    "INFRA": (
+        "- 배포·오케스트레이션 설계, 모니터링·장애 대응 체계, 스케일링·비용 trade-off를 "
+        "봅니다. 질문의 '기대 신호'를 답변이 얼마나 짚었는지를 핵심 근거로 삼습니다."
+    ),
+    "DBA": (
+        "- 인덱스·쿼리 실행계획 분석, 정규화·비정규화 trade-off, 트랜잭션 격리수준과 "
+        "백업·복구 전략을 봅니다. 질문의 '기대 신호'를 답변이 얼마나 짚었는지를 핵심 근거로 삼습니다."
+    ),
+}
+
+
+def _tech_guide_for(job_category: str) -> str:
+    return _DOMAIN_TECH_GUIDE.get((job_category or "").upper(), _TECH_GUIDE)
+
 
 def _domain_spec(job_category: str, mode: str) -> _EvaluatorSpec:
     # PERSONALITY 모드는 기술 평가자를 인성·협업 평가자로 교체(사용자 결정).
@@ -191,7 +216,7 @@ def _domain_spec(job_category: str, mode: str) -> _EvaluatorSpec:
         label="기술",
         persona=f"{ko} 직군 시니어 기술 면접관",
         dimension_name="기술 정확도·깊이",
-        dimension_guide=_TECH_GUIDE,
+        dimension_guide=_tech_guide_for(job_category),
     )
 
 
@@ -212,7 +237,7 @@ def _domain_specs_weighted(
                     label=ko,
                     persona=f"{ko} 직군 시니어 기술 면접관",
                     dimension_name="기술 정확도·깊이",
-                    dimension_guide=_TECH_GUIDE,
+                    dimension_guide=_tech_guide_for(dom),
                 ),
                 weight,
             )
