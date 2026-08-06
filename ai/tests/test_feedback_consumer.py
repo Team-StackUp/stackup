@@ -139,6 +139,35 @@ async def test_consumer_generates_feedback_and_publishes_callback():
 
 
 @pytest.mark.asyncio
+async def test_consumer_publishes_degraded_feedback_when_panel_generation_fails():
+    """패널 generate() 자체가 예상 못 한 예외로 죽어도, gather 전체가 취소돼 피드백을
+    통째로 잃는 게 아니라 빈 결과로 대체해 콜백은 계속 발행돼야 한다(회귀 방지)."""
+    generator = MagicMock()
+    generator.generate = AsyncMock(side_effect=RuntimeError("boom"))
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+    core = MagicMock()
+
+    consumer = FeedbackConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.feedback",
+        core_client=core,
+        embedder=None,
+    )
+    await consumer.handle(_StubMessage(_envelope()))
+
+    generator.generate.assert_awaited_once()
+    publisher.publish.assert_awaited_once()
+    payload: FeedbackCallbackPayload = publisher.publish.await_args.kwargs["payload"]
+    assert payload.overall_score is None
+    assert payload.technical_accuracy is None
+    assert "일시적 오류" in payload.weaknesses_summary
+    assert payload.panel_breakdown == []
+
+
+@pytest.mark.asyncio
 async def test_consumer_accepts_pool_exhausted_end_reason():
     # 회귀: Core 가 POOL_EXHAUSTED 로 종료해도 파싱 실패(DLQ) 없이 피드백 생성돼야 한다.
     generator = _generator()

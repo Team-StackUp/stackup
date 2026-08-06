@@ -370,6 +370,9 @@ docker run --env-file .env -p 8000:8000 stackup-ai
   첫인상·직무적합도·인성 평가는 별도 체인으로 같은 병렬 흐름에 얹히지만 이 가중평균 계산에는 미포함(표시용).
   평가위원 호출이 실패(레이트리밋·타임아웃 등)하면 `score=None`으로 가중평균에서 자동 제외되고,
   `panel_breakdown`의 `detail`에 실패 사실을 명시(`_EVAL_FAILED_DETAIL`)해 "판단 불가(정상)"와
-  "호출 실패"를 구분한다.
+  "호출 실패"를 구분한다. `feedback_consumer.py`의 `_generate_panel`은 패널 `generate()` 자체가
+  예상 못 한 예외로 죽어도(다른 4개 부가 평가는 각자 예외를 삼키는데 이것만 그러지 않으면
+  top-level `asyncio.gather` 가 통째로 취소된다) 빈 `FeedbackResult`로 대체해 피드백 발행
+  자체는 항상 이어지게 한다.
 
 각 도입 시 본 문서 갱신.
