@@ -245,6 +245,11 @@ def _domain_specs_weighted(
     return specs or [(_domain_spec(job_category, mode), 1.0)]
 
 
+# 평가위원 호출이 실패(레이트리밋/타임아웃 등)했을 때 breakdown 에 남기는 표시.
+# score=None 은 "판단 불가(정상)"와 "호출 실패"를 구분하지 못하므로 detail 로 명시해
+# 프론트/사용자가 빈 축을 오해하지 않게 한다.
+_EVAL_FAILED_DETAIL = "일시적 오류로 이 축은 평가되지 않았습니다."
+
 _LOGIC_SPEC = _EvaluatorSpec(
     key="logic",
     label="논리",
@@ -803,7 +808,7 @@ class PanelFeedbackGenerator:
                 log.warning(
                     "feedback.panel.evaluator_failed", evaluator=spec.key, error=str(r)
                 )
-                results.append(EvaluatorResult())
+                results.append(EvaluatorResult(detail=_EVAL_FAILED_DETAIL))
 
         n_domain = len(domain_specs)
         domain_results = list(

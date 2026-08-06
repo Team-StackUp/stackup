@@ -368,5 +368,8 @@ docker run --env-file .env -p 8000:8000 stackup-ai
   다른 문구)로 실제로 차별화되어 있다 — 이전에는 `persona` 라벨만 다르고 가이드 내용이 공통이었던 문제를
   회귀 테스트(`tests/test_feedback_panel.py`)로 막아둠. 목록에 없는 직군은 `_TECH_GUIDE`(범용)로 폴백.
   첫인상·직무적합도·인성 평가는 별도 체인으로 같은 병렬 흐름에 얹히지만 이 가중평균 계산에는 미포함(표시용).
+  평가위원 호출이 실패(레이트리밋·타임아웃 등)하면 `score=None`으로 가중평균에서 자동 제외되고,
+  `panel_breakdown`의 `detail`에 실패 사실을 명시(`_EVAL_FAILED_DETAIL`)해 "판단 불가(정상)"와
+  "호출 실패"를 구분한다.
 
 각 도입 시 본 문서 갱신.

@@ -6,6 +6,7 @@ from ai_server.chain.feedback_generation_chain import (
     SynthesisResult,
     _domain_spec,
     _domain_specs_weighted,
+    _EVAL_FAILED_DETAIL,
     _tech_guide_for,
 )
 
@@ -269,3 +270,77 @@ async def test_multi_domain_generate_sends_domain_specific_guide_to_chain():
     assert be_guide != fe_guide
     assert "트랜잭션" in be_guide
     assert "렌더링" in fe_guide
+
+
+class _FlakyChain:
+    """persona 로 라우팅하되, 지정한 persona 는 예외를 던져 LLM 호출 실패를 흉내낸다."""
+
+    def __init__(self, by_persona: dict[str, EvaluatorResult], fail_personas: set[str]):
+        self._by_persona = by_persona
+        self._fail = fail_personas
+
+    async def ainvoke(self, v):
+        p = v["persona"]
+        if p in self._fail:
+            raise TimeoutError("upstream timeout")
+        return self._by_persona[p]
+
+
+@pytest.mark.asyncio
+async def test_one_evaluator_failure_does_not_break_the_others():
+    """평가위원 하나가 예외를 던져도 나머지로 정상 가중평균되고, 실패 축은
+    score=None 대신 detail 로 실패 사실이 남아야 한다(회귀 방지)."""
+    chain = _FlakyChain(
+        {
+            "논리·문제해결 평가위원": EvaluatorResult(score=60),
+            "커뮤니케이션·전달력 평가위원": EvaluatorResult(score=40),
+        },
+        fail_personas={"백엔드 직군 시니어 기술 면접관"},
+    )
+    gen = PanelFeedbackGenerator(chain)
+    r = await gen.generate(
+        job_category="BACKEND",
+        mode="TECHNICAL",
+        total_question_count=3,
+        end_reason="x",
+        transcript="t",
+        rag_context="(none)",
+    )
+    # 기술 축은 호출 실패로 점수 없음 → 논리/전달만으로 재가중.
+    assert r.technical_accuracy is None
+    # (60*0.25 + 40*0.25) / 0.5 = 50
+    assert r.overall_score == 50
+    tech_item = next(b for b in r.panel_breakdown if b.evaluator == "기술")
+    assert tech_item.score is None
+    assert tech_item.detail == _EVAL_FAILED_DETAIL
+
+
+@pytest.mark.asyncio
+async def test_all_domain_evaluators_failing_still_returns_logic_and_comm():
+    chain = _FlakyChain(
+        {
+            "논리·문제해결 평가위원": EvaluatorResult(score=80),
+            "커뮤니케이션·전달력 평가위원": EvaluatorResult(score=70),
+        },
+        fail_personas={
+            "백엔드 직군 시니어 기술 면접관",
+            "프론트엔드 직군 시니어 기술 면접관",
+        },
+    )
+    gen = PanelFeedbackGenerator(chain)
+    r = await gen.generate(
+        job_category="BACKEND",
+        mode="TECHNICAL",
+        total_question_count=4,
+        end_reason="x",
+        transcript="t",
+        rag_context="(none)",
+        domain_question_counts={"BACKEND": 3, "FRONTEND": 1},
+    )
+    assert r.technical_accuracy is None
+    # (80*0.25 + 70*0.25) / 0.5 = 75
+    assert r.overall_score == 75
+    for label in ("백엔드", "프론트엔드"):
+        item = next(b for b in r.panel_breakdown if b.evaluator == label)
+        assert item.score is None
+        assert item.detail == _EVAL_FAILED_DETAIL
