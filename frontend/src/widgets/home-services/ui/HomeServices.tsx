@@ -25,7 +25,7 @@ const services: ServiceCard[] = [
   {
     tag: 'Free Plan',
     title: 'CS 전공 지식 면접\nCS Core Interview',
-    image: '/second-section-cs-interview.avif',
+    image: '/second-section-cs-interview.webp',
     to: '/practice/cs',
   },
 ]
