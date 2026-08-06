@@ -400,6 +400,15 @@ docker compose up -d
 - 질문 TTS 발행 본 구현: 질문 영속 후 `QuestionPersistedEvent`(AFTER_COMMIT) → `SessionTtsRequester` 가 `generate.tts` 발행,
   `callback.tts` 수신해 메시지에 오디오 경로 반영(`TtsCallbackService`)
 - **꼬리질문 토큰 스트리밍 placeholder 본 구현**: `SessionFollowupRequester` 가 AI 호출 분기에서 INTERVIEWER placeholder(`InterviewMessage.followupPlaceholder`, content=`"(생성 중)"`, status=`CREATED`)를 선INSERT + `SESSION_MESSAGE` 발행 + `generate.followup.followupMessageId` 동봉. AI 가 토큰을 `SESSION_MESSAGE_DELTA` 로 흘린 뒤 `callback.questions(FOLLOWUP)` 도착 시 `QuestionsCallbackService` 가 분기: NORMAL→`completeFollowup` UPDATE+카운트, CLARIFICATION→UPDATE(카운트 X), DONT_KNOW→placeholder DELETE 후 `advanceToNextGeneral`. placeholder 없는 레거시 콜백은 기존 INSERT 폴백.
+- **질문 풀/꼬리질문 생성 실패 신호 본 구현**: AI 가 `generate()` 실패를 조용히 DLQ 로만 흘려서 세션이
+  "생성 중"에 무기한 멈추던 문제를 고쳤다. `QuestionsCallbackPayload`에 `status`(`OK`|`FAILED`)·
+  `errorCode`·`errorMessage`·`retriable` 필드 추가(구버전 9-arg 생성자는 `status=OK` 로 위임하는
+  오버로드로 하위호환). `QuestionsCallbackService.apply` 가 kind 분기 전에 `isFailed()` 를 먼저 확인:
+  POOL 실패는 저장할 게 없어 `SseEventType.ERROR`(`SessionErrorNotice`)로 세션/유저 채널에만 알리고
+  세션 상태는 그대로 둔다(재시도 트리거는 후속 과제). FOLLOWUP 실패는 placeholder 를 삭제하지 않고
+  `InterviewMessage.failFollowup()`(content=`FOLLOWUP_GENERATION_FAILED_TEXT`, status=`FAILED`)로
+  확정한 뒤 `SESSION_MESSAGE`(`FOLLOWUP_FAILED`) 발행 + DONT_KNOW 와 동일하게 `advanceToNextGeneral`
+  로 다음 일반질문으로 진행 — 턴이 사라진 것처럼 보이지 않으면서 면접은 멈추지 않는다.
 - **문장 단위 TTS 세그먼트 프록시 본 구현 (Part B)**: `InterviewMessageService.streamAudioSegment` + `GET /api/sessions/{sid}/messages/{mid}/audio/segments/{seq}?ext=`. AI 가 휘발성으로 쓴 라이브 세그먼트를 규칙(`interview/tts/{sid}/{mid}/seg-{seq}.{ext}`)으로 재구성해 프록시(DB 미기록). 소유권+ext 화이트리스트+seq>=0 검증으로 임의 키 노출 차단.
 - AI 호출 로깅 (US-30) 본 구현: `/api/internal/ai-logs` + `ai_request_logs` INSERT
 - **Spring AI 미사용** — LLM·임베딩 호출은 모두 AI 서버 위임. Core는 RabbitMQ 발행만 담당.

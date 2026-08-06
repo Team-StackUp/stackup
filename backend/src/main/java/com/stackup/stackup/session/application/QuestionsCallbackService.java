@@ -79,9 +79,17 @@ public class QuestionsCallbackService {
         }
 
         if (payload.isPool()) {
-            applyInitialQuestion(session, payload);
+            if (payload.isFailed()) {
+                applyPoolFailed(session, payload);
+            } else {
+                applyInitialQuestion(session, payload);
+            }
         } else if (payload.isFollowup()) {
-            applyFollowup(session, payload);
+            if (payload.isFailed()) {
+                applyFollowupFailed(session, payload);
+            } else {
+                applyFollowup(session, payload);
+            }
         } else {
             log.warn("callback.questions unknown kind={}. messageId={}", payload.kind(), envelope.messageId());
         }
@@ -131,6 +139,14 @@ public class QuestionsCallbackService {
         poolRepository.findFirstBySessionIdAndUsedFalseOrderByIdxAsc(session.getId())
             .ifPresent(first -> insertGeneralFromPool(session, first, "INITIAL_QUESTION_READY"));
         log.info("callback.questions pool seeded. sessionId={}, poolSize={}", session.getId(), questions.size());
+    }
+
+    // POOL 생성 실패: 저장할 게 없으니 SSE 로만 알린다. 세션은 READY/IN_PROGRESS 유지 —
+    // 재시도 트리거는 프론트 담당(에러 신호 없이 무기한 대기하던 것만 우선 해소).
+    private void applyPoolFailed(InterviewSession session, QuestionsCallbackPayload payload) {
+        log.warn("callback.questions POOL generation failed. sessionId={}, errorCode={}, retriable={}, message={}",
+            session.getId(), payload.errorCode(), payload.retriable(), payload.errorMessage());
+        publishErrorEvent(session, "POOL", payload);
     }
 
     // 풀에서 다음 일반질문을 꺼내 삽입(꼬리질문 m개 소진 후 호출). 없으면 종료.
@@ -242,6 +258,37 @@ public class QuestionsCallbackService {
             session.getId(), message.getId(), clarification);
     }
 
+    // FOLLOWUP 생성 실패: placeholder 를 삭제하지 않고 실패 사실을 보여준 뒤(턴이 그냥
+    // 사라진 것처럼 보이지 않게), DONT_KNOW 와 동일하게 다음 일반질문으로 진행해 면접이
+    // 멈추지 않게 한다. retriable 여부는 로그·payload 로만 남기고(재시도 UI 는 후속 과제),
+    // 이번 스코프는 "무기한 대기" 를 없애는 데 집중한다.
+    private void applyFollowupFailed(InterviewSession session, QuestionsCallbackPayload payload) {
+        log.warn("callback.questions FOLLOWUP generation failed. sessionId={}, errorCode={}, retriable={}, message={}",
+            session.getId(), payload.errorCode(), payload.retriable(), payload.errorMessage());
+        InterviewMessage placeholder = payload.followupMessageId() == null
+            ? null
+            : messageRepository.findById(payload.followupMessageId()).orElse(null);
+        if (placeholder == null) {
+            // 레거시 폴백(placeholder 없이 도착) — 갱신할 메시지가 없어 에러 이벤트로만 알린다.
+            log.warn("callback.questions FOLLOWUP failed with no placeholder. sessionId={}", session.getId());
+            publishErrorEvent(session, "FOLLOWUP", payload);
+            return;
+        }
+        placeholder.failFollowup();
+        InterviewMessage message = messageRepository.save(placeholder);
+        publishQuestionEvents(session, message, "FOLLOWUP_FAILED");
+        log.info("callback.questions FOLLOWUP marked failed, advancing to next general. sessionId={}, msg={}",
+            session.getId(), message.getId());
+        advanceToNextGeneral(session.getId());
+    }
+
+    private void publishErrorEvent(InterviewSession session, String scope, QuestionsCallbackPayload payload) {
+        SessionErrorNotice notice = new SessionErrorNotice(
+            session.getId(), scope, payload.errorCode(), payload.errorMessage(), payload.retriable());
+        events.publishEvent(RealtimeNotifyEvent.session(session.getId(), SseEventType.ERROR, notice));
+        events.publishEvent(RealtimeNotifyEvent.user(session.getUser().getId(), SseEventType.ERROR, notice));
+    }
+
     public record SessionStateNotice(Long sessionId, String status, String reason) {
     }
 
@@ -279,5 +326,10 @@ public class QuestionsCallbackService {
     }
 
     public record SessionMessageNotice(Long sessionId, Long messageId, String reason) {
+    }
+
+    public record SessionErrorNotice(
+        Long sessionId, String scope, String errorCode, String errorMessage, Boolean retriable
+    ) {
     }
 }

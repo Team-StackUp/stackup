@@ -96,6 +96,40 @@ class QuestionsCallbackServiceTest {
     }
 
     @Test
+    void apply_poolFailed_publishesErrorEventWithoutSeedingPool() {
+        InterviewSession session = sessionFixture(12L, SessionStatus.READY);
+        QuestionsCallbackPayload payload = new QuestionsCallbackPayload(
+            12L, "POOL", List.of(), null, null, null, null, null, null,
+            "FAILED", "GENERATION_FAILED", "gateway 500", true
+        );
+        QuestionsCallbackEnvelope env = new QuestionsCallbackEnvelope(
+            "m-pool-failed", "callback.questions", "1", "t", null, "ai", payload, null);
+
+        when(processedMessageRepository.existsById("m-pool-failed")).thenReturn(false);
+        when(sessionRepository.findById(12L)).thenReturn(Optional.of(session));
+
+        service.apply(env);
+
+        verify(poolRepository, never()).save(any());
+        ArgumentCaptor<Object> ev = ArgumentCaptor.forClass(Object.class);
+        verify(events, atLeastOnce()).publishEvent(ev.capture());
+        assertThat(ev.getAllValues()).anySatisfy(e -> {
+            assertThat(e).isInstanceOf(RealtimeNotifyEvent.class);
+            RealtimeNotifyEvent rne = (RealtimeNotifyEvent) e;
+            assertThat(rne.type()).isEqualTo(SseEventType.ERROR);
+            assertThat(rne.payload()).isInstanceOf(QuestionsCallbackService.SessionErrorNotice.class);
+            QuestionsCallbackService.SessionErrorNotice notice =
+                (QuestionsCallbackService.SessionErrorNotice) rne.payload();
+            assertThat(notice.scope()).isEqualTo("POOL");
+            assertThat(notice.errorCode()).isEqualTo("GENERATION_FAILED");
+            assertThat(notice.retriable()).isTrue();
+        });
+        verify(processedMessageRepository).save(any(ProcessedMessage.class));
+        // 세션 상태는 그대로 — 실패했다고 세션을 종료시키지 않는다.
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.READY);
+    }
+
+    @Test
     void insertSelfIntroduction_insertsFixedFirstQuestionAndCounts() {
         InterviewSession session = sessionFixture(11L, SessionStatus.READY);
         when(sessionRepository.findById(11L)).thenReturn(Optional.of(session));
@@ -283,6 +317,42 @@ class QuestionsCallbackServiceTest {
         assertThat(placeholder.getContent()).isEqualTo("다시 설명드리면…");
         // 질문 수 카운트 미증가
         assertThat(session.getTotalQuestionCount()).isEqualTo(0);
+    }
+
+    @Test
+    void apply_followupFailed_marksPlaceholderFailedAndAdvances() {
+        InterviewSession session = sessionFixture(23L, SessionStatus.IN_PROGRESS);
+        InterviewMessage placeholder = InterviewMessage.followupPlaceholder(
+            session, 3, parentMessageFixture(session));
+        ReflectionTestUtils.setField(placeholder, "id", 304L);
+
+        QuestionsCallbackPayload payload = new QuestionsCallbackPayload(
+            23L, "FOLLOWUP", null, 200L, null, null,
+            null, "NORMAL", 304L,
+            "FAILED", "GENERATION_FAILED", "gateway timeout", true
+        );
+        QuestionsCallbackEnvelope env = new QuestionsCallbackEnvelope(
+            "m-ph-failed", "callback.questions", "1", "t", null, "ai", payload, null);
+
+        when(processedMessageRepository.existsById("m-ph-failed")).thenReturn(false);
+        when(sessionRepository.findById(23L)).thenReturn(Optional.of(session));
+        when(messageRepository.findById(304L)).thenReturn(Optional.of(placeholder));
+        when(messageRepository.save(any(InterviewMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+        // advanceToNextGeneral 내부에서 sessionRepository.findById 재호출 — 풀이 비어있어 종료.
+        when(poolRepository.findFirstBySessionIdAndUsedFalseOrderByIdxAsc(23L))
+            .thenReturn(Optional.empty());
+        when(sessionRepository.finishIfInProgress(any(), any(), any())).thenReturn(1);
+
+        service.apply(env);
+
+        // placeholder 는 삭제되지 않고 실패 사실을 보여주는 내용으로 확정됨(사라진 턴처럼 안 보이게).
+        verify(messageRepository, never()).delete(any());
+        assertThat(placeholder.getContent())
+            .isEqualTo(InterviewMessage.FOLLOWUP_GENERATION_FAILED_TEXT);
+        assertThat(placeholder.getStatus())
+            .isEqualTo(com.stackup.stackup.session.domain.MessageStatus.FAILED);
+        // DONT_KNOW 와 동일하게 다음 일반질문으로 진행 — 풀이 비어 세션 종료(POOL_EXHAUSTED).
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.COMPLETED);
     }
 
     @Test
