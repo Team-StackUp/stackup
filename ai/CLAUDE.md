@@ -360,5 +360,16 @@ docker run --env-file .env -p 8000:8000 stackup-ai
 - **실시간 스트리밍 음성 답변 본 구현** (RT3, `api/voice_stream.py`, `voice/stt/{live,mock_live,deepgram_live,live_factory}.py`):
   FastAPI WS `/internal/voice/stream` 수신(RealTime 프록시 경유) → Deepgram Live(`deepgram_live.py`, mock fallback)로 부분/최종 자막 다운 → 발화 종료 시 메트릭 계산 후 `callback.voice` 발행. `VoiceCallbackService`/followup 무변경 재사용. 신규 의존성 `websockets`.
 - 배치 음성 분석(STT/WPM/filler) 모듈은 `voice/stt/whisper_api.py`(+ Deepgram) + `voice/analysis/metrics.py`로 본 구현(`analyze.voice` consumer)
+- **멀티 평가위원 패널 본 구현** (`chain/feedback_generation_chain.py: PanelFeedbackGenerator`): 세션에 등장한
+  직군(질문 카테고리) 수만큼 기술 평가위원을 동적 생성(`_domain_specs_weighted`) + 논리·전달력 평가위원을
+  더해 `asyncio.gather` 로 병렬 채점 → 직군 평가는 질문 등장 빈도로 가중평균해 `technical_accuracy` 산출,
+  이를 논리·전달력과 고정 비율(0.5:0.25:0.25)로 다시 가중평균해 `overall_score` 결정(순수 파이썬, LLM 미호출).
+  직군별 평가 관점(`dimension_guide`)은 `_DOMAIN_TECH_GUIDE`(FRONTEND/BACKEND/INFRA/DBA 각각 실무 관점이
+  다른 문구)로 실제로 차별화되어 있다 — 이전에는 `persona` 라벨만 다르고 가이드 내용이 공통이었던 문제를
+  회귀 테스트(`tests/test_feedback_panel.py`)로 막아둠. 목록에 없는 직군은 `_TECH_GUIDE`(범용)로 폴백.
+  첫인상·직무적합도·인성 평가는 별도 체인으로 같은 병렬 흐름에 얹히지만 이 가중평균 계산에는 미포함(표시용).
+  평가위원 호출이 실패(레이트리밋·타임아웃 등)하면 `score=None`으로 가중평균에서 자동 제외되고,
+  `panel_breakdown`의 `detail`에 실패 사실을 명시(`_EVAL_FAILED_DETAIL`)해 "판단 불가(정상)"와
+  "호출 실패"를 구분한다.
 
 각 도입 시 본 문서 갱신.
