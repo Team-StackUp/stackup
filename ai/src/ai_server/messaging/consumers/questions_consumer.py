@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 import structlog
 from aio_pika.abc import AbstractIncomingMessage
 
@@ -30,6 +32,7 @@ class QuestionsConsumer:
         core_client: CoreClient | None = None,
         embedder: EmbeddingProvider | None = None,
         rag_top_k: int = 5,
+        rag_timeout_sec: float = 1.5,
     ) -> None:
         self._generator = generator
         self._publisher = publisher
@@ -41,6 +44,7 @@ class QuestionsConsumer:
         self._core = core_client
         self._embedder = embedder
         self._rag_top_k = rag_top_k
+        self._rag_timeout_sec = rag_timeout_sec
 
     async def handle(self, message: AbstractIncomingMessage) -> None:
         async with message.process(requeue=False):
@@ -80,21 +84,8 @@ class QuestionsConsumer:
             )
 
             context_text = await self._build_context(req)
-            pool = await self._generator.generate(
-                job_categories=req.job_categories,
-                mode=req.mode,
-                max_questions=effective_pool_size,
-                context=context_text,
-                recent_questions=req.recent_questions,
-                self_introduction=req.self_intro_answer,
-                target_company_name=req.target_company_name,
-                target_job_description=req.target_job_description,
-            )
-
-            payload = QuestionPoolCallbackPayload(
-                session_id=req.session_id,
-                kind="POOL",
-                questions=pool.questions,
+            payload = await self._generate_pool_payload(
+                req, context_text, effective_pool_size, trace_id=envelope.trace_id
             )
 
             await self._publisher.publish(
@@ -109,9 +100,55 @@ class QuestionsConsumer:
                 "questions.generate.done",
                 message_id=envelope.message_id,
                 session_id=req.session_id,
-                question_count=len(pool.questions),
+                status=payload.status,
+                question_count=len(payload.questions),
                 trace_id=envelope.trace_id,
             )
+
+    async def _generate_pool_payload(
+        self,
+        req: GenerateQuestionsRequest,
+        context_text: str,
+        effective_pool_size: int,
+        *,
+        trace_id: str,
+    ) -> QuestionPoolCallbackPayload:
+        """질문 풀 생성. 실패해도 콜백은 항상 나가야 세션 시작이 무기한 멈추지 않는다."""
+        try:
+            pool = await self._generator.generate(
+                job_categories=req.job_categories,
+                mode=req.mode,
+                max_questions=effective_pool_size,
+                context=context_text,
+                recent_questions=req.recent_questions,
+                self_introduction=req.self_intro_answer,
+                target_company_name=req.target_company_name,
+                target_job_description=req.target_job_description,
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.exception(
+                "questions.generate.failed",
+                session_id=req.session_id,
+                trace_id=trace_id,
+            )
+            return QuestionPoolCallbackPayload(
+                session_id=req.session_id,
+                kind="POOL",
+                questions=[],
+                status="FAILED",
+                error_code=(
+                    "GENERATION_SCHEMA_INVALID"
+                    if isinstance(exc, TypeError)
+                    else "GENERATION_FAILED"
+                ),
+                error_message=str(exc),
+                retriable=not isinstance(exc, TypeError),
+            )
+        return QuestionPoolCallbackPayload(
+            session_id=req.session_id,
+            kind="POOL",
+            questions=pool.questions,
+        )
 
     async def _build_context(self, req: GenerateQuestionsRequest) -> str:
         base_context = _build_context(req.documents)
@@ -119,14 +156,30 @@ class QuestionsConsumer:
             return base_context
 
         document_ids = [d.document_id for d in req.documents]
-        if not document_ids:
-            return base_context
-
         # PLAN vs Retrieve: 문서가 1개면 markdown 전체가 이미 base_context 에 들어 있어
         # 검색이 중복이다 → 검색 생략(PLAN). 여러 문서일 때만 RAG 로 관련 청크를 추린다.
         if len(document_ids) <= 1:
             return base_context
 
+        try:
+            return await asyncio.wait_for(
+                self._do_build_context_rag(req, document_ids, base_context),
+                timeout=self._rag_timeout_sec,
+            )
+        except asyncio.TimeoutError:
+            log.warning(
+                "questions.rag.timeout",
+                session_id=req.session_id,
+                timeout_sec=self._rag_timeout_sec,
+            )
+            return base_context
+
+    async def _do_build_context_rag(
+        self,
+        req: GenerateQuestionsRequest,
+        document_ids: list[int],
+        base_context: str,
+    ) -> str:
         query = _build_initial_rag_query(req)
         try:
             query_vec = (

@@ -214,6 +214,7 @@ def build_followup_generation_chain(
     llm = ChatOpenAI(
         model=settings.llm_flash_model,
         temperature=settings.llm_flash_temperature,
+        timeout=settings.llm_flash_timeout_sec,
         api_key=settings.llm_api_key or None,
         base_url=settings.llm_base_url,
         max_tokens=settings.llm_flash_max_tokens,
@@ -252,6 +253,7 @@ def build_streaming_followup_generator(
     llm = ChatOpenAI(
         model=settings.llm_flash_model,
         temperature=settings.llm_flash_temperature,
+        timeout=settings.llm_flash_timeout_sec,
         api_key=settings.llm_api_key or None,
         base_url=settings.llm_base_url,
         max_tokens=settings.llm_flash_max_tokens,

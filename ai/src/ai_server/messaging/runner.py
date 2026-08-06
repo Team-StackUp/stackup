@@ -209,6 +209,7 @@ class MessagingRuntime:
             initial_pool_size=settings.questions_initial_pool_size,
             core_client=core_client,
             embedder=embedder,
+            rag_timeout_sec=settings.questions_rag_timeout_sec,
         )
 
         # 꼬리질문 생성 (US-19)

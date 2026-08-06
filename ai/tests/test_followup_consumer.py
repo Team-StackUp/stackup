@@ -113,6 +113,74 @@ async def test_consumer_generates_followup_and_publishes_callback():
     assert publisher.publish.await_args.kwargs["message_type"] == "callback.questions"
 
 
+def _make_failing_streaming_generator():
+    """streaming_generator 페이크: on_question_token 을 한 번 흘린 뒤 예외로 죽는다."""
+    streaming = MagicMock()
+
+    async def _stream(*, on_question_token, **kwargs):
+        await on_question_token("토큰")
+        raise RuntimeError("stream boom")
+
+    streaming.stream = _stream
+    return streaming
+
+
+@pytest.mark.asyncio
+async def test_consumer_publishes_failed_followup_when_streaming_raises():
+    """스트리밍 생성이 죽어도 콜백은 항상 나가야 Core 가 선INSERT 한 placeholder가
+    영원히 '생성 중'으로 남지 않는다."""
+    generator = MagicMock()
+    generator.generate = AsyncMock()
+    streaming_generator = _make_failing_streaming_generator()
+    session_notifier = _make_session_notifier()
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+
+    consumer = FollowupConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.questions",
+        streaming_generator=streaming_generator,
+        session_notifier=session_notifier,
+    )
+    await consumer.handle(_StubMessage(_envelope()))
+
+    generator.generate.assert_not_awaited()
+    publisher.publish.assert_awaited_once()
+    payload: FollowupCallbackPayload = publisher.publish.await_args.kwargs["payload"]
+    assert payload.status == "FAILED"
+    assert payload.error_code == "GENERATION_FAILED"
+    assert payload.retriable is True
+    assert payload.followup_question == ""
+    # Core 가 어떤 placeholder/질문/답변을 갱신할지 식별할 필드는 실패해도 채워져야 한다.
+    assert payload.followup_message_id == 503
+    assert payload.parent_message_id == 501
+    assert payload.answer_message_id == 502
+
+
+@pytest.mark.asyncio
+async def test_consumer_publishes_failed_followup_when_generate_raises():
+    """비스트리밍 경로도 동일 — generate() 실패가 피드백처럼 조용히 삼켜지면 안 된다."""
+    generator = MagicMock()
+    generator.generate = AsyncMock(side_effect=RuntimeError("gateway 500"))
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+
+    consumer = FollowupConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.questions",
+    )
+    await consumer.handle(_StubMessage(_envelope()))
+
+    payload: FollowupCallbackPayload = publisher.publish.await_args.kwargs["payload"]
+    assert payload.status == "FAILED"
+    assert payload.error_code == "GENERATION_FAILED"
+    assert payload.followup_message_id == 503
+
+
 @pytest.mark.asyncio
 async def test_consumer_injects_followup_rag_context_when_available():
     followup_result = FollowupResult(

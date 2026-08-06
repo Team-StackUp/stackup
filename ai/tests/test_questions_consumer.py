@@ -115,6 +115,79 @@ async def test_consumer_generates_questions_and_publishes_callback():
 
 
 @pytest.mark.asyncio
+async def test_consumer_publishes_failed_pool_when_generate_raises():
+    """generate() 가 예외로 죽어도 콜백은 항상 나가야 세션 시작이 무기한 멈추지 않는다."""
+    generator = MagicMock()
+    generator.generate = AsyncMock(side_effect=RuntimeError("gateway 500"))
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+
+    consumer = QuestionsConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.questions",
+    )
+
+    body = _envelope(
+        {
+            "sessionId": 99,
+            "mode": "TECHNICAL",
+            "jobCategories": ["BACKEND"],
+            "documents": [],
+            "maxQuestions": 5,
+            "initialQuestionCount": 2,
+        }
+    )
+    await consumer.handle(_StubMessage(body))
+
+    publisher.publish.assert_awaited_once()
+    payload: QuestionPoolCallbackPayload = publisher.publish.await_args.kwargs[
+        "payload"
+    ]
+    assert payload.status == "FAILED"
+    assert payload.error_code == "GENERATION_FAILED"
+    assert payload.retriable is True
+    assert payload.questions == []
+
+
+@pytest.mark.asyncio
+async def test_consumer_marks_failure_non_retriable_on_schema_type_error():
+    """LLM 출력이 스키마와 안 맞아 TypeError 가 나면 재시도해도 같은 이유로 또 실패할
+    가능성이 높으므로 retriable=False 로 구분한다."""
+    generator = MagicMock()
+    generator.generate = AsyncMock(side_effect=TypeError("unexpected type"))
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+
+    consumer = QuestionsConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.questions",
+    )
+
+    body = _envelope(
+        {
+            "sessionId": 99,
+            "mode": "TECHNICAL",
+            "jobCategories": ["BACKEND"],
+            "documents": [],
+            "maxQuestions": 5,
+            "initialQuestionCount": 2,
+        }
+    )
+    await consumer.handle(_StubMessage(body))
+
+    payload: QuestionPoolCallbackPayload = publisher.publish.await_args.kwargs[
+        "payload"
+    ]
+    assert payload.status == "FAILED"
+    assert payload.error_code == "GENERATION_SCHEMA_INVALID"
+    assert payload.retriable is False
+
+
+@pytest.mark.asyncio
 async def test_consumer_forwards_self_intro_answer_to_generator():
     generator = MagicMock()
     generator.generate = AsyncMock(return_value=GeneratedQuestionPool(questions=[]))
@@ -383,6 +456,64 @@ async def test_consumer_falls_back_to_document_context_when_rag_fails():
     )
     await consumer.handle(_StubMessage(body))
 
+    context = generator.generate.await_args.kwargs["context"]
+    assert "Java/Spring backend" in context
+    assert "Retrieved document chunks" not in context
+
+
+@pytest.mark.asyncio
+async def test_multi_document_rag_timeout_falls_back_to_base_context():
+    """rag_timeout_sec 초과 시 검색 없이 base_context 로 폴백 — followup 과 대칭.
+    다문서(2개 이상)라야 RAG 경로를 타므로 문서를 2개 준다."""
+    import asyncio
+
+    async def _slow_embed(texts, *, task_type=""):
+        await asyncio.sleep(0.1)  # 타임아웃(0.01s) 보다 훨씬 길다
+        return [[0.0]]
+
+    generator = MagicMock()
+    generator.generate = AsyncMock(return_value=GeneratedQuestionPool(questions=[]))
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+    core = MagicMock()
+    core.search_embeddings = AsyncMock(return_value=[])
+    embedder = MagicMock()
+    embedder.embed = _slow_embed
+
+    consumer = QuestionsConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.questions",
+        core_client=core,
+        embedder=embedder,
+        rag_timeout_sec=0.01,
+    )
+    body = _envelope(
+        {
+            "sessionId": 99,
+            "mode": "TECHNICAL",
+            "jobCategories": ["BACKEND"],
+            "documents": [
+                {
+                    "documentId": 1,
+                    "sourceType": "RESUME",
+                    "summary": "Java/Spring backend",
+                    "markdown": "payment service",
+                },
+                {
+                    "documentId": 2,
+                    "sourceType": "REPOSITORY",
+                    "summary": "결제 레포",
+                    "markdown": "outbox pattern",
+                },
+            ],
+            "maxQuestions": 5,
+        }
+    )
+    await consumer.handle(_StubMessage(body))
+
+    core.search_embeddings.assert_not_awaited()
     context = generator.generate.await_args.kwargs["context"]
     assert "Java/Spring backend" in context
     assert "Retrieved document chunks" not in context

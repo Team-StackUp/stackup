@@ -374,5 +374,16 @@ docker run --env-file .env -p 8000:8000 stackup-ai
   예상 못 한 예외로 죽어도(다른 4개 부가 평가는 각자 예외를 삼키는데 이것만 그러지 않으면
   top-level `asyncio.gather` 가 통째로 취소된다) 빈 `FeedbackResult`로 대체해 피드백 발행
   자체는 항상 이어지게 한다.
+- **질문 풀/꼬리질문 생성 실패 신호 본 구현**: `questions_consumer`/`followup_consumer`가 메인 생성
+  호출(`generate()`/`stream()`)을 무방비로 두던 문제를 고쳤다 — 실패하면 예외가 그대로 새서
+  DLQ로 격리되고 Core 는 아무 신호도 못 받아 세션이 "생성 중"에 무기한 멈췄다(꼬리질문은 Core 가
+  이미 선INSERT 한 placeholder 가 영원히 안 채워짐). 이제 두 consumer 모두 생성 호출을 try/except
+  로 감싸 실패해도 항상 `QuestionPoolCallbackPayload`/`FollowupCallbackPayload`(`status=FAILED`,
+  `errorCode`, `errorMessage`, `retriable`)를 발행한다. `errorCode`는 `TypeError`(LLM 출력 스키마
+  불일치, 재시도 무의미 → `retriable=false`)와 그 외(`GENERATION_FAILED`, `retriable=true`)를 구분.
+  Core 쪽 처리는 [`backend/CLAUDE.md`](../backend/CLAUDE.md) 참고. 같은 김에 `questions_consumer`의
+  다문서 RAG 경로에도 `followup_rag_timeout_sec`와 대칭인 `questions_rag_timeout_sec`(기본 1.5s)
+  하드 타임아웃을 추가하고, 모든 `ChatOpenAI` 호출에 `llm_pro_timeout_sec`(30s)/`llm_flash_timeout_sec`
+  (10s) 요청 타임아웃을 명시했다(이전엔 미설정 — SDK 기본값까지 무기한 대기 가능).
 
 각 도입 시 본 문서 갱신.

@@ -42,8 +42,8 @@ SYSTEM_PROMPT = (
     "- 출력은 정확히 다음 3개 블록을 이 순서로만 작성합니다(설명·코드펜스 금지):\n"
     "  <intent>NORMAL 또는 DONT_KNOW 또는 CLARIFICATION</intent>\n"
     "  <question>지원자에게 보여줄 한국어 질문 1개(또는 CLARIFICATION 시 재설명 문장)</question>\n"
-    "  <meta>{{\"specificity\": <0~5>, \"logic\": <0~5>, "
-    "\"structure\": \"FULL_STAR|PARTIAL_STAR|NONE\", \"correctness\": <0~5 또는 null>}}</meta>\n"
+    '  <meta>{{"specificity": <0~5>, "logic": <0~5>, '
+    '"structure": "FULL_STAR|PARTIAL_STAR|NONE", "correctness": <0~5 또는 null>}}</meta>\n'
     "- <intent> 를 가장 먼저 확정해 출력합니다. DONT_KNOW 여도 <question> 블록은 비우지 말고 한 문장 넣되, "
     "표시는 시스템이 결정합니다."
 )

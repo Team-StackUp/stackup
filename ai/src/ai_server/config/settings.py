@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     feedback_rag_top_k: int = 5
     # RAG 컨텍스트 구성(임베딩+검색) 전체 상한. 초과 시 (none) 으로 폴백해 첫 토큰을 막지 않는다.
     followup_rag_timeout_sec: float = 1.5
+    # 질문 풀 생성 시 다문서 RAG 검색 상한. followup 과 대칭 — 초과 시 base_context 로 폴백.
+    questions_rag_timeout_sec: float = 1.5
     # 질문 풀 초기 크기. Core 의 applyPool 이 questions[0] 만 INSERT 하므로 1 로 고정해 토큰 낭비 차단.
     # 후속 작업에서 풀 저장 도입 시 늘리기 (예: 5).
     questions_initial_pool_size: int = 1
@@ -98,11 +100,15 @@ class Settings(BaseSettings):
     llm_base_url: str = "https://factchat-cloud.mindlogic.ai/v1/gateway"
     llm_pro_model: str = "gemini-3.1-pro-preview"
     llm_pro_temperature: float = 0.2
+    # 요청 타임아웃 미설정 시 SDK 기본값(수백 초)까지 무기한 대기할 수 있어 명시.
+    llm_pro_timeout_sec: float = 30.0
 
     # 꼬리질문용 Flash 모델 (저지연 < 3s)
     llm_flash_model: str = "gemini-3.1-flash-lite"
     llm_flash_temperature: float = 0.4
     llm_flash_max_tokens: int = 512
+    # Flash 는 저지연 요구사항이 있어 Pro 보다 짧게.
+    llm_flash_timeout_sec: float = 10.0
 
     analyzed_resume_md_key_template: str = "analyzed/resume/{resume_id}/summary.md"
     analyzed_repository_md_key_template: str = (

@@ -3,6 +3,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from ai_server.model._config import camel_config
+from ai_server.model.messages.questions import GenerationStatus
 
 InterviewMode = Literal["PERSONALITY", "TECHNICAL", "INTEGRATED"]
 
@@ -55,8 +56,13 @@ class FollowupCallbackPayload(BaseModel):
     kind: Literal["FOLLOWUP"] = "FOLLOWUP"
     parent_message_id: int
     answer_message_id: int  # 평가가 달릴 답변 메시지 (Core 가 평가 영속에 사용)
-    followup_question: str
+    # 생성 실패(status=FAILED) 시 빈 문자열 — Core 는 status 를 먼저 확인해야 한다.
+    followup_question: str = ""
     answer_evaluation: AnswerEvaluation | None = None
     # 답변 의도: NORMAL | DONT_KNOW | CLARIFICATION. Core 가 흐름 분기에 사용.
     answer_intent: str = "NORMAL"
     followup_message_id: int  # placeholder UPDATE 대상
+    status: GenerationStatus = "OK"
+    error_code: str | None = None
+    error_message: str | None = None
+    retriable: bool | None = None

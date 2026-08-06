@@ -7,6 +7,7 @@ from aio_pika.abc import AbstractIncomingMessage
 
 from ai_server.chain.followup_generation_chain import (
     FollowupGenerator,
+    FollowupResult,
     StreamingFollowupGenerator,
 )
 from ai_server.chain.sentence_split import next_sentences
@@ -95,83 +96,8 @@ class FollowupConsumer:
             )
 
             rag_context = await self._build_rag_context(req)
-
-            if self._streaming is not None and self._notifier is not None:
-                seq = {"n": 0}
-                audio_seq = {"n": 0}
-                q_acc = {"text": "", "consumed": 0}
-                synth_tasks: list = []
-
-                def _spawn_segment(sentence: str) -> None:
-                    if not (self._tts and self._storage):
-                        return
-                    idx = audio_seq["n"]
-                    audio_seq["n"] += 1
-                    synth_tasks.append(
-                        asyncio.create_task(
-                            self._synth_segment(
-                                session_id=req.session_id,
-                                message_id=req.followup_message_id,
-                                seq=idx,
-                                sentence=sentence,
-                                trace_id=envelope.trace_id,
-                            )
-                        )
-                    )
-
-                async def _on_token(delta: str) -> None:
-                    await self._notifier.emit_delta(
-                        session_id=req.session_id,
-                        message_id=req.followup_message_id,
-                        seq=seq["n"],
-                        text=delta,
-                        trace_id=envelope.trace_id,
-                    )
-                    seq["n"] += 1
-                    q_acc["text"] += delta
-                    sents, q_acc["consumed"] = next_sentences(
-                        q_acc["text"], q_acc["consumed"]
-                    )
-                    for s in sents:
-                        _spawn_segment(s)
-
-                result = await self._streaming.stream(
-                    on_question_token=_on_token,
-                    job_category=req.job_category,
-                    mode=req.mode,
-                    previous_question=req.previous_question,
-                    answer_text=req.answer_text,
-                    context=rag_context,
-                    parent_category=req.parent_category or "UNKNOWN",
-                    expected_signal=req.parent_expected_signal or "(none)",
-                    history=_format_history(req.history),
-                )
-                tail = q_acc["text"][q_acc["consumed"] :].strip()
-                if tail:
-                    _spawn_segment(tail)
-                if synth_tasks:
-                    await asyncio.gather(*synth_tasks, return_exceptions=True)
-            else:
-                result = await self._generator.generate(
-                    job_category=req.job_category,
-                    mode=req.mode,
-                    previous_question=req.previous_question,
-                    answer_text=req.answer_text,
-                    context=rag_context,
-                    parent_category=req.parent_category or "UNKNOWN",
-                    expected_signal=req.parent_expected_signal or "(none)",
-                    history=_format_history(req.history),
-                )
-
-            payload = FollowupCallbackPayload(
-                session_id=req.session_id,
-                kind="FOLLOWUP",
-                parent_message_id=req.parent_message_id,
-                answer_message_id=req.answer_message_id,
-                followup_question=result.followup_question,
-                answer_evaluation=result.answer_evaluation,
-                answer_intent=result.answer_intent,
-                followup_message_id=req.followup_message_id,
+            payload = await self._generate_followup_payload(
+                req, rag_context, trace_id=envelope.trace_id
             )
 
             await self._publisher.publish(
@@ -186,8 +112,125 @@ class FollowupConsumer:
                 "followup.generate.done",
                 message_id=envelope.message_id,
                 session_id=req.session_id,
+                status=payload.status,
                 trace_id=envelope.trace_id,
             )
+
+    async def _generate_followup_payload(
+        self,
+        req: GenerateFollowupRequest,
+        rag_context: str,
+        *,
+        trace_id: str,
+    ) -> FollowupCallbackPayload:
+        """꼬리질문 생성. Core 가 이미 선INSERT 한 placeholder 가 있으므로, 실패해도
+        콜백은 항상 나가야 placeholder 가 영원히 '생성 중'으로 남지 않는다."""
+        try:
+            if self._streaming is not None and self._notifier is not None:
+                result = await self._stream_followup(req, rag_context, trace_id)
+            else:
+                result = await self._generator.generate(
+                    job_category=req.job_category,
+                    mode=req.mode,
+                    previous_question=req.previous_question,
+                    answer_text=req.answer_text,
+                    context=rag_context,
+                    parent_category=req.parent_category or "UNKNOWN",
+                    expected_signal=req.parent_expected_signal or "(none)",
+                    history=_format_history(req.history),
+                )
+        except Exception as exc:  # noqa: BLE001
+            log.exception(
+                "followup.generate.failed",
+                session_id=req.session_id,
+                followup_message_id=req.followup_message_id,
+                trace_id=trace_id,
+            )
+            return FollowupCallbackPayload(
+                session_id=req.session_id,
+                kind="FOLLOWUP",
+                parent_message_id=req.parent_message_id,
+                answer_message_id=req.answer_message_id,
+                followup_message_id=req.followup_message_id,
+                status="FAILED",
+                error_code=(
+                    "GENERATION_SCHEMA_INVALID"
+                    if isinstance(exc, TypeError)
+                    else "GENERATION_FAILED"
+                ),
+                error_message=str(exc),
+                retriable=not isinstance(exc, TypeError),
+            )
+        return FollowupCallbackPayload(
+            session_id=req.session_id,
+            kind="FOLLOWUP",
+            parent_message_id=req.parent_message_id,
+            answer_message_id=req.answer_message_id,
+            followup_question=result.followup_question,
+            answer_evaluation=result.answer_evaluation,
+            answer_intent=result.answer_intent,
+            followup_message_id=req.followup_message_id,
+        )
+
+    async def _stream_followup(
+        self, req: GenerateFollowupRequest, rag_context: str, trace_id: str
+    ) -> FollowupResult:
+        seq = {"n": 0}
+        audio_seq = {"n": 0}
+        q_acc = {"text": "", "consumed": 0}
+        synth_tasks: list = []
+
+        def _spawn_segment(sentence: str) -> None:
+            if not (self._tts and self._storage):
+                return
+            idx = audio_seq["n"]
+            audio_seq["n"] += 1
+            synth_tasks.append(
+                asyncio.create_task(
+                    self._synth_segment(
+                        session_id=req.session_id,
+                        message_id=req.followup_message_id,
+                        seq=idx,
+                        sentence=sentence,
+                        trace_id=trace_id,
+                    )
+                )
+            )
+
+        async def _on_token(delta: str) -> None:
+            await self._notifier.emit_delta(
+                session_id=req.session_id,
+                message_id=req.followup_message_id,
+                seq=seq["n"],
+                text=delta,
+                trace_id=trace_id,
+            )
+            seq["n"] += 1
+            q_acc["text"] += delta
+            sents, q_acc["consumed"] = next_sentences(q_acc["text"], q_acc["consumed"])
+            for s in sents:
+                _spawn_segment(s)
+
+        try:
+            result = await self._streaming.stream(
+                on_question_token=_on_token,
+                job_category=req.job_category,
+                mode=req.mode,
+                previous_question=req.previous_question,
+                answer_text=req.answer_text,
+                context=rag_context,
+                parent_category=req.parent_category or "UNKNOWN",
+                expected_signal=req.parent_expected_signal or "(none)",
+                history=_format_history(req.history),
+            )
+        finally:
+            # 실패로 빠져도 이미 떠 있는 세그먼트 합성 task 는 수거(뒷정리, 예외는 무시).
+            tail = q_acc["text"][q_acc["consumed"] :].strip()
+            if tail:
+                _spawn_segment(tail)
+            if synth_tasks:
+                await asyncio.gather(*synth_tasks, return_exceptions=True)
+        return result
 
     async def _synth_segment(
         self,
