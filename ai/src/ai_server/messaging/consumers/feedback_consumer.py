@@ -18,6 +18,7 @@ from ai_server.chain.feedback_generation_chain import (
     AnswerCoach,
     EvaluatorResult,
     FeedbackGenerator,
+    FeedbackResult,
     JobFitEvaluator,
     PersonalityEvaluator,
     SelfIntroEvaluator,
@@ -139,7 +140,7 @@ class FeedbackConsumer:
                 personality_item,
                 answer_coaching,
             ) = await asyncio.gather(
-                self._generator.generate(
+                self._generate_panel(
                     job_category=req.job_category,
                     mode=req.mode,
                     total_question_count=req.total_question_count,
@@ -149,6 +150,7 @@ class FeedbackConsumer:
                     rag_context=rag_context,
                     voice_analysis_summary=voice_analysis_summary,
                     domain_question_counts=req.domain_question_counts,
+                    session_id=req.session_id,
                 ),
                 self._evaluate_self_intro(req, voice_analysis_summary),
                 self._evaluate_job_fit(req, transcript, rag_context),
@@ -190,6 +192,46 @@ class FeedbackConsumer:
                 message_id=envelope.message_id,
                 session_id=req.session_id,
                 trace_id=envelope.trace_id,
+            )
+
+    async def _generate_panel(
+        self,
+        *,
+        job_category: str,
+        mode: str,
+        total_question_count: int | None,
+        end_reason: str | None,
+        transcript: str,
+        score_basis: str,
+        rag_context: str,
+        voice_analysis_summary: str,
+        domain_question_counts: dict[str, int] | None,
+        session_id: int,
+    ) -> FeedbackResult:
+        """종합 패널 생성. 다른 4개(자기소개/직무적합도/인성/코칭)는 각자 예외를 삼키는데
+        이것만 그러지 않으면 top-level gather 가 통째로 취소돼 피드백을 아예 못 준다 —
+        실패해도 빈 결과로 대체해 나머지는 살린다."""
+        try:
+            return await self._generator.generate(
+                job_category=job_category,
+                mode=mode,
+                total_question_count=total_question_count,
+                end_reason=end_reason,
+                transcript=transcript,
+                score_basis=score_basis,
+                rag_context=rag_context,
+                voice_analysis_summary=voice_analysis_summary,
+                domain_question_counts=domain_question_counts,
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning(
+                "feedback.panel.generate_failed", error=str(exc), session_id=session_id
+            )
+            return FeedbackResult(
+                weaknesses_summary=(
+                    "일시적 오류로 종합 평가를 생성하지 못했습니다. "
+                    "개별 평가 항목만 확인해주세요."
+                )
             )
 
     async def _evaluate_self_intro(
@@ -281,9 +323,7 @@ class FeedbackConsumer:
         ]
         # PERSONALITY 인데 카테고리 태깅이 없으면 비자기소개 답변 전체로 폴백. INTEGRATED 는
         # BEHAVIORAL 이 하나도 없으면 평가할 인성 답변이 없는 것으로 보고 건너뛴다.
-        selected = behavioral or (
-            pairs if (req.mode or "") == "PERSONALITY" else []
-        )
+        selected = behavioral or (pairs if (req.mode or "") == "PERSONALITY" else [])
         if not selected:
             return None
         transcript = _qa_transcript(selected)
