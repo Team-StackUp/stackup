@@ -255,10 +255,28 @@
     "questions": [
       { "category": "PROJECT_DEEP_DIVE", "question": "..." },
       { "category": "CS_FUNDAMENTAL", "question": "..." }
-    ]
+    ],
+    "status": "OK"
   }
 }
 ```
+
+**실패 시** (`generate()` 예외 — LLM 게이트웨이 장애, 파싱 실패 등):
+```json
+{
+  "messageType": "callback.questions",
+  "payload": {
+    "sessionId": 99,
+    "kind": "POOL",
+    "questions": [],
+    "status": "FAILED",
+    "errorCode": "GENERATION_FAILED",
+    "errorMessage": "...",
+    "retriable": true
+  }
+}
+```
+→ `status` 미명시(구버전)는 `OK` 로 취급. Core 는 `FAILED` 수신 시 풀을 세팅하지 않고 `SseEventType.ERROR` 로 세션/유저 채널에 알린다(세션 상태는 그대로 — 재시도 트리거는 후속 과제). `errorCode`: `GENERATION_FAILED`(재시도 가능) | `GENERATION_SCHEMA_INVALID`(LLM 출력이 스키마 불일치, 재시도해도 같은 이유로 실패할 가능성 높음 → `retriable=false`) | `UNEXPECTED`.
 
 ### 5.8 `generate.followup`
 ```json
@@ -304,12 +322,39 @@
       "speakingRateWpm": 142.0,
       "fillerWordCounts": { "음": 5, "어": 3 },
       "silenceDurationSec": 8.2
-    }
+    },
+    "status": "OK"
   }
 }
 ```
 
+**실패 시** (생성 실패 — 스트리밍/비스트리밍 공통):
+```json
+{
+  "messageType": "callback.questions",
+  "payload": {
+    "sessionId": 99,
+    "kind": "FOLLOWUP",
+    "parentMessageId": 502,
+    "answerMessageId": 502,
+    "followupMessageId": 503,
+    "followupQuestion": "",
+    "status": "FAILED",
+    "errorCode": "GENERATION_FAILED",
+    "errorMessage": "...",
+    "retriable": true
+  }
+}
+```
+→ `followupMessageId` 의 placeholder는 Core 가 `InterviewMessage.failFollowup()`으로 확정 짓는다(내용을
+"질문 생성에 실패했습니다. 다음 질문으로 넘어갑니다."로 교체, `MessageStatus.FAILED`) — 삭제하지 않아
+턴이 사라진 것처럼 보이지 않는다. 처리 후 `DONT_KNOW` 와 동일하게 `advanceToNextGeneral` 로 다음
+일반질문으로 진행해 면접이 멈추지 않는다. placeholder 를 못 찾으면(레거시 폴백 경로) `SseEventType.ERROR`
+로만 알린다.
+
 > `callback.questions` 큐는 두 종류(`POOL`, `FOLLOWUP`)를 받으므로 consumer는 `payload.kind`로 분기.
+> 어느 kind 든 `status: "FAILED"` 면 `payload.kind` 분기 전에 실패 처리 분기를 먼저 태운다
+> (`QuestionsCallbackService.apply`).
 
 ### 5.9a `generate.tts`
 ```json
@@ -460,6 +505,7 @@ AI followup consumer 가 토큰 스트림 중 문장 경계마다 그 문장만 
 | 메시지 파싱 실패 (스키마 위반) | 즉시 reject(requeue=false) → DLQ (재시도 무의미) |
 | 멱등 충돌 (이미 처리된 messageId) | ACK + 처리 skip (`processed_messages`) |
 | 영구 분석 실패 (PDF 손상 등) | ACK + 실패 callback 발행 (`status: FAILED`, `retriable: false`) — DLQ 미사용 |
+| 질문 풀/꼬리질문 생성 실패 (LLM 게이트웨이 장애, 스키마 위반 등) | ACK + 실패 callback 발행 (`status: FAILED`) — 세션이 "생성 중"에 무기한 멈추지 않게 항상 콜백을 보낸다. DLQ 미사용 |
 
 ### Core (Spring AMQP)
 - `RabbitMqConfig#rabbitListenerContainerFactory` 가 stateless retry interceptor (`RetryInterceptorBuilder.stateless()`) 를 attach.
@@ -467,6 +513,9 @@ AI followup consumer 가 토큰 스트림 중 문장 경계마다 그 문장만 
 ### AI Server (aio-pika)
 - 컨슈머는 `async with message.process(requeue=False)` 패턴.
 - 도메인 예외 (`ResumeAnalyzeError` 등) 는 catch 하여 실패 callback 발행 (재시도 무의미).
+- `questions_consumer`/`followup_consumer` 도 동일 패턴 — 생성 호출을 catch 해 항상 콜백을 발행한다
+  (`QuestionPoolCallbackPayload`/`FollowupCallbackPayload` 의 `status: FAILED`). Core 가 이미 선INSERT 한
+  꼬리질문 placeholder 가 영원히 "생성 중"으로 남는 것을 방지.
 - 그 외 예외는 re-raise → nack(requeue=false) → DLX 로 routing.
 - 일시 장애의 in-process 재시도는 미구현 (Phase 2 — 아래 Quorum Queue 도입과 함께).
 

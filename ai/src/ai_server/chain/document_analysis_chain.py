@@ -94,6 +94,7 @@ def build_document_analysis_chain(
     llm = ChatOpenAI(
         model=settings.llm_pro_model,
         temperature=settings.llm_pro_temperature,
+        timeout=settings.llm_pro_timeout_sec,
         api_key=settings.llm_api_key or None,
         base_url=settings.llm_base_url,
         callbacks=callbacks,

@@ -37,6 +37,8 @@ public class InterviewMessage extends BaseTimeEntity {
     public static final String VOICE_TRANSCRIPTION_FAILED_TEXT =
         "음성 인식에 실패했습니다. 텍스트로 다시 답변해 주세요.";
     public static final String FOLLOWUP_GENERATING_TEXT = "(생성 중)";
+    public static final String FOLLOWUP_GENERATION_FAILED_TEXT =
+        "질문 생성에 실패했습니다. 다음 질문으로 넘어갑니다.";
 
     // 모든 면접의 첫 질문은 자기소개로 고정한다. 이력서/레포 기반 질문 풀은 이 답변을
     // 씨앗으로 자기소개 답변 이후에 생성된다(SessionQuestionsRequester). category 는 느슨
@@ -274,6 +276,13 @@ public class InterviewMessage extends BaseTimeEntity {
 
     public void failVoiceTranscription() {
         this.content = VOICE_TRANSCRIPTION_FAILED_TEXT;
+        this.status = MessageStatus.FAILED;
+    }
+
+    // 꼬리질문 placeholder 를 AI 생성 실패로 확정. 삭제하지 않고 실패 사실을 보여준 뒤
+    // 세션은 다음 일반질문으로 넘어간다(QuestionsCallbackService.applyFollowupFailed).
+    public void failFollowup() {
+        this.content = FOLLOWUP_GENERATION_FAILED_TEXT;
         this.status = MessageStatus.FAILED;
     }
 }

@@ -13,6 +13,7 @@ QuestionCategory = Literal[
     "BEHAVIORAL",
 ]
 CallbackKind = Literal["POOL", "FOLLOWUP"]
+GenerationStatus = Literal["OK", "FAILED"]
 
 
 class DocumentContext(BaseModel):
@@ -68,3 +69,8 @@ class QuestionPoolCallbackPayload(BaseModel):
     session_id: int
     kind: CallbackKind = "POOL"
     questions: list[GeneratedQuestion] = []
+    # 생성 실패 신호. OK(기본)면 나머지 error_* 는 무시. FAILED 면 questions 는 빈 리스트.
+    status: GenerationStatus = "OK"
+    error_code: str | None = None
+    error_message: str | None = None
+    retriable: bool | None = None
