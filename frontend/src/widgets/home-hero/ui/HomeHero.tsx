@@ -3,8 +3,6 @@ import { useGetStartedTarget } from '@/features/auth'
 import { Reveal } from '@/shared/ui'
 import { HeroPreview } from './HeroPreview'
 
-const SOURCES = ['GitHub 레포', '이력서', '자소서']
-
 export function HomeHero() {
   const getStartedTo = useGetStartedTarget()
 
@@ -12,22 +10,9 @@ export function HomeHero() {
     <section id="top" className="bg-surface-raised">
       <div className="mx-auto max-w-content px-6 pt-14 pb-20 lg:px-12 lg:pt-20 lg:pb-28">
         <div className="mx-auto max-w-3xl text-center">
-          <Reveal>
-            <ul className="flex flex-wrap items-center justify-center gap-2">
-              {SOURCES.map((s) => (
-                <li
-                  key={s}
-                  className="rounded-pill border border-border bg-surface px-3 py-1.5 text-caption font-medium text-fg-muted"
-                >
-                  {s}
-                </li>
-              ))}
-            </ul>
-          </Reveal>
-
           <Reveal delayMs={60}>
             <h1
-              className="mt-6 font-sans font-bold text-fg"
+              className="font-sans font-bold text-fg"
               style={{
                 fontSize: 'clamp(34px, 5.4vw, 60px)',
                 lineHeight: 1.18,
@@ -46,8 +31,7 @@ export function HomeHero() {
               className="mx-auto mt-6 max-w-xl text-rich text-fg-muted"
               style={{ wordBreak: 'keep-all' }}
             >
-              올려둔 자료에서 질문을 만들고, 답변이 얕은 지점을 꼬리질문으로 파고듭니다. 끝나면
-              근거가 붙은 리포트를 받습니다.
+              자료에서 질문을 만들고, 얕은 답은 다시 묻습니다.
             </p>
           </Reveal>
 
