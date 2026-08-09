@@ -36,7 +36,7 @@ function ColorModeToggle() {
 
 const items = [
   { to: '/#features', label: '기능' },
-  { to: '/#services', label: '서비스' },
+  { to: '/#how', label: '동작 방식' },
   { to: '/#faq', label: 'FAQ' },
 ]
 
