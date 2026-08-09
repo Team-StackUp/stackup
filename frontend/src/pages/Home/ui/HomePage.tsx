@@ -6,7 +6,6 @@ import { HomeSteps } from '@/widgets/home-steps'
 import { HomeFeatures } from '@/widgets/home-features'
 import { HomeServices } from '@/widgets/home-services'
 import { HomeFaq } from '@/widgets/home-faq'
-import { HomeCta } from '@/widgets/home-cta'
 import { SiteFooter } from '@/widgets/site-footer'
 
 export default function HomePage() {
@@ -36,7 +35,6 @@ export default function HomePage() {
         <HomeFeatures />
         <HomeServices />
         <HomeFaq />
-        <HomeCta />
       </main>
       <SiteFooter />
     </div>
