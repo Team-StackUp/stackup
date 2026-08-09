@@ -13,21 +13,21 @@ const services: ServiceCard[] = [
   {
     plan: 'Pro',
     title: '이력서 심층 면접',
-    desc: '올려둔 이력서·자소서·GitHub 레포에서 질문을 만들고, 답변을 꼬리질문으로 파고듭니다.',
+    desc: '내 자료에서 나온 질문으로 깊게.',
     tags: ['이력서', '자소서', 'GitHub'],
     to: '/sessions/new',
   },
   {
     plan: 'Free',
     title: '직무 기술 면접',
-    desc: '프론트엔드·백엔드에서 자주 나오는 기술 질문을 골라 가볍게 연습합니다.',
+    desc: '직무 빈출 질문으로 가볍게.',
     tags: ['프론트엔드', '백엔드'],
     modal: 'role',
   },
   {
     plan: 'Free',
     title: 'CS 전공 지식 면접',
-    desc: '운영체제·네트워크·데이터베이스 같은 전공 필수 개념을 점검합니다.',
+    desc: '전공 개념만 빠르게 점검.',
     tags: ['OS', '네트워크', 'DB'],
     to: '/practice/cs',
   },
@@ -97,8 +97,9 @@ export function HomeServices() {
     <section id="services" className="bg-surface">
       <div className="mx-auto max-w-content px-6 py-24 lg:px-12 lg:py-32">
         <Reveal>
+          <p className="font-mono text-caption tracking-tight text-fg-subtle">PICK ONE</p>
           <h2
-            className="font-sans font-bold text-fg"
+            className="mt-4 font-sans font-bold text-fg"
             style={{
               fontSize: 'clamp(28px, 3.4vw, 44px)',
               lineHeight: 1.25,
@@ -106,11 +107,8 @@ export function HomeServices() {
               wordBreak: 'keep-all',
             }}
           >
-            지금 필요한 면접을 고르세요
+            골라서 바로 시작
           </h2>
-          <p className="mt-4 max-w-xl text-rich text-fg-muted" style={{ wordBreak: 'keep-all' }}>
-            이력서 기반 심층 면접부터 전공 개념 점검까지, 준비 단계에 맞게 고를 수 있습니다.
-          </p>
         </Reveal>
 
         <ul className="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-3">

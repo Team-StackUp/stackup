@@ -19,13 +19,13 @@ export function HomeCta() {
                 wordBreak: 'keep-all',
               }}
             >
-              첫 면접, 지금 시작해보세요
+              이제 직접 해볼 차례
             </h2>
             <p
               className="mx-auto mt-4 max-w-md text-rich text-white/80"
               style={{ wordBreak: 'keep-all' }}
             >
-              GitHub 계정을 연결하면 자료 분석부터 바로 시작됩니다.
+              계정 연결하면 분석부터 바로 시작합니다.
             </p>
 
             {/* 버튼 표면이 항상 흰색이라 글자는 모드 반응 brand 텍스트(다크에서 밝아짐)가 아니라

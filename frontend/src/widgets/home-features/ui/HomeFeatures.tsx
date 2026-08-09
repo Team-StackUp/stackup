@@ -1,11 +1,5 @@
 import { Reveal } from '@/shared/ui'
-import {
-  DeliveryVisual,
-  FollowupVisual,
-  PanelVisual,
-  ReportVisual,
-  ScoringVisual,
-} from './FeatureVisuals'
+import { FollowupVisual, ScoringVisual } from './FeatureVisuals'
 
 const headingStyle = {
   fontSize: 'clamp(26px, 3vw, 38px)',
@@ -18,33 +12,22 @@ const rows = [
   {
     eyebrow: '꼬리질문',
     title: '답을 흐리면\n그 지점을 다시 묻습니다',
-    desc: '답변을 구체성·논리·구조·정확성으로 채점하고, 가장 낮게 나온 축을 겨냥해 다음 질문을 만듭니다. 실제 면접에서 파고드는 방식과 같습니다.',
+    line: '4개 축으로 채점하고, 가장 낮게 나온 축을 겨냥합니다.',
     visual: <FollowupVisual />,
   },
   {
     eyebrow: '근거 있는 채점',
     title: '왜 그 점수인지\n자료로 확인합니다',
-    desc: '점수마다 근거 문장이 붙고, 판단의 출처가 된 이력서·레포의 대목을 그대로 보여줍니다. 근거를 못 찾으면 추측하지 않고 판단을 보류합니다.',
+    line: '근거를 못 찾으면 추측하지 않고 비웁니다.',
     visual: <ScoringVisual />,
   },
 ]
 
-const cards = [
-  {
-    title: '전달력까지 함께',
-    desc: '말 속도와 침묵, 간투어를 측정해 내용과 별개로 전달력을 코칭합니다.',
-    visual: <DeliveryVisual />,
-  },
-  {
-    title: '면접관은 여러 명',
-    desc: '직군별 면접관이 각자 기준으로 채점하고, 질문 비중에 따라 종합 점수를 냅니다.',
-    visual: <PanelVisual />,
-  },
-  {
-    title: '리포트는 공유 가능',
-    desc: '결과를 링크로 공유하거나 PDF로 저장해 스터디·멘토링에 그대로 씁니다.',
-    visual: <ReportVisual />,
-  },
+/** 라이트 섹션 사이에 끼우는 고정 다크 블록 — 카드 그리드 반복을 끊는 역할. */
+const specs = [
+  { k: '전달력', v: '142', unit: '어절/분', line: '말 속도·무음·간투어를 같이 봅니다.' },
+  { k: '면접관', v: '3', unit: '명', line: '직군·논리·전달을 따로 채점합니다.' },
+  { k: '리포트', v: '1', unit: '링크', line: '공유하거나 PDF 로 저장합니다.' },
 ]
 
 export function HomeFeatures() {
@@ -59,15 +42,20 @@ export function HomeFeatures() {
             }`}
           >
             <Reveal className={i % 2 === 1 ? 'lg:order-2' : undefined}>
-              <span className="text-button font-semibold text-primary-fg">{r.eyebrow}</span>
-              <h2 className="mt-3 whitespace-pre-line font-sans font-bold text-fg" style={headingStyle}>
+              <span className="font-mono text-caption tracking-tight text-primary-fg">
+                {r.eyebrow}
+              </span>
+              <h2
+                className="mt-3 whitespace-pre-line font-sans font-bold text-fg"
+                style={headingStyle}
+              >
                 {r.title}
               </h2>
               <p
-                className="mt-5 max-w-md text-rich text-fg-muted"
+                className="mt-5 max-w-sm text-rich text-fg-muted"
                 style={{ wordBreak: 'keep-all' }}
               >
-                {r.desc}
+                {r.line}
               </p>
             </Reveal>
             <Reveal delayMs={80} className={i % 2 === 1 ? 'lg:order-1' : undefined}>
@@ -76,22 +64,32 @@ export function HomeFeatures() {
           </div>
         ))}
 
-        <ul className="mt-24 grid gap-5 md:grid-cols-3 lg:mt-32">
-          {cards.map((c, i) => (
-            <Reveal as="li" key={c.title} delayMs={i * 80}>
-              <div className="flex h-full flex-col rounded-2xl border border-border bg-surface-raised p-6 lg:p-7">
-                <h3 className="font-sans text-h6 text-fg">{c.title}</h3>
-                <p
-                  className="mt-2.5 text-body font-normal leading-relaxed text-fg-muted"
-                  style={{ wordBreak: 'keep-all' }}
-                >
-                  {c.desc}
-                </p>
-                <div className="mt-auto">{c.visual}</div>
-              </div>
-            </Reveal>
-          ))}
-        </ul>
+        <Reveal className="mt-24 block lg:mt-32">
+          <div className="rounded-2xl bg-sage-900 px-6 py-10 lg:px-12 lg:py-12">
+            <dl className="grid gap-10 sm:grid-cols-3 sm:gap-8">
+              {specs.map((s) => (
+                <div key={s.k}>
+                  <dt className="font-mono text-caption tracking-tight text-sage-300">{s.k}</dt>
+                  <dd className="mt-3 flex items-baseline gap-1.5">
+                    <span
+                      className="font-sans font-bold text-white"
+                      style={{ fontSize: 'clamp(32px, 3.4vw, 44px)', letterSpacing: '-0.04em' }}
+                    >
+                      {s.v}
+                    </span>
+                    <span className="text-button font-normal text-sage-300">{s.unit}</span>
+                  </dd>
+                  <p
+                    className="mt-2 text-button font-normal leading-relaxed text-sage-200"
+                    style={{ wordBreak: 'keep-all' }}
+                  >
+                    {s.line}
+                  </p>
+                </div>
+              ))}
+            </dl>
+          </div>
+        </Reveal>
       </div>
     </section>
   )
