@@ -112,8 +112,7 @@ export function HomeSteps() {
                 <div className="lg:col-span-5">
                   <div className="flex items-baseline gap-4">
                     <span
-                      aria-hidden
-                      className="font-mono font-semibold leading-none text-border-strong"
+                      className="font-mono font-semibold leading-none text-fg-faint"
                       style={{ fontSize: 'clamp(38px, 4.4vw, 60px)', letterSpacing: '-0.04em' }}
                     >
                       {s.no}

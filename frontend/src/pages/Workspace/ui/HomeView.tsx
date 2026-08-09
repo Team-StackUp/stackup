@@ -14,7 +14,7 @@ export function HomeView() {
   return (
     <div className="space-y-8">
       <section className="overflow-hidden rounded-2xl border border-border bg-sage-600 p-8 text-white">
-        <p className="text-caption uppercase tracking-[0.08em] text-white/60">
+        <p className="text-caption uppercase tracking-[0.08em] text-white/80">
           맞춤 모의 면접
         </p>
         <h2 className="mt-2 font-heading text-h4 font-bold text-white">
