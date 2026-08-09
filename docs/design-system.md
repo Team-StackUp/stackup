@@ -67,6 +67,7 @@ Tailwind 사용: `bg-sage-{n}`, `text-sage-{n}`, `border-sage-{n}`.
 | `--color-fg-muted` | `sage-500` | `text-fg-muted` |
 | `--color-fg-subtle` | `sage-400` | `text-fg-subtle` |
 | `--color-fg-disabled` | `sage-200` | `text-fg-disabled` |
+| `--color-fg-faint` | SEED `fg-neutral-subtle` (장식·대형 텍스트 전용, 3.42:1) | `text-fg-faint` |
 | `--color-fg-on-primary` | `white` | `text-fg-on-primary` |
 | `--color-primary` | `#4662d2` (브랜드 블루, 스케일과 분리) | `bg-primary`, `text-primary` |
 | `--color-primary-hover` | `#3b54bd` | `bg-primary-hover` |
@@ -416,6 +417,7 @@ Tailwind v4 기본 `--spacing: 0.25rem` (= 4px) 사용. `p-4` = `16px`.
 
 ## 12. 변경 이력
 
+- **2026-08** — **접근성 감사(WCAG AA) 후 컬러 재매핑**: axe-core 로 전 페이지를 라이트·다크 양쪽 스캔한 결과 페이지당 최대 29건의 `color-contrast` 위반이 있었다. 원인은 SEED 시맨틱을 1:1로 매핑한 것 — SEED 의 `fg-neutral-subtle`(gray-700)·`fg-placeholder`(gray-600)는 흰 배경 대비가 3.42:1·2.10:1 이라 12px 캡션에 쓰면 AA 미달이었다. 텍스트 사다리를 한 단계씩 어둡게 재매핑하고(`fg-muted`→gray-800 6.62:1, `fg-subtle`→`color-mix` 5.36:1), Status 의 `-700` 을 `fg-*-contrast` 로 교체했다(weak 틴트 위 3.38~3.84:1 → 8.05~9.61:1). 장식용 대형 텍스트를 위해 `fg-faint`(3.42:1, AA-large 전용) 추가. 결과: 전 페이지 양 모드 **위반 0건**.
 - **2026-08** — **SEED Design 토큰 채택 + 다크모드**: 컬러·radius·shadow 를 당근 SEED(`@seed-design/css` + `@seed-design/tailwind4-theme`)로 위임. 우리 alias 이름(`--color-fg`, `--color-primary` …)은 유지하고 값만 `var(--seed-color-*)` 로 교체해 컴포넌트 수정 없이 전환. 브랜드는 SEED `blue` 팔레트로 리테마(`seed-overrides.css` — carrot 대신 blue 참조). `--color-primary`(배경)와 `--color-primary-fg`(텍스트)를 분리 — 다크에서 요구가 정반대라 한 토큰으로 불가능. 다크모드는 `<html data-seed-color-mode>` 로 전환(`shared/lib/color-mode`). 타이포그래피는 자체 스케일 유지.
 
 - **2026-06** — **블루 리테마**: 브랜드 블루(#4662D2)에 맞춰 `sage-*` 스케일 값을 쿨 블루그레이 모노크롬으로 교체(토큰명 유지), `primary` 를 스케일에서 분리해 로고 블루로 지정. 배경/그림자/포커스링도 쿨톤·네이비로 재조정. 위젯 하드코딩 hex 일괄 치환. Status / Domain 컬러는 유지.

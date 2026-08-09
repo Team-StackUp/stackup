@@ -54,12 +54,33 @@
   --color-border: var(--seed-color-stroke-neutral-subtle);
   --color-border-strong: var(--seed-color-stroke-neutral-muted);
 
-  /* 텍스트 — fg(가장 진함) > fg-strong > fg-muted > fg-subtle > fg-disabled */
+  /* 텍스트 — fg(가장 진함) > fg-strong > fg-muted > fg-subtle > fg-disabled
+   *
+   * SEED 의 fg 시맨틱을 1:1로 쓰면 WCAG AA 를 통과하지 못한다. SEED 는
+   * fg-neutral-subtle=gray-700, fg-placeholder=gray-600 인데 흰 배경 대비가
+   * 각각 3.42:1 · 2.10:1 이다(일반 텍스트 기준 4.5:1 미달). 우리는 이 두 토큰을
+   * 12px 캡션·보조 본문에 쓰므로 AA 가 필수라, 한 단계씩 어두운 쪽으로 재매핑했다.
+   *
+   * 라이트 기준 대비(흰 배경 / bg #f3f4f5):
+   *   fg          gray-1000  17.06 / 15.49
+   *   fg-strong   gray-900   13.31 / 12.08
+   *   fg-muted    gray-800    6.62 /  6.01
+   *   fg-subtle   mix         5.36 /  4.86   ← SEED 에 700~800 사이 단계가 없어 color-mix
+   *   fg-disabled gray-500    1.50 (비활성 텍스트는 WCAG 대비 요건 면제)
+   * 다크 기준은 램프가 반전되어 10.7~15.6 으로 더 여유롭다.
+   */
   --color-fg: var(--seed-color-fg-neutral);
-  --color-fg-strong: var(--seed-color-fg-neutral-muted);
-  --color-fg-muted: var(--seed-color-fg-neutral-subtle);
-  --color-fg-subtle: var(--seed-color-fg-placeholder);
+  --color-fg-strong: var(--seed-color-palette-gray-900);
+  --color-fg-muted: var(--seed-color-fg-neutral-muted);
+  --color-fg-subtle: color-mix(
+    in srgb,
+    var(--seed-color-palette-gray-800) 70%,
+    var(--seed-color-palette-gray-700)
+  );
   --color-fg-disabled: var(--seed-color-fg-disabled);
+  /* 장식·대형 텍스트 전용(24px+ 또는 18.66px bold). 흰 배경 3.42:1 — 대형 텍스트
+   * AA(3:1)만 충족하므로 본문에는 쓰지 않는다. 예: 3단계 섹션의 큰 번호. */
+  --color-fg-faint: var(--seed-color-fg-neutral-subtle);
   /* brand solid 위 텍스트 — 두 모드 모두 흰색을 유지해야 한다 */
   --color-fg-on-primary: var(--seed-color-palette-static-white);
 
@@ -84,24 +105,27 @@
    * 4. Color — Status (SEED: positive / warning / critical / informative)
    *    -50 연한 배경 · -500 solid 배경 · -700 텍스트 톤
    * ========================================================= */
+  /* -700 은 -50(weak 틴트) 배경 위 텍스트로 쓰이므로 SEED 의 `fg-*-contrast` 를 쓴다.
+   * `fg-*`(비-contrast)는 기본 레이어 위 텍스트용이라 weak 틴트 위에서는 대비가
+   * 3.38~3.84:1 로 AA 미달이었다. contrast 변형은 8.05~9.61:1 로 통과한다. */
   --color-success-50: var(--seed-color-bg-positive-weak);
   --color-success-500: var(--seed-color-bg-positive-solid);
-  --color-success-700: var(--seed-color-fg-positive);
+  --color-success-700: var(--seed-color-fg-positive-contrast);
   --color-success: var(--color-success-500);
 
   --color-warning-50: var(--seed-color-bg-warning-weak);
   --color-warning-500: var(--seed-color-bg-warning-solid);
-  --color-warning-700: var(--seed-color-fg-warning);
+  --color-warning-700: var(--seed-color-fg-warning-contrast);
   --color-warning: var(--color-warning-500);
 
   --color-danger-50: var(--seed-color-bg-critical-weak);
   --color-danger-500: var(--seed-color-bg-critical-solid);
-  --color-danger-700: var(--seed-color-fg-critical);
+  --color-danger-700: var(--seed-color-fg-critical-contrast);
   --color-danger: var(--color-danger-500);
 
   --color-info-50: var(--seed-color-bg-informative-weak);
   --color-info-500: var(--seed-color-bg-informative-solid);
-  --color-info-700: var(--seed-color-fg-informative);
+  --color-info-700: var(--seed-color-fg-informative-contrast);
   --color-info: var(--color-info-500);
 
   /* =========================================================
