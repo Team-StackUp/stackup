@@ -57,14 +57,14 @@ export function ResumeUploader() {
         className={[
           'group flex w-full flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed px-6 py-12 text-center transition-colors duration-fast',
           dragging
-            ? 'border-primary bg-sage-50'
+            ? 'border-primary bg-primary-50'
             : 'border-border-strong bg-surface-raised hover:border-primary hover:bg-surface',
           'disabled:cursor-not-allowed disabled:opacity-60',
         ].join(' ')}
       >
         <span
           aria-hidden
-          className="flex h-14 w-14 items-center justify-center rounded-2xl bg-sage-100 text-primary transition-transform duration-fast group-hover:scale-105"
+          className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-50 text-primary-fg transition-transform duration-fast group-hover:scale-105"
         >
           {upload.isPending ? <Spinner /> : <UploadIcon />}
         </span>

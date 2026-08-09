@@ -1,7 +1,14 @@
 import { Code, Section, Sub, Swatch, TableHead } from '../primitives'
 import { readableFg } from '../lib'
 
-const SAGE_SCALE = [
+/**
+ * 컬러는 SEED 토큰을 참조하므로 라이트/다크에서 값이 달라진다.
+ * 그래서 시맨틱·Status 는 hex 를 적지 않고 실제 유틸리티 클래스로 렌더한다 —
+ * 이 페이지를 다크모드로 보면 그대로 다크 값이 보이는 게 맞다.
+ * 고정값인 것(고정 톤 스케일, Domain)만 hex 를 표기한다.
+ */
+
+const FIXED_SCALE = [
   { token: 'sage-50', hex: '#eef1f6' },
   { token: 'sage-100', hex: '#dbe2ec' },
   { token: 'sage-200', hex: '#c6cedd' },
@@ -15,76 +22,135 @@ const SAGE_SCALE = [
   { token: 'sage-950', hex: '#101627' },
 ]
 
-const SEMANTIC_ROWS = [
-  { token: 'bg', alias: 'background', hex: '#eceef3', usage: '앱 기본 배경' },
-  { token: 'surface', alias: 'sage-50', hex: '#eef1f6', usage: '컴포넌트 배경' },
-  { token: 'surface-raised', alias: 'white', hex: '#ffffff', usage: '카드 · 모달' },
-  { token: 'border', alias: 'sage-100', hex: '#dbe2ec', usage: '기본 보더' },
-  { token: 'border-strong', alias: 'sage-200', hex: '#c6cedd', usage: '강조 보더' },
-  { token: 'fg', alias: 'sage-950', hex: '#101627', usage: '기본 텍스트' },
-  { token: 'fg-strong', alias: 'sage-800', hex: '#1e2a44', usage: '헤딩' },
-  { token: 'fg-muted', alias: 'sage-500', hex: '#4a5a7e', usage: '보조 텍스트' },
-  { token: 'fg-subtle', alias: 'sage-400', hex: '#6e7f9f', usage: '흐린 텍스트' },
-  { token: 'fg-disabled', alias: 'sage-200', hex: '#c6cedd', usage: '비활성' },
-  { token: 'primary', alias: '브랜드 블루', hex: '#4662d2', usage: 'Primary 액션·링크·강조' },
-  { token: 'primary-hover', alias: '—', hex: '#3b54bd', usage: 'hover' },
-  { token: 'primary-pressed', alias: '—', hex: '#31479f', usage: 'active' },
+const SEMANTIC_ROWS: {
+  token: string
+  source: string
+  swatch: string
+  usage: string
+}[] = [
+  { token: 'bg', source: 'bg-layer-basement', swatch: 'bg-bg', usage: '앱 기본 배경' },
+  { token: 'surface', source: 'bg-layer-fill', swatch: 'bg-surface', usage: '연한 구획' },
+  {
+    token: 'surface-raised',
+    source: 'bg-layer-default',
+    swatch: 'bg-surface-raised',
+    usage: '카드',
+  },
+  {
+    token: 'surface-floating',
+    source: 'bg-layer-floating',
+    swatch: 'bg-surface-floating',
+    usage: '모달 · 팝오버',
+  },
+  {
+    token: 'border',
+    source: 'stroke-neutral-subtle',
+    swatch: 'bg-border',
+    usage: '기본 보더(헤어라인)',
+  },
+  {
+    token: 'border-strong',
+    source: 'stroke-neutral-muted',
+    swatch: 'bg-border-strong',
+    usage: '강조 보더',
+  },
+  { token: 'fg', source: 'fg-neutral', swatch: 'bg-fg', usage: '기본 텍스트' },
+  {
+    token: 'fg-strong',
+    source: 'fg-neutral-muted',
+    swatch: 'bg-fg-strong',
+    usage: '헤딩',
+  },
+  {
+    token: 'fg-muted',
+    source: 'fg-neutral-subtle',
+    swatch: 'bg-fg-muted',
+    usage: '보조 텍스트',
+  },
+  {
+    token: 'fg-subtle',
+    source: 'fg-placeholder',
+    swatch: 'bg-fg-subtle',
+    usage: '흐린 텍스트',
+  },
+  { token: 'fg-disabled', source: 'fg-disabled', swatch: 'bg-fg-disabled', usage: '비활성' },
+  {
+    token: 'fg-on-primary',
+    source: 'palette-static-white',
+    swatch: 'bg-fg-on-primary',
+    usage: 'brand solid 위 텍스트',
+  },
+  {
+    token: 'primary',
+    source: 'bg-brand-solid',
+    swatch: 'bg-primary',
+    usage: '브랜드 배경(버튼·보더)',
+  },
+  {
+    token: 'primary-hover',
+    source: 'bg-brand-solid-pressed',
+    swatch: 'bg-primary-hover',
+    usage: 'hover · active',
+  },
+  {
+    token: 'primary-fg',
+    source: 'fg-brand',
+    swatch: 'bg-primary-fg',
+    usage: '브랜드 텍스트',
+  },
+  { token: 'primary-50', source: 'bg-brand-weak', swatch: 'bg-primary-50', usage: '연한 틴트' },
+  {
+    token: 'primary-100',
+    source: 'bg-brand-weak-pressed',
+    swatch: 'bg-primary-100',
+    usage: '틴트 강조',
+  },
+  {
+    token: 'primary-200',
+    source: 'stroke-brand-weak',
+    swatch: 'bg-primary-200',
+    usage: '틴트 위 보더',
+  },
 ]
 
+/**
+ * 클래스는 반드시 리터럴로 적는다 — Tailwind 는 소스를 정적 스캔하므로
+ * `bg-${key}-50` 처럼 조립하면 유틸리티가 생성되지 않는다.
+ */
 const STATUS_COLORS = [
   {
     key: 'success',
     name: 'Success',
     example: 'COMPLETED · ANALYZED',
-    shades: [
-      { label: '-50', hex: '#e8efe1' },
-      { label: '-500', hex: '#5b7c47' },
-      { label: '-700', hex: '#3f5731' },
-    ],
-    bgLight: '#e8efe1',
-    textLight: '#3f5731',
-    bgSolid: '#5b7c47',
+    seed: 'positive',
+    weak: 'bg-success-50 text-success-700',
+    solid: 'bg-success text-fg-on-primary',
   },
   {
     key: 'warning',
     name: 'Warning',
     example: 'IN_PROGRESS · ANALYZING',
-    shades: [
-      { label: '-50', hex: '#f4e8d4' },
-      { label: '-500', hex: '#b88840' },
-      { label: '-700', hex: '#8a6529' },
-    ],
-    bgLight: '#f4e8d4',
-    textLight: '#8a6529',
-    bgSolid: '#b88840',
+    seed: 'warning',
+    weak: 'bg-warning-50 text-warning-700',
+    solid: 'bg-warning text-fg-on-primary',
   },
   {
     key: 'danger',
     name: 'Danger',
     example: 'FAILED · 삭제',
-    shades: [
-      { label: '-50', hex: '#f4e0d8' },
-      { label: '-500', hex: '#a8503c' },
-      { label: '-700', hex: '#803a2a' },
-    ],
-    bgLight: '#f4e0d8',
-    textLight: '#803a2a',
-    bgSolid: '#a8503c',
+    seed: 'critical',
+    weak: 'bg-danger-50 text-danger-700',
+    solid: 'bg-danger text-fg-on-primary',
   },
   {
     key: 'info',
     name: 'Info',
     example: '정보 토스트 · 안내',
-    shades: [
-      { label: '-50', hex: '#dde4ea' },
-      { label: '-500', hex: '#4d6878' },
-      { label: '-700', hex: '#36475a' },
-    ],
-    bgLight: '#dde4ea',
-    textLight: '#36475a',
-    bgSolid: '#4d6878',
+    seed: 'informative',
+    weak: 'bg-info-50 text-info-700',
+    solid: 'bg-info text-fg-on-primary',
   },
-]
+] as const
 
 const DOMAIN_JOBS = [
   { token: 'job-frontend', hex: '#5e8a98', name: 'Frontend', tone: 'teal' },
@@ -120,9 +186,7 @@ function DomainCard({
         {hex.toUpperCase()}
       </div>
       <div className="px-3 py-2.5">
-        <div className="text-button font-semibold text-fg leading-tight">
-          {name}
-        </div>
+        <div className="text-button font-semibold text-fg leading-tight">{name}</div>
         <div className="text-[10px] text-fg-muted font-mono mt-0.5 truncate">
           {token} · {tone}
         </div>
@@ -137,42 +201,26 @@ export function ColorsSection() {
       id="colors"
       label="01 COLORS"
       title="컬러 시스템"
-      description="Sage 모노크로매틱을 베이스로 Status · Domain 만 muted jewel tones 으로 식별성을 부여."
+      description="컬러·radius·shadow 는 당근 SEED Design 토큰을 참조한다(라이트/다크 자동 전환). 고정 톤 스케일과 Domain 만 자체 값을 유지."
     >
-      <Sub title="Sage Scale">
-        <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-11 gap-2">
-          {SAGE_SCALE.map((c) => (
-            <Swatch key={c.token} token={c.token} hex={c.hex} />
-          ))}
-        </div>
-      </Sub>
-
-      <Sub title="Semantic Aliases">
+      <Sub title="Semantic Aliases (SEED 참조)">
         <div className="border border-border rounded-lg overflow-hidden bg-surface-raised">
           <table className="w-full text-button">
-            <TableHead cols={['Token', 'Alias', 'Color', 'Usage']} />
+            <TableHead cols={['Token', 'SEED 출처', 'Color', 'Usage']} />
             <tbody className="divide-y divide-border">
               {SEMANTIC_ROWS.map((row) => (
                 <tr
                   key={row.token}
                   className="hover:bg-surface transition-colors duration-fast"
                 >
-                  <td className="px-4 py-2.5 font-mono text-fg text-caption">
-                    {row.token}
-                  </td>
+                  <td className="px-4 py-2.5 font-mono text-fg text-caption">{row.token}</td>
                   <td className="px-4 py-2.5 text-fg-muted font-mono text-caption">
-                    {row.alias}
+                    {row.source}
                   </td>
                   <td className="px-4 py-2.5">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="inline-block w-5 h-5 rounded-sm border border-border shrink-0"
-                        style={{ backgroundColor: row.hex }}
-                      />
-                      <span className="font-mono text-fg-muted text-caption">
-                        {row.hex}
-                      </span>
-                    </div>
+                    <span
+                      className={`inline-block w-6 h-6 rounded-sm border border-border shrink-0 ${row.swatch}`}
+                    />
                   </td>
                   <td className="px-4 py-2.5 text-fg-muted">{row.usage}</td>
                 </tr>
@@ -182,7 +230,7 @@ export function ColorsSection() {
         </div>
       </Sub>
 
-      <Sub title="Status">
+      <Sub title="Status (SEED 참조)">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           {STATUS_COLORS.map((s) => (
             <div
@@ -198,35 +246,35 @@ export function ColorsSection() {
                 </span>
               </div>
               <div className="p-4 space-y-3">
-                <div className="grid grid-cols-3 gap-2">
-                  {s.shades.map((sh) => (
-                    <Swatch
-                      key={sh.label}
-                      token={`${s.key}${sh.label}`}
-                      hex={sh.hex}
-                    />
-                  ))}
+                <div className="text-caption text-fg-muted font-mono">
+                  SEED · {s.seed}
                 </div>
                 <div className="flex flex-wrap gap-2 pt-1">
-                  <span
-                    className="px-3 py-1 rounded-pill text-button font-semibold"
-                    style={{ backgroundColor: s.bgLight, color: s.textLight }}
-                  >
+                  <span className={`px-3 py-1 rounded-pill text-button font-semibold ${s.weak}`}>
                     Light Badge
                   </span>
-                  <span
-                    className="px-3 py-1 rounded-pill text-button font-semibold text-white"
-                    style={{ backgroundColor: s.bgSolid }}
-                  >
+                  <span className={`px-3 py-1 rounded-pill text-button font-semibold ${s.solid}`}>
                     Solid Badge
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  <Code>{`bg-${s.key}-50 text-${s.key}-700`}</Code>
-                  <Code>{`bg-${s.key} text-white`}</Code>
+                  <Code>{s.weak}</Code>
+                  <Code>{s.solid}</Code>
                 </div>
               </div>
             </div>
+          ))}
+        </div>
+      </Sub>
+
+      <Sub title="고정 톤 스케일 (mode 무관)">
+        <p className="mb-3 text-caption text-fg-muted">
+          항상 어두워야 하는 표면(푸터·다크 패널)에만 쓴다. 표면·본문 의미로 쓰면 다크모드에서
+          반전되지 않아 깨진다.
+        </p>
+        <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-11 gap-2">
+          {FIXED_SCALE.map((c) => (
+            <Swatch key={c.token} token={c.token} hex={c.hex} />
           ))}
         </div>
       </Sub>

@@ -48,7 +48,7 @@ function CardInner({ card }: { card: ServiceCard }) {
         <span
           className={`rounded-pill px-2.5 py-1 text-caption font-semibold ${
             card.plan === 'Pro'
-              ? 'bg-primary-100 text-primary-pressed'
+              ? 'bg-primary-100 text-primary-fg'
               : 'bg-surface text-fg-muted'
           }`}
         >

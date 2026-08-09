@@ -53,7 +53,7 @@ export function HeroPreview() {
         <div>
           <div className="mb-1.5 flex items-center gap-2">
             <span className="text-caption font-medium text-fg-subtle">면접관</span>
-            <span className="rounded-pill bg-primary-100 px-2 py-0.5 text-caption font-semibold text-primary-pressed">
+            <span className="rounded-pill bg-primary-100 px-2 py-0.5 text-caption font-semibold text-primary-fg">
               꼬리질문
             </span>
           </div>

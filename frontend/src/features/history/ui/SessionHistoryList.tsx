@@ -21,7 +21,7 @@ export function SessionHistoryList() {
     return (
       <div className="flex flex-col items-center gap-2 py-8">
         <p className="text-body text-fg-muted">세션을 불러오지 못했습니다.</p>
-        <button className="text-caption text-primary underline" onClick={() => refetch()}>
+        <button className="text-caption text-primary-fg underline" onClick={() => refetch()}>
           다시 시도
         </button>
       </div>

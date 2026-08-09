@@ -17,7 +17,7 @@ function MotionDemo() {
   const [hover, setHover] = useState(false)
   return (
     <div
-      className="bg-sage-50 border border-sage-200 rounded-md p-4 cursor-pointer select-none mt-6"
+      className="bg-surface border border-border rounded-md p-4 cursor-pointer select-none mt-6"
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >

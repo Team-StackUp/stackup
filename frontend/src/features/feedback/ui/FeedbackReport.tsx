@@ -132,7 +132,7 @@ export function FeedbackReport({
             <ul className="flex flex-col gap-1.5">
               {feedback.studyPlan.map((step, i) => (
                 <li key={i} className="flex gap-2 text-body text-fg-muted">
-                  <span aria-hidden className="text-primary">›</span>
+                  <span aria-hidden className="text-primary-fg">›</span>
                   <span className="whitespace-pre-wrap">
                     <HighlightedText text={step} terms={highlightTerms} />
                   </span>

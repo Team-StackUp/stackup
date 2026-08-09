@@ -122,7 +122,7 @@ export function AnswerCoachingAccordion({ message }: { message: Message }) {
           )}
           {message.coachingComment && (
             <p className="text-body text-fg">
-              <span className="text-primary">코칭 · </span>
+              <span className="text-primary-fg">코칭 · </span>
               {message.coachingComment}
             </p>
           )}

@@ -95,7 +95,7 @@ function DocumentCard({
       <div className="flex items-center gap-3">
         <span
           aria-hidden
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sage-100 text-primary"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-fg"
         >
           <SourceIcon source={doc.sourceType} />
         </span>
@@ -160,7 +160,7 @@ function DocumentCard({
         className="group flex w-full flex-col rounded-2xl border border-border bg-surface-raised p-5 text-left shadow-sm transition-colors duration-fast hover:border-border-strong"
       >
         {body}
-        <span className="mt-3 inline-flex items-center gap-1 text-caption font-semibold text-primary">
+        <span className="mt-3 inline-flex items-center gap-1 text-caption font-semibold text-primary-fg">
           자세히 보기
           <span
             aria-hidden
