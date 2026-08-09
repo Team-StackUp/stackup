@@ -1,3 +1,15 @@
+/**
+ * 스타일 로드 순서가 의미를 가진다.
+ *  1. tailwindcss           — 기본 레이어
+ *  2. SEED base             — --seed-* 원시 토큰(라이트/다크 양쪽) 정의
+ *  3. SEED tailwind4-theme  — --seed-* 를 Tailwind @theme(color-fg-brand 등)으로 등록
+ *  4. seed-overrides        — 브랜드를 blue 로 교체(base 뒤에 와야 덮인다)
+ *  5. tokens                — 우리 시맨틱 alias. 값은 SEED 토큰을 참조한다
+ *  6. global                — html/body, 접근성 기본
+ */
 @import 'tailwindcss';
+@import '@seed-design/css/base.css';
+@import '@seed-design/tailwind4-theme';
+@import './seed-overrides.css';
 @import './tokens.css';
 @import './global.css';

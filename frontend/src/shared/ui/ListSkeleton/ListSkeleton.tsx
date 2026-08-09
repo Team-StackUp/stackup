@@ -16,7 +16,7 @@ export function ListSkeleton({
         {Array.from({ length: count }).map((_, i) => (
           <li
             key={i}
-            className="h-16 animate-pulse rounded-xl border border-border bg-sage-50"
+            className="h-16 animate-pulse rounded-xl border border-border bg-surface"
           />
         ))}
       </ul>

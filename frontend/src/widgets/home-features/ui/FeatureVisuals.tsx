@@ -57,7 +57,7 @@ export function FollowupVisual() {
       </ul>
 
       <div className="mt-5 border-t border-border pt-4">
-        <span className="rounded-pill bg-primary-100 px-2 py-0.5 text-caption font-semibold text-primary-pressed">
+        <span className="rounded-pill bg-primary-100 px-2 py-0.5 text-caption font-semibold text-primary-fg">
           구체성을 겨냥한 꼬리질문
         </span>
         <p className="mt-2.5 text-[14px] leading-relaxed text-fg-strong">
@@ -137,7 +137,7 @@ export function PanelVisual() {
       </ul>
       <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-border pt-2.5">
         <span className="text-caption font-medium text-fg-strong">종합</span>
-        <span className="text-[14px] font-bold text-primary">82</span>
+        <span className="text-[14px] font-bold text-primary-fg">82</span>
       </div>
     </div>
   )
@@ -148,7 +148,7 @@ export function ReportVisual() {
     <div className="mt-6 rounded-xl border border-border bg-surface/70 px-3.5 py-3">
       <div className="flex items-center gap-2 rounded-lg border border-border bg-surface-raised px-2.5 py-2">
         <span className="truncate text-caption text-fg-muted">stack-up.shop/share/a1b2c3</span>
-        <span className="ml-auto shrink-0 text-caption font-semibold text-primary">복사</span>
+        <span className="ml-auto shrink-0 text-caption font-semibold text-primary-fg">복사</span>
       </div>
       <div className="mt-2 flex gap-2">
         <span className="rounded-pill bg-surface px-2 py-0.5 text-caption text-fg-muted">

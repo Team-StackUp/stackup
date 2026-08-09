@@ -59,7 +59,7 @@ export function HomeFeatures() {
             }`}
           >
             <Reveal className={i % 2 === 1 ? 'lg:order-2' : undefined}>
-              <span className="text-button font-semibold text-primary">{r.eyebrow}</span>
+              <span className="text-button font-semibold text-primary-fg">{r.eyebrow}</span>
               <h2 className="mt-3 whitespace-pre-line font-sans font-bold text-fg" style={headingStyle}>
                 {r.title}
               </h2>

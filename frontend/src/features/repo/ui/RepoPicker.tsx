@@ -31,7 +31,7 @@ export function RepoPicker() {
       <div className="flex items-center gap-4 px-5 py-4">
         <span
           aria-hidden
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sage-100 text-primary"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-fg"
         >
           <GithubIcon />
         </span>
@@ -100,7 +100,7 @@ export function RepoPicker() {
                     type="button"
                     disabled={repo.alreadyRegistered || register.isPending}
                     onClick={() => onRegister(repo)}
-                    className="shrink-0 rounded-lg border border-border-strong px-3 py-1.5 text-button text-fg-strong transition-colors duration-fast hover:border-primary hover:text-primary disabled:cursor-default disabled:border-border disabled:bg-surface disabled:text-fg-subtle"
+                    className="shrink-0 rounded-lg border border-border-strong px-3 py-1.5 text-button text-fg-strong transition-colors duration-fast hover:border-primary hover:text-primary-fg disabled:cursor-default disabled:border-border disabled:bg-surface disabled:text-fg-subtle"
                   >
                     {repo.alreadyRegistered ? '등록됨' : '등록'}
                   </button>

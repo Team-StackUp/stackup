@@ -109,7 +109,7 @@ function QuickLink({
       <div className="flex items-center justify-between">
         <span
           aria-hidden
-          className="flex h-11 w-11 items-center justify-center rounded-xl bg-sage-100 text-primary transition-transform duration-fast group-hover:scale-105"
+          className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-50 text-primary-fg transition-transform duration-fast group-hover:scale-105"
         >
           {icon}
         </span>

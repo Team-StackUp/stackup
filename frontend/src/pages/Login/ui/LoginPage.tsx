@@ -27,7 +27,7 @@ export default function LoginPage() {
         <div className="mx-auto max-w-content px-6 lg:px-12 h-16 flex items-center justify-between">
           <Link
             to="/"
-            className="font-heading font-extrabold tracking-[0.04em] text-sage-900 text-[15px] uppercase"
+            className="font-heading font-extrabold tracking-[0.04em] text-fg text-[15px] uppercase"
           >
             Stack Up
           </Link>
@@ -43,11 +43,11 @@ export default function LoginPage() {
       <main className="flex-1 flex items-center justify-center px-6 py-16">
         <div className="w-full max-w-md">
           <div className="text-center">
-            <p className="text-caption font-mono uppercase tracking-[0.22em] text-sage-500">
+            <p className="text-caption font-mono uppercase tracking-[0.22em] text-fg-muted">
               Sign in
             </p>
             <h1
-              className="mt-4 font-heading font-extrabold text-sage-900 leading-[1.05]"
+              className="mt-4 font-heading font-extrabold text-fg leading-[1.05]"
               style={{ fontSize: 'clamp(36px, 5vw, 52px)', letterSpacing: '-0.5px' }}
             >
               모의 면접을<br />시작해볼까요?
@@ -90,10 +90,10 @@ export default function LoginPage() {
           <ul className="mt-10 grid grid-cols-3 gap-4 text-center">
             {features.map((f) => (
               <li key={f.title}>
-                <div className="text-h6 font-heading font-extrabold text-sage-700">
+                <div className="text-h6 font-heading font-extrabold text-fg-strong">
                   {f.icon}
                 </div>
-                <div className="mt-2 text-caption font-mono uppercase tracking-[0.18em] text-sage-500">
+                <div className="mt-2 text-caption font-mono uppercase tracking-[0.18em] text-fg-muted">
                   {f.title}
                 </div>
               </li>

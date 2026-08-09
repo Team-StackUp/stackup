@@ -18,7 +18,7 @@ export function ContextDocumentPicker({
         분석 완료된 이력서·자소서·레포지토리가 없습니다.{' '}
         <Link
           to="/workspace/resumes"
-          className="font-semibold text-primary underline-offset-2 hover:underline"
+          className="font-semibold text-primary-fg underline-offset-2 hover:underline"
         >
           자료 준비하기 →
         </Link>
@@ -40,7 +40,7 @@ export function ContextDocumentPicker({
             onChange={() => onToggle(doc.id)}
           />
           <span className="flex-1 text-button text-fg">{doc.label}</span>
-          <span className="rounded-pill bg-sage-100 px-2 py-0.5 text-caption text-fg-muted">
+          <span className="rounded-pill bg-surface px-2 py-0.5 text-caption text-fg-muted">
             {documentSourceLabel(doc.sourceType)}
           </span>
         </label>

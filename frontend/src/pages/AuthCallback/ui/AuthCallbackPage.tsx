@@ -49,14 +49,14 @@ export default function AuthCallbackPage() {
             <p className="text-caption font-mono uppercase tracking-[0.22em] text-danger-700">
               Login failed
             </p>
-            <h1 className="mt-3 font-heading font-extrabold text-sage-900 text-h4">
+            <h1 className="mt-3 font-heading font-extrabold text-fg text-h4">
               로그인을 완료하지 못했어요
             </h1>
             <p className="mt-3 text-fg-strong/80 leading-relaxed">{error}</p>
             <Link
               to="/login"
               replace
-              className="mt-8 inline-flex items-center justify-center gap-2 h-11 px-6 rounded-pill bg-sage-900 hover:bg-sage-800 text-white text-button transition-colors duration-fast"
+              className="mt-8 inline-flex items-center justify-center gap-2 h-11 px-6 rounded-pill bg-primary hover:bg-primary-hover text-fg-on-primary text-button transition-colors duration-fast"
             >
               로그인 페이지로 돌아가기
             </Link>
@@ -64,10 +64,10 @@ export default function AuthCallbackPage() {
         ) : (
           <>
             <Spinner />
-            <p className="mt-6 text-caption font-mono uppercase tracking-[0.22em] text-sage-500">
+            <p className="mt-6 text-caption font-mono uppercase tracking-[0.22em] text-fg-muted">
               Authenticating
             </p>
-            <h1 className="mt-2 font-heading font-extrabold text-sage-900 text-h4">
+            <h1 className="mt-2 font-heading font-extrabold text-fg text-h4">
               GitHub 로그인 처리 중…
             </h1>
             <p className="mt-3 text-fg-strong/80">
@@ -90,7 +90,7 @@ function Spinner() {
       fill="none"
       stroke="currentColor"
       strokeWidth="2.25"
-      className="animate-spin mx-auto text-sage-500"
+      className="animate-spin mx-auto text-fg-muted"
     >
       <circle cx="12" cy="12" r="9" strokeOpacity="0.2" />
       <path d="M21 12a9 9 0 0 0-9-9" strokeLinecap="round" />

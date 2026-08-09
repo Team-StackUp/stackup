@@ -1,6 +1,18 @@
 /**
  * StackUp Design Tokens — Tailwind CSS v4 `@theme`
  *
+ * 컬러·radius·shadow 는 **당근 SEED Design 토큰을 참조**한다(`@seed-design/css`).
+ * 우리 alias 이름(`--color-fg`, `--color-primary` …)은 유지하고 값만 SEED 로 돌렸다 —
+ * 컴포넌트가 쓰는 유틸(`text-fg-muted`, `bg-primary` …)이 그대로 동작하면서
+ * 라이트/다크 전환은 SEED 토큰이 알아서 처리한다.
+ *
+ * SEED 토큰을 직접 쓰고 싶으면 `text-fg-neutral`, `bg-layer-default` 처럼
+ * SEED 이름을 그대로 쓸 수도 있다(`@seed-design/tailwind4-theme` 가 등록해 둠).
+ * 두 네임스페이스는 이름이 겹치지 않는다.
+ *
+ * 타이포그래피는 아직 우리 스케일을 유지한다(SEED 의 t1~t14 는 앱 UI 용 스케일이라
+ * 랜딩의 디스플레이 스케일과 목적이 다르다 — 별도 판단 후 이관).
+ *
  * 토큰 추가/변경 시 `docs/design-system.md` 도 함께 갱신.
  * 컴포넌트는 토큰만 참조하고 색상·간격·타이포그래피 하드코딩 금지.
  */
@@ -11,13 +23,11 @@
    * ========================================================= */
   --color-white: #ffffff;
   --color-black: #000000;
-  --color-background: #eceef3;
 
   /* =========================================================
-   * 2. Color — Sage / Neutral Scale (Main Theme)
-   *    bg-sage-500, text-sage-800, border-sage-200 ...
-   *    NOTE: 토큰 이름은 'sage' 로 유지하되 값은 브랜드 블루(#4662D2)에 맞춘
-   *    쿨 블루그레이 모노크롬 램프다(저채도 — 본문/중립용). 브랜드 강조색은 §3 primary.
+   * 2. Color — 고정 톤 스케일 (mode 무관)
+   *    의도적으로 항상 어두워야 하는 표면(푸터, 다크 패널)에만 쓴다.
+   *    표면·본문 의미로 쓰면 다크모드에서 반전되지 않아 깨진다 → §3 시맨틱을 쓸 것.
    * ========================================================= */
   --color-sage-50: #eef1f6;
   --color-sage-100: #dbe2ec;
@@ -32,68 +42,71 @@
   --color-sage-950: #101627;
 
   /* =========================================================
-   * 3. Color — Semantic Aliases
-   *    bg-primary, text-fg, text-fg-muted, border-border ...
+   * 3. Color — Semantic (SEED 참조, 라이트/다크 자동 전환)
    * ========================================================= */
-  --color-bg: var(--color-background);
-  --color-surface: var(--color-sage-50);
-  --color-surface-raised: var(--color-white);
-  --color-border: var(--color-sage-100);
-  --color-border-strong: var(--color-sage-200);
+  /* 표면 — basement(페이지) < fill(연한 구획) < default(카드) < floating(모달) */
+  --color-bg: var(--seed-color-bg-layer-basement);
+  --color-surface: var(--seed-color-bg-layer-fill);
+  --color-surface-raised: var(--seed-color-bg-layer-default);
+  --color-surface-floating: var(--seed-color-bg-layer-floating);
 
-  --color-fg: var(--color-sage-950);
-  --color-fg-strong: var(--color-sage-800);
-  /* 본문 위 보조 텍스트가 밝은 표면에서 충분히 읽히도록 한 단계씩 진하게 (WCAG AA). */
-  --color-fg-muted: var(--color-sage-500);
-  /* sage-400(#6e7f9f)는 white 4.04:1 로 AA(4.5:1) 미달 — 흐린 텍스트 전용으로 한 톤 진하게.
-   * #586a8e: white 5.43:1 / surface 4.80:1, fg-muted(#4a5a7e)보다 밝아 위계 유지. */
-  --color-fg-subtle: #586a8e;
-  --color-fg-disabled: var(--color-sage-200);
-  --color-fg-on-primary: var(--color-white);
+  /* 보더 — alpha 기반 헤어라인이라 어느 표면 위에서도 자연스럽다 */
+  --color-border: var(--seed-color-stroke-neutral-subtle);
+  --color-border-strong: var(--seed-color-stroke-neutral-muted);
 
-  /* 브랜드 강조색 — #4662D2. 중립 스케일과 분리(고채도라 본문엔 미사용,
-   * 버튼·링크·강조에만). bg-primary / text-primary / border-primary 가 이 값을 쓴다.
-   * 흰 글자 대비 5.33:1 — 일반 텍스트 AA 통과. */
-  --color-primary: #4662d2;
-  --color-primary-hover: #3b54bd;
-  --color-primary-pressed: #31479f;
+  /* 텍스트 — fg(가장 진함) > fg-strong > fg-muted > fg-subtle > fg-disabled */
+  --color-fg: var(--seed-color-fg-neutral);
+  --color-fg-strong: var(--seed-color-fg-neutral-muted);
+  --color-fg-muted: var(--seed-color-fg-neutral-subtle);
+  --color-fg-subtle: var(--seed-color-fg-placeholder);
+  --color-fg-disabled: var(--seed-color-fg-disabled);
+  /* brand solid 위 텍스트 — 두 모드 모두 흰색을 유지해야 한다 */
+  --color-fg-on-primary: var(--seed-color-palette-static-white);
 
-  /* primary 틴트 — 연한 파랑 표면/보더용. 랜딩의 강조 블록, 뱃지 배경에 사용.
-   * 본문 텍스트 배경으로 쓸 때 fg(#101627) 대비 충분. */
-  --color-primary-50: #eff2fd;
-  --color-primary-100: #dee4fa;
-  --color-primary-200: #c3cdf5;
+  /* 브랜드 — SEED 의 brand 시맨틱을 blue 로 돌려둠(`seed-overrides.css`)
+   *
+   * 배경용(`--color-primary`)과 텍스트용(`--color-primary-fg`)을 반드시 구분한다.
+   * 다크모드에서 요구가 정반대이기 때문 — solid 배경은 흰 글자를 얹을 만큼 진해야 하고,
+   * 브랜드 텍스트는 어두운 배경 위에서 읽히도록 밝아야 한다. 한 토큰으로는 둘 다 만족 못 한다.
+   *   bg  → bg-primary / border-primary
+   *   text→ text-primary-fg
+   */
+  --color-primary: var(--seed-color-bg-brand-solid);
+  --color-primary-hover: var(--seed-color-bg-brand-solid-pressed);
+  --color-primary-pressed: var(--seed-color-bg-brand-solid-pressed);
+  --color-primary-fg: var(--seed-color-fg-brand);
+  --color-primary-fg-contrast: var(--seed-color-fg-brand-contrast);
+  --color-primary-50: var(--seed-color-bg-brand-weak);
+  --color-primary-100: var(--seed-color-bg-brand-weak-pressed);
+  --color-primary-200: var(--seed-color-stroke-brand-weak);
 
   /* =========================================================
-   * 4. Color — Status (Success / Warning / Danger / Info)
-   *    Sage 톤과 조화되는 muted jewel tones.
-   *    스케일: -50 (연한 배경), -500 (기본/표면), -700 (강조/텍스트)
-   *    축약 별칭: bg-success / text-warning / border-danger ...
+   * 4. Color — Status (SEED: positive / warning / critical / informative)
+   *    -50 연한 배경 · -500 solid 배경 · -700 텍스트 톤
    * ========================================================= */
-  --color-success-50: #e8efe1;
-  --color-success-500: #5b7c47;
-  --color-success-700: #3f5731;
+  --color-success-50: var(--seed-color-bg-positive-weak);
+  --color-success-500: var(--seed-color-bg-positive-solid);
+  --color-success-700: var(--seed-color-fg-positive);
   --color-success: var(--color-success-500);
 
-  --color-warning-50: #f4e8d4;
-  --color-warning-500: #b88840;
-  --color-warning-700: #7e5a22;
+  --color-warning-50: var(--seed-color-bg-warning-weak);
+  --color-warning-500: var(--seed-color-bg-warning-solid);
+  --color-warning-700: var(--seed-color-fg-warning);
   --color-warning: var(--color-warning-500);
 
-  --color-danger-50: #f4e0d8;
-  --color-danger-500: #a8503c;
-  --color-danger-700: #803a2a;
+  --color-danger-50: var(--seed-color-bg-critical-weak);
+  --color-danger-500: var(--seed-color-bg-critical-solid);
+  --color-danger-700: var(--seed-color-fg-critical);
   --color-danger: var(--color-danger-500);
 
-  --color-info-50: #dde4ea;
-  --color-info-500: #4d6878;
-  --color-info-700: #36475a;
+  --color-info-50: var(--seed-color-bg-informative-weak);
+  --color-info-500: var(--seed-color-bg-informative-solid);
+  --color-info-700: var(--seed-color-fg-informative);
   --color-info: var(--color-info-500);
 
   /* =========================================================
    * 5. Color — Domain (Jobs / Interview Types)
-   *    StackUp 도메인 한정. features/[domain]/ui 의 도메인 뱃지에서만 사용.
-   *    Sage 모노크로매틱과 조화되도록 muted jewel tone 으로 통일.
+   *    StackUp 도메인 한정 뱃지 컬러. SEED 에 대응 개념이 없어 고정값 유지.
    * ========================================================= */
   --color-job-frontend: #5e8a98; /* teal */
   --color-job-backend:  #7d6c93; /* plum */
@@ -107,7 +120,8 @@
 
   /* =========================================================
    * 6. Typography — Font Families
-   *    font-heading, font-subheading, font-sans, font-mono
+   *    Pretendard 는 Apple SD Gothic Neo 대체를 목표로 만들어진 폰트라
+   *    SEED(당근 앱)의 한글 조판 감각과도 어긋나지 않는다.
    * ========================================================= */
   --font-heading:
     'Bricolage Grotesque', 'Pretendard Variable', system-ui, sans-serif;
@@ -199,27 +213,22 @@
   --text-caption--font-weight: 400;
 
   /* =========================================================
-   * 8. Radius
+   * 8. Radius (SEED r-scale — r1 4 / r2 8 / r3 12 / r4 16 / r5 20 / r6 24)
    * ========================================================= */
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-  --radius-2xl: 24px;
-  --radius-pill: 9999px;
+  --radius-sm: var(--seed-radius-r1);
+  --radius-md: var(--seed-radius-r2);
+  --radius-lg: var(--seed-radius-r3);
+  --radius-xl: var(--seed-radius-r4);
+  --radius-2xl: var(--seed-radius-r6);
+  --radius-pill: var(--seed-radius-full);
 
   /* =========================================================
-   * 9. Shadow / Elevation (sage-tint)
-   *    shadow-sm, shadow-md, shadow-lg, shadow-focus-ring
+   * 9. Shadow / Elevation (SEED s-scale — 다크모드에서 alpha 가 강해진다)
    * ========================================================= */
-  --shadow-sm: 0 1px 2px rgba(16, 22, 39, 0.06);
-  --shadow-md:
-    0 4px 6px -1px rgba(16, 22, 39, 0.10),
-    0 2px 4px -2px rgba(16, 22, 39, 0.06);
-  --shadow-lg:
-    0 10px 15px -3px rgba(16, 22, 39, 0.10),
-    0 4px 6px -4px rgba(16, 22, 39, 0.05);
-  --shadow-focus-ring: 0 0 0 3px rgba(70, 98, 210, 0.45);
+  --shadow-sm: var(--seed-shadow-s1);
+  --shadow-md: var(--seed-shadow-s2);
+  --shadow-lg: var(--seed-shadow-s3);
+  --shadow-focus-ring: 0 0 0 3px var(--seed-color-stroke-focus-ring);
 
   /* =========================================================
    * 10. Motion

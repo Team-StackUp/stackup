@@ -75,7 +75,7 @@ function RepoCard({
     <li className="group flex items-start gap-3 rounded-2xl border border-border bg-surface-raised p-4 shadow-sm transition-colors duration-fast hover:border-border-strong">
       <span
         aria-hidden
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sage-100 text-primary"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-fg"
       >
         <RepoIcon />
       </span>
@@ -86,7 +86,7 @@ function RepoCard({
             href={repo.repoUrl}
             target="_blank"
             rel="noreferrer"
-            className="min-w-0 flex-1 truncate text-body font-semibold text-fg-strong hover:text-primary hover:underline"
+            className="min-w-0 flex-1 truncate text-body font-semibold text-fg-strong hover:text-primary-fg hover:underline"
           >
             {repo.repoFullName}
           </a>

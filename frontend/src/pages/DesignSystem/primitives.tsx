@@ -95,7 +95,7 @@ export function Swatch({
 
 export function Code({ children }: { children: ReactNode }) {
   return (
-    <code className="inline-block px-1.5 py-0.5 rounded-sm bg-sage-50 border border-sage-200 text-caption font-mono text-sage-700 leading-tight">
+    <code className="inline-block px-1.5 py-0.5 rounded-sm bg-surface border border-border text-caption font-mono text-fg-muted leading-tight">
       {children}
     </code>
   )

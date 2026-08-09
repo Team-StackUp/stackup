@@ -39,8 +39,8 @@ function Sidebar({
               className={[
                 'relative block pl-4 pr-3 py-2 rounded-md text-button transition-colors duration-fast',
                 isActive
-                  ? 'bg-sage-100 text-fg-strong font-semibold'
-                  : 'text-fg-muted hover:bg-sage-50 hover:text-fg',
+                  ? 'bg-surface text-fg-strong font-semibold'
+                  : 'text-fg-muted hover:bg-surface hover:text-fg',
               ].join(' ')}
             >
               {isActive && (

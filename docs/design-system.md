@@ -12,9 +12,10 @@
 1. **신뢰감 우선** — 면접 도구이므로 가벼운 톤 지양. 진중·차분한 시각 언어.
 2. **집중 환경 보호** — 면접 화면은 노이즈 최소화. 핵심 UI만 노출, 부가 정보는 hover/click 으로 점진적 공개.
 3. **상태 가시성** — 분석 진행, 세션 상태, SSE 이벤트 등 비동기 상태는 항상 명시적으로 표현.
-4. **모노크로매틱 + 의미 컬러** — 브랜드 블루(#4662D2) 기반 **쿨 블루그레이** 단일 베이스(토큰명은 `sage-*` 유지)로 톤 일관성을 유지하고, 브랜드 강조는 로고 블루 `primary`, Status / Domain 만 muted jewel tone 으로 식별성 부여.
+4. **컬러는 SEED 토큰 위임** — 컬러·radius·shadow 는 당근 **SEED Design**(`@seed-design/css`, Apache-2.0)을 참조한다. 브랜드는 SEED `blue` 팔레트로 리테마했고, 라이트/다크는 SEED 토큰이 전환한다. Domain(직군·면접유형) 컬러만 자체 값 유지. 상세 §2.
 5. **접근성 (WCAG 2.1 AA)** — 키보드 only 조작, 명도 대비 4.5:1 이상, focus ring 명확.
 6. **모바일 웹뷰 대응** — 데스크탑 우선이지만 mobile breakpoint(`< lg`)에서도 깨지지 않게.
+7. **라이트/다크 동시 지원** — 색은 반드시 시맨틱 토큰으로 쓴다. 고정 hex·`sage-*` 를 표면/본문 의미로 쓰면 다크에서 반전되지 않아 깨진다(§2.1).
 
 ---
 
@@ -414,6 +415,8 @@ Tailwind v4 기본 `--spacing: 0.25rem` (= 4px) 사용. `p-4` = `16px`.
 ---
 
 ## 12. 변경 이력
+
+- **2026-08** — **SEED Design 토큰 채택 + 다크모드**: 컬러·radius·shadow 를 당근 SEED(`@seed-design/css` + `@seed-design/tailwind4-theme`)로 위임. 우리 alias 이름(`--color-fg`, `--color-primary` …)은 유지하고 값만 `var(--seed-color-*)` 로 교체해 컴포넌트 수정 없이 전환. 브랜드는 SEED `blue` 팔레트로 리테마(`seed-overrides.css` — carrot 대신 blue 참조). `--color-primary`(배경)와 `--color-primary-fg`(텍스트)를 분리 — 다크에서 요구가 정반대라 한 토큰으로 불가능. 다크모드는 `<html data-seed-color-mode>` 로 전환(`shared/lib/color-mode`). 타이포그래피는 자체 스케일 유지.
 
 - **2026-06** — **블루 리테마**: 브랜드 블루(#4662D2)에 맞춰 `sage-*` 스케일 값을 쿨 블루그레이 모노크롬으로 교체(토큰명 유지), `primary` 를 스케일에서 분리해 로고 블루로 지정. 배경/그림자/포커스링도 쿨톤·네이비로 재조정. 위젯 하드코딩 hex 일괄 치환. Status / Domain 컬러는 유지.
 - **2026-05** — Tailwind CSS v4 기반 **sage 모노크로매틱** 시스템으로 전면 개편. 이전 `Pretendard + 블루 브랜드` 스펙은 본 문서로 흡수.

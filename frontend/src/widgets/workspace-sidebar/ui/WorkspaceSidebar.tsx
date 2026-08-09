@@ -33,7 +33,7 @@ export function WorkspaceSidebar() {
       <div className="flex items-center justify-between gap-2 px-6 py-5 lg:py-6">
         <Link
           to="/"
-          className="font-heading text-[15px] font-extrabold uppercase tracking-[0.04em] text-sage-900"
+          className="font-heading text-[15px] font-extrabold uppercase tracking-[0.04em] text-fg"
         >
           Stack Up
         </Link>
@@ -75,7 +75,7 @@ export function WorkspaceSidebar() {
               [
                 'flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2.5 text-button transition-colors duration-fast lg:flex-none lg:gap-3',
                 isActive
-                  ? 'bg-primary/10 font-semibold text-primary'
+                  ? 'bg-primary/10 font-semibold text-primary-fg'
                   : 'text-fg-strong/70 hover:bg-surface hover:text-fg-strong',
               ].join(' ')
             }
@@ -103,7 +103,7 @@ export function WorkspaceSidebar() {
             ) : (
               <div
                 aria-hidden
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-sage-100 font-heading text-button font-bold text-fg-strong"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-surface font-heading text-button font-bold text-fg-strong"
               >
                 {user.githubUsername.charAt(0).toUpperCase() || '?'}
               </div>

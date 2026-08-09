@@ -3,7 +3,7 @@ import { Reveal } from '@/shared/ui'
 
 function Check() {
   return (
-    <svg viewBox="0 0 16 16" aria-hidden className="h-3.5 w-3.5 shrink-0 text-primary">
+    <svg viewBox="0 0 16 16" aria-hidden className="h-3.5 w-3.5 shrink-0 text-primary-fg">
       <path
         d="M3.5 8.5l3 3 6-7"
         fill="none"
@@ -52,7 +52,7 @@ const steps = [
           <span className="rounded-pill bg-surface px-2 py-0.5 text-caption text-fg-muted">
             기술 선택
           </span>
-          <span className="rounded-pill bg-primary-100 px-2 py-0.5 text-caption font-semibold text-primary-pressed">
+          <span className="rounded-pill bg-primary-100 px-2 py-0.5 text-caption font-semibold text-primary-fg">
             꼬리질문
           </span>
         </div>
@@ -118,7 +118,7 @@ export function HomeSteps() {
           {steps.map((s, i) => (
             <Reveal as="li" key={s.no} delayMs={i * 80}>
               <div className="flex h-full flex-col rounded-2xl border border-border bg-surface-raised p-6 lg:p-7">
-                <span className="text-button font-semibold text-primary">{s.no}</span>
+                <span className="text-button font-semibold text-primary-fg">{s.no}</span>
                 <h3 className="mt-3 font-sans text-h6 text-fg">{s.title}</h3>
                 <p
                   className="mt-2.5 text-body font-normal leading-relaxed text-fg-muted"
