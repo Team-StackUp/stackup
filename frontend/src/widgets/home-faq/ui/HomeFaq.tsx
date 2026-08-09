@@ -2,7 +2,7 @@ import { Reveal } from '@/shared/ui'
 
 const faqs = [
   {
-    q: 'Stack Up은 무료 크레딧을 제공하나요?',
+    q: 'STACK-UP은 무료 크레딧을 제공하나요?',
     a: '월 2회 무료 면접 세션을 제공합니다. 현재 결제·구독 기능은 없습니다.',
   },
   {

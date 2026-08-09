@@ -35,7 +35,7 @@ export function WorkspaceSidebar() {
           to="/"
           className="font-heading text-[15px] font-extrabold uppercase tracking-[0.04em] text-fg"
         >
-          Stack Up
+          STACK-UP
         </Link>
         {/* 모바일(가로 바): 우측에 아바타 + 로그아웃. lg 이상은 하단 프로필 블록 사용. */}
         {user ? (

@@ -1,6 +1,6 @@
 import { Code, Section, Sub } from '../primitives'
 
-const SAMPLE = 'StackUp · 빠른 면접, 깊은 피드백'
+const SAMPLE = 'STACK-UP · 빠른 면접, 깊은 피드백'
 
 const FONT_FAMILIES = [
   {

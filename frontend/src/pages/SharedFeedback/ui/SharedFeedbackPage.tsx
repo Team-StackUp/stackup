@@ -26,7 +26,7 @@ export default function SharedFeedbackPage() {
 
         {data && <FeedbackReport feedback={data} />}
       </main>
-      <SiteFooter />
+      <SiteFooter cta />
     </div>
   )
 }

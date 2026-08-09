@@ -29,7 +29,7 @@ export default function LoginPage() {
             to="/"
             className="font-heading font-extrabold tracking-[0.04em] text-fg text-[15px] uppercase"
           >
-            Stack Up
+            STACK-UP
           </Link>
           <Link
             to="/"
@@ -80,7 +80,7 @@ export default function LoginPage() {
             ) : null}
 
             <p className="mt-6 text-caption text-fg-muted text-center leading-relaxed">
-              계속 진행하면 StackUp의{' '}
+              계속 진행하면 STACK-UP의{' '}
               <a href="#" className="underline hover:text-fg-strong">이용약관</a>과{' '}
               <a href="#" className="underline hover:text-fg-strong">개인정보 처리방침</a>에
               동의하는 것으로 간주됩니다.
@@ -104,7 +104,7 @@ export default function LoginPage() {
 
       <footer className="border-t border-border">
         <div className="mx-auto max-w-content px-6 lg:px-12 h-14 flex items-center justify-between text-caption font-mono text-fg-muted">
-          <span>© 2026 StackUp</span>
+          <span>© 2026 STACK-UP</span>
           <Link to="/" className="hover:text-fg-strong transition-colors duration-fast">
             ← Back to home
           </Link>

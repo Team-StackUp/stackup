@@ -67,7 +67,7 @@ export function SiteNav() {
           to="/#top"
           className="font-sans text-[17px] font-bold tracking-tight text-fg"
         >
-          Stack Up
+          STACK-UP
         </Link>
 
         <nav aria-label="Primary" className="hidden items-center gap-1 md:flex">

@@ -36,7 +36,7 @@ export default function HomePage() {
         <HomeServices />
         <HomeFaq />
       </main>
-      <SiteFooter />
+      <SiteFooter cta />
     </div>
   )
 }
