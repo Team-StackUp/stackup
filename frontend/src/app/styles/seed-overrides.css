@@ -1,0 +1,53 @@
+/**
+ * SEED 토큰 오버라이드 — 브랜드 컬러를 당근 오렌지에서 우리 블루로 교체.
+ *
+ * SEED 는 `*-brand` 시맨틱을 팔레트 경유 간접 참조로 정의한다:
+ *   --seed-color-bg-brand-solid: var(--seed-color-palette-carrot-600)
+ * 그래서 브랜드 시맨틱만 blue 팔레트로 돌리면 SEED 토큰을 쓰는 모든 곳이 따라온다.
+ * 팔레트 자체(`palette-carrot-*`)는 건드리지 않는다 — 이름과 값이 어긋나면
+ * 나중에 SEED 컴포넌트 recipe 를 도입할 때 디버깅이 지옥이 된다.
+ *
+ * 라이트/다크에서 SEED 가 고른 팔레트 단계가 다르므로(라이트는 600, 다크는 700 기준)
+ * 그 패턴을 그대로 따라간다. 선택자는 `@seed-design/css/base.css` 의 모드 블록과
+ * 동일하게 맞춰야 우선순위 싸움 없이 덮인다 — 이 파일은 base.css 뒤에 import 된다.
+ */
+
+/**
+ * 단계 선택 근거 — SEED blue 램프는 라이트에서 100(밝음)→1000(어두움), 다크에서 반대로 간다.
+ * 그래서 solid 배경과 brand 텍스트는 모드별로 서로 다른 단계를 골라야 한다.
+ *
+ * 흰 글자 대비(라이트):
+ *   blue-600 #5e98fe = 2.84:1 (AA 미달) · blue-700 #217cf9 = 3.95:1 · blue-800 #135fcd = 5.92:1 ✅
+ * 흰 글자 대비(다크 solid):
+ *   blue-500 #1964d8 = 5.45:1 ✅
+ * weak/stroke 는 램프가 모드별로 반전되므로 같은 단계 번호를 그대로 쓰면 된다.
+ */
+
+/* light */
+:root,
+:root[data-seed-color-mode='system'][data-seed-user-color-scheme='light'],
+:root[data-seed-color-mode='light-only'],
+:root [data-seed-color-mode='light-only'] {
+  --seed-color-fg-brand: var(--seed-color-palette-blue-800);
+  --seed-color-fg-brand-contrast: var(--seed-color-palette-blue-900);
+  --seed-color-bg-brand-solid: var(--seed-color-palette-blue-800);
+  --seed-color-bg-brand-solid-pressed: var(--seed-color-palette-blue-900);
+  --seed-color-bg-brand-weak: var(--seed-color-palette-blue-100);
+  --seed-color-bg-brand-weak-pressed: var(--seed-color-palette-blue-200);
+  --seed-color-stroke-brand-solid: var(--seed-color-palette-blue-800);
+  --seed-color-stroke-brand-weak: var(--seed-color-palette-blue-300);
+}
+
+/* dark */
+:root[data-seed-color-mode='system'][data-seed-user-color-scheme='dark'],
+:root[data-seed-color-mode='dark-only'],
+:root [data-seed-color-mode='dark-only'] {
+  --seed-color-fg-brand: var(--seed-color-palette-blue-700);
+  --seed-color-fg-brand-contrast: var(--seed-color-palette-blue-800);
+  --seed-color-bg-brand-solid: var(--seed-color-palette-blue-500);
+  --seed-color-bg-brand-solid-pressed: var(--seed-color-palette-blue-400);
+  --seed-color-bg-brand-weak: var(--seed-color-palette-blue-100);
+  --seed-color-bg-brand-weak-pressed: var(--seed-color-palette-blue-200);
+  --seed-color-stroke-brand-solid: var(--seed-color-palette-blue-600);
+  --seed-color-stroke-brand-weak: var(--seed-color-palette-blue-300);
+}
