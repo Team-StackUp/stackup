@@ -100,15 +100,15 @@ const steps = [
 export function HomeSteps() {
   return (
     <section id="how" className="bg-surface">
-      <div className="mx-auto max-w-content px-6 py-24 lg:px-12 lg:py-32">
+      <div className="mx-auto max-w-content px-6 py-16 lg:px-12 lg:py-20">
         <Reveal>
           <p className="font-mono text-caption tracking-tight text-fg-subtle">HOW IT WORKS</p>
         </Reveal>
 
-        <ol className="mt-10">
+        <ol className="mt-8">
           {steps.map((s, i) => (
             <Reveal as="li" key={s.no} delayMs={i * 70}>
-              <div className="grid items-start gap-6 border-t border-border py-10 lg:grid-cols-12 lg:gap-10 lg:py-12">
+              <div className="grid items-start gap-6 border-t border-border py-8 lg:grid-cols-12 lg:gap-10 lg:py-10">
                 <div className="lg:col-span-5">
                   <div className="flex items-baseline gap-4">
                     <span

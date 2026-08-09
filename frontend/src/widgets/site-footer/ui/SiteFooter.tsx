@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useGetStartedTarget } from '@/features/auth'
 
 // 단순 뷰 섹션 widgets 에선 굳이 나누지 않는게 좋다고 판단했습니다.
 // 상수, 메세지 등 마찬가지
@@ -32,32 +33,53 @@ const columns: { title: string; links: FooterLink[] }[] = [
   },
 ]
 
+/**
+ * 마지막 CTA 를 별도 섹션으로 두지 않고 푸터 상단에 흡수했다 —
+ * 큰 CTA 블록 + 긴 푸터가 겹쳐 하단이 불필요하게 길어졌다.
+ */
 export function SiteFooter() {
+  const getStartedTo = useGetStartedTarget()
+
   return (
     <footer id="footer" className="bg-sage-900 text-white">
-      <div className="mx-auto max-w-content px-6 pt-16 pb-12 lg:px-12 lg:pt-20">
-        <div className="grid gap-12 lg:grid-cols-12">
+      <div className="mx-auto max-w-content px-6 lg:px-12">
+        <div className="flex flex-wrap items-center justify-between gap-5 border-b border-sage-700 py-10">
+          <p
+            className="font-sans font-bold text-white"
+            style={{
+              fontSize: 'clamp(22px, 2.4vw, 30px)',
+              letterSpacing: '-0.03em',
+              wordBreak: 'keep-all',
+            }}
+          >
+            이제 직접 해볼 차례
+          </p>
+          <Link
+            to={getStartedTo}
+            className="inline-flex items-center justify-center rounded-xl bg-white px-5 py-3 text-button font-semibold text-primary transition-colors duration-fast hover:bg-primary-50"
+          >
+            GitHub으로 시작하기
+          </Link>
+        </div>
+
+        <div className="grid gap-10 py-12 lg:grid-cols-12">
           <div className="lg:col-span-5">
-            <div className="font-sans text-[19px] font-bold tracking-tight text-white">
+            <div className="font-sans text-[17px] font-bold tracking-tight text-white">
               Stack Up
             </div>
             <p
-              className="mt-4 max-w-sm text-body font-normal leading-relaxed text-sage-200"
+              className="mt-3 max-w-xs text-button font-normal leading-relaxed text-sage-200"
               style={{ wordBreak: 'keep-all' }}
             >
-              이력서·자소서·GitHub 레포를 읽고 나에게 맞는 모의 면접을 진행합니다. 답변의 근거와
-              전달력까지 담긴 리포트를 받아보세요.
+              이력서·자소서·GitHub 레포를 읽고 맞춤 모의 면접을 진행합니다.
             </p>
           </div>
 
-          <nav
-            aria-label="Footer"
-            className="grid grid-cols-2 gap-8 sm:grid-cols-3 lg:col-span-7"
-          >
+          <nav aria-label="Footer" className="grid grid-cols-2 gap-8 sm:grid-cols-3 lg:col-span-7">
             {columns.map((col) => (
               <div key={col.title}>
                 <div className="text-caption font-semibold text-sage-300">{col.title}</div>
-                <ul className="mt-4 space-y-3">
+                <ul className="mt-3 space-y-2.5">
                   {col.links.map((l) => (
                     <li key={l.label}>
                       {l.href ? (
@@ -85,9 +107,9 @@ export function SiteFooter() {
           </nav>
         </div>
 
-        <div className="mt-16 flex flex-col gap-3 border-t border-sage-700 pt-8 sm:flex-row sm:items-center sm:justify-between">
-          <div className="text-caption text-sage-300">© 2026 StackUp. All rights reserved.</div>
-          <ul className="flex gap-6 text-caption text-sage-300">
+        <div className="flex flex-col gap-2 border-t border-sage-700 py-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="font-mono text-caption text-sage-300">© 2026 StackUp</div>
+          <ul className="flex gap-5 text-caption text-sage-300">
             <li>
               <a
                 href="https://github.com/Team-StackUp/stackup"

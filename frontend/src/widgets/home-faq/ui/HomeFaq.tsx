@@ -26,7 +26,7 @@ const faqs = [
 export function HomeFaq() {
   return (
     <section id="faq" className="bg-surface-raised">
-      <div className="mx-auto max-w-content px-6 py-24 lg:px-12 lg:py-32">
+      <div className="mx-auto max-w-content px-6 py-16 lg:px-12 lg:py-20">
         {/* 헤딩은 다른 섹션과 같은 좌측 거터에 맞추고, 목록만 읽기 좋은 폭으로 제한. */}
         <div className="max-w-3xl">
           <Reveal>
@@ -43,7 +43,7 @@ export function HomeFaq() {
             </h2>
           </Reveal>
 
-          <ul className="mt-12">
+          <ul className="mt-8">
             {faqs.map((f, i) => (
               <Reveal as="li" key={f.q} delayMs={Math.min(i, 3) * 60}>
                 <div className="border-b border-border">
