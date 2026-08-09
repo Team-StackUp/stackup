@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom'
 import { useAuth, useLogout } from '@/features/auth'
 
 const items = [
-  { to: '/#services', label: 'Services' },
-  { to: '/#quote', label: 'About' },
+  { to: '/#features', label: '기능' },
+  { to: '/#services', label: '서비스' },
   { to: '/#faq', label: 'FAQ' },
 ]
 
@@ -25,77 +25,66 @@ export function SiteNav() {
       className={[
         'sticky top-0 w-full transition-colors duration-normal ease-standard',
         scrolled
-          ? 'bg-bg/85 backdrop-blur-md border-b border-border'
-          : 'bg-transparent border-b border-transparent',
+          ? 'border-b border-border bg-surface-raised/85 backdrop-blur-md'
+          : 'border-b border-transparent bg-transparent',
       ].join(' ')}
       style={{ zIndex: 'var(--z-sticky)' }}
     >
-      <div className="mx-auto max-w-content px-6 lg:px-12 h-16 flex items-center justify-between">
+      <div className="mx-auto flex h-16 max-w-content items-center justify-between px-6 lg:px-12">
         <Link
           to="/#top"
-          className="font-heading font-extrabold tracking-[0.04em] text-sage-900 text-[15px] uppercase"
+          className="font-sans text-[17px] font-bold tracking-tight text-fg"
         >
           Stack Up
         </Link>
 
-        <nav aria-label="Primary" className="hidden md:flex items-center gap-1">
+        <nav aria-label="Primary" className="hidden items-center gap-1 md:flex">
           {items.map((it) => (
             <Link
               key={it.to}
               to={it.to}
-              className="px-3 py-2 text-button text-fg-strong/80 hover:text-fg-strong transition-colors duration-fast"
+              className="rounded-md px-3 py-2 text-button text-fg-muted transition-colors duration-fast hover:text-fg-strong"
             >
               {it.label}
             </Link>
           ))}
         </nav>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {status === 'authenticated' ? (
             <>
               <Link
                 to="/workspace"
-                className="hidden sm:inline-flex items-center gap-2 px-3 py-2 text-button text-fg-strong/80 hover:text-fg-strong transition-colors duration-fast"
+                className="hidden items-center gap-2 rounded-md px-3 py-2 text-button text-fg-muted transition-colors duration-fast hover:text-fg-strong sm:inline-flex"
               >
                 {user?.avatarUrl ? (
-                  <img
-                    src={user.avatarUrl}
-                    alt=""
-                    aria-hidden
-                    className="w-6 h-6 rounded-full"
-                  />
+                  <img src={user.avatarUrl} alt="" aria-hidden className="h-6 w-6 rounded-full" />
                 ) : null}
-                <span>{user?.githubUsername ?? 'Workspace'}</span>
+                <span>{user?.githubUsername ?? '워크스페이스'}</span>
               </Link>
               <button
                 type="button"
                 onClick={logout}
                 disabled={loggingOut}
                 aria-busy={loggingOut}
-                className="inline-flex items-center gap-2 pl-5 pr-5 py-2 rounded-pill bg-sage-100 text-sage-900 text-button hover:bg-sage-200 transition-colors duration-fast disabled:opacity-60 disabled:cursor-not-allowed"
+                className="inline-flex items-center rounded-lg border border-border-strong px-4 py-2 text-button text-fg-strong transition-colors duration-fast hover:bg-surface disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {loggingOut ? '로그아웃 중…' : 'Logout'}
+                {loggingOut ? '로그아웃 중…' : '로그아웃'}
               </button>
             </>
           ) : (
             <>
               <Link
                 to="/login"
-                className="hidden sm:inline-flex items-center px-3 py-2 text-button text-fg-strong/80 hover:text-fg-strong transition-colors duration-fast"
+                className="hidden items-center rounded-md px-3 py-2 text-button text-fg-muted transition-colors duration-fast hover:text-fg-strong sm:inline-flex"
               >
-                Login
+                로그인
               </Link>
               <Link
                 to="/login"
-                className="inline-flex items-center gap-2 pl-5 pr-2 py-2 rounded-pill bg-sage-100 text-sage-900 text-button hover:bg-sage-200 transition-colors duration-fast"
+                className="inline-flex items-center rounded-lg bg-primary px-4 py-2.5 text-button text-white transition-colors duration-fast hover:bg-primary-hover"
               >
-                Get Started
-                <span
-                  aria-hidden
-                  className="inline-flex items-center justify-center w-6 h-6 rounded-pill bg-sage-900 text-white text-[11px]"
-                >
-                  →
-                </span>
+                시작하기
               </Link>
             </>
           )}

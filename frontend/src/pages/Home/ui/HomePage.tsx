@@ -2,8 +2,9 @@ import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { SiteNav } from '@/widgets/site-nav'
 import { HomeHero } from '@/widgets/home-hero'
+import { HomeSteps } from '@/widgets/home-steps'
+import { HomeFeatures } from '@/widgets/home-features'
 import { HomeServices } from '@/widgets/home-services'
-import { HomeQuote } from '@/widgets/home-quote'
 import { HomeFaq } from '@/widgets/home-faq'
 import { HomeCta } from '@/widgets/home-cta'
 import { SiteFooter } from '@/widgets/site-footer'
@@ -27,12 +28,13 @@ export default function HomePage() {
   }, [hash])
 
   return (
-    <div className="min-h-svh bg-bg text-fg">
+    <div className="min-h-svh bg-surface-raised text-fg">
       <SiteNav />
       <main>
         <HomeHero />
+        <HomeSteps />
+        <HomeFeatures />
         <HomeServices />
-        <HomeQuote />
         <HomeFaq />
         <HomeCta />
       </main>
