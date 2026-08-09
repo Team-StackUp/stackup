@@ -26,9 +26,9 @@ const SEMANTIC_ROWS = [
   { token: 'fg-muted', alias: 'sage-500', hex: '#4a5a7e', usage: '보조 텍스트' },
   { token: 'fg-subtle', alias: 'sage-400', hex: '#6e7f9f', usage: '흐린 텍스트' },
   { token: 'fg-disabled', alias: 'sage-200', hex: '#c6cedd', usage: '비활성' },
-  { token: 'primary', alias: '브랜드 블루(로고)', hex: '#3e63d8', usage: 'Primary 액션·링크·강조' },
-  { token: 'primary-hover', alias: '—', hex: '#3050be', usage: 'hover' },
-  { token: 'primary-pressed', alias: '—', hex: '#274099', usage: 'active' },
+  { token: 'primary', alias: '브랜드 블루', hex: '#4662d2', usage: 'Primary 액션·링크·강조' },
+  { token: 'primary-hover', alias: '—', hex: '#3b54bd', usage: 'hover' },
+  { token: 'primary-pressed', alias: '—', hex: '#31479f', usage: 'active' },
 ]
 
 const STATUS_COLORS = [
