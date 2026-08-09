@@ -96,18 +96,18 @@ export function InterviewStage({
           컴포저가 각자 배경(반투명+blur / solid)으로 확보한다. */}
       <div
         aria-hidden
-        className="absolute inset-0 bg-gradient-to-b from-white/30 via-white/10 to-white/45"
+        className="absolute inset-0 bg-gradient-to-b from-surface-raised/30 via-surface-raised/10 to-surface-raised/45"
       />
 
       {/* 진행도 바 */}
-      <div className="relative z-10 h-1 w-full bg-white/40">
+      <div className="relative z-10 h-1 w-full bg-surface-raised/40">
         <div
           className="h-full bg-primary transition-[width] duration-slow ease-standard"
           style={{ width: `${progress.ratio * 100}%` }}
         />
       </div>
 
-      <header className="relative z-10 flex items-center justify-between gap-3 border-b border-white/40 bg-white/55 px-4 py-3 backdrop-blur-md">
+      <header className="relative z-10 flex items-center justify-between gap-3 border-b border-surface-raised/40 bg-surface-raised/55 px-4 py-3 backdrop-blur-md">
         <div className="min-w-0">
           <h1 className="truncate text-h6 text-fg">{session.title ?? '모의 면접'}</h1>
           <p className="text-caption text-fg-muted">

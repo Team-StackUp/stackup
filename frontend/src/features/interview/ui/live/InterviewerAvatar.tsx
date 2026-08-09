@@ -21,7 +21,7 @@ export function InterviewerAvatar({ state }: { state: InterviewerState }) {
   const [imgFailed, setImgFailed] = useState(false)
 
   const ringColor =
-    state === 'speaking' ? 'ring-primary' : state === 'asking' ? 'ring-primary/60' : 'ring-white/50'
+    state === 'speaking' ? 'ring-primary' : state === 'asking' ? 'ring-primary/60' : 'ring-surface-raised/50'
 
   return (
     <div className="relative flex items-center justify-center">

@@ -115,7 +115,7 @@ export function SiteNav() {
               </Link>
               <Link
                 to="/login"
-                className="inline-flex items-center rounded-lg bg-primary px-4 py-2.5 text-button text-white transition-colors duration-fast hover:bg-primary-hover"
+                className="inline-flex items-center rounded-lg bg-primary px-4 py-2.5 text-button text-fg-on-primary transition-colors duration-fast hover:bg-primary-hover"
               >
                 시작하기
               </Link>

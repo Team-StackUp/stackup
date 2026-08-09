@@ -35,7 +35,7 @@ export function DeliveryModeToggle({
     <div
       role="radiogroup"
       aria-label="면접 진행 방식"
-      className="inline-flex items-center gap-0.5 rounded-pill border border-white/50 bg-white/55 p-0.5 backdrop-blur-md"
+      className="inline-flex items-center gap-0.5 rounded-pill border border-surface-raised/50 bg-surface-raised/55 p-0.5 backdrop-blur-md"
     >
       {options.map(({ value: v, label, icon: Icon }) => {
         const active = value === v
