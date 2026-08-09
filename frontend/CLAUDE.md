@@ -181,6 +181,46 @@ import { LoginButton } from '@/features/auth/ui/LoginButton';
 
 **원칙**: 컴포넌트에서 색상·간격·타이포그래피는 토큰만 참조. 하드코딩 금지.
 
+### 8.1 SEED Design 채택 범위 (2026-08)
+
+컬러·radius·shadow 는 당근 **SEED Design** 토큰을 참조한다(Apache-2.0).
+
+```
+app/styles/index.css 로드 순서 (순서가 의미를 가진다)
+  tailwindcss → @seed-design/css/base.css → @seed-design/tailwind4-theme
+  → seed-overrides.css → tokens.css → global.css
+```
+
+- **채택**: 컬러 · radius(SEED r1~r6) · shadow(s1~s3)
+- **미채택**: 타이포그래피(SEED 의 t1~t14 는 앱 UI 스케일 — 우리 디스플레이 스케일과 목적이 달라 자체 유지), 컴포넌트(`@seed-design/react` 미설치 — 모바일 지향 컴포넌트가 많아 우리 `shared/ui` 유지)
+- **브랜드 리테마**: SEED 는 `*-brand` 를 팔레트 경유로 정의하므로(`bg-brand-solid: var(--palette-carrot-600)`), `seed-overrides.css` 에서 brand 시맨틱만 `blue` 팔레트로 돌렸다. 팔레트 자체는 건드리지 않는다.
+- 우리 alias 이름은 유지하고 값만 `var(--seed-color-*)` 로 매핑했다 — SEED 이름(`text-fg-neutral`, `bg-layer-default` …)도 그대로 쓸 수 있다(두 네임스페이스는 이름이 겹치지 않는다).
+
+**주의 — 배경용과 텍스트용 브랜드 토큰은 다르다.**
+다크에서 요구가 정반대(solid 배경은 진해야, 브랜드 텍스트는 밝아야)라 한 토큰으로 만족할 수 없다.
+
+| 용도 | 토큰 |
+|---|---|
+| 버튼·보더 배경 | `bg-primary` / `border-primary` |
+| 브랜드 텍스트 | `text-primary-fg` |
+| **고정 흰 표면 위** 브랜드 텍스트 | `text-primary` (양 모드 모두 흰 배경 대비 AA) |
+
+### 8.2 다크모드
+
+`shared/lib/color-mode` 가 `<html>` 의 SEED 속성을 관리한다.
+
+```
+data-seed-color-mode        = system | light-only | dark-only   (localStorage 영속)
+data-seed-user-color-scheme = light | dark                      (system 일 때 matchMedia 로 우리가 설정)
+```
+
+`main.tsx` 가 첫 페인트 전에 적용한다(다크 사용자에게 라이트 화면이 번쩍이지 않게).
+SEED 팔레트 블록에는 `prefers-color-scheme` 미디어쿼리가 없어서, `system` 모드에서도
+`data-seed-user-color-scheme` 를 직접 써 주지 않으면 OS 설정이 반영되지 않는다.
+
+**색을 쓸 때**: 반드시 시맨틱 토큰(`bg-surface`, `text-fg-muted` …). `sage-*` 는
+**항상 어두워야 하는 표면**(푸터·다크 패널) 전용이며, 표면/본문 의미로 쓰면 다크에서 깨진다.
+
 ---
 
 ## 9. 미디어 (음성/영상)
