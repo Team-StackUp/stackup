@@ -65,7 +65,7 @@ export function StageQuestion({
   })
 
   return (
-    <div className="w-full max-w-2xl rounded-2xl border border-white/50 bg-white/70 px-6 py-7 shadow-lg backdrop-blur-md sm:px-9 sm:py-10">
+    <div className="w-full max-w-2xl rounded-2xl border border-surface-raised/50 bg-surface-raised/70 px-6 py-7 shadow-lg backdrop-blur-md sm:px-9 sm:py-10">
       <div className="flex items-center gap-2.5">
         <span
           aria-hidden
@@ -97,7 +97,7 @@ export function StageQuestion({
                 type="button"
                 onClick={toggle}
                 aria-label={playing ? '음성 일시정지' : '질문 다시 듣기'}
-                className="inline-flex items-center gap-1.5 rounded-pill border border-border bg-white/70 px-4 py-2 text-caption font-medium text-fg transition-colors hover:bg-white"
+                className="inline-flex items-center gap-1.5 rounded-pill border border-border bg-surface-raised/70 px-4 py-2 text-caption font-medium text-fg transition-colors hover:bg-surface-raised"
               >
                 <PlayIcon playing={playing} />
                 {playing ? '재생 중 · 일시정지' : '다시 듣기'}
@@ -142,13 +142,13 @@ export function StageQuestion({
               type="button"
               onClick={toggle}
               aria-label={playing ? '음성 일시정지' : '질문 음성 재생'}
-              className="inline-flex items-center gap-1.5 rounded-pill border border-border bg-white/70 px-3 py-1.5 text-caption font-medium text-fg transition-colors hover:bg-white"
+              className="inline-flex items-center gap-1.5 rounded-pill border border-border bg-surface-raised/70 px-3 py-1.5 text-caption font-medium text-fg transition-colors hover:bg-surface-raised"
             >
               <PlayIcon playing={playing} />
               {playing ? '일시정지' : '질문 듣기'}
             </button>
           ) : (
-            <span className="inline-flex items-center gap-1.5 rounded-pill border border-border bg-white/40 px-3 py-1.5 text-caption text-fg-muted">
+            <span className="inline-flex items-center gap-1.5 rounded-pill border border-border bg-surface-raised/40 px-3 py-1.5 text-caption text-fg-muted">
               <span className="flex gap-1" aria-hidden>
                 {[0, 1, 2].map((i) => (
                   <span

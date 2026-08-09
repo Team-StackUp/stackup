@@ -21,7 +21,7 @@ export function WebcamSelfView() {
   const live = state === 'live'
 
   return (
-    <div className="w-36 overflow-hidden rounded-xl border border-white/50 bg-sage-900/80 shadow-lg backdrop-blur-md sm:w-44">
+    <div className="w-36 overflow-hidden rounded-xl border border-surface-raised/50 bg-sage-900/80 shadow-lg backdrop-blur-md sm:w-44">
       <div className="relative aspect-video">
         <video
           ref={videoRef}
