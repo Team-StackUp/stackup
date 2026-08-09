@@ -24,7 +24,7 @@ function Sidebar({
     <aside className="hidden lg:flex lg:flex-col w-56 shrink-0 sticky top-0 h-screen border-r border-border bg-surface">
       <div className="px-5 pt-6 pb-4">
         <div className="font-heading text-h5 font-bold uppercase tracking-tight leading-none text-fg-strong">
-          StackUp
+          STACK-UP
         </div>
         <div className="mt-1 text-caption text-fg-muted">Design System</div>
       </div>
@@ -81,13 +81,13 @@ function Hero() {
         Design System
       </h1>
       <p className="mt-6 text-rich text-fg-muted max-w-2xl">
-        StackUp 프론트엔드의 시각·행동 규약. <Code>tokens.css</Code> 의{' '}
+        STACK-UP 프론트엔드의 시각·행동 규약. <Code>tokens.css</Code> 의{' '}
         <Code>@theme</Code> 블록을 SSOT 로 한 Tailwind v4 토큰 시스템.
       </p>
 
       <dl className="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-3xl">
-        <Stat label="Color Tokens" value="52" />
-        <Stat label="Type Scale" value="10" />
+        <Stat label="Color 출처" value="SEED" />
+        <Stat label="Type Scale" value="12" />
         <Stat label="Sections" value="9" />
         <Stat label="Framework" value="Tailwind v4" />
       </dl>

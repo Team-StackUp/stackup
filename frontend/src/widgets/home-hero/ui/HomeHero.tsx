@@ -19,24 +19,36 @@ export function HomeHero() {
         <div className="grid items-center gap-12 lg:grid-cols-12 lg:gap-10">
           <div className="lg:col-span-6">
             <Reveal>
+              <p className="font-mono text-caption tracking-tight text-fg-subtle">
+                IT 면접 시뮬레이터
+              </p>
+              {/* 브랜드를 히어로의 주역으로 — 하이픈만 브랜드색으로 끊어 로고 락업처럼 읽히게. */}
               <h1
-                className="font-sans font-bold text-fg"
+                className="mt-3 font-sans font-bold text-fg"
                 style={{
-                  fontSize: 'clamp(32px, 4.2vw, 52px)',
-                  lineHeight: 1.2,
-                  letterSpacing: '-0.035em',
-                  wordBreak: 'keep-all',
+                  fontSize: 'clamp(52px, 7.6vw, 104px)',
+                  lineHeight: 0.94,
+                  letterSpacing: '-0.055em',
                 }}
               >
-                내 이력서를 아는
-                <br />
-                면접관과 연습하세요
+                STACK<span className="text-primary-fg">-</span>UP
               </h1>
             </Reveal>
 
             <Reveal delayMs={60}>
               <p
-                className="mt-5 max-w-md text-rich text-fg-muted"
+                className="mt-6 max-w-md font-sans font-bold text-fg-strong"
+                style={{
+                  fontSize: 'clamp(19px, 1.7vw, 23px)',
+                  lineHeight: 1.4,
+                  letterSpacing: '-0.03em',
+                  wordBreak: 'keep-all',
+                }}
+              >
+                내 이력서를 아는 면접관과 연습하세요
+              </p>
+              <p
+                className="mt-2.5 max-w-md text-body font-normal text-fg-muted"
                 style={{ wordBreak: 'keep-all' }}
               >
                 자료에서 질문을 만들고, 얕은 답은 다시 묻습니다.
