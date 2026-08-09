@@ -4,7 +4,6 @@ import { SiteNav } from '@/widgets/site-nav'
 import { HomeHero } from '@/widgets/home-hero'
 import { HomeSteps } from '@/widgets/home-steps'
 import { HomeFeatures } from '@/widgets/home-features'
-import { HomeServices } from '@/widgets/home-services'
 import { HomeFaq } from '@/widgets/home-faq'
 import { SiteFooter } from '@/widgets/site-footer'
 
@@ -33,7 +32,6 @@ export default function HomePage() {
         <HomeHero />
         <HomeSteps />
         <HomeFeatures />
-        <HomeServices />
         <HomeFaq />
       </main>
       <SiteFooter cta />
