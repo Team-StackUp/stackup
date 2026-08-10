@@ -22,6 +22,8 @@ public record FeedbackResult(
     List<String> studyPlan,
     List<String> highlights,
     String reportFilePath,
+    // 공유 토큰(null = 비공개). 소유자 응답에만 노출 — 공개 엔드포인트는 응답 변환 시 제거.
+    String shareToken,
     Instant createdAt
 ) {
 
@@ -42,6 +44,7 @@ public record FeedbackResult(
             parseKeywords(f.getStudyPlan()),
             parseKeywords(f.getHighlights()),
             f.getReportFilePath(),
+            f.getShareToken(),
             f.getCreatedAt()
         );
     }

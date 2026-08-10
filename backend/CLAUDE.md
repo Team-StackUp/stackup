@@ -369,9 +369,17 @@ docker compose up -d
     `InterviewSessionRepository.finishIfInProgress`(조건부 UPDATE `WHERE status=IN_PROGRESS`)로 전이를
     차지하고, **영향 행 1인 트랜잭션만** `SessionEndedEvent` 를 발행한다 → DB 행 락으로 직렬화돼 동시
     종료 시에도 `generate.feedback` 가 중복 발행되지 않는다.
+  - **모든 상태 전이가 조건부 UPDATE**: `start`(`startIfReady`)·`cancel`(`cancelIfReady`)·`interrupt`
+    (`finishIfInProgress(INTERRUPTED)`)도 같은 패턴 — 엔티티 검증만으로는 두 트랜잭션이 같은 스냅숏을
+    읽고 둘 다 통과할 수 있다. 영향 행 0 이면 `SESSION_INVALID_STATE`.
   - **종료 후 콜백 드롭**: `QuestionsCallbackService.apply` 와 `SessionFollowupRequester.onAnswerSubmitted` 는
     세션이 `isTerminal()` 이면 처리를 건너뛴다 → 자동종료 뒤 늦게 도착한 POOL/FOLLOWUP 콜백이나
     막판 답변 발화가 종료 세션에 질문·placeholder 를 추가하는 사후 변조를 차단.
+- **피드백 공유 해제·재생성 본 구현**: `DELETE /api/sessions/{id}/feedback/share`(토큰 소거 — 기존 링크
+  즉시 404, 멱등), `POST /api/sessions/{id}/feedback/regenerate`(202 — COMPLETED 인데 피드백이 없을 때만
+  `generate.feedback` 재발행; 있으면 409 `FEEDBACK_ALREADY_EXISTS`). 공개 조회(`getByToken`)는 세션이
+  soft delete 되면 토큰이 남아 있어도 404 — '기록 삭제'가 공유 링크에도 미치게. `shareToken` 은 소유자
+  응답(`FeedbackResponse.from`)에만 노출, 공개 응답(`fromPublic`)에선 제거.
 - **피드백 하이라이트 본 구현**: V21 로 `session_feedbacks.highlights`(JSONB) 추가. AI 가 강점/개선점 본문에서
   핵심 구절 3~6개를 **그대로 발췌**(부분 문자열 매칭 보장)해 `callback.feedback.highlights[]` 로 보내고,
   `FeedbackResponse` 가 소유자·공유 엔드포인트 모두에 노출. 프론트는 이 구절 ∪ 다음에 채울 키워드를

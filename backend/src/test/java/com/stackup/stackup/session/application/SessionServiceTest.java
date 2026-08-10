@@ -14,6 +14,7 @@ import com.stackup.stackup.document.domain.AnalyzedDocumentRepository;
 import com.stackup.stackup.session.application.dto.SessionCreateCommand;
 import com.stackup.stackup.session.application.dto.SessionResult;
 import com.stackup.stackup.session.application.event.SessionCreatedEvent;
+import com.stackup.stackup.session.application.event.SessionEndedEvent;
 import com.stackup.stackup.session.domain.InterviewSession;
 import com.stackup.stackup.session.domain.InterviewSessionRepository;
 import com.stackup.stackup.session.domain.JobCategory;
@@ -164,6 +165,7 @@ class SessionServiceTest {
         InterviewSession session = sessionFixture(50L);
         when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(50L, 1L))
             .thenReturn(Optional.of(session));
+        when(sessionRepository.startIfReady(any(), any())).thenReturn(1);
 
         SessionResult result = service.start(1L, 50L);
 
@@ -171,13 +173,64 @@ class SessionServiceTest {
     }
 
     @Test
-    void start_throwsWhenAlreadyInProgress() {
+    void start_throwsWhenTransitionNotClaimed() {
+        // 조건부 UPDATE 가 0행 — 이미 시작됐거나(동시 start) 종료된 세션.
+        InterviewSession session = sessionFixture(50L);
+        when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(50L, 1L))
+            .thenReturn(Optional.of(session));
+        when(sessionRepository.startIfReady(any(), any())).thenReturn(0);
+
+        assertThatThrownBy(() -> service.start(1L, 50L))
+            .isInstanceOf(DomainException.class);
+    }
+
+    @Test
+    void interrupt_claimsAtomicTransition() {
         InterviewSession session = sessionFixture(50L);
         session.start();
         when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(50L, 1L))
             .thenReturn(Optional.of(session));
+        when(sessionRepository.finishIfInProgress(any(), any(), any())).thenReturn(1);
 
-        assertThatThrownBy(() -> service.start(1L, 50L))
+        SessionResult result = service.interrupt(1L, 50L);
+
+        assertThat(result.status()).isEqualTo(SessionStatus.INTERRUPTED);
+        // 중단은 피드백 대상이 아니다 — 종료 이벤트를 발행하면 안 된다.
+        verify(events, org.mockito.Mockito.never()).publishEvent(any(SessionEndedEvent.class));
+    }
+
+    @Test
+    void interrupt_throwsWhenAlreadyFinished() {
+        InterviewSession session = sessionFixture(50L);
+        session.start();
+        when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(50L, 1L))
+            .thenReturn(Optional.of(session));
+        when(sessionRepository.finishIfInProgress(any(), any(), any())).thenReturn(0);
+
+        assertThatThrownBy(() -> service.interrupt(1L, 50L))
+            .isInstanceOf(DomainException.class);
+    }
+
+    @Test
+    void cancel_claimsAtomicTransition() {
+        InterviewSession session = sessionFixture(50L);
+        when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(50L, 1L))
+            .thenReturn(Optional.of(session));
+        when(sessionRepository.cancelIfReady(50L)).thenReturn(1);
+
+        SessionResult result = service.cancel(1L, 50L);
+
+        assertThat(result.status()).isEqualTo(SessionStatus.CANCELLED);
+    }
+
+    @Test
+    void cancel_throwsWhenNotReady() {
+        InterviewSession session = sessionFixture(50L);
+        when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(50L, 1L))
+            .thenReturn(Optional.of(session));
+        when(sessionRepository.cancelIfReady(50L)).thenReturn(0);
+
+        assertThatThrownBy(() -> service.cancel(1L, 50L))
             .isInstanceOf(DomainException.class);
     }
 

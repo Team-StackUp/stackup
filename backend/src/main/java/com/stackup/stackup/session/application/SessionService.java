@@ -99,11 +99,12 @@ public class SessionService {
     @Transactional
     public SessionResult start(Long userId, Long sessionId) {
         InterviewSession session = loadOwned(userId, sessionId);
-        try {
-            session.start();
-        } catch (IllegalStateException e) {
+        // 원자적 시작 전이(end 와 동일 패턴): READY 일 때만 1행 갱신. 0이면 이미 시작/종료된 것.
+        // 엔티티 검증(start)만으로는 두 트랜잭션이 같은 READY 스냅숏을 읽고 둘 다 통과할 수 있다.
+        if (sessionRepository.startIfReady(sessionId, Instant.now()) == 0) {
             throw new DomainException(ApiErrorCode.SESSION_INVALID_STATE);
         }
+        session.start();  // 응답·인메모리 동기화(DB는 위 조건부 UPDATE 로 이미 IN_PROGRESS).
         return SessionResult.of(session, contextDocumentIds(sessionId));
     }
 
@@ -125,22 +126,22 @@ public class SessionService {
     @Transactional
     public SessionResult interrupt(Long userId, Long sessionId) {
         InterviewSession session = loadOwned(userId, sessionId);
-        try {
-            session.interrupt();
-        } catch (IllegalStateException e) {
+        // IN_PROGRESS → INTERRUPTED 도 종료 전이 — 스위퍼·수동 end 와 경합하므로 같은 조건부
+        // UPDATE 를 쓴다. INTERRUPTED 는 피드백을 만들지 않으므로 SessionEndedEvent 는 발행하지 않는다.
+        if (sessionRepository.finishIfInProgress(sessionId, SessionStatus.INTERRUPTED, Instant.now()) == 0) {
             throw new DomainException(ApiErrorCode.SESSION_INVALID_STATE);
         }
+        session.interrupt();
         return SessionResult.of(session, contextDocumentIds(sessionId));
     }
 
     @Transactional
     public SessionResult cancel(Long userId, Long sessionId) {
         InterviewSession session = loadOwned(userId, sessionId);
-        try {
-            session.cancel();
-        } catch (IllegalStateException e) {
+        if (sessionRepository.cancelIfReady(sessionId) == 0) {
             throw new DomainException(ApiErrorCode.SESSION_INVALID_STATE);
         }
+        session.cancel();
         return SessionResult.of(session, contextDocumentIds(sessionId));
     }
 
