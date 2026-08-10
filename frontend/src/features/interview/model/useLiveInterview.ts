@@ -25,13 +25,19 @@ export function useLiveInterview(sessionId: number, deliveryMode: DeliveryMode =
   const queryClient = useQueryClient()
   const sessionQuery = useSession(sessionId)
   const status = sessionQuery.data?.status
-  const messagesQuery = useSessionMessages(sessionId, status === 'IN_PROGRESS' || status === 'COMPLETED')
+  const [connection, setConnection] = useState<ConnectionStatus>('connecting')
+  const messagesQuery = useSessionMessages(
+    sessionId,
+    status === 'IN_PROGRESS' || status === 'COMPLETED',
+    // WS 가 정상('open')이면 푸시가 갱신을 담당하므로 폴링 불필요.
+    // 끊겼거나 아직 연결 전이면 5초 폴링으로 소실 이벤트를 메운다(최후 방어선).
+    status === 'IN_PROGRESS' && connection !== 'open' ? 5_000 : false,
+  )
   const { end } = useSessionLifecycle(sessionId)
 
   const [optimistic, setOptimistic] = useState<OptimisticAnswer[]>([])
   // 전송 실패로 롤백된 답변 본문 — 컴포저가 입력창을 복원하는 데 사용(nonce 로 매 실패마다 트리거).
   const [restoreDraft, setRestoreDraft] = useState<{ content: string; nonce: number } | null>(null)
-  const [connection, setConnection] = useState<ConnectionStatus>('connecting')
   const [deltaBuffer, setDeltaBuffer] = useState<Record<number, string>>({})
   // 라이브 세그먼트 오디오가 지금 재생 중인 메시지(아바타·질문 카드의 '말하는 중' 표시용).
   const [speakingAudio, setSpeakingAudio] = useState<{ msgId: number | null; playing: boolean }>({
@@ -136,10 +142,29 @@ export function useLiveInterview(sessionId: number, deliveryMode: DeliveryMode =
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messagesQuery.data])
 
+  // 끊긴 동안의 이벤트는 소실된다 — realtime 서버에 backlog/replay 가 없다(registry.Dispatch 는
+  // 현재 구독자에게만 전달). 재연결·탭 복귀 시 반드시 refetch 로 메워야 모바일(백그라운드 전환 시
+  // iOS 가 WS 를 끊음)에서 "다음 질문을 준비하고 있어요…" 영구 고착이 생기지 않는다.
+  const reconcile = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: messageKeys.list(sessionId) })
+    void queryClient.invalidateQueries({ queryKey: sessionKeys.detail(sessionId) })
+  }, [queryClient, sessionId])
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') reconcile()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [reconcile])
+
   const { submitAnswer: socketSubmit } = useInterviewSocket({
     sessionId,
     enabled: status === 'IN_PROGRESS',
-    onStatusChange: setConnection,
+    onStatusChange: (s) => {
+      setConnection(s)
+      if (s === 'open') reconcile()
+    },
     onEvent: (frame) => {
       const action = interviewEventAction(frame.event)
       if (action.kind === 'refetch-messages') {
@@ -149,6 +174,22 @@ export function useLiveInterview(sessionId: number, deliveryMode: DeliveryMode =
         void queryClient.invalidateQueries({ queryKey: sessionKeys.detail(sessionId) })
       } else if (action.kind === 'refetch-session') {
         void queryClient.invalidateQueries({ queryKey: sessionKeys.detail(sessionId) })
+      } else if (action.kind === 'rollback-optimistic') {
+        // 어떤 답변이 거부됐는지 프레임이 특정하지 않으므로 pending 전부를 롤백하고
+        // 마지막 내용을 입력으로 복원한다. refetch 로 서버 정본과 다시 맞춘다.
+        const pending = optimisticRef.current
+        if (pending.length > 0) {
+          const lastContent = pending[pending.length - 1].content
+          pending.forEach((o) => {
+            const t = answerTimers.current.get(o.tempId)
+            if (t) clearTimeout(t)
+            answerTimers.current.delete(o.tempId)
+          })
+          setOptimistic([])
+          setRestoreDraft({ content: lastContent, nonce: Date.now() })
+          toast.error('답변이 접수되지 않았어요. 입력을 복원했으니 다시 시도해 주세요.')
+        }
+        reconcile()
       } else if (action.kind === 'redirect-feedback') {
         navigate(`/sessions/${sessionId}/feedback`)
       } else if (action.kind === 'append-delta') {
@@ -190,14 +231,18 @@ export function useLiveInterview(sessionId: number, deliveryMode: DeliveryMode =
         // 특히 자기소개(첫 답변)는 프루닝 트리거인 SESSION_MESSAGE 가 Pro 모델 질문 풀
         // 생성 이후에야 오므로 10초를 넘길 수 있다 → 오롤백 금지, 이후 메시지가 프루닝한다.
         // 연결이 끊긴 경우(closed/connecting)에만 진짜 전송 실패로 보고 롤백한다.
-        if (connectionRef.current === 'open') return
+        if (connectionRef.current === 'open') {
+          // 오롤백은 금지하되, 서버 정본과의 불일치 가능성은 refetch 로 해소한다.
+          reconcile()
+          return
+        }
         setOptimistic((prev) => prev.filter((o) => o.tempId !== tempId))
         setRestoreDraft({ content, nonce: Date.now() })
         toast.error('답변 전송에 실패했어요. 입력을 복원했으니 다시 시도해 주세요.')
       }, ANSWER_ACK_TIMEOUT_MS)
       answerTimers.current.set(tempId, timer)
     },
-    [socketSubmit],
+    [socketSubmit, reconcile],
   )
 
   // 언마운트 시 남은 ack 타이머 정리(언마운트 후 setState/toast 방지).
@@ -258,6 +303,12 @@ export function useLiveInterview(sessionId: number, deliveryMode: DeliveryMode =
     voiceError: voiceMutation.isError,
     endSession: () => end.mutate(),
     isLoading: sessionQuery.isLoading,
+    // 세션 조회 실패를 화면에 알리기 위한 것 — 없으면 LiveInterview 의
+    // `isLoading || !session` 분기가 에러 시에도 스피너를 영원히 돌린다.
+    isError: sessionQuery.isError,
+    refetchSession: () => {
+      void sessionQuery.refetch()
+    },
     questionStreaming,
     wasSegmented,
     isSpeaking,

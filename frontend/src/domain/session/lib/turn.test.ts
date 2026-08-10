@@ -50,3 +50,32 @@ describe('isQuestion/isAnswer', () => {
     expect(isAnswer(msg('INTERVIEWEE'))).toBe(true)
   })
 })
+
+describe('currentTurn — FAILED sentinel', () => {
+  it('STT 실패 답변(INTERVIEWEE+FAILED)이 마지막이면 재답변 차례 — 영구 잠금 회귀 방지', () => {
+    const messages = [
+      { id: 1, role: 'INTERVIEWER', content: '질문', status: 'COMPLETED' },
+      {
+        id: 2,
+        role: 'INTERVIEWEE',
+        content: '음성 인식에 실패했습니다. 텍스트로 다시 답변해 주세요.',
+        status: 'FAILED',
+        audioFilePath: 'interview/voice/raw/1/2.webm',
+      },
+    ] as never[]
+    expect(currentTurn(messages)).toBe('AWAITING_ANSWER')
+  })
+
+  it('꼬리질문 생성 실패 placeholder(INTERVIEWER+FAILED)는 답변 차례가 아니다', () => {
+    const messages = [
+      { id: 1, role: 'INTERVIEWEE', content: '내 답변', status: 'COMPLETED' },
+      {
+        id: 2,
+        role: 'INTERVIEWER',
+        content: '질문 생성에 실패했습니다. 다음 질문으로 넘어갑니다.',
+        status: 'FAILED',
+      },
+    ] as never[]
+    expect(currentTurn(messages)).toBe('WAITING_FOR_QUESTION')
+  })
+})

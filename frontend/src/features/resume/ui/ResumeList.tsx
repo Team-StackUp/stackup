@@ -1,7 +1,6 @@
 import { useState } from 'react'
-import { isApiError } from '@/shared/api'
 import { useAnalysisProgress } from '@/shared/hooks'
-import { ConfirmDialog, EmptyState, ListSkeleton, StatusBadge, type StatusTone } from '@/shared/ui'
+import { ConfirmDialog, EmptyState, ListSkeleton, StatusBadge, type StatusTone, QueryError } from '@/shared/ui'
 import { useDeleteResume, useResumes } from '../model/useResumes'
 import { formatFileSize } from '../lib/format'
 import type { Resume, ResumeStatus } from '../model/types'
@@ -14,18 +13,14 @@ const STATUS_META: Record<ResumeStatus, { tone: StatusTone; label: string }> = {
 }
 
 export function ResumeList() {
-  const { data = [], isPending, isError, error } = useResumes()
+  const { data = [], isPending, isError, refetch } = useResumes()
   const remove = useDeleteResume()
 
   if (isPending) {
     return <ListSkeleton label="이력서를 불러오는 중…" />
   }
   if (isError) {
-    return (
-      <p className="text-body text-danger-700">
-        {isApiError(error) ? error.message : '이력서를 불러오지 못했습니다.'}
-      </p>
-    )
+    return <QueryError message="이력서를 불러오지 못했습니다." onRetry={() => refetch()} />
   }
   if (data.length === 0) {
     return (

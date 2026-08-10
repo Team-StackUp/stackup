@@ -11,6 +11,8 @@ export function LiveInterview({ sessionId }: { sessionId: number }) {
   const [deliveryMode, setDeliveryMode] = useDeliveryMode()
   const {
     session,
+    isError,
+    refetchSession,
     status,
     items,
     turn,
@@ -27,6 +29,25 @@ export function LiveInterview({ sessionId }: { sessionId: number }) {
     firstQuestionReady,
   } = useLiveInterview(sessionId, deliveryMode)
 
+  // 에러 분기가 스피너 분기보다 먼저 와야 한다 — 쿼리 실패 시 isLoading 은 false 이고
+  // session 은 undefined 라, 순서를 바꾸면 에러가 무한 스피너로 위장된다.
+  if (isError) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
+        <p className="text-body font-medium text-fg-strong">세션을 불러오지 못했습니다.</p>
+        <p className="text-button font-normal text-fg-muted">
+          네트워크 상태를 확인한 뒤 다시 시도해 주세요.
+        </p>
+        <button
+          type="button"
+          onClick={refetchSession}
+          className="rounded-lg bg-primary px-4 py-2 text-button text-fg-on-primary transition-colors duration-fast hover:bg-primary-hover"
+        >
+          다시 시도
+        </button>
+      </div>
+    )
+  }
   if (isLoading || !session) {
     return (
       <div className="flex h-full items-center justify-center">

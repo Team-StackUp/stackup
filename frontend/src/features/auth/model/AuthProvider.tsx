@@ -6,6 +6,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { isApiError, setAuthSideEffects, tokenStore } from '@/shared/api'
 import { fetchCurrentUser, logout as logoutApi } from '../api/auth'
 import {
@@ -20,6 +21,7 @@ type AuthProviderProps = {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
+  const queryClient = useQueryClient()
   const [status, setStatus] = useState<AuthStatus>('loading')
   const [user, setUser] = useState<AuthUser | null>(null)
   const bootstrappedRef = useRef(false)
@@ -32,9 +34,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const clearAuth = useCallback(() => {
     tokenStore.clear()
+    // 이전 사용자의 이력서·히스토리 캐시가 남으면 공용 PC 에서 다음 로그인 사용자에게
+    // 그대로 렌더된다(개인정보 노출). 인증이 사라지는 시점에 서버 상태 캐시도 비운다.
+    queryClient.clear()
     setUser(null)
     setStatus('unauthenticated')
-  }, [])
+  }, [queryClient])
 
   const refreshUser = useCallback(async () => {
     try {
@@ -62,6 +67,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setAuthSideEffects({
       onUnauthorized: () => {
         tokenStore.clear()
+        queryClient.clear()
         setUser(null)
         setStatus('unauthenticated')
       },
@@ -69,7 +75,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         tokenStore.set(token)
       },
     })
-  }, [])
+  }, [queryClient])
 
   useEffect(() => {
     if (bootstrappedRef.current) return

@@ -8,7 +8,7 @@ import { documentSourceLabel } from '@/domain/rag'
 
 export default function InterviewSetupPage() {
   const navigate = useNavigate()
-  const { data: documents = [] } = useDocuments()
+  const { data: documents = [], isError: documentsError, refetch: refetchDocuments } = useDocuments()
   const createSession = useCreateSession()
 
   const options: DocOption[] = documents
@@ -37,6 +37,8 @@ export default function InterviewSetupPage() {
         </div>
         <InterviewSetupForm
           documents={options}
+          documentsError={documentsError}
+          onRetryDocuments={() => void refetchDocuments()}
           isSubmitting={createSession.isPending}
           onCreate={(req) =>
             createSession.mutate(req, {

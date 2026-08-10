@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import { isApiError } from '@/shared/api'
-import { EmptyState, ListSkeleton, Modal, StatusBadge, type StatusTone } from '@/shared/ui'
+import { EmptyState, ListSkeleton, Modal, StatusBadge, type StatusTone, QueryError } from '@/shared/ui'
 import { DOCUMENT_SOURCE_LABEL as SOURCE_LABEL } from '@/domain/rag'
 import type { DocumentFilter } from '../api/analysis'
 import { useDocuments } from '../model/useDocuments'
@@ -26,18 +25,14 @@ type Props = {
 }
 
 export function DocumentList({ filter = {}, sourceType }: Props) {
-  const { data = [], isPending, isError, error } = useDocuments(filter)
+  const { data = [], isPending, isError, refetch } = useDocuments(filter)
   const [activeId, setActiveId] = useState<number | null>(null)
 
   if (isPending) {
     return <ListSkeleton label="분석 결과를 불러오는 중…" />
   }
   if (isError) {
-    return (
-      <p className="text-body text-danger-700">
-        {isApiError(error) ? error.message : '분석 결과를 불러오지 못했습니다.'}
-      </p>
-    )
+    return <QueryError message="분석 결과를 불러오지 못했습니다." onRetry={() => refetch()} />
   }
 
   const docs = sourceType

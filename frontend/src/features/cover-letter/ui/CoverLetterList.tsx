@@ -1,7 +1,6 @@
 import { useState } from 'react'
-import { isApiError } from '@/shared/api'
 import { useAnalysisProgress } from '@/shared/hooks'
-import { ConfirmDialog, EmptyState, ListSkeleton, StatusBadge, type StatusTone } from '@/shared/ui'
+import { ConfirmDialog, EmptyState, ListSkeleton, StatusBadge, type StatusTone, QueryError } from '@/shared/ui'
 import { useCoverLetters, useDeleteCoverLetter } from '../model/useCoverLetters'
 import type { CoverLetter, CoverLetterStatus } from '../model/types'
 
@@ -13,18 +12,14 @@ const STATUS_META: Record<CoverLetterStatus, { tone: StatusTone; label: string }
 }
 
 export function CoverLetterList() {
-  const { data = [], isPending, isError, error } = useCoverLetters()
+  const { data = [], isPending, isError, refetch } = useCoverLetters()
   const remove = useDeleteCoverLetter()
 
   if (isPending) {
     return <ListSkeleton label="자소서를 불러오는 중…" />
   }
   if (isError) {
-    return (
-      <p className="text-body text-danger-700">
-        {isApiError(error) ? error.message : '자소서를 불러오지 못했습니다.'}
-      </p>
-    )
+    return <QueryError message="자소서를 불러오지 못했습니다." onRetry={() => refetch()} />
   }
   if (data.length === 0) {
     return (

@@ -23,6 +23,10 @@
   body {
     margin: 0;
     min-height: 100svh;
+    /* 답변·질문에 URL·스택트레이스 같은 공백 없는 긴 토큰이 들어오면(기술 면접에선 기본
+       시나리오) 기본값(overflow-wrap: normal)은 절대 줄을 끊지 않아 버블이 레이아웃을
+       뚫는다. 전역 기본으로 안전선을 깐다 — truncate 를 쓰는 곳엔 영향 없다. */
+    overflow-wrap: break-word;
   }
 
   h1, h2, h3 {
