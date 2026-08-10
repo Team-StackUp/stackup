@@ -26,8 +26,8 @@ public class UserStatsService {
     private final SessionFeedbackRepository feedbackRepository;
 
     public UserStatsResult forUser(Long userId) {
-        long total = sessionRepository.countByUser_Id(userId);
-        long completed = sessionRepository.countByUser_IdAndStatus(userId, SessionStatus.COMPLETED);
+        long total = sessionRepository.countByUser_IdAndDeletedFalse(userId);
+        long completed = sessionRepository.countByUser_IdAndStatusAndDeletedFalse(userId, SessionStatus.COMPLETED);
 
         AverageScores avg = new AverageScores(
             feedbackRepository.averageOverallScore(userId),
