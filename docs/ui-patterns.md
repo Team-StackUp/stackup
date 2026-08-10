@@ -105,7 +105,7 @@ UI 표현:
 
 ### 6.2 답변 입력
 - 음성 모드: 마이크 버튼 → 녹음 시작, 실시간 STT 자막
-- 텍스트 모드: textarea, Enter+Cmd 제출 (Enter 단독은 줄바꿈)
+- 텍스트 모드: textarea, Enter 제출 (Shift+Enter 줄바꿈) — 채팅형 UI 관례를 따른다
 - 답변 제출 후 입력 영역 즉시 disable, "AI가 답변을 분석 중입니다…" 로딩
 
 ### 6.3 꼬리질문 도착
@@ -137,7 +137,7 @@ UI 표현:
 |--------|------|----------|
 | `Esc` | 모달 / 드로어 / 팝오버 닫기 | 전역 |
 | `Enter` | 기본 액션 | form, dialog |
-| `Cmd/Ctrl + Enter` | 답변 제출 | 면접 textarea |
+| `Enter` | 답변 제출 (`Shift+Enter` 줄바꿈) | 면접 textarea |
 | `Cmd/Ctrl + K` | 빠른 검색 (옵션) | 워크스페이스 |
 | `Space` | 마이크 toggle (push-to-talk 옵션) | 면접 진행 중 |
 | `?` | 단축키 목록 | 전역 |
