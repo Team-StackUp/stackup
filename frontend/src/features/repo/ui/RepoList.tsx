@@ -1,7 +1,6 @@
 import { useState } from 'react'
-import { isApiError } from '@/shared/api'
 import { useAnalysisProgress } from '@/shared/hooks'
-import { ConfirmDialog, EmptyState, ListSkeleton, StatusBadge, type StatusTone } from '@/shared/ui'
+import { ConfirmDialog, EmptyState, ListSkeleton, StatusBadge, type StatusTone, QueryError } from '@/shared/ui'
 import {
   useDeleteRepository,
   useRegisteredRepositories,
@@ -19,18 +18,14 @@ const STATUS_META: Record<
 }
 
 export function RepoList() {
-  const { data = [], isPending, isError, error } = useRegisteredRepositories()
+  const { data = [], isPending, isError, refetch } = useRegisteredRepositories()
   const remove = useDeleteRepository()
 
   if (isPending) {
     return <ListSkeleton label="레포지토리를 불러오는 중…" />
   }
   if (isError) {
-    return (
-      <p className="text-body text-danger-700">
-        {isApiError(error) ? error.message : '레포지토리를 불러오지 못했습니다.'}
-      </p>
-    )
+    return <QueryError message="레포지토리를 불러오지 못했습니다." onRetry={() => refetch()} />
   }
   if (data.length === 0) {
     return (

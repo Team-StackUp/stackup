@@ -8,6 +8,8 @@ import {
 import { Button } from '@/shared/ui/Button'
 
 export function HomeView() {
+  // stats 는 홈에서 보조 블록(최근 점수)이라 실패해도 화면 자체는 성립한다.
+  // 전용 화면인 HistoryView 는 실패를 명시적으로 알린다(QueryError).
   const { data: stats } = useUserStats()
   const hasSessions = (stats?.totalSessionCount ?? 0) > 0
 

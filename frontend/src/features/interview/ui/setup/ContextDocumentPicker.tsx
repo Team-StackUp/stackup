@@ -7,11 +7,32 @@ export function ContextDocumentPicker({
   documents,
   selected,
   onToggle,
+  loadFailed = false,
+  onRetry,
 }: {
   documents: DocOption[]
   selected: number[]
   onToggle: (id: number) => void
+  /** 문서 목록 fetch 실패. '없음' 안내로 위장하면 멀쩡히 있는 자료를 없다고 말하게 된다. */
+  loadFailed?: boolean
+  onRetry?: () => void
 }) {
+  if (loadFailed) {
+    return (
+      <p className="text-caption text-fg-muted">
+        참고 문서를 불러오지 못했습니다.{' '}
+        {onRetry ? (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="font-semibold text-primary-fg underline underline-offset-2"
+          >
+            다시 시도
+          </button>
+        ) : null}
+      </p>
+    )
+  }
   if (documents.length === 0) {
     return (
       <p className="text-caption text-fg-muted">

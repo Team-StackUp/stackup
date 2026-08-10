@@ -147,7 +147,10 @@ public class SessionService {
     @Transactional
     public void delete(Long userId, Long sessionId) {
         InterviewSession session = loadOwned(userId, sessionId);
-        sessionRepository.delete(session);
+        // 하드 DELETE 는 자식 FK(interview_messages·session_feedbacks·session_contexts 등,
+        // 전부 ON DELETE 미지정) 위반으로 항상 500 이었다. soft delete 로 전환 —
+        // 조회 경로(loadOwned/listPaged)는 이미 DeletedFalse 를 필터한다.
+        session.markDeleted();
     }
 
     public String createSessionStreamToken(Long userId, Long sessionId) {

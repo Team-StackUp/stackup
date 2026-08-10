@@ -194,6 +194,19 @@ class SessionServiceTest {
         assertThat(result.status()).isEqualTo(SessionStatus.COMPLETED);
     }
 
+    @Test
+    void delete_softDeletesInsteadOfHardDelete() {
+        // 하드 DELETE 는 자식 FK(ON DELETE 미지정) 위반으로 항상 실패했다 — soft delete 회귀 방지.
+        InterviewSession session = sessionFixture(50L);
+        when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(50L, 1L))
+            .thenReturn(Optional.of(session));
+
+        service.delete(1L, 50L);
+
+        assertThat(session.isDeleted()).isTrue();
+        verify(sessionRepository, org.mockito.Mockito.never()).delete(any(InterviewSession.class));
+    }
+
     private User userFixture(Long id) {
         User user = User.createGithubUser(123L, "octocat", null, null, "tok");
         ReflectionTestUtils.setField(user, "id", id);

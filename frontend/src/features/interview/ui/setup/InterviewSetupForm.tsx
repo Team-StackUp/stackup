@@ -9,10 +9,14 @@ import type { DocOption } from './ContextDocumentPicker'
 
 export function InterviewSetupForm({
   documents,
+  documentsError = false,
+  onRetryDocuments,
   onCreate,
   isSubmitting = false,
 }: {
   documents: DocOption[]
+  documentsError?: boolean
+  onRetryDocuments?: () => void
   onCreate: (req: SessionCreateRequest) => void
   isSubmitting?: boolean
 }) {
@@ -186,7 +190,13 @@ export function InterviewSetupForm({
       </section>
       <section className="flex flex-col gap-2">
         <h2 className="text-h6 text-fg">참고 문서 (선택)</h2>
-        <ContextDocumentPicker documents={documents} selected={selected} onToggle={toggle} />
+        <ContextDocumentPicker
+          documents={documents}
+          selected={selected}
+          onToggle={toggle}
+          loadFailed={documentsError}
+          onRetry={onRetryDocuments}
+        />
       </section>
       <div className="flex flex-col gap-2">
         {maxQuestions < generalQuestionCount && (

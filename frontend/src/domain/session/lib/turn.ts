@@ -27,9 +27,22 @@ export function isTranscribing(message: Message): boolean {
 
 export function currentTurn(messages: Message[]): Turn {
   const last = messages[messages.length - 1]
+
+  // FAILED 는 두 sentinel 케이스를 가진다 — role 에 따라 판정이 정반대다.
+  //  · INTERVIEWEE + FAILED: STT 실패. 백엔드가 "텍스트로 다시 답변해 주세요"로 content 를
+  //    바꾸고 재답변을 받도록 설계돼 있다(resolveAnswerParent 의 FAILED+audio 분기).
+  //    이걸 WAITING_FOR_QUESTION 으로 두면 컴포저가 영구 잠기고, 새로고침해도 재현된다.
+  //  · INTERVIEWER + FAILED: 꼬리질문 생성 실패 placeholder("질문 생성에 실패했습니다…").
+  //    content 가 있어서 아래 askable 조건을 통과해 버리면 실패 안내문에 답변이 달린다.
+  //    백엔드가 곧 advanceToNextGeneral 로 다음 질문을 보내므로 대기가 맞다.
+  if (last?.status === 'FAILED') {
+    return last.role === 'INTERVIEWEE' ? 'AWAITING_ANSWER' : 'WAITING_FOR_QUESTION'
+  }
+
   // 마지막이 '내용이 있는' 면접관 질문일 때만 답변 차례. 질문 생성 중(빈 content 또는 sentinel)
   // 메시지가 먼저 도착해도 컴포저가 섣불리 활성화되지 않도록 content 유무 + sentinel 로 가드한다.
-  // (질문 status 는 CREATED 로 들어오므로 status 기준으로 거르면 안 된다.)
+  // (정상 질문의 status 는 CREATED 로 들어오므로 CREATED/COMPLETED 를 기준으로 거르면 안 된다 —
+  //  위에서 FAILED 만 별도 처리하는 이유.)
   const content = (last?.content ?? '').trim()
   const askable =
     last?.role === 'INTERVIEWER' &&

@@ -10,10 +10,14 @@ import InterviewSessionPage from '@/pages/InterviewSession'
 import PracticePage from '@/pages/Practice'
 import SessionFeedbackPage from '@/pages/SessionFeedback'
 import SharedFeedbackPage from '@/pages/SharedFeedback'
+import NotFoundPage from '@/pages/NotFound'
+import { RouteError } from './RouteError'
 
 export const router = createBrowserRouter([
   {
     element: <ScrollToTop />,
+    // 렌더 중 throw 를 백지 대신 복구 화면으로 — 규약 §10(404/500) 대응.
+    errorElement: <RouteError />,
     children: [
       { path: '/', element: <HomePage /> },
       { path: '/login', element: <LoginPage /> },
@@ -92,6 +96,8 @@ export const router = createBrowserRouter([
           return { Component: mod.default }
         },
       },
+      // catch-all — 오타 URL 이 react-router 기본 에러 화면으로 새지 않게 한다.
+      { path: '*', element: <NotFoundPage /> },
     ],
   },
 ])

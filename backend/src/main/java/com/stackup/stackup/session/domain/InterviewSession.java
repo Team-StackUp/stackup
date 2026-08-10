@@ -216,4 +216,11 @@ public class InterviewSession extends BaseSoftDeleteEntity {
             this.memo = memo;
         }
     }
+
+    // 세션은 soft delete 만 지원한다. 하드 DELETE 는 interview_messages 등 자식 FK 에
+    // ON DELETE 절이 없어 항상 제약 위반으로 실패한다(모든 세션은 생성 즉시 자기소개
+    // 질문이 삽입되므로 자식 없는 세션이 존재하지 않는다).
+    public void markDeleted() {
+        this.deleted = true;
+    }
 }
