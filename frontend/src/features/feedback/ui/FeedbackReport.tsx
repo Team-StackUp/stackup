@@ -6,7 +6,7 @@ import { toast } from '@/shared/ui'
 import { useCopyToClipboard } from '@/shared/hooks'
 import type { Feedback } from '../api/feedbackApi'
 import { downloadElementAsPdf } from '../lib/downloadPdf'
-import { useShareFeedback } from '../model/useFeedback'
+import { useShareFeedback, useUnshareFeedback } from '../model/useFeedback'
 import { HighlightedText } from './HighlightedText'
 
 // AI 가 별도 정성 평가를 패널 항목으로 실어 보낼 때 쓰는 라벨(모두 종합 점수엔 미포함).
@@ -38,11 +38,14 @@ export function FeedbackReport({
   }
 
   const share = useShareFeedback(feedback.sessionId ?? 0)
+  const unshare = useUnshareFeedback(feedback.sessionId ?? 0)
   const { copy, copied } = useCopyToClipboard()
+  // 이미 공유된 상태(shareToken 보유)면 발급 없이 링크만 복사한다.
+  const isShared = Boolean(feedback.shareToken)
   const handleShare = async () => {
     // 실패 토스트는 useShareFeedback.onError 가 띄운다 — 여기선 unhandled rejection 만 방지.
     try {
-      const token = await share.mutateAsync()
+      const token = feedback.shareToken ?? (await share.mutateAsync())
       if (token) await copy(`${window.location.origin}/share/${token}`)
     } catch {
       /* handled by mutation onError */
@@ -71,7 +74,22 @@ export function FeedbackReport({
             onClick={handleShare}
             disabled={share.isPending}
           >
-            {copied ? '링크 복사됨!' : share.isPending ? '공유 준비 중…' : '공유'}
+            {copied
+              ? '링크 복사됨!'
+              : share.isPending
+                ? '공유 준비 중…'
+                : isShared
+                  ? '공유 링크 복사'
+                  : '공유'}
+          </Button>
+        )}
+        {shareable && isShared && (
+          <Button
+            variant="secondary"
+            onClick={() => unshare.mutate()}
+            disabled={unshare.isPending}
+          >
+            {unshare.isPending ? '해제 중…' : '공유 해제'}
           </Button>
         )}
         <Button variant="secondary" onClick={handleDownload} disabled={downloading}>

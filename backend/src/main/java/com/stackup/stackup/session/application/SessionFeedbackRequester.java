@@ -51,38 +51,45 @@ public class SessionFeedbackRequester {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onSessionEnded(SessionEndedEvent event) {
-        if (feedbackRepository.existsBySession_Id(event.sessionId())) {
-            log.info("generate.feedback skipped — feedback already exists. sessionId={}", event.sessionId());
+        publishGenerateFeedback(event.userId(), event.sessionId(), event.reason());
+    }
+
+    // 재생성(regenerate) 경로에서도 재사용하는 발행 본체. 멱등 가드는 여기서 —
+    // 이벤트·API 어느 쪽으로 들어와도 피드백이 이미 있으면 발행하지 않는다.
+    @Transactional
+    public void publishGenerateFeedback(Long userId, Long sessionId, String reason) {
+        if (feedbackRepository.existsBySession_Id(sessionId)) {
+            log.info("generate.feedback skipped — feedback already exists. sessionId={}", sessionId);
             return;
         }
-        InterviewSession session = sessionRepository.findById(event.sessionId()).orElse(null);
+        InterviewSession session = sessionRepository.findById(sessionId).orElse(null);
         if (session == null || session.isDeleted()) {
-            log.warn("generate.feedback skipped — session missing/deleted. sessionId={}", event.sessionId());
+            log.warn("generate.feedback skipped — session missing/deleted. sessionId={}", sessionId);
             return;
         }
 
         List<InterviewMessage> msgEntities =
-            messageRepository.findBySession_IdOrderBySequenceNumberAsc(event.sessionId());
+            messageRepository.findBySession_IdOrderBySequenceNumberAsc(sessionId);
         List<MessageItem> messages = msgEntities.stream().map(this::toItem).toList();
-        List<Long> contextDocumentIds = contextRepository.findBySession_Id(event.sessionId()).stream()
+        List<Long> contextDocumentIds = contextRepository.findBySession_Id(sessionId).stream()
             .map(c -> c.getDocument().getId())
             .toList();
 
         Map<String, Integer> domainQuestionCounts = new java.util.LinkedHashMap<>();
         String fallbackJobCategory = session.getJobCategory().name();
-        for (var pool : poolRepository.findBySessionIdAndUsedTrue(event.sessionId())) {
+        for (var pool : poolRepository.findBySessionIdAndUsedTrue(sessionId)) {
             String jc = pool.getJobCategory() != null ? pool.getJobCategory() : fallbackJobCategory;
             domainQuestionCounts.merge(jc, 1, Integer::sum);
         }
 
         List<MessageVoiceAnalysis> voiceAnalyses =
-            voiceAnalysisRepository.findByMessage_Session_Id(event.sessionId());
+            voiceAnalysisRepository.findByMessage_Session_Id(sessionId);
         GenerateFeedbackPayload payload = new GenerateFeedbackPayload(
             session.getId(),
             session.getMode().name(),
             session.getJobCategory().name(),
             session.getTotalQuestionCount(),
-            event.reason(),
+            reason,
             messages,
             contextDocumentIds,
             summarize(voiceAnalyses),
@@ -95,10 +102,10 @@ public class SessionFeedbackRequester {
         publisher.publishToAi(
             properties.routingKeys().generateFeedback(),
             payload,
-            new MessageContext(event.userId(), session.getId(), null, null)
+            new MessageContext(userId, session.getId(), null, null)
         );
         log.info("generate.feedback published. sessionId={}, msgCount={}, ctx={}, reason={}",
-            session.getId(), messages.size(), contextDocumentIds.size(), event.reason());
+            session.getId(), messages.size(), contextDocumentIds.size(), reason);
     }
 
     private MessageItem toItem(InterviewMessage m) {

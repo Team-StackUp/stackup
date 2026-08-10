@@ -152,6 +152,24 @@ export interface paths {
         put?: never;
         /** 피드백 공유 토큰 발급(멱등) */
         post: operations["shareSessionFeedback"];
+        /** 피드백 공유 해제(기존 링크 즉시 무효화, 멱등) */
+        delete: operations["unshareSessionFeedback"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sessions/{sessionId}/feedback/regenerate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 피드백 재생성 요청 — 발행 유실·AI 실패로 피드백이 오지 않을 때의 복구 경로 */
+        post: operations["regenerateSessionFeedback"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1243,6 +1261,8 @@ export interface components {
             highlights?: string[];
             /** @description Stored report path when AI generates a detailed learning guide/report. */
             reportFilePath?: string;
+            /** @description Active share token (owner endpoint only; null = not shared). Absent on the public endpoint. */
+            shareToken?: string;
             /** Format: date-time */
             createdAt?: string;
         };
@@ -1861,6 +1881,88 @@ export interface operations {
                 content: {
                     "*/*": components["schemas"]["ShareResponse"];
                 };
+            };
+        };
+    };
+    unshareSessionFeedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 공유 해제됨 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 인증 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 세션 또는 피드백 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    regenerateSessionFeedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 재생성 요청 접수 */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 인증 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 세션 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description 피드백이 이미 존재 */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description COMPLETED 세션이 아님 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

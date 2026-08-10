@@ -706,6 +706,64 @@
             }
           }
         }
+      },
+      "delete" : {
+        "tags" : [ "Session Feedback" ],
+        "summary" : "피드백 공유 해제(기존 링크 즉시 무효화, 멱등)",
+        "operationId" : "unshareSessionFeedback",
+        "parameters" : [ {
+          "name" : "sessionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "공유 해제됨"
+          },
+          "401" : {
+            "description" : "인증 실패"
+          },
+          "404" : {
+            "description" : "세션 또는 피드백 없음"
+          }
+        }
+      }
+    },
+    "/api/sessions/{sessionId}/feedback/regenerate" : {
+      "post" : {
+        "tags" : [ "Session Feedback" ],
+        "summary" : "피드백 재생성 요청 — 발행 유실·AI 실패로 피드백이 오지 않을 때의 복구 경로",
+        "operationId" : "regenerateSessionFeedback",
+        "parameters" : [ {
+          "name" : "sessionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "202" : {
+            "description" : "재생성 요청 접수"
+          },
+          "401" : {
+            "description" : "인증 실패"
+          },
+          "404" : {
+            "description" : "세션 없음"
+          },
+          "409" : {
+            "description" : "피드백이 이미 존재"
+          },
+          "422" : {
+            "description" : "COMPLETED 세션이 아님"
+          }
+        }
       }
     },
     "/api/resumes" : {
@@ -3607,6 +3665,10 @@
           "reportFilePath" : {
             "type" : "string",
             "description" : "Stored report path when AI generates a detailed learning guide/report."
+          },
+          "shareToken" : {
+            "type" : "string",
+            "description" : "Active share token (owner endpoint only; null = not shared). Absent on the public endpoint."
           },
           "createdAt" : {
             "type" : "string",

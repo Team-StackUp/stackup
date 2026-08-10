@@ -116,4 +116,9 @@ public class SessionFeedback extends BaseSoftDeleteEntity {
         }
         return this.shareToken;
     }
+
+    // 공유 해제. 토큰을 지우면 기존 공유 링크는 즉시 404 가 된다. 멱등.
+    public void disableShare() {
+        this.shareToken = null;
+    }
 }

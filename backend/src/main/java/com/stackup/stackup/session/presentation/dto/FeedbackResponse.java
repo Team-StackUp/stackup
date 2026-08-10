@@ -25,16 +25,28 @@ public record FeedbackResponse(
     List<String> highlights,
     @Schema(description = "Stored report path when AI generates a detailed learning guide/report.")
     String reportFilePath,
+    @Schema(description = "Active share token (owner endpoint only; null = not shared). Absent on the public endpoint.")
+    String shareToken,
     Instant createdAt
 ) {
 
     public static FeedbackResponse from(FeedbackResult r) {
+        return build(r, r.shareToken());
+    }
+
+    // 공개(비인증) 응답: 호출자가 이미 토큰을 알고 있더라도 응답 본문에는 싣지 않는다 —
+    // 캐시·로그·스크린샷 경유 재유출 면을 줄인다.
+    public static FeedbackResponse fromPublic(FeedbackResult r) {
+        return build(r, null);
+    }
+
+    private static FeedbackResponse build(FeedbackResult r, String shareToken) {
         return new FeedbackResponse(
             r.id(), r.sessionId(),
             r.overallScore(), r.technicalAccuracy(), r.logicScore(), r.communicationScore(),
             r.strengthsSummary(), r.weaknessesSummary(),
             r.improvementKeywords(), r.panelBreakdown(), r.studyPlan(), r.highlights(),
-            r.reportFilePath(), r.createdAt()
+            r.reportFilePath(), shareToken, r.createdAt()
         );
     }
 }

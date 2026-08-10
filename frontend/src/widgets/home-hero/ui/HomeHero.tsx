@@ -7,7 +7,7 @@ import { HeroPreview } from './HeroPreview'
 const facts = [
   { v: '4', unit: '축', label: '답변 채점' },
   { v: '3', unit: '명', label: '면접관 패널' },
-  { v: '2', unit: '회', label: '월 무료' },
+  { v: '4', unit: '직군', label: '맞춤 질문' },
 ]
 
 export function HomeHero() {

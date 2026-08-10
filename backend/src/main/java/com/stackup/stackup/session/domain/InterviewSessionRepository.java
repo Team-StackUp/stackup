@@ -49,4 +49,18 @@ public interface InterviewSessionRepository extends JpaRepository<InterviewSessi
     int finishIfInProgress(@Param("id") Long id,
                            @Param("to") SessionStatus to,
                            @Param("now") Instant now);
+
+    // 원자적 시작 전이: READY 일 때만 IN_PROGRESS 로. 더블클릭·중복 탭의 동시 start 가
+    // 둘 다 통과해 startedAt 을 덮어쓰는 것을 막는다 (finishIfInProgress 와 동일 패턴).
+    @Modifying
+    @Query("update InterviewSession s set s.status = com.stackup.stackup.session.domain.SessionStatus.IN_PROGRESS, "
+        + "s.startedAt = :now "
+        + "where s.id = :id and s.status = com.stackup.stackup.session.domain.SessionStatus.READY")
+    int startIfReady(@Param("id") Long id, @Param("now") Instant now);
+
+    // 원자적 취소 전이: READY 일 때만 CANCELLED 로 (동시 start 와의 레이스 차단).
+    @Modifying
+    @Query("update InterviewSession s set s.status = com.stackup.stackup.session.domain.SessionStatus.CANCELLED "
+        + "where s.id = :id and s.status = com.stackup.stackup.session.domain.SessionStatus.READY")
+    int cancelIfReady(@Param("id") Long id);
 }

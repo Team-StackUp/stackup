@@ -28,6 +28,6 @@ public class PublicFeedbackController {
     })
     @GetMapping("/{shareToken}")
     public FeedbackResponse get(@PathVariable String shareToken) {
-        return FeedbackResponse.from(queryService.getByToken(shareToken));
+        return FeedbackResponse.fromPublic(queryService.getByToken(shareToken));
     }
 }
