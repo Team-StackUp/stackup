@@ -76,12 +76,12 @@ export function Modal({ open, onClose, title, children, footer }: ModalProps) {
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="anim-modal-panel relative flex max-h-[88svh] w-full max-w-lg flex-col rounded-t-2xl border border-border bg-surface-raised shadow-lg outline-none sm:rounded-2xl"
+        className="anim-modal-panel relative flex max-h-[88svh] w-full max-w-lg flex-col rounded-t-xl border border-border bg-surface-raised shadow-lg outline-none sm:rounded-xl"
       >
         <header className="flex items-center justify-between gap-4 border-b border-border px-6 py-4">
           <h2
             id={titleId}
-            className="font-heading text-h6 font-bold text-fg-strong"
+            className="font-sans text-[18px] font-bold tracking-[-0.02em] text-fg"
           >
             {title}
           </h2>
