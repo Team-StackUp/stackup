@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { completeGithubLogin, useAuth } from '@/features/auth'
 import { consumeReturnTo } from '@/features/auth/lib/return-to'
 import { isApiError } from '@/shared/api'
+import { Eyebrow, Heading } from '@/shared/ui'
 
 const consumedCodes = new Set<string>()
 
@@ -42,21 +43,24 @@ export default function AuthCallbackPage() {
   }, [missingParams, code, stateParam, applyLogin, navigate])
 
   return (
-    <div className="min-h-svh bg-bg text-fg flex items-center justify-center px-6 py-16">
+    <div className="flex min-h-svh items-center justify-center bg-surface-raised px-6 py-16 text-fg">
       <div className="w-full max-w-md text-center">
         {error ? (
           <>
-            <p className="text-caption font-mono uppercase tracking-[0.22em] text-danger-700">
-              Login failed
-            </p>
-            <h1 className="mt-3 font-heading font-extrabold text-fg text-h4">
+            <p className="font-mono text-caption tracking-tight text-danger-700">로그인 실패</p>
+            <Heading level="section" as="h1" className="mt-3">
               로그인을 완료하지 못했어요
-            </h1>
-            <p className="mt-3 text-fg-strong/80 leading-relaxed">{error}</p>
+            </Heading>
+            <p
+              className="mt-3 text-body font-normal leading-relaxed text-fg-muted"
+              style={{ wordBreak: 'keep-all' }}
+            >
+              {error}
+            </p>
             <Link
               to="/login"
               replace
-              className="mt-8 inline-flex items-center justify-center gap-2 h-11 px-6 rounded-pill bg-primary hover:bg-primary-hover text-fg-on-primary text-button transition-colors duration-fast"
+              className="mt-8 inline-flex items-center justify-center rounded-xl bg-primary px-6 py-3.5 text-body font-semibold text-fg-on-primary transition-colors duration-fast hover:bg-primary-hover"
             >
               로그인 페이지로 돌아가기
             </Link>
@@ -64,13 +68,11 @@ export default function AuthCallbackPage() {
         ) : (
           <>
             <Spinner />
-            <p className="mt-6 text-caption font-mono uppercase tracking-[0.22em] text-fg-muted">
-              Authenticating
-            </p>
-            <h1 className="mt-2 font-heading font-extrabold text-fg text-h4">
+            <Eyebrow className="mt-6">인증 중</Eyebrow>
+            <Heading level="section" as="h1" className="mt-2.5">
               GitHub 로그인 처리 중…
-            </h1>
-            <p className="mt-3 text-fg-strong/80">
+            </Heading>
+            <p className="mt-3 text-body font-normal text-fg-muted">
               잠시만 기다려주세요. 곧 이동합니다.
             </p>
           </>
