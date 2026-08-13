@@ -144,12 +144,18 @@ export function Input({ ref, ...props }: InputProps & { ref?: Ref<HTMLInputEleme
 
 전체 목록은 [`/docs/design-system.md §3`](../../../../docs/design-system.md) 참조.
 
+**화면 조판은 Editorial 프리미티브로** — 제목·라벨·표면을 직접 클래스로 짜지 말고
+`Eyebrow` / `Heading` / `Panel` / `PageHeader` 를 쓴다. 랜딩과 앱 화면이 같은 조판을
+공유하기 위한 것이라, 여기서 벗어나면 그 화면만 다른 제품처럼 읽힌다. 규약은
+[`/docs/design-system.md §3 Editorial`](../../../../docs/design-system.md).
+
 본 디렉토리에는 **shared (도메인 비종속)** 컴포넌트만:
 - Button, IconButton, Link
 - Input, Textarea, Select, Combobox, Checkbox, Radio, Switch
 - Modal, Drawer, Popover, Tooltip, ConfirmDialog
 - Toast, Alert
 - Badge, Tag, Avatar, Card, Skeleton, EmptyState
+- Eyebrow, Heading, Panel, PageHeader, ColorModeToggle (화면 조판 — §8 상단)
 - Tabs, Breadcrumb, Pagination
 - StatusBadge (상태 코드 → 색상 매핑은 도메인 종속이지만, **상태 컬러맵 자체를 props로 받는 일반 컴포넌트**로 설계해서 shared에 둠. 도메인 매핑은 호출부에서)
 
