@@ -36,17 +36,21 @@ export function SessionCard({ session }: { session: Session }) {
   const jobLabel = jobs.map((j) => JOB[j] ?? j).join('·')
 
   const body = (
-    <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-surface-raised px-5 py-4 transition-colors hover:bg-surface">
-      <div className="flex flex-col gap-1">
-        <span className="text-body text-fg">{session.title || `면접 #${session.id}`}</span>
-        <span className="text-caption text-fg-muted">
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-surface-raised px-5 py-4 transition-colors duration-fast hover:border-border-strong">
+      <div className="flex min-w-0 flex-col gap-1">
+        <span className="text-body font-semibold tracking-[-0.02em] text-fg">
+          {session.title || `면접 #${session.id}`}
+        </span>
+        <span className="text-caption text-fg-subtle">
           {formatDate(session.createdAt)} · {MODE[session.mode ?? ''] ?? session.mode} ·{' '}
           {jobLabel} · 질문 {session.totalQuestionCount ?? 0}개
         </span>
       </div>
       <div className="flex items-center gap-3">
         {status && <StatusBadge tone={status.tone}>{status.label}</StatusBadge>}
-        {completed && <span className="text-caption text-fg-muted">리포트 →</span>}
+        {completed && (
+          <span className="shrink-0 text-caption font-medium text-primary-fg">리포트 →</span>
+        )}
       </div>
     </div>
   )

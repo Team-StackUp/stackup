@@ -5,7 +5,7 @@ import {
   StatsSummary,
   useUserStats,
 } from '@/features/history'
-import { Button } from '@/shared/ui/Button'
+import { Eyebrow, Heading, Reveal } from '@/shared/ui'
 
 export function HomeView() {
   // stats 는 홈에서 보조 블록(최근 점수)이라 실패해도 화면 자체는 성립한다.
@@ -14,32 +14,34 @@ export function HomeView() {
   const hasSessions = (stats?.totalSessionCount ?? 0) > 0
 
   return (
-    <div className="space-y-8">
-      <section className="overflow-hidden rounded-2xl border border-border bg-sage-600 p-8 text-white">
-        <p className="text-caption uppercase tracking-[0.08em] text-white/80">
-          맞춤 모의 면접
-        </p>
-        <h2 className="mt-2 font-heading text-h4 font-bold text-white">
+    <div className="space-y-12">
+      {/*
+        기존엔 sage-600 단색 배너 + 흰 글자였다. 랜딩 어디에도 없는 색면이라
+        워크스페이스만 다른 제품처럼 보였고, 고정 톤이라 다크모드에서 반전되지도 않았다.
+        랜딩 히어로와 같은 방식 — 헤어라인으로 끊고 조판으로만 무게를 준다.
+      */}
+      <Reveal as="section">
+        <Eyebrow tone="brand">맞춤 모의 면접</Eyebrow>
+        <Heading level="section" className="mt-3 max-w-xl">
           이력서·레포 기반 맞춤 면접을 시작하세요
-        </h2>
-        <p className="mt-2 max-w-xl text-body text-white/70">
-          면접 모드와 직군을 고르면 AI가 질문을 생성하고, 실시간으로 답변을
-          주고받습니다.
+        </Heading>
+        <p
+          className="mt-3 max-w-xl text-body font-normal text-fg-muted"
+          style={{ wordBreak: 'keep-all' }}
+        >
+          면접 모드와 직군을 고르면 AI가 질문을 생성하고, 실시간으로 답변을 주고받습니다.
         </p>
         <div className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-3">
-          <Link to="/sessions/new">
-            <Button
-              size="lg"
-              variant="secondary"
-              className="gap-2.5 px-7 py-3.5 font-bold shadow-md transition-transform duration-fast hover:-translate-y-0.5"
-            >
-              <PlayIcon />
-              새 면접 시작
-            </Button>
+          <Link
+            to="/sessions/new"
+            className="inline-flex items-center gap-2.5 rounded-xl bg-primary px-6 py-3.5 text-body font-semibold text-fg-on-primary transition-colors duration-fast hover:bg-primary-hover"
+          >
+            <PlayIcon />
+            새 면접 시작
           </Link>
           <Link
             to="/workspace/resumes"
-            className="group inline-flex items-center gap-1 text-button font-semibold text-white/75 transition-colors duration-fast hover:text-white"
+            className="group inline-flex items-center gap-1 px-1 py-3.5 text-body font-semibold text-fg-strong transition-colors duration-fast hover:text-primary-fg"
           >
             자료 준비하기
             <span
@@ -50,9 +52,9 @@ export function HomeView() {
             </span>
           </Link>
         </div>
-      </section>
+      </Reveal>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 border-t border-border pt-8 sm:grid-cols-2 lg:grid-cols-4">
         <QuickLink
           to="/workspace/resumes"
           title="이력서"
@@ -80,9 +82,9 @@ export function HomeView() {
       </div>
 
       {hasSessions && stats && (
-        <section className="space-y-3">
-          <h2 className="text-h6 text-fg">한눈에 보기</h2>
-          <div className="grid gap-4 md:grid-cols-2">
+        <section className="border-t border-border pt-8">
+          <Eyebrow as="h2">한눈에 보기</Eyebrow>
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
             <StatsSummary stats={stats} />
             <ScoreTrend stats={stats} />
           </div>
@@ -106,12 +108,12 @@ function QuickLink({
   return (
     <Link
       to={to}
-      className="group flex flex-col gap-4 rounded-2xl border border-border bg-surface-raised p-5 shadow-sm transition-colors duration-fast hover:border-border-strong"
+      className="group flex flex-col gap-4 rounded-xl border border-border bg-surface-raised p-5 transition-colors duration-fast hover:border-border-strong"
     >
       <div className="flex items-center justify-between">
         <span
           aria-hidden
-          className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-50 text-primary-fg transition-transform duration-fast group-hover:scale-105"
+          className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-50 text-primary-fg"
         >
           {icon}
         </span>
@@ -123,10 +125,12 @@ function QuickLink({
         </span>
       </div>
       <div>
-        <h3 className="font-heading text-h6 font-bold text-fg-strong">
+        <Heading level="sub" as="h3">
           {title}
-        </h3>
-        <p className="mt-1 text-caption text-fg-muted">{description}</p>
+        </Heading>
+        <p className="mt-1.5 text-caption text-fg-muted" style={{ wordBreak: 'keep-all' }}>
+          {description}
+        </p>
       </div>
     </Link>
   )

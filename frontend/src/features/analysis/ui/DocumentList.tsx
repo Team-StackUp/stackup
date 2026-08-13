@@ -94,7 +94,7 @@ function DocumentCard({
         >
           <SourceIcon source={doc.sourceType} />
         </span>
-        <span className="flex-1 text-caption font-semibold uppercase tracking-[0.04em] text-fg-subtle">
+        <span className="flex-1 font-mono text-caption tracking-tight text-fg-subtle">
           {SOURCE_LABEL[doc.sourceType]}
         </span>
         <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
@@ -141,7 +141,7 @@ function DocumentCard({
 
   if (!clickable) {
     return (
-      <li className="rounded-2xl border border-border bg-surface-raised p-5 shadow-sm">
+      <li className="rounded-xl border border-border bg-surface-raised p-5">
         {body}
       </li>
     )
@@ -152,7 +152,7 @@ function DocumentCard({
       <button
         type="button"
         onClick={onOpen}
-        className="group flex w-full flex-col rounded-2xl border border-border bg-surface-raised p-5 text-left shadow-sm transition-colors duration-fast hover:border-border-strong"
+        className="group flex w-full flex-col rounded-xl border border-border bg-surface-raised p-5 text-left transition-colors duration-fast hover:border-border-strong"
       >
         {body}
         <span className="mt-3 inline-flex items-center gap-1 text-caption font-semibold text-primary-fg">
@@ -174,7 +174,7 @@ function DocumentDetail({ doc }: { doc: AnalyzedDocument }) {
     <div className="space-y-5">
       {doc.summary ? (
         <section>
-          <h3 className="text-caption font-semibold uppercase tracking-[0.04em] text-fg-subtle">
+          <h3 className="font-mono text-caption tracking-tight text-fg-subtle">
             요약
           </h3>
           <p className="mt-2 whitespace-pre-line text-body leading-relaxed text-fg-strong">
@@ -185,7 +185,7 @@ function DocumentDetail({ doc }: { doc: AnalyzedDocument }) {
 
       {doc.techStack.length > 0 ? (
         <section>
-          <h3 className="text-caption font-semibold uppercase tracking-[0.04em] text-fg-subtle">
+          <h3 className="font-mono text-caption tracking-tight text-fg-subtle">
             기술 스택
           </h3>
           <ul className="mt-2 flex flex-wrap gap-1.5">

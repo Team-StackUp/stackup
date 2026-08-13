@@ -1,3 +1,4 @@
+import { Eyebrow, Panel } from '@/shared/ui'
 import type { UserStats } from '../api/historyApi'
 
 const W = 480
@@ -27,10 +28,10 @@ export function ScoreTrend({ stats }: { stats: UserStats }) {
 
   if (n === 0) {
     return (
-      <section className="flex flex-col gap-2 rounded-2xl border border-border bg-surface-raised p-5 shadow-sm">
-        <span className="text-caption text-fg-muted">점수 추이</span>
+      <Panel as="section" className="flex flex-col gap-2">
+        <Eyebrow>점수 추이</Eyebrow>
         <p className="text-body text-fg-muted">아직 채점된 면접이 없어요.</p>
-      </section>
+      </Panel>
     )
   }
 
@@ -62,8 +63,8 @@ export function ScoreTrend({ stats }: { stats: UserStats }) {
   })
 
   return (
-    <section className="flex flex-col gap-3 rounded-2xl border border-border bg-surface-raised p-5 shadow-sm">
-      <span className="text-caption text-fg-muted">지표별 점수 추이 (최근 {n}회)</span>
+    <Panel as="section" className="flex flex-col gap-3">
+      <Eyebrow>지표별 점수 추이 (최근 {n}회)</Eyebrow>
       <svg
         viewBox={`0 0 ${W} ${H}`}
         className="aspect-[24/11] w-full"
@@ -146,6 +147,6 @@ export function ScoreTrend({ stats }: { stats: UserStats }) {
           </div>
         ))}
       </div>
-    </section>
+    </Panel>
   )
 }

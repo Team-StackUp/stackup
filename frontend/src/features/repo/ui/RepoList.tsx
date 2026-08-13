@@ -67,7 +67,7 @@ function RepoCard({
     !!progress && (repo.status === 'ANALYZING' || repo.status === 'PENDING')
 
   return (
-    <li className="group flex items-start gap-3 rounded-2xl border border-border bg-surface-raised p-4 shadow-sm transition-colors duration-fast hover:border-border-strong">
+    <li className="group flex items-start gap-3 rounded-xl border border-border bg-surface-raised p-4 transition-colors duration-fast hover:border-border-strong">
       <span
         aria-hidden
         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-fg"

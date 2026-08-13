@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import { useAuth, useLogout } from '@/features/auth'
+import { ColorModeToggle } from '@/shared/ui'
 
 type NavItem = {
   to: string
@@ -31,15 +32,14 @@ export function WorkspaceSidebar() {
       ].join(' ')}
     >
       <div className="flex items-center justify-between gap-2 px-6 py-5 lg:py-6">
-        <Link
-          to="/"
-          className="font-heading text-[15px] font-extrabold uppercase tracking-[0.04em] text-fg"
-        >
+        {/* 로고 조판은 SiteNav 와 한 글자도 다르지 않아야 한다 — 랜딩에서 워크스페이스로
+            넘어올 때 같은 자리의 로고가 다른 폰트로 바뀌면 다른 서비스처럼 읽힌다. */}
+        <Link to="/" className="font-sans text-[17px] font-bold tracking-tight text-fg">
           STACK-UP
         </Link>
         {/* 모바일(가로 바): 우측에 아바타 + 로그아웃. lg 이상은 하단 프로필 블록 사용. */}
         {user ? (
-          <div className="flex items-center gap-2 lg:hidden">
+          <div className="flex items-center gap-1.5 lg:hidden">
             {user.avatarUrl ? (
               <img
                 src={user.avatarUrl}
@@ -48,13 +48,14 @@ export function WorkspaceSidebar() {
                 className="h-8 w-8 rounded-full border border-border object-cover"
               />
             ) : null}
+            <ColorModeToggle />
             <button
               type="button"
               onClick={logout}
               disabled={loggingOut}
               aria-busy={loggingOut}
               aria-label="로그아웃"
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-fg-strong/70 transition-colors duration-fast hover:bg-surface hover:text-fg-strong disabled:opacity-60"
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-fg-muted transition-colors duration-fast hover:bg-surface hover:text-fg-strong disabled:opacity-60"
             >
               <LogoutIcon />
             </button>
@@ -75,8 +76,8 @@ export function WorkspaceSidebar() {
               [
                 'flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2.5 text-button transition-colors duration-fast lg:flex-none lg:gap-3',
                 isActive
-                  ? 'bg-primary/10 font-semibold text-primary-fg'
-                  : 'text-fg-strong/70 hover:bg-surface hover:text-fg-strong',
+                  ? 'bg-primary-50 font-semibold text-primary-fg'
+                  : 'font-medium text-fg-muted hover:bg-surface hover:text-fg-strong',
               ].join(' ')
             }
           >
@@ -103,26 +104,27 @@ export function WorkspaceSidebar() {
             ) : (
               <div
                 aria-hidden
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-surface font-heading text-button font-bold text-fg-strong"
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-surface font-sans text-button font-bold text-fg-strong"
               >
                 {user.githubUsername.charAt(0).toUpperCase() || '?'}
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <p className="truncate text-button text-fg-strong">
+              <p className="truncate text-button font-semibold text-fg-strong">
                 @{user.githubUsername}
               </p>
-              <p className="truncate text-caption text-fg-muted">
+              <p className="truncate text-caption text-fg-subtle">
                 {user.email ?? 'GitHub 연결됨'}
               </p>
             </div>
+            <ColorModeToggle className="-mr-1 shrink-0" />
           </div>
           <button
             type="button"
             onClick={logout}
             disabled={loggingOut}
             aria-busy={loggingOut}
-            className="mt-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-button text-fg-strong/70 transition-colors duration-fast hover:bg-surface hover:text-fg-strong disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-button font-medium text-fg-muted transition-colors duration-fast hover:bg-surface hover:text-fg-strong disabled:cursor-not-allowed disabled:opacity-60"
           >
             <span aria-hidden className="shrink-0">
               <LogoutIcon />

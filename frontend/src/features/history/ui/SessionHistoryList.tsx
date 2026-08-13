@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { EmptyState, ListSkeleton } from '@/shared/ui'
+import { EmptyState, ListSkeleton, QueryError } from '@/shared/ui'
 import { useSessions } from '../model/useHistory'
 import { SessionCard } from './SessionCard'
 
@@ -18,14 +18,7 @@ export function SessionHistoryList() {
     return <ListSkeleton count={4} label="면접 기록을 불러오는 중…" className="py-2" />
   }
   if (isError) {
-    return (
-      <div className="flex flex-col items-center gap-2 py-8">
-        <p className="text-body text-fg-muted">세션을 불러오지 못했습니다.</p>
-        <button className="text-caption text-primary-fg underline" onClick={() => refetch()}>
-          다시 시도
-        </button>
-      </div>
-    )
+    return <QueryError message="세션을 불러오지 못했습니다." onRetry={() => refetch()} />
   }
 
   const sessions = data?.pages.flatMap((p) => p.content ?? []) ?? []
@@ -37,7 +30,7 @@ export function SessionHistoryList() {
         action={
           <Link
             to="/sessions/new"
-            className="inline-flex items-center rounded-md bg-primary px-4 py-2 text-button font-medium text-fg-on-primary transition-colors hover:bg-primary-hover"
+            className="inline-flex items-center rounded-lg bg-primary px-4 py-2.5 text-button font-semibold text-fg-on-primary transition-colors duration-fast hover:bg-primary-hover"
           >
             면접 시작
           </Link>
@@ -53,7 +46,7 @@ export function SessionHistoryList() {
       ))}
       {hasNextPage && (
         <button
-          className="mt-2 self-center text-caption text-fg-muted underline"
+          className="mt-2 self-center text-caption text-fg-muted underline underline-offset-2 transition-colors duration-fast hover:text-fg-strong"
           onClick={() => fetchNextPage()}
           disabled={isFetchingNextPage}
         >
