@@ -1,4 +1,5 @@
 import { type ReactNode } from 'react'
+import { Eyebrow, Heading } from '@/shared/ui'
 import type { SectionId } from './nav'
 import { readableFg } from './lib'
 
@@ -27,15 +28,11 @@ export function Section({
 }) {
   return (
     <section id={id} className="mb-24 scroll-mt-10">
-      <header className="mb-10 pb-6 border-b border-border">
-        <div className="text-caption text-fg-muted uppercase tracking-[0.18em] mb-3 font-semibold font-mono">
-          {label}
-        </div>
-        <h2 className="font-heading text-h3 uppercase tracking-tight text-fg-strong leading-none mb-3">
-          {title}
-        </h2>
+      <header className="mb-10 border-b border-border pb-6">
+        <Eyebrow className="mb-3">{label}</Eyebrow>
+        <Heading level="section">{title}</Heading>
         {description && (
-          <p className="text-rich text-fg-muted max-w-2xl">{description}</p>
+          <p className="mt-3 max-w-2xl text-rich font-normal text-fg-muted">{description}</p>
         )}
       </header>
       {children}
@@ -55,9 +52,9 @@ export function Sub({
   return (
     <div className="mb-12 last:mb-0">
       <div className="flex items-baseline justify-between mb-5 gap-3">
-        <h3 className="font-subheading text-h6 font-bold text-fg-strong">
+        <Heading level="sub" as="h3">
           {title}
-        </h3>
+        </Heading>
         {action}
       </div>
       {children}

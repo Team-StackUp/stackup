@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Eyebrow, Heading } from '@/shared/ui'
 import { NAV, type SectionId } from './nav'
 import { Code } from './primitives'
 import {
@@ -23,10 +24,8 @@ function Sidebar({
   return (
     <aside className="hidden lg:flex lg:flex-col w-56 shrink-0 sticky top-0 h-screen border-r border-border bg-surface">
       <div className="px-5 pt-6 pb-4">
-        <div className="font-heading text-h5 font-bold uppercase tracking-tight leading-none text-fg-strong">
-          STACK-UP
-        </div>
-        <div className="mt-1 text-caption text-fg-muted">Design System</div>
+        <div className="font-sans text-[17px] font-bold tracking-tight text-fg">STACK-UP</div>
+        <div className="mt-1 text-caption text-fg-subtle">Design System</div>
       </div>
       <nav className="flex-1 overflow-y-auto px-3 pb-4 space-y-0.5">
         {NAV.map((item) => {
@@ -60,11 +59,12 @@ function Sidebar({
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-surface-raised border border-border rounded-lg px-5 py-4 hover:border-border-strong transition-colors duration-fast">
-      <dt className="text-caption text-fg-muted uppercase tracking-wider mb-2 font-semibold">
-        {label}
-      </dt>
-      <dd className="font-subheading text-h5 font-bold text-fg-strong leading-none">
+    <div className="rounded-xl border border-border bg-surface-raised px-5 py-4 transition-colors duration-fast hover:border-border-strong">
+      <dt className="mb-2 font-mono text-caption tracking-tight text-fg-subtle">{label}</dt>
+      <dd
+        className="font-sans font-bold leading-none text-fg"
+        style={{ fontSize: '22px', letterSpacing: '-0.03em' }}
+      >
         {value}
       </dd>
     </div>
@@ -74,13 +74,11 @@ function Stat({ label, value }: { label: string; value: string }) {
 function Hero() {
   return (
     <header className="mb-20">
-      <div className="text-button text-fg-muted uppercase tracking-[0.18em] mb-4 font-mono">
-        frontend / app / styles / tokens.css
-      </div>
-      <h1 className="font-display text-display-mobile lg:text-display uppercase tracking-tight text-fg-strong leading-none">
+      <Eyebrow className="mb-4">frontend / app / styles / tokens.css</Eyebrow>
+      <Heading level="page" as="h1">
         Design System
-      </h1>
-      <p className="mt-6 text-rich text-fg-muted max-w-2xl">
+      </Heading>
+      <p className="mt-6 max-w-2xl text-rich font-normal text-fg-muted">
         STACK-UP 프론트엔드의 시각·행동 규약. <Code>tokens.css</Code> 의{' '}
         <Code>@theme</Code> 블록을 SSOT 로 한 Tailwind v4 토큰 시스템.
       </p>
