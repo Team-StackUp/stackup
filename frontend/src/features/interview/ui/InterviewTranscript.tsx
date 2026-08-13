@@ -23,7 +23,7 @@ export function InterviewTranscript({ sessionId }: { sessionId: number }) {
   if (isError) {
     return (
       <section className="flex flex-col gap-4">
-        <h2 className="text-h6 text-fg">질문 &amp; 답변</h2>
+        <h2 className="font-sans text-[18px] font-bold tracking-[-0.02em] text-fg">질문 &amp; 답변</h2>
         <QueryError message="질문·답변 기록을 불러오지 못했습니다." onRetry={() => refetch()} />
       </section>
     )
@@ -36,7 +36,7 @@ export function InterviewTranscript({ sessionId }: { sessionId: number }) {
 
   return (
     <section className="flex flex-col gap-4">
-      <h2 className="text-h6 text-fg">질문 &amp; 답변</h2>
+      <h2 className="font-sans text-[18px] font-bold tracking-[-0.02em] text-fg">질문 &amp; 답변</h2>
       <div className="flex flex-col gap-3">
         {items.map((m) =>
           isQuestion(m) ? (

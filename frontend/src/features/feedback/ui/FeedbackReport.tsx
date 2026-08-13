@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { StatusBadge } from '@/shared/ui/StatusBadge'
 import { ScoreBar } from '@/shared/ui/ScoreBar'
 import { Button } from '@/shared/ui/Button'
-import { toast } from '@/shared/ui'
+import { Eyebrow, Panel, toast } from '@/shared/ui'
 import { useCopyToClipboard } from '@/shared/hooks'
 import type { Feedback } from '../api/feedbackApi'
 import { downloadElementAsPdf } from '../lib/downloadPdf'
@@ -97,26 +97,33 @@ export function FeedbackReport({
         </Button>
       </div>
 
-      <div ref={reportRef} className="flex w-full flex-col gap-8 bg-bg p-2">
-        <section className="flex flex-col items-center gap-2">
-          <span className="text-caption text-fg-muted">종합 점수</span>
-          <span className="text-h2 text-fg">
-            {typeof overall === 'number' ? Math.round(overall) : '—'}
-            <span className="text-h5 text-fg-muted"> / 100</span>
-          </span>
-        </section>
+      <div ref={reportRef} className="flex w-full flex-col gap-10 bg-surface-raised p-2">
+        <section className="flex flex-col gap-6 border-b border-border pb-8 sm:flex-row sm:items-end sm:gap-10">
+          <div>
+            <Eyebrow as="h2">종합 점수</Eyebrow>
+            <p className="mt-2 flex items-baseline gap-1.5">
+              <span
+                className="font-sans font-bold leading-none text-fg"
+                style={{ fontSize: 'clamp(56px, 8vw, 88px)', letterSpacing: '-0.05em' }}
+              >
+                {typeof overall === 'number' ? Math.round(overall) : '—'}
+              </span>
+              <span className="text-rich font-normal text-fg-subtle">/ 100</span>
+            </p>
+          </div>
 
-        <section className="flex flex-col gap-4">
-          <ScoreBar label="기술 정확도" score={feedback.technicalAccuracy} />
-          <ScoreBar label="논리력" score={feedback.logicScore} />
-          <ScoreBar label="전달력" score={feedback.communicationScore} />
+          <div className="flex flex-1 flex-col gap-4 sm:pb-2">
+            <ScoreBar label="기술 정확도" score={feedback.technicalAccuracy} />
+            <ScoreBar label="논리력" score={feedback.logicScore} />
+            <ScoreBar label="전달력" score={feedback.communicationScore} />
+          </div>
         </section>
 
         {/* 핵심 서사: 강점 → 개선 → 키워드 → 학습방향 (점수 직후로 끌어올려 스캔성↑) */}
         {feedback.strengthsSummary && (
           <section className="flex flex-col gap-2">
-            <h2 className="text-h6 text-fg">강점</h2>
-            <p className="whitespace-pre-wrap text-body text-fg-muted">
+            <Eyebrow as="h2">강점</Eyebrow>
+            <p className="whitespace-pre-wrap text-body font-normal leading-relaxed text-fg-strong">
               <HighlightedText text={feedback.strengthsSummary} terms={highlightTerms} />
             </p>
           </section>
@@ -124,8 +131,8 @@ export function FeedbackReport({
 
         {feedback.weaknessesSummary && (
           <section className="flex flex-col gap-2">
-            <h2 className="text-h6 text-fg">개선할 점</h2>
-            <p className="whitespace-pre-wrap text-body text-fg-muted">
+            <Eyebrow as="h2">개선할 점</Eyebrow>
+            <p className="whitespace-pre-wrap text-body font-normal leading-relaxed text-fg-strong">
               <HighlightedText text={feedback.weaknessesSummary} terms={highlightTerms} />
             </p>
           </section>
@@ -133,7 +140,7 @@ export function FeedbackReport({
 
         {feedback.improvementKeywords && feedback.improvementKeywords.length > 0 && (
           <section className="flex flex-col gap-2">
-            <h2 className="text-h6 text-fg">다음에 채울 키워드</h2>
+            <Eyebrow as="h2">다음에 채울 키워드</Eyebrow>
             <div className="flex flex-wrap gap-2">
               {feedback.improvementKeywords.map((kw) => (
                 <StatusBadge key={kw} tone="info">
@@ -146,10 +153,10 @@ export function FeedbackReport({
 
         {feedback.studyPlan && feedback.studyPlan.length > 0 && (
           <section className="flex flex-col gap-2">
-            <h2 className="text-h6 text-fg">학습 방향</h2>
+            <Eyebrow as="h2">학습 방향</Eyebrow>
             <ul className="flex flex-col gap-1.5">
               {feedback.studyPlan.map((step, i) => (
-                <li key={i} className="flex gap-2 text-body text-fg-muted">
+                <li key={i} className="flex gap-2 text-body font-normal leading-relaxed text-fg-strong">
                   <span aria-hidden className="text-primary-fg">›</span>
                   <span className="whitespace-pre-wrap">
                     <HighlightedText text={step} terms={highlightTerms} />
@@ -162,10 +169,10 @@ export function FeedbackReport({
 
         {interviewerPanel.length > 0 && (
           <section className="flex flex-col gap-3">
-            <h2 className="text-h6 text-fg">면접관 패널 평가</h2>
+            <Eyebrow as="h2">면접관 패널 평가</Eyebrow>
             <div className="flex flex-col gap-4">
               {interviewerPanel.map((b) => (
-                <div key={b.evaluator} className="flex flex-col gap-1.5">
+                <Panel key={b.evaluator} padding="sm" className="flex flex-col gap-1.5">
                   <ScoreBar label={`${b.evaluator} 면접관`} score={b.score} />
                   {b.detail && (
                     <p className="whitespace-pre-wrap pl-1 text-caption text-fg-muted">
@@ -181,7 +188,7 @@ export function FeedbackReport({
                   {b.scoreRationale && (
                     <p className="pl-1 text-caption text-fg-subtle">점수 근거 · {b.scoreRationale}</p>
                   )}
-                </div>
+                </Panel>
               ))}
             </div>
           </section>
@@ -191,7 +198,7 @@ export function FeedbackReport({
         {(jobFit || roleUnderstanding || selfIntro) && (
           <section className="flex flex-col gap-4">
             <div className="flex flex-col gap-1">
-              <h2 className="text-h6 text-fg">추가 평가</h2>
+              <Eyebrow as="h2">추가 평가</Eyebrow>
               <p className="text-caption text-fg-subtle">
                 아래 항목은 종합 점수에 반영되지 않는 참고용 평가입니다.
               </p>
@@ -199,7 +206,7 @@ export function FeedbackReport({
 
             {jobFit && (
               <div className="flex flex-col gap-1.5">
-                <h3 className="text-body font-semibold text-fg-strong">직무 적합도</h3>
+                <h3 className="text-body font-bold tracking-[-0.02em] text-fg">직무 적합도</h3>
                 <p className="pl-1 text-caption text-fg-subtle">채용공고(JD) 요구 대비 적합도·갭</p>
                 <ScoreBar label="직무 적합도" score={jobFit.score} />
                 {jobFit.detail && (
@@ -221,7 +228,7 @@ export function FeedbackReport({
 
             {roleUnderstanding && (
               <div className="flex flex-col gap-1.5">
-                <h3 className="text-body font-semibold text-fg-strong">직무 이해도</h3>
+                <h3 className="text-body font-bold tracking-[-0.02em] text-fg">직무 이해도</h3>
                 <p className="pl-1 text-caption text-fg-subtle">직무에 대한 이해·지원동기</p>
                 <ScoreBar label="직무 이해도" score={roleUnderstanding.score} />
                 {roleUnderstanding.detail && (
@@ -245,7 +252,7 @@ export function FeedbackReport({
 
             {selfIntro && (
               <div className="flex flex-col gap-1.5">
-                <h3 className="text-body font-semibold text-fg-strong">자기소개 첫인상</h3>
+                <h3 className="text-body font-bold tracking-[-0.02em] text-fg">자기소개 첫인상</h3>
                 <p className="pl-1 text-caption text-fg-subtle">전달력·구성·직무적합성</p>
                 <ScoreBar label="첫인상" score={selfIntro.score} />
                 {selfIntro.detail && (

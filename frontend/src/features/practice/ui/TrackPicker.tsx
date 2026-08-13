@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/shared/ui/Button'
 import { RadioCardGroup } from '@/shared/ui/RadioCardGroup'
+import { Eyebrow, Heading } from '@/shared/ui'
 
 type RoleTrack = 'frontend' | 'backend'
 
@@ -16,9 +17,12 @@ export function TrackPicker() {
 
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-6 py-16">
-      <div>
-        <h1 className="text-h4 text-fg">직무 기술 면접</h1>
-        <p className="mt-2 text-body text-fg-muted">
+      <div className="border-b border-border pb-6">
+        <Eyebrow>연습 모드</Eyebrow>
+        <Heading level="page" as="h1" className="mt-3">
+          직무 기술 면접
+        </Heading>
+        <p className="mt-3 text-body font-normal text-fg-muted" style={{ wordBreak: 'keep-all' }}>
           연습할 직무를 선택하면 해당 분야 질문이 무작위로 출제됩니다.
         </p>
       </div>

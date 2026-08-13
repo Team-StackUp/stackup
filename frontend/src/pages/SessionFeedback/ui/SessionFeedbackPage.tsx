@@ -2,6 +2,7 @@ import { Link, useParams } from 'react-router-dom'
 import { SiteNav } from '@/widgets/site-nav'
 import { SiteFooter } from '@/widgets/site-footer'
 import { Button } from '@/shared/ui/Button'
+import { PageHeader } from '@/shared/ui'
 import {
   FeedbackReport,
   isFeedbackPending,
@@ -17,15 +18,19 @@ export default function SessionFeedbackPage() {
   const regenerate = useRegenerateFeedback(sessionId)
 
   return (
-    <div className="flex min-h-svh flex-col bg-bg text-fg">
+    <div className="flex min-h-svh flex-col bg-surface-raised text-fg">
       <SiteNav />
-      <main className="mx-auto flex w-full max-w-content flex-1 flex-col gap-8 px-6 py-12 lg:px-12">
-        <header className="flex items-center justify-between gap-4">
-          <h1 className="text-h4 text-fg">면접 피드백</h1>
-          <Link to="/workspace">
-            <Button variant="secondary">워크스페이스로</Button>
-          </Link>
-        </header>
+      <main className="mx-auto flex w-full max-w-content flex-1 flex-col gap-10 px-6 py-12 lg:px-12 lg:py-16">
+        <PageHeader
+          eyebrow="리포트"
+          title="면접 피드백"
+          description="점수 옆에 그렇게 매긴 근거가 함께 붙습니다."
+          actions={
+            <Link to="/workspace">
+              <Button variant="secondary">워크스페이스로</Button>
+            </Link>
+          }
+        />
 
         {isLoading && (
           <div className="flex flex-1 flex-col items-center justify-center gap-2 py-16 text-center">

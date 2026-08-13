@@ -74,7 +74,7 @@ export function ContainerSection() {
               key={bp.label}
               className="bg-surface-raised border border-border rounded-md px-3 py-3 text-center hover:border-border-strong transition-colors duration-fast"
             >
-              <div className="font-subheading text-h6 font-bold text-fg-strong">
+              <div className="font-sans text-[18px] font-bold tracking-[-0.02em] text-fg">
                 {bp.label}
               </div>
               <div className="text-caption text-fg-muted font-mono mt-1">

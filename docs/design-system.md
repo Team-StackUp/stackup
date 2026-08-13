@@ -243,8 +243,38 @@ Tailwind v4 기본 `--spacing: 0.25rem` (= 4px) 사용. `p-4` = `16px`.
 
 위치: [`frontend/src/shared/ui/{Name}/`](../frontend/src/shared/ui/) (도메인 비종속) 또는 [`frontend/src/features/*/ui/`](../frontend/src/features/) (도메인 종속). 각 컴포넌트는 `index.ts` 로 public API.
 
+### Editorial — 화면 조판 (랜딩과 앱 화면의 공통 언어)
+
+랜딩(`/`)이 쓰던 조판을 프리미티브로 뽑아 **모든 화면이 같은 것을 쓴다**. 화면마다 제목
+크기·라벨 스타일이 갈리던 문제를 여기로 모았다.
+
+- `Eyebrow` — 섹션 위 모노 라벨. `font-mono text-caption tracking-tight`, tone: `subtle | brand`.
+- `Heading` — level: `display | page | section | sub`. 뷰포트 비례 `clamp()` + 음수 자간 + `word-break: keep-all`.
+- `Panel` — 헤어라인 표면. padding `none|sm|md|lg` · tone `raised|sunken` · `interactive`.
+- `PageHeader` — 라벨 → 제목 → 설명 → 하단 헤어라인. `actions`(우측), `above`(뒤로가기) 슬롯. level: `page | section | sub`.
+- `ColorModeToggle` — 라이트/다크 전환. `SiteNav`·`WorkspaceSidebar`·로그인 헤더가 공유.
+
+**조판 4규칙** (직접 클래스를 쓸 때도 동일):
+
+| 항목 | 규약 | 하지 말 것 |
+|---|---|---|
+| 헤딩 폰트 | `font-sans`(Pretendard) | `font-heading`(Bricolage)를 한글 제목에 — 자소 높이가 튀어 조판이 흔들린다 |
+| 헤딩 크기 | `clamp()` + 자간 `-0.02 ~ -0.055em` | 고정 `text-h4` 스케일 — 랜딩의 반응형 리듬과 어긋난다 |
+| 섹션 라벨 | 조밀한 모노(`Eyebrow`) | `uppercase tracking-[0.22em]` — 자간을 벌리면 한글 라벨이 무너진다 |
+| 깊이 | 보더 한 줄 + 배경 단계 | 목록 카드마다 `shadow-*` — elevation 은 모달·미리보기 목업 등 **실제로 떠 있는 것**에만 |
+
+한글 제목·본문에는 `word-break: keep-all` 을 건다(어절 중간 줄바꿈 방지).
+
+**헤더가 연달아 나오면 두 단계를 내린다.** 랜딩은 섹션 제목 사이에 큰 콘텐츠가 끼지만
+앱 화면은 `PageHeader`(page) 바로 아래 섹션 헤더가 붙는다. 이때 섹션을 `section`(최대 30px)
+으로 두면 두 헤더가 비슷한 무게로 겹쳐 위계가 납작해진다 → 워크스페이스 섹션은 `sub`(18px).
+
+**모노 라벨이 섹션의 제목 역할을 하면 `<Eyebrow as="h2">`.** 큰 제목 없이 라벨만으로 섹션을
+여는 자리(피드백 리포트의 '강점', 히스토리의 '지난 면접')를 `<p>` 로 두면 문서 개요에서
+사라져 스크린리더로 섹션 간 이동이 불가능해진다. 조판은 `<p>` 와 완전히 동일하게 계산된다.
+
 ### Foundation
-- `Button` — variant: `primary | secondary | ghost | danger` · size: `sm | md | lg` · state: `loading | disabled`.
+- `Button` — variant: `primary | secondary | ghost | danger` · size: `sm | md | lg` · state: `loading | disabled`. 라벨은 `font-semibold`, 라운드는 크기를 따른다(sm·md `rounded-lg` / lg `rounded-xl`). 그림자 없음.
 - `IconButton` — 아이콘 전용, `aria-label` 필수.
 - `Link` — 인라인 / 블록, 외부 링크는 자동 `target="_blank" rel="noopener"`.
 - `Input`, `Textarea`, `Select`, `Combobox` (검색·자동완성).
@@ -339,9 +369,14 @@ Tailwind v4 기본 `--spacing: 0.25rem` (= 4px) 사용. `p-4` = `16px`.
 └──────────┴─────────────────────────────────────────┘
 ```
 
+화면 제목 블록은 항상 `PageHeader` (§3 Editorial). 컨테이너는 `max-w-content px-6 lg:px-12`.
+
+페이지 배경은 랜딩과 같은 두 단계를 번갈아 쓴다 — `bg-surface-raised`(기본 콘텐츠 화면)
+· `bg-surface`(워크스페이스 본문처럼 사이드바/카드와 대비가 필요한 면).
+
 특수 페이지:
-- **Login** — SideNav 없음, 중앙 정렬 카드.
-- **Interview** — focus mode (TopNav 숨김 옵션), 좌측 면접관, 우측 답변 영역, 하단 컨트롤.
+- **Login** — SideNav 없음. `SiteNav` 대신 같은 형태의 얇은 헤더(CTA 가 자기 자신을 가리키지 않게) + `SiteFooter`.
+- **Interview** — focus mode (TopNav 숨김), 배경 사진 + 스크림 위에 반투명 헤더·질문 카드. 이 화면의 고정 다크 요소(면접관 아바타, 웹캠 셀프뷰)만 `sage-*` 를 쓴다.
 - **Feedback Report** — TopNav 만, 인쇄 친화 (`@media print`).
 
 ---
@@ -417,6 +452,7 @@ Tailwind v4 기본 `--spacing: 0.25rem` (= 4px) 사용. `p-4` = `16px`.
 
 ## 12. 변경 이력
 
+- **2026-08** — **랜딩 조판을 전 화면에 확장**: 랜딩만 새 언어(모노 라벨 · `clamp()` 헤딩 · 헤어라인 표면)를 쓰고 나머지 화면은 이전 언어(`font-heading` + `uppercase tracking-[0.22em]` + `rounded-2xl` + `shadow`)에 남아 있어, 같은 서비스가 두 벌의 디자인을 갖고 있었다. 랜딩 조판을 `Eyebrow`/`Heading`/`Panel`/`PageHeader` 프리미티브로 추출하고(§3 Editorial) 로그인·워크스페이스·면접 설정/진행·피드백·연습·404·디자인시스템 화면 전부에 적용. 겸사로 고정 `sage-*` 를 표면/장식 의미로 쓰던 자리(워크스페이스 배너, 면접 스테이지의 로딩 점·이퀄라이저·모드 토글)를 시맨틱 토큰으로 교체 — 다크에서 반전되지 않아 배경에 묻히던 것들이다. `ColorModeToggle` 을 `shared/ui` 로 올려 SiteNav 를 쓰지 않는 화면에서도 모드 전환이 사라지지 않게 했다.
 - **2026-08** — **접근성 감사(WCAG AA) 후 컬러 재매핑**: axe-core 로 전 페이지를 라이트·다크 양쪽 스캔한 결과 페이지당 최대 29건의 `color-contrast` 위반이 있었다. 원인은 SEED 시맨틱을 1:1로 매핑한 것 — SEED 의 `fg-neutral-subtle`(gray-700)·`fg-placeholder`(gray-600)는 흰 배경 대비가 3.42:1·2.10:1 이라 12px 캡션에 쓰면 AA 미달이었다. 텍스트 사다리를 한 단계씩 어둡게 재매핑하고(`fg-muted`→gray-800 6.62:1, `fg-subtle`→`color-mix` 5.36:1), Status 의 `-700` 을 `fg-*-contrast` 로 교체했다(weak 틴트 위 3.38~3.84:1 → 8.05~9.61:1). 장식용 대형 텍스트를 위해 `fg-faint`(3.42:1, AA-large 전용) 추가. 결과: 전 페이지 양 모드 **위반 0건**.
 - **2026-08** — **SEED Design 토큰 채택 + 다크모드**: 컬러·radius·shadow 를 당근 SEED(`@seed-design/css` + `@seed-design/tailwind4-theme`)로 위임. 우리 alias 이름(`--color-fg`, `--color-primary` …)은 유지하고 값만 `var(--seed-color-*)` 로 교체해 컴포넌트 수정 없이 전환. 브랜드는 SEED `blue` 팔레트로 리테마(`seed-overrides.css` — carrot 대신 blue 참조). `--color-primary`(배경)와 `--color-primary-fg`(텍스트)를 분리 — 다크에서 요구가 정반대라 한 토큰으로 불가능. 다크모드는 `<html data-seed-color-mode>` 로 전환(`shared/lib/color-mode`). 타이포그래피는 자체 스케일 유지.
 

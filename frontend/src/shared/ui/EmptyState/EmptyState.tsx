@@ -19,7 +19,7 @@ export function EmptyState({
 }: EmptyStateProps) {
   return (
     <div
-      className={`flex flex-col items-center rounded-2xl border border-dashed border-border-strong bg-surface-raised p-10 text-center ${className}`}
+      className={`flex flex-col items-center rounded-xl border border-dashed border-border-strong bg-surface-raised p-10 text-center ${className}`}
     >
       {icon ? (
         <div className="mb-3 text-fg-subtle" aria-hidden>

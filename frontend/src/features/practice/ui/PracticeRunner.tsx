@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/shared/ui/Button'
 import { Spinner } from '@/shared/ui/Spinner'
-import { StatusBadge } from '@/shared/ui'
+import { Eyebrow, Heading, StatusBadge } from '@/shared/ui'
 import { TextArea } from '@/shared/ui/TextArea'
 import type { PracticeTrack } from '@/domain/practice'
 import { usePracticeSession } from '../model/usePracticeSession'
@@ -57,8 +57,10 @@ export function PracticeRunner({ track }: { track: PracticeTrack }) {
     return (
       <div className="flex flex-col items-center gap-6 py-20 text-center">
         <div>
-          <h2 className="text-h4 text-fg">면접을 마쳤습니다 🎉</h2>
-          <p className="mt-2 text-body text-fg-muted">
+          <Heading level="page" as="h2">
+            면접을 마쳤습니다 🎉
+          </Heading>
+          <p className="mt-3 text-body font-normal text-fg-muted">
             총 {total}개의 {TRACK_LABEL[track]} 질문을 연습했습니다.
           </p>
         </div>
@@ -76,8 +78,10 @@ export function PracticeRunner({ track }: { track: PracticeTrack }) {
     <div className="flex h-full flex-col">
       <header className="flex items-center justify-between gap-4 border-b border-border bg-surface-raised px-5 py-4">
         <div className="min-w-0">
-          <h1 className="truncate text-h6 text-fg">{TRACK_LABEL[track]}</h1>
-          <p className="text-caption text-fg-muted">
+          <h1 className="truncate font-sans text-[18px] font-bold tracking-[-0.02em] text-fg">
+            {TRACK_LABEL[track]}
+          </h1>
+          <p className="font-mono text-caption tracking-tight text-fg-subtle">
             질문 {index + 1} / {total}
           </p>
         </div>
@@ -93,10 +97,15 @@ export function PracticeRunner({ track }: { track: PracticeTrack }) {
             <StatusBadge tone="info">{current.category}</StatusBadge>
           </div>
 
-          <p className="text-h5 leading-relaxed text-fg">{current.question}</p>
+          <p
+            className="font-sans text-[22px] font-bold text-fg sm:text-[26px]"
+            style={{ lineHeight: 1.45, letterSpacing: '-0.03em', wordBreak: 'keep-all' }}
+          >
+            {current.question}
+          </p>
 
           <div className="flex flex-col gap-2">
-            <label className="text-caption text-fg-muted" htmlFor="practice-answer">
+            <label className="text-caption text-fg-subtle" htmlFor="practice-answer">
               답변 메모 (선택) — 머릿속으로 답하거나 적어본 뒤 모범 답안과 비교해 보세요.
             </label>
             <TextArea
@@ -109,9 +118,11 @@ export function PracticeRunner({ track }: { track: PracticeTrack }) {
           </div>
 
           {revealed ? (
-            <div className="rounded-lg border border-border bg-surface px-4 py-4">
-              <p className="mb-1 text-caption font-medium text-fg-muted">모범 답안</p>
-              <p className="text-body leading-relaxed text-fg">{current.answer}</p>
+            <div className="rounded-xl border border-border bg-surface px-4 py-4">
+              <Eyebrow className="mb-2">모범 답안</Eyebrow>
+              <p className="text-body font-normal leading-relaxed text-fg-strong">
+                {current.answer}
+              </p>
             </div>
           ) : null}
         </div>

@@ -21,7 +21,7 @@ function VoiceWave({ playing }: { playing: boolean }) {
       {bars.map((i) => (
         <span
           key={i}
-          className={`w-1.5 rounded-full bg-sage-700 ${playing ? 'anim-eq-bar' : ''}`}
+          className={`w-1.5 rounded-full bg-primary ${playing ? 'anim-eq-bar' : ''}`}
           style={{ height: '100%', animationDelay: `${i * 120}ms` }}
         />
       ))}
@@ -69,18 +69,23 @@ export function StageQuestion({
       <div className="flex items-center gap-2.5">
         <span
           aria-hidden
-          className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-sage-800 text-[11px] font-semibold uppercase tracking-wide text-white"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-primary font-mono text-[11px] font-semibold tracking-tight text-fg-on-primary"
         >
           AI
         </span>
         <div className="flex flex-col">
-          <span className="text-caption font-medium text-fg">면접관</span>
-          {label && <span className="text-caption text-fg-muted">{label}</span>}
+          <span className="text-caption font-semibold text-fg">면접관</span>
+          {label && (
+            <span className="font-mono text-caption tracking-tight text-fg-subtle">{label}</span>
+          )}
         </div>
       </div>
 
       {showText && (
-        <p className="mt-5 whitespace-pre-wrap text-[22px] font-medium leading-relaxed text-fg sm:text-[26px]">
+        <p
+          className="mt-5 whitespace-pre-wrap font-sans text-[22px] font-semibold text-fg sm:text-[26px]"
+          style={{ lineHeight: 1.5, letterSpacing: '-0.025em', wordBreak: 'keep-all' }}
+        >
           {shownText}
         </p>
       )}
@@ -115,7 +120,7 @@ export function StageQuestion({
                 {[0, 1, 2].map((i) => (
                   <span
                     key={i}
-                    className="h-2 w-2 animate-pulse rounded-full bg-sage-700/70"
+                    className="h-2 w-2 animate-pulse rounded-full bg-fg-subtle"
                     style={{ animationDelay: `${i * 150}ms` }}
                   />
                 ))}
@@ -153,7 +158,7 @@ export function StageQuestion({
                 {[0, 1, 2].map((i) => (
                   <span
                     key={i}
-                    className="h-1.5 w-1.5 animate-pulse rounded-full bg-sage-700/60"
+                    className="h-1.5 w-1.5 animate-pulse rounded-full bg-fg-subtle"
                     style={{ animationDelay: `${i * 150}ms` }}
                   />
                 ))}

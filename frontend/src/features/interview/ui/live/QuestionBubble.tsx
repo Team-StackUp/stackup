@@ -46,7 +46,7 @@ export function QuestionBubble({
             )}
           </div>
         )}
-        <div className="rounded-lg rounded-tl-sm bg-surface-raised px-4 py-3 text-body text-fg shadow-sm">
+        <div className="rounded-xl rounded-tl-sm border border-border bg-surface-raised px-4 py-3 text-body text-fg">
           {isSentinel ? (
             <span className="inline-flex gap-1 text-fg-muted" aria-label="질문 생성 중">
               <span className="animate-pulse">●</span>

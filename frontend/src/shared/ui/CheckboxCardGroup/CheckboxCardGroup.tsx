@@ -29,13 +29,15 @@ export function CheckboxCardGroup<T extends string>({
             role="checkbox"
             aria-checked={selected}
             onClick={() => onToggle(opt.value)}
-            className={`flex flex-col gap-1 rounded-lg border px-3 py-3 text-left transition-colors ${
+            className={`flex flex-col gap-1 rounded-xl border px-3.5 py-3 text-left transition-colors duration-fast ${
               selected
-                ? 'border-primary bg-surface'
+                ? 'border-primary bg-primary-50'
                 : 'border-border bg-surface-raised hover:border-border-strong'
             }`}
           >
-            <span className="text-button text-fg">{opt.label}</span>
+            <span className={`text-button font-semibold ${selected ? 'text-primary-fg' : 'text-fg'}`}>
+              {opt.label}
+            </span>
             {opt.description ? (
               <span className="text-caption text-fg-muted">{opt.description}</span>
             ) : null}

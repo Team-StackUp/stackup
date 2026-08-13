@@ -4,7 +4,7 @@ import {
   StatsSummary,
   useUserStats,
 } from '@/features/history'
-import { QueryError } from '@/shared/ui'
+import { Eyebrow, QueryError } from '@/shared/ui'
 
 export function HistoryView() {
   const { data: stats, isError, refetch } = useUserStats()
@@ -20,9 +20,11 @@ export function HistoryView() {
         </div>
       )}
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-h6 text-fg">지난 면접</h2>
-        <SessionHistoryList />
+      <section className="border-t border-border pt-8">
+        <Eyebrow as="h2">지난 면접</Eyebrow>
+        <div className="mt-5">
+          <SessionHistoryList />
+        </div>
       </section>
     </div>
   )

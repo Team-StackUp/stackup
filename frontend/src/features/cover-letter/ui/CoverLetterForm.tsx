@@ -50,7 +50,7 @@ export function CoverLetterForm() {
   }
 
   return (
-    <div className="flex flex-col gap-5 rounded-2xl border border-border bg-surface-raised p-5 shadow-sm">
+    <div className="flex flex-col gap-5 rounded-xl border border-border bg-surface-raised p-5">
       <div className="flex flex-col gap-1.5">
         <label htmlFor="cl-title" className="text-body font-semibold text-fg-strong">
           제목 <span className="text-caption font-normal text-fg-muted">(선택)</span>
@@ -120,7 +120,7 @@ export function CoverLetterForm() {
         <button
           type="button"
           onClick={addItem}
-          className="rounded-lg border border-dashed border-border-strong px-4 py-2 text-button text-fg-strong/80 transition-colors hover:border-primary hover:text-fg-strong"
+          className="rounded-lg border border-dashed border-border-strong px-4 py-2 text-button font-medium text-fg-muted transition-colors duration-fast hover:border-primary hover:text-fg-strong"
         >
           + 문항 추가
         </button>

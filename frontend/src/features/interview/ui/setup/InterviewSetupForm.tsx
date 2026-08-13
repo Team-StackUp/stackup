@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Button } from '@/shared/ui/Button'
 import { Stepper } from '@/shared/ui/Stepper'
+import { Heading } from '@/shared/ui'
 import type { JobCategory, SessionCreateRequest, SessionMode } from '@/domain/session'
 import { ModeSelector } from './ModeSelector'
 import { JobCategorySelector } from './JobCategorySelector'
@@ -68,16 +69,21 @@ export function InterviewSetupForm({
 
   return (
     <form
-      className="mx-auto flex max-w-readable flex-col gap-6 px-4 py-8"
+      className="mx-auto flex max-w-readable flex-col px-6 py-10"
       onSubmit={(e) => {
         e.preventDefault()
         submit()
       }}
     >
-      <section className="flex flex-col gap-2">
-        <label htmlFor="session-title" className="text-h6 text-fg">
+      <section className="flex flex-col gap-3 border-t border-border py-7 first:border-t-0 first:pt-0">
+        <label
+          htmlFor="session-title"
+          className="font-sans text-[18px] font-bold tracking-[-0.02em] text-fg"
+        >
           면접 제목
-          <span className="ml-1 text-caption text-fg-muted">선택 · 미입력 시 '모의 면접'</span>
+          <span className="ml-1.5 text-caption font-normal text-fg-subtle">
+            선택 · 미입력 시 '모의 면접'
+          </span>
         </label>
         <input
           id="session-title"
@@ -86,11 +92,11 @@ export function InterviewSetupForm({
           onChange={(e) => setTitle(e.target.value)}
           maxLength={60}
           placeholder="예: 백엔드 기술 면접 2차"
-          className="rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-fg placeholder:text-fg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary)] focus-visible:border-primary"
+          className="rounded-lg border border-border bg-surface-raised px-3.5 py-2.5 text-body text-fg placeholder:text-fg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary)] focus-visible:border-primary"
         />
       </section>
-      <section className="flex flex-col gap-2">
-        <h2 className="text-h6 text-fg">면접 모드</h2>
+      <section className="flex flex-col gap-3 border-t border-border py-7 first:border-t-0 first:pt-0">
+        <Heading level="sub">면접 모드</Heading>
         <ModeSelector
           value={mode}
           onChange={(m) => {
@@ -104,14 +110,14 @@ export function InterviewSetupForm({
         />
       </section>
       {isJobTailored && (
-        <section className="flex flex-col gap-3">
-          <h2 className="text-h6 text-fg">
+        <section className="flex flex-col gap-4 border-t border-border py-7">
+          <Heading level="sub">
             지원 회사 · 채용공고
-            <span className="ml-1 text-caption text-fg-muted">직무 맞춤 면접</span>
-          </h2>
+            <span className="ml-1.5 text-caption font-normal text-fg-subtle">직무 맞춤 면접</span>
+          </Heading>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="company-name" className="text-body text-fg">
-              회사명 <span className="text-caption text-fg-muted">선택</span>
+              회사명 <span className="text-caption text-fg-subtle">선택</span>
             </label>
             <input
               id="company-name"
@@ -120,12 +126,12 @@ export function InterviewSetupForm({
               onChange={(e) => setCompanyName(e.target.value)}
               maxLength={200}
               placeholder="예: 토스, 우아한형제들"
-              className="rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-fg placeholder:text-fg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary)] focus-visible:border-primary"
+              className="rounded-lg border border-border bg-surface-raised px-3.5 py-2.5 text-body text-fg placeholder:text-fg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary)] focus-visible:border-primary"
             />
           </div>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="job-description" className="text-body text-fg">
-              채용공고(JD) <span className="text-caption text-fg-muted">필수 · 본문 붙여넣기</span>
+              채용공고(JD) <span className="text-caption text-fg-subtle">필수 · 본문 붙여넣기</span>
             </label>
             <textarea
               id="job-description"
@@ -134,24 +140,24 @@ export function InterviewSetupForm({
               maxLength={20000}
               rows={8}
               placeholder="채용공고의 자격요건·우대사항·주요업무를 붙여넣어 주세요. 이 내용으로 적합도·지원동기 질문과 직무 적합도 피드백이 생성됩니다."
-              className="resize-y rounded-md border border-border bg-surface-raised px-3 py-2 text-body text-fg placeholder:text-fg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary)] focus-visible:border-primary"
+              className="resize-y rounded-lg border border-border bg-surface-raised px-3.5 py-2.5 text-body text-fg placeholder:text-fg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary)] focus-visible:border-primary"
             />
           </div>
         </section>
       )}
-      <section className="flex flex-col gap-2">
-        <h2 className="text-h6 text-fg">
+      <section className="flex flex-col gap-3 border-t border-border py-7 first:border-t-0 first:pt-0">
+        <Heading level="sub">
           직군
-          <span className="ml-1 text-caption text-fg-muted">복수 선택 가능</span>
-        </h2>
+          <span className="ml-1.5 text-caption font-normal text-fg-subtle">복수 선택 가능</span>
+        </Heading>
         <JobCategorySelector value={jobCategories} onToggle={toggleJob} />
       </section>
-      <section className="flex flex-col gap-3">
-        <h2 className="text-h6 text-fg">면접 구성</h2>
+      <section className="flex flex-col gap-4 border-t border-border py-7">
+        <Heading level="sub">면접 구성</Heading>
         <div className="flex items-center justify-between">
           <span className="text-body text-fg">
             일반질문 수
-            <span className="ml-1 text-caption text-fg-muted">서로 다른 주제</span>
+            <span className="ml-1.5 text-caption text-fg-subtle">서로 다른 주제</span>
           </span>
           <Stepper
             ariaLabel="일반질문 수"
@@ -164,7 +170,7 @@ export function InterviewSetupForm({
         <div className="flex items-center justify-between">
           <span className="text-body text-fg">
             질문당 꼬리질문
-            <span className="ml-1 text-caption text-fg-muted">한 주제를 얼마나 파고들지</span>
+            <span className="ml-1.5 text-caption text-fg-subtle">한 주제를 얼마나 파고들지</span>
           </span>
           <Stepper
             ariaLabel="질문당 최대 꼬리질문"
@@ -177,7 +183,7 @@ export function InterviewSetupForm({
         <div className="flex items-center justify-between">
           <span className="text-body text-fg">
             총 질문 상한
-            <span className="ml-1 text-caption text-fg-muted">꼬리질문 포함 전체 질문 최대 개수</span>
+            <span className="ml-1.5 text-caption text-fg-subtle">꼬리질문 포함 전체 질문 최대 개수</span>
           </span>
           <Stepper
             ariaLabel="총 질문 상한"
@@ -188,8 +194,11 @@ export function InterviewSetupForm({
           />
         </div>
       </section>
-      <section className="flex flex-col gap-2">
-        <h2 className="text-h6 text-fg">참고 문서 (선택)</h2>
+      <section className="flex flex-col gap-3 border-t border-border py-7 first:border-t-0 first:pt-0">
+        <Heading level="sub">
+          참고 문서
+          <span className="ml-1.5 text-caption font-normal text-fg-subtle">선택</span>
+        </Heading>
         <ContextDocumentPicker
           documents={documents}
           selected={selected}
@@ -198,7 +207,7 @@ export function InterviewSetupForm({
           onRetry={onRetryDocuments}
         />
       </section>
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-3 border-t border-border pt-7">
         {maxQuestions < generalQuestionCount && (
           <p className="text-caption text-warning-700">
             총 질문 상한({maxQuestions})이 일반질문 수({generalQuestionCount})보다 작아요. 상한을 일반질문 수 이상으로 올려주세요.

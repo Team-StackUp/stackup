@@ -27,7 +27,7 @@ export function RepoPicker() {
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-surface-raised shadow-sm">
+    <div className="overflow-hidden rounded-xl border border-border bg-surface-raised">
       <div className="flex items-center gap-4 px-5 py-4">
         <span
           aria-hidden

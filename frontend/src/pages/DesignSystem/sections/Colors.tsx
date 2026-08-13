@@ -238,7 +238,7 @@ export function ColorsSection() {
               className="border border-border rounded-lg overflow-hidden bg-surface-raised"
             >
               <div className="px-4 py-3 bg-surface border-b border-border flex items-center justify-between gap-3">
-                <span className="font-subheading text-h6 font-bold text-fg-strong">
+                <span className="font-sans text-[18px] font-bold tracking-[-0.02em] text-fg">
                   {s.name}
                 </span>
                 <span className="text-caption text-fg-muted truncate font-mono">

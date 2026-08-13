@@ -11,7 +11,7 @@ export function AnswerBubble({ message }: { message: Message }) {
 
   return (
     <div className="flex flex-col items-end gap-1">
-      <div className="max-w-[80%] whitespace-pre-wrap rounded-lg rounded-tr-sm bg-primary px-4 py-3 text-body text-fg-on-primary shadow-sm">
+      <div className="max-w-[80%] whitespace-pre-wrap rounded-xl rounded-tr-sm bg-primary px-4 py-3 text-body text-fg-on-primary">
         {!transcribing ? (
           message.content
         ) : (

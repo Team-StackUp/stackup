@@ -3,8 +3,17 @@ import { Link, Navigate, useLocation } from 'react-router-dom'
 import { GithubLoginButton, useAuth } from '@/features/auth'
 import { rememberReturnTo } from '@/features/auth/lib/return-to'
 import { isApiError } from '@/shared/api'
+import { ColorModeToggle, Eyebrow, Heading, Panel, Reveal } from '@/shared/ui'
+import { SiteFooter } from '@/widgets/site-footer'
 
 type LocationState = { returnTo?: string } | null
+
+// 로그인 뒤 무엇이 준비되는지 — 랜딩 히어로의 숫자 지표와 같은 조판으로 보여준다.
+const facts = [
+  { v: '01', label: '레포 분석' },
+  { v: '02', label: 'AI 면접' },
+  { v: '03', label: '피드백' },
+]
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
@@ -22,100 +31,99 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-svh bg-bg text-fg flex flex-col">
-      <header className="sticky top-0 z-10 bg-bg/85 backdrop-blur-md border-b border-border/60">
-        <div className="mx-auto max-w-content px-6 lg:px-12 h-16 flex items-center justify-between">
-          <Link
-            to="/"
-            className="font-heading font-extrabold tracking-[0.04em] text-fg text-[15px] uppercase"
-          >
+    <div className="flex min-h-svh flex-col bg-surface-raised text-fg">
+      {/*
+        SiteNav 를 그대로 쓰지 않는 이유 — 로그인 화면에서 '시작하기'/'로그인' CTA 는
+        자기 자신을 가리킨다. 대신 SiteNav 와 같은 형태(h-16 · 헤어라인 · 같은 로고
+        조판 · 모드 토글)만 맞춘 얇은 헤더를 둔다.
+      */}
+      <header className="sticky top-0 border-b border-border bg-surface-raised/85 backdrop-blur-md" style={{ zIndex: 'var(--z-sticky)' }}>
+        <div className="mx-auto flex h-16 max-w-content items-center justify-between px-6 lg:px-12">
+          <Link to="/#top" className="font-sans text-[17px] font-bold tracking-tight text-fg">
             STACK-UP
           </Link>
-          <Link
-            to="/"
-            className="text-button text-fg-strong/80 hover:text-fg-strong transition-colors duration-fast"
-          >
-            ← 홈으로
-          </Link>
+          <div className="flex items-center gap-1.5">
+            <ColorModeToggle />
+            <Link
+              to="/"
+              className="rounded-md px-3 py-2 text-button text-fg-muted transition-colors duration-fast hover:text-fg-strong"
+            >
+              홈으로
+            </Link>
+          </div>
         </div>
       </header>
 
-      <main className="flex-1 flex items-center justify-center px-6 py-16">
-        <div className="w-full max-w-md">
-          <div className="text-center">
-            <p className="text-caption font-mono uppercase tracking-[0.22em] text-fg-muted">
-              Sign in
-            </p>
-            <h1
-              className="mt-4 font-heading font-extrabold text-fg leading-[1.05]"
-              style={{ fontSize: 'clamp(36px, 5vw, 52px)', letterSpacing: '-0.5px' }}
+      <main className="flex flex-1 items-center px-6 py-16 lg:px-12">
+        <div className="mx-auto w-full max-w-md">
+          <Reveal>
+            <Eyebrow>로그인</Eyebrow>
+            <Heading level="page" as="h1" className="mt-3">
+              모의 면접을 시작해볼까요?
+            </Heading>
+            <p
+              className="mt-4 text-body font-normal text-fg-muted"
+              style={{ wordBreak: 'keep-all' }}
             >
-              모의 면접을<br />시작해볼까요?
-            </h1>
-            <p className="mt-5 text-fg-strong/80 leading-relaxed">
-              GitHub 계정으로 로그인하면<br />
-              당신의 레포지토리 기반 맞춤 면접이 준비됩니다.
+              GitHub 계정으로 로그인하면 내 레포지토리와 이력서를 읽은 면접관이 준비됩니다.
             </p>
-          </div>
+          </Reveal>
 
-          <div className="mt-10 bg-surface-raised rounded-2xl border border-border shadow-md p-8">
-            <GithubLoginButton
-              className="w-full"
-              onError={(err) => {
-                if (isApiError(err)) {
-                  setError(err.message)
-                } else {
-                  setError('로그인을 시작할 수 없습니다. 잠시 후 다시 시도해주세요.')
-                }
-              }}
-            />
+          <Reveal delayMs={60}>
+            <Panel padding="lg" className="mt-8">
+              <GithubLoginButton
+                className="w-full"
+                onError={(err) => {
+                  if (isApiError(err)) {
+                    setError(err.message)
+                  } else {
+                    setError('로그인을 시작할 수 없습니다. 잠시 후 다시 시도해주세요.')
+                  }
+                }}
+              />
 
-            {error ? (
-              <div
-                role="alert"
-                className="mt-4 rounded-md border border-danger-500/30 bg-danger-50 px-3 py-2 text-caption text-danger-700"
-              >
-                {error}
-              </div>
-            ) : null}
-
-            <p className="mt-6 text-caption text-fg-muted text-center leading-relaxed">
-              계속 진행하면 STACK-UP의{' '}
-              <a href="#" className="underline hover:text-fg-strong">이용약관</a>과{' '}
-              <a href="#" className="underline hover:text-fg-strong">개인정보 처리방침</a>에
-              동의하는 것으로 간주됩니다.
-            </p>
-          </div>
-
-          <ul className="mt-10 grid grid-cols-3 gap-4 text-center">
-            {features.map((f) => (
-              <li key={f.title}>
-                <div className="text-h6 font-heading font-extrabold text-fg-strong">
-                  {f.icon}
+              {error ? (
+                <div
+                  role="alert"
+                  className="mt-4 rounded-lg border border-danger-500/30 bg-danger-50 px-3 py-2 text-caption text-danger-700"
+                >
+                  {error}
                 </div>
-                <div className="mt-2 text-caption font-mono uppercase tracking-[0.18em] text-fg-muted">
-                  {f.title}
+              ) : null}
+
+              <p className="mt-6 text-center text-caption leading-relaxed text-fg-muted">
+                계속 진행하면 STACK-UP의{' '}
+                <a href="#" className="underline underline-offset-2 hover:text-fg-strong">
+                  이용약관
+                </a>
+                과{' '}
+                <a href="#" className="underline underline-offset-2 hover:text-fg-strong">
+                  개인정보 처리방침
+                </a>
+                에 동의하는 것으로 간주됩니다.
+              </p>
+            </Panel>
+          </Reveal>
+
+          <Reveal delayMs={120}>
+            <dl className="mt-10 flex divide-x divide-border border-t border-border pt-6">
+              {facts.map((f) => (
+                <div key={f.label} className="flex-1 pr-4 first:pl-0 [&:not(:first-child)]:pl-5">
+                  <dd
+                    className="font-mono font-semibold leading-none text-fg-faint"
+                    style={{ fontSize: '22px', letterSpacing: '-0.04em' }}
+                  >
+                    {f.v}
+                  </dd>
+                  <dt className="mt-1.5 text-caption text-fg-subtle">{f.label}</dt>
                 </div>
-              </li>
-            ))}
-          </ul>
+              ))}
+            </dl>
+          </Reveal>
         </div>
       </main>
 
-      <footer className="border-t border-border">
-        <div className="mx-auto max-w-content px-6 lg:px-12 h-14 flex items-center justify-between text-caption font-mono text-fg-muted">
-          <span>© 2026 STACK-UP</span>
-          <Link to="/" className="hover:text-fg-strong transition-colors duration-fast">
-            ← Back to home
-          </Link>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   )
 }
-
-const features = [
-  { icon: '01', title: 'Repo 분석' },
-  { icon: '02', title: 'AI 면접' },
-  { icon: '03', title: '피드백' },
-]

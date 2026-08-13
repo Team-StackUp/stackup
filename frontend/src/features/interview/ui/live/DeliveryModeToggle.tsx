@@ -47,9 +47,9 @@ export function DeliveryModeToggle({
             aria-checked={active}
             onClick={() => onChange(v)}
             className={[
-              'inline-flex min-h-11 items-center gap-1.5 rounded-pill px-3 py-1 text-caption font-medium transition-colors',
+              'inline-flex min-h-11 items-center gap-1.5 rounded-pill px-3 py-1 text-caption font-semibold transition-colors duration-fast',
               active
-                ? 'bg-sage-800 text-white shadow-sm'
+                ? 'bg-primary text-fg-on-primary'
                 : 'text-fg-muted hover:text-fg',
             ].join(' ')}
           >
