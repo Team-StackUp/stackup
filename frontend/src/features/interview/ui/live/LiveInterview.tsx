@@ -41,7 +41,7 @@ export function LiveInterview({ sessionId }: { sessionId: number }) {
         <button
           type="button"
           onClick={refetchSession}
-          className="rounded-lg bg-primary px-4 py-2 text-button text-fg-on-primary transition-colors duration-fast hover:bg-primary-hover"
+          className="rounded-lg bg-primary px-4 py-2.5 text-button font-semibold text-fg-on-primary transition-colors duration-fast hover:bg-primary-hover"
         >
           다시 시도
         </button>

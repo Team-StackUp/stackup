@@ -37,7 +37,7 @@ export function TranscriptDrawer({
         className="relative ml-auto flex h-full w-full max-w-md flex-col bg-bg shadow-xl"
       >
         <header className="flex items-center justify-between border-b border-border px-4 py-3">
-          <h2 className="text-h6 text-fg">대화 기록</h2>
+          <h2 className="font-sans text-[18px] font-bold tracking-[-0.02em] text-fg">대화 기록</h2>
           <button
             type="button"
             onClick={onClose}

@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Button } from '@/shared/ui/Button'
+import { Eyebrow } from '@/shared/ui'
 import type { SessionStatus } from '@/domain/session'
 
 const messageByStatus: Partial<Record<SessionStatus, string>> = {
@@ -16,9 +17,15 @@ export function SessionEndedPanel({
   sessionId: number
 }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-4 px-4 text-center">
-      <p className="text-rich text-fg">{messageByStatus[status] ?? '면접이 종료되었습니다.'}</p>
-      <div className="flex flex-wrap items-center justify-center gap-3">
+    <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
+      <Eyebrow>면접 종료</Eyebrow>
+      <p
+        className="font-sans text-[22px] font-bold tracking-[-0.03em] text-fg"
+        style={{ wordBreak: 'keep-all' }}
+      >
+        {messageByStatus[status] ?? '면접이 종료되었습니다.'}
+      </p>
+      <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
         {status === 'COMPLETED' && (
           <Link to={`/sessions/${sessionId}/feedback`}>
             <Button>피드백 보기</Button>

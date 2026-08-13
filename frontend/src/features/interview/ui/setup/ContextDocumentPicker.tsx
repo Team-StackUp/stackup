@@ -52,7 +52,7 @@ export function ContextDocumentPicker({
         <label
           key={doc.id}
           htmlFor={`ctx-doc-${doc.id}`}
-          className="flex cursor-pointer items-center gap-2 rounded-md border border-border bg-surface-raised px-3 py-2"
+          className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-border bg-surface-raised px-3.5 py-2.5 transition-colors duration-fast hover:border-border-strong"
         >
           <input
             id={`ctx-doc-${doc.id}`}
@@ -60,8 +60,8 @@ export function ContextDocumentPicker({
             checked={selected.includes(doc.id)}
             onChange={() => onToggle(doc.id)}
           />
-          <span className="flex-1 text-button text-fg">{doc.label}</span>
-          <span className="rounded-pill bg-surface px-2 py-0.5 text-caption text-fg-muted">
+          <span className="flex-1 truncate text-button font-medium text-fg">{doc.label}</span>
+          <span className="shrink-0 rounded-pill bg-surface px-2 py-0.5 font-mono text-caption text-fg-subtle">
             {documentSourceLabel(doc.sourceType)}
           </span>
         </label>

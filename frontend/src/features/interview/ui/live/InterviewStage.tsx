@@ -34,7 +34,7 @@ function ThinkingState({ transcribing }: { transcribing: boolean }) {
         {[0, 1, 2].map((i) => (
           <span
             key={i}
-            className="h-2.5 w-2.5 animate-pulse rounded-full bg-sage-700/70"
+            className="h-2.5 w-2.5 animate-pulse rounded-full bg-fg-subtle"
             style={{ animationDelay: `${i * 150}ms` }}
           />
         ))}
@@ -109,8 +109,10 @@ export function InterviewStage({
 
       <header className="relative z-10 flex items-center justify-between gap-3 border-b border-surface-raised/40 bg-surface-raised/55 px-4 py-3 backdrop-blur-md">
         <div className="min-w-0">
-          <h1 className="truncate text-h6 text-fg">{session.title ?? '모의 면접'}</h1>
-          <p className="text-caption text-fg-muted">
+          <h1 className="truncate font-sans text-[18px] font-bold tracking-[-0.02em] text-fg">
+            {session.title ?? '모의 면접'}
+          </h1>
+          <p className="font-mono text-caption tracking-tight text-fg-subtle">
             질문 {progress.current} / {progress.max}
           </p>
         </div>
