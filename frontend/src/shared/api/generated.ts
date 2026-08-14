@@ -381,6 +381,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/google": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Google OAuth authorization URL */
+        post: operations["startGoogleLogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/github": {
         parameters: {
             query?: never;
@@ -764,6 +781,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/google/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Complete Google OAuth login */
+        get: operations["completeGoogleLogin"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/github/callback": {
         parameters: {
             query?: never;
@@ -1119,7 +1153,7 @@ export interface components {
              */
             expiresIn?: number;
         };
-        GithubLoginResponse: {
+        OAuthLoginResponse: {
             /**
              * @description GitHub OAuth authorization URL
              * @example https://github.com/login/oauth/authorize?client_id=...&redirect_uri=...&scope=read:user%20user:email%20repo&state=generated-state
@@ -1143,23 +1177,34 @@ export interface components {
              */
             id?: number;
             /**
-             * Format: int64
-             * @description Stable GitHub user id
-             * @example 123456
+             * @description OAuth provider this account was created with
+             * @example GITHUB
+             * @enum {string}
              */
-            githubId?: number;
+            provider?: "GITHUB" | "GOOGLE";
             /**
-             * @description GitHub username at login time
+             * @description Name shown in the UI
              * @example octocat
              */
-            githubUsername?: string;
+            displayName?: string;
             /**
-             * @description Primary GitHub email when available
+             * Format: int64
+             * @description Stable GitHub user id. Null for Google accounts
+             * @example 123456
+             */
+            githubId?: number | null;
+            /**
+             * @description GitHub username at login time. Null for Google accounts
+             * @example octocat
+             */
+            githubUsername?: string | null;
+            /**
+             * @description Primary email when available
              * @example octocat@example.com
              */
             email?: string | null;
             /**
-             * @description GitHub avatar URL
+             * @description Avatar URL
              * @example https://avatars.githubusercontent.com/u/123456
              */
             avatarUrl?: string | null;
@@ -1321,28 +1366,39 @@ export interface components {
              */
             id?: number;
             /**
-             * Format: int64
-             * @description Stable GitHub user id
-             * @example 123456
+             * @description OAuth provider this account was created with
+             * @example GITHUB
+             * @enum {string}
              */
-            githubId?: number;
+            provider?: "GITHUB" | "GOOGLE";
             /**
-             * @description GitHub username at login time
+             * @description Name shown in the UI
              * @example octocat
              */
-            githubUsername?: string;
+            displayName?: string;
             /**
-             * @description Primary GitHub email when available
+             * Format: int64
+             * @description Stable GitHub user id. Null for Google accounts
+             * @example 123456
+             */
+            githubId?: number | null;
+            /**
+             * @description GitHub username at login time. Null for Google accounts
+             * @example octocat
+             */
+            githubUsername?: string | null;
+            /**
+             * @description Primary email when available
              * @example octocat@example.com
              */
             email?: string | null;
             /**
-             * @description GitHub avatar URL
+             * @description Avatar URL
              * @example https://avatars.githubusercontent.com/u/123456
              */
             avatarUrl?: string | null;
         };
-        GithubCallbackResponse: {
+        OAuthCallbackResponse: {
             /**
              * @description StackUp JWT access token
              * @example our-jwt-access-token
@@ -2521,6 +2577,26 @@ export interface operations {
             };
         };
     };
+    startGoogleLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Google authorization URL created */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["OAuthLoginResponse"];
+                };
+            };
+        };
+    };
     startGithubLogin: {
         parameters: {
             query?: never;
@@ -2536,7 +2612,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["GithubLoginResponse"];
+                    "*/*": components["schemas"]["OAuthLoginResponse"];
                 };
             };
         };
@@ -3471,6 +3547,38 @@ export interface operations {
             };
         };
     };
+    completeGoogleLogin: {
+        parameters: {
+            query?: {
+                code?: string;
+                state?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Login completed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["OAuthCallbackResponse"];
+                };
+            };
+            /** @description Google OAuth login failed */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["OAuthCallbackResponse"];
+                };
+            };
+        };
+    };
     completeGithubLogin: {
         parameters: {
             query?: {
@@ -3489,7 +3597,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["GithubCallbackResponse"];
+                    "*/*": components["schemas"]["OAuthCallbackResponse"];
                 };
             };
             /** @description GitHub OAuth login failed */
@@ -3498,7 +3606,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["GithubCallbackResponse"];
+                    "*/*": components["schemas"]["OAuthCallbackResponse"];
                 };
             };
         };

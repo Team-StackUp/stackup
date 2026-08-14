@@ -24,9 +24,6 @@
     "name" : "Voice Answer",
     "description" : "음성 답변 업로드 (Phase 2 - 음성 면접)"
   }, {
-    "name" : "Auth",
-    "description" : "GitHub OAuth login and authentication token APIs"
-  }, {
     "name" : "Documents",
     "description" : "분석 문서(이력서/레포 공통) 조회. 상세 조회 시 분석 마크다운의 presigned S3 URL 포함."
   }, {
@@ -35,6 +32,9 @@
   }, {
     "name" : "Internal: Session Messages",
     "description" : "X-Internal-API-Key 필요. RealTime WS 답변 위임."
+  }, {
+    "name" : "Auth",
+    "description" : "OAuth login (GitHub, Google) and authentication token APIs"
   }, {
     "name" : "Sessions",
     "description" : "면접 세션 생성·조회·상태 전환. 컨텍스트(이력서/레포 분석 문서) 연결 포함."
@@ -1425,6 +1425,25 @@
         }
       }
     },
+    "/api/auth/google" : {
+      "post" : {
+        "tags" : [ "Auth" ],
+        "summary" : "Create Google OAuth authorization URL",
+        "operationId" : "startGoogleLogin",
+        "responses" : {
+          "200" : {
+            "description" : "Google authorization URL created",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OAuthLoginResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/auth/github" : {
       "post" : {
         "tags" : [ "Auth" ],
@@ -1436,7 +1455,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/GithubLoginResponse"
+                  "$ref" : "#/components/schemas/OAuthLoginResponse"
                 }
               }
             }
@@ -2530,6 +2549,50 @@
         }
       }
     },
+    "/api/auth/google/callback" : {
+      "get" : {
+        "tags" : [ "Auth" ],
+        "summary" : "Complete Google OAuth login",
+        "operationId" : "completeGoogleLogin",
+        "parameters" : [ {
+          "name" : "code",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "state",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Login completed",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OAuthCallbackResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Google OAuth login failed",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OAuthCallbackResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/auth/github/callback" : {
       "get" : {
         "tags" : [ "Auth" ],
@@ -2556,7 +2619,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/GithubCallbackResponse"
+                  "$ref" : "#/components/schemas/OAuthCallbackResponse"
                 }
               }
             }
@@ -2566,7 +2629,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/GithubCallbackResponse"
+                  "$ref" : "#/components/schemas/OAuthCallbackResponse"
                 }
               }
             }
@@ -3368,7 +3431,7 @@
           }
         }
       },
-      "GithubLoginResponse" : {
+      "OAuthLoginResponse" : {
         "type" : "object",
         "properties" : {
           "authorizationUrl" : {
@@ -3407,25 +3470,36 @@
             "description" : "StackUp user id",
             "example" : 1
           },
+          "provider" : {
+            "type" : "string",
+            "description" : "OAuth provider this account was created with",
+            "enum" : [ "GITHUB", "GOOGLE" ],
+            "example" : "GITHUB"
+          },
+          "displayName" : {
+            "type" : "string",
+            "description" : "Name shown in the UI",
+            "example" : "octocat"
+          },
           "githubId" : {
-            "type" : "integer",
+            "type" : [ "integer", "null" ],
             "format" : "int64",
-            "description" : "Stable GitHub user id",
+            "description" : "Stable GitHub user id. Null for Google accounts",
             "example" : 123456
           },
           "githubUsername" : {
-            "type" : "string",
-            "description" : "GitHub username at login time",
+            "type" : [ "string", "null" ],
+            "description" : "GitHub username at login time. Null for Google accounts",
             "example" : "octocat"
           },
           "email" : {
             "type" : [ "string", "null" ],
-            "description" : "Primary GitHub email when available",
+            "description" : "Primary email when available",
             "example" : "octocat@example.com"
           },
           "avatarUrl" : {
             "type" : [ "string", "null" ],
-            "description" : "GitHub avatar URL",
+            "description" : "Avatar URL",
             "example" : "https://avatars.githubusercontent.com/u/123456"
           }
         }
@@ -3805,30 +3879,41 @@
             "description" : "StackUp user id",
             "example" : 1
           },
+          "provider" : {
+            "type" : "string",
+            "description" : "OAuth provider this account was created with",
+            "enum" : [ "GITHUB", "GOOGLE" ],
+            "example" : "GITHUB"
+          },
+          "displayName" : {
+            "type" : "string",
+            "description" : "Name shown in the UI",
+            "example" : "octocat"
+          },
           "githubId" : {
-            "type" : "integer",
+            "type" : [ "integer", "null" ],
             "format" : "int64",
-            "description" : "Stable GitHub user id",
+            "description" : "Stable GitHub user id. Null for Google accounts",
             "example" : 123456
           },
           "githubUsername" : {
-            "type" : "string",
-            "description" : "GitHub username at login time",
+            "type" : [ "string", "null" ],
+            "description" : "GitHub username at login time. Null for Google accounts",
             "example" : "octocat"
           },
           "email" : {
             "type" : [ "string", "null" ],
-            "description" : "Primary GitHub email when available",
+            "description" : "Primary email when available",
             "example" : "octocat@example.com"
           },
           "avatarUrl" : {
             "type" : [ "string", "null" ],
-            "description" : "GitHub avatar URL",
+            "description" : "Avatar URL",
             "example" : "https://avatars.githubusercontent.com/u/123456"
           }
         }
       },
-      "GithubCallbackResponse" : {
+      "OAuthCallbackResponse" : {
         "type" : "object",
         "properties" : {
           "accessToken" : {
