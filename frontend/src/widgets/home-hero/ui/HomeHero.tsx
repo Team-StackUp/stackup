@@ -61,7 +61,7 @@ export function HomeHero() {
                   to={getStartedTo}
                   className="inline-flex items-center justify-center rounded-xl bg-primary px-6 py-3.5 text-body font-semibold text-fg-on-primary transition-colors duration-fast hover:bg-primary-hover"
                 >
-                  GitHub으로 시작하기
+                  GitHub·Google로 시작하기
                 </Link>
                 <a
                   href="#how"
