@@ -106,12 +106,13 @@ export function WorkspaceSidebar() {
                 aria-hidden
                 className="flex h-9 w-9 items-center justify-center rounded-full bg-surface font-sans text-button font-bold text-fg-strong"
               >
-                {user.githubUsername.charAt(0).toUpperCase() || '?'}
+                {user.displayName.charAt(0).toUpperCase() || '?'}
               </div>
             )}
             <div className="min-w-0 flex-1">
               <p className="truncate text-button font-semibold text-fg-strong">
-                @{user.githubUsername}
+                {/* GitHub 계정만 핸들(@octocat)이 있다. Google 계정은 이름을 그대로 쓴다. */}
+                {user.githubUsername ? `@${user.githubUsername}` : user.displayName}
               </p>
               <p className="truncate text-caption text-fg-subtle">
                 {user.email ?? 'GitHub 연결됨'}

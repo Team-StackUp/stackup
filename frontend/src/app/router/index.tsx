@@ -24,6 +24,7 @@ export const router = createBrowserRouter([
       { path: '/practice/:track', element: <PracticePage /> },
       { path: '/share/:token', element: <SharedFeedbackPage /> },
       { path: '/auth/callback', element: <AuthCallbackPage /> },
+      { path: '/auth/google/callback', element: <AuthCallbackPage /> },
       {
         path: '/workspace',
         element: (

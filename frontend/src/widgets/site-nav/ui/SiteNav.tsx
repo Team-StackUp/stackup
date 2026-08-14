@@ -62,7 +62,7 @@ export function SiteNav() {
                 {user?.avatarUrl ? (
                   <img src={user.avatarUrl} alt="" aria-hidden className="h-6 w-6 rounded-full" />
                 ) : null}
-                <span>{user?.githubUsername ?? '워크스페이스'}</span>
+                <span>{user?.displayName ?? '워크스페이스'}</span>
               </Link>
               <button
                 type="button"

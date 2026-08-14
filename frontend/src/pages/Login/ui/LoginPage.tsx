@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useLocation } from 'react-router-dom'
-import { GithubLoginButton, useAuth } from '@/features/auth'
+import { GithubLoginButton, GoogleLoginButton, useAuth } from '@/features/auth'
 import { rememberReturnTo } from '@/features/auth/lib/return-to'
 import { isApiError } from '@/shared/api'
 import { ColorModeToggle, Eyebrow, Heading, Panel, Reveal } from '@/shared/ui'
@@ -28,6 +28,14 @@ export default function LoginPage() {
 
   if (status === 'authenticated') {
     return <Navigate to={returnTo ?? '/'} replace />
+  }
+
+  const handleLoginError = (err: unknown) => {
+    setError(
+      isApiError(err)
+        ? err.message
+        : '로그인을 시작할 수 없습니다. 잠시 후 다시 시도해주세요.',
+    )
   }
 
   return (
@@ -65,22 +73,28 @@ export default function LoginPage() {
               className="mt-4 text-body font-normal text-fg-muted"
               style={{ wordBreak: 'keep-all' }}
             >
-              GitHub 계정으로 로그인하면 내 레포지토리와 이력서를 읽은 면접관이 준비됩니다.
+              로그인하면 내 이력서·자소서·레포지토리를 읽은 면접관이 준비됩니다.
             </p>
           </Reveal>
 
           <Reveal delayMs={60}>
             <Panel padding="lg" className="mt-8">
-              <GithubLoginButton
-                className="w-full"
-                onError={(err) => {
-                  if (isApiError(err)) {
-                    setError(err.message)
-                  } else {
-                    setError('로그인을 시작할 수 없습니다. 잠시 후 다시 시도해주세요.')
-                  }
-                }}
-              />
+              <div className="flex flex-col gap-2.5">
+                <GithubLoginButton className="w-full" onError={handleLoginError} />
+                <GoogleLoginButton className="w-full" onError={handleLoginError} />
+              </div>
+
+              {/*
+                두 방식의 차이를 로그인 전에 알린다 — Google 로 가입한 뒤 레포 화면에서
+                비로소 막히는 것보다, 고르는 시점에 아는 편이 낫다.
+              */}
+              <p
+                className="mt-3.5 text-center text-caption leading-relaxed text-fg-subtle"
+                style={{ wordBreak: 'keep-all' }}
+              >
+                레포지토리 기반 질문은 GitHub 로그인에서만 제공됩니다. Google 계정은 이력서·자소서로
+                면접을 볼 수 있어요.
+              </p>
 
               {error ? (
                 <div

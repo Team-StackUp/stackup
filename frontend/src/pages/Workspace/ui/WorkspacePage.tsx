@@ -30,7 +30,7 @@ export default function WorkspacePage() {
   const meta = {
     home: {
       eyebrow: '워크스페이스',
-      title: user ? `안녕하세요, ${user.githubUsername}님` : '대시보드',
+      title: user ? `안녕하세요, ${user.displayName}님` : '대시보드',
       description: '오늘도 맞춤 모의 면접으로 실전 감각을 키워보세요.',
     },
     resumes: {
