@@ -81,7 +81,7 @@ com.stackup.stackup.{domain}/
 
 | 패키지 | 책임 | 관련 US |
 |--------|------|---------|
-| `auth` | GitHub OAuth flow, JWT 발급/갱신/검증, refresh token, JWT 필터 | US-01 |
+| `auth` | OAuth flow (GitHub · Google), JWT 발급/갱신/검증, refresh token, JWT 필터 | US-01 |
 | `user` | 사용자 CRUD, 회원 탈퇴, 프로필 조회 | US-02, US-04 |
 | `user.consent` | 개인정보처리동의 기록·조회·철회 | US-03 |
 | `github` | GitHub API 연동, 레포 목록/등록/메타 동기화 | US-07, US-08 |
@@ -355,6 +355,14 @@ docker compose up -d
 
 - 도메인 본 구현 진행 — auth · user(consent 포함) · github · resume · document · session · log.ai
 - Spring Security + JWT + GitHub OAuth (US-01) 본 구현
+- **Google 로그인 본 구현**: `POST /api/auth/google` + `GET /api/auth/google/callback` (PKCE·state 검증은
+  GitHub 과 동일 경로 재사용). V22 로 `users` 에 `provider`/`google_id`/`display_name` 추가하고
+  `github_id`·`github_username`·`encrypted_github_access_token` 을 nullable 로 전환 + provider 별 식별자
+  CHECK 제약. `OAuthProvider` 는 `user.domain` 에 둔다 — `auth.domain` 에 두면 User 가 참조하며
+  user→auth→user 순환이 생겨 ArchUnit 이 막는다. Google 은 **토큰을 저장하지 않는다**(신원만 필요).
+  GitHub 토큰이 필요한 기능은 `InternalGithubTokenService` 에서 `AUTH_GITHUB_NOT_LINKED`(409) 로 차단.
+  `app.google.client-id/secret` 에는 `@NotBlank` 를 걸지 않았다 — 자동 배포가 시크릿 없이 돌면
+  애플리케이션 전체가 부팅 실패하기 때문. 미설정 시 Google 로그인만 비활성.
 - RabbitMQ starter 본 구현 — Core ↔ AI envelope · DLX · DLQ · 멱등(`processed_messages`) 완비
 - Flyway 본 구현 — 모든 테이블 / pgvector index / ENUM CHECK
 - ArchUnit 룰 적용 (의존 방향 · 순환 차단 · `@Transactional` application 한정 · entity는 domain 패키지)
