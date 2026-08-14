@@ -63,6 +63,19 @@ app:
     api-version: ${GITHUB_API_VERSION:2022-11-28}
     connect-timeout: ${GITHUB_CONNECT_TIMEOUT:3s}
     read-timeout: ${GITHUB_READ_TIMEOUT:5s}
+  google:
+    # client-id/secret 이 비어 있어도 기동한다 — Google 로그인만 비활성.
+    client-id: ${GOOGLE_OAUTH_CLIENT_ID:}
+    client-secret: ${GOOGLE_OAUTH_CLIENT_SECRET:}
+    redirect-uri: ${GOOGLE_OAUTH_REDIRECT_URI:http://localhost:5173/auth/google/callback}
+    # 레포 접근 권한은 요구하지 않는다. 신원 확인에 필요한 최소 범위만.
+    scopes: openid email profile
+    authorization-base-url: ${GOOGLE_OAUTH_AUTHORIZATION_BASE_URL:https://accounts.google.com/o/oauth2/v2/auth}
+    token-base-url: ${GOOGLE_OAUTH_TOKEN_BASE_URL:https://oauth2.googleapis.com}
+    user-info-base-url: ${GOOGLE_OAUTH_USER_INFO_BASE_URL:https://www.googleapis.com}
+    code-challenge-method: ${GOOGLE_OAUTH_CODE_CHALLENGE_METHOD:S256}
+    connect-timeout: ${GOOGLE_CONNECT_TIMEOUT:3s}
+    read-timeout: ${GOOGLE_READ_TIMEOUT:5s}
   s3:
     endpoint: ${S3_ENDPOINT:http://minio:9000}
     access-key: ${S3_ACCESS_KEY:minioadmin}

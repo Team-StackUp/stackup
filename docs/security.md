@@ -17,6 +17,29 @@
 
 > **state 검증 누락 = CSRF 취약**. PostgreSQL `oauth_states` 테이블 (state PK + expires_at + 사용 후 DELETE)에 5분 TTL로 저장하고 검증. 또는 stateless 방식으로 HMAC-서명된 state 사용.
 
+### 1.1.1 Google OAuth 흐름
+
+경로만 다르고 단계는 GitHub 과 동일하다 — `POST /api/auth/google` → `GET /api/auth/google/callback`,
+PKCE(S256) + `oauth_states` 검증 + 같은 JWT/refresh 쿠키 발급.
+
+GitHub 과 다른 점:
+
+| 항목 | GitHub | Google |
+|---|---|---|
+| scope | `read:user user:email repo` | `openid email profile` (레포 권한 없음) |
+| 계정 식별자 | `github_id` | OIDC `sub` (`google_id`) |
+| 저장 토큰 | access_token 을 AES 암호화해 보관(레포 조회에 재사용) | **보관하지 않음** — 신원 확인 뒤 버린다 |
+| 사용 가능 기능 | 전체 | 레포지토리 분석 제외 |
+
+- **`oauth_states` 는 provider 를 함께 검증한다.** state 테이블이 provider 별로 나뉘지 않아,
+  검증하지 않으면 GitHub 용 state 를 Google 콜백에 넘겨 흐름을 섞을 수 있다.
+- **id_token 서명 검증 대신 userinfo 호출**을 쓴다. 토큰을 브라우저가 아니라 서버가 TLS 로 직접
+  받아오므로 출처가 보장된다(OIDC Core §3.1.3.7). JWKS 캐싱·키 롤오버를 떠안지 않는다.
+- **이메일이 같아도 GitHub 계정과 자동 병합하지 않는다.** 이메일은 소유가 바뀔 수 있어 신원의
+  근거로 삼으면 계정 탈취 경로가 된다. 계정 연결은 로그인한 상태에서 명시적으로 하는 별도 기능.
+- Google 계정이 GitHub 전용 기능을 호출하면 `AUTH_GITHUB_NOT_LINKED`(409) — 복호화 단계에서
+  NPE 가 500 으로 새어나가지 않도록 `InternalGithubTokenService` 에서 먼저 막는다.
+
 ### 1.2 JWT 정책
 | 토큰 | TTL | 저장 위치 | 갱신 |
 |------|-----|-----------|------|
@@ -124,6 +147,7 @@ public class GithubTokenCipher {
 
 ### 5.4 데이터 최소 수집
 - GitHub OAuth 시 요청 scope 최소화: `read:user`, `user:email`, `repo` (private 분석 위해)
+- Google OAuth 는 `openid email profile` 만 — 로그인 신원 외 권한을 받지 않는다
 - email 옵션 (사용자가 GitHub에서 비공개 설정 시 NULL 허용)
 
 ---

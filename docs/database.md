@@ -21,7 +21,7 @@ interview_sessions → session_feedbacks
 
 | # | 테이블 | 역할 |
 |---|--------|------|
-| 1 | `users` | GitHub OAuth 사용자 |
+| 1 | `users` | OAuth 사용자 (GitHub · Google) |
 | 2 | `refresh_tokens` | JWT refresh token (해시 저장) |
 | 3 | `user_consents` | 개인정보처리동의 이력 |
 | 4 | `repositories` | 면접 분석용 GitHub 레포 메타 |
@@ -44,19 +44,31 @@ interview_sessions → session_feedbacks
 > 아래는 [필수 개선 사항](#5-필수-개선-사항)을 반영한 **권장 최종형** DDL이다. 초기 V1 마이그레이션은 이 형태로 작성한다.
 
 ```sql
--- 1. users
+-- 1. users  (V22 에서 Google 로그인 대응으로 확장됨)
 CREATE TABLE users (
     id                              BIGSERIAL     PRIMARY KEY,
-    github_id                       BIGINT        NOT NULL UNIQUE,
-    github_username                 VARCHAR(100)  NOT NULL,
+    provider                        VARCHAR(20)   NOT NULL DEFAULT 'GITHUB',  -- GITHUB | GOOGLE
+    display_name                    VARCHAR(100)  NOT NULL,                   -- 화면 노출 이름
+    github_id                       BIGINT,                                   -- GitHub 계정만
+    github_username                 VARCHAR(100),                             -- GitHub 계정만
+    encrypted_github_access_token   VARCHAR(1000),                            -- AES 암호화 (security.md)
+    google_id                       VARCHAR(255),                             -- Google 계정만 (OIDC sub)
     email                           VARCHAR(255),
     avatar_url                      VARCHAR(500),
-    encrypted_github_access_token   VARCHAR(1000) NOT NULL,  -- AES 암호화 (security.md)
     created_at                      TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
     updated_at                      TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-    is_deleted                      BOOLEAN       NOT NULL DEFAULT FALSE
+    is_deleted                      BOOLEAN       NOT NULL DEFAULT FALSE,
+    -- provider 별로 필요한 식별자가 반드시 있도록. 애플리케이션 버그가 반쪽짜리 계정을
+    -- 만들어도 DB 에서 걸린다.
+    CONSTRAINT ck_users_provider_identity CHECK (
+        (provider = 'GITHUB' AND github_id IS NOT NULL AND encrypted_github_access_token IS NOT NULL)
+        OR (provider = 'GOOGLE' AND google_id IS NOT NULL)
+    )
 );
 CREATE INDEX idx_users_active ON users(id) WHERE is_deleted = FALSE;
+-- 살아있는 계정끼리만 유일. NULL 은 서로 다른 값이라 해당 provider 가 아닌 행은 걸리지 않는다.
+CREATE UNIQUE INDEX uq_users_github_id_active ON users (github_id) WHERE is_deleted = FALSE;
+CREATE UNIQUE INDEX uq_users_google_id_active ON users (google_id) WHERE is_deleted = FALSE;
 
 -- 2. refresh_tokens
 CREATE TABLE refresh_tokens (

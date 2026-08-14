@@ -1,8 +1,11 @@
 package com.stackup.stackup.user.domain;
 
+import com.stackup.stackup.user.domain.OAuthProvider;
 import com.stackup.stackup.common.entity.BaseSoftDeleteEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -21,11 +24,27 @@ public class User extends BaseSoftDeleteEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "github_id", nullable = false)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "provider", nullable = false, length = 20)
+    private OAuthProvider provider;
+
+    /** 화면에 노출되는 이름. GitHub 은 login, Google 은 name(없으면 이메일 로컬파트). */
+    @Column(name = "display_name", nullable = false, length = 100)
+    private String displayName;
+
+    // GitHub 계정에만 존재. Google 계정은 셋 다 null 이다.
+    @Column(name = "github_id")
     private Long githubId;
 
-    @Column(name = "github_username", nullable = false, length = 100)
+    @Column(name = "github_username", length = 100)
     private String githubUsername;
+
+    @Column(name = "encrypted_github_access_token", length = 1000)
+    private String encryptedGithubAccessToken;
+
+    /** Google 계정에만 존재. Google 의 sub 은 숫자열이지만 문자열로 다루도록 규정돼 있다. */
+    @Column(name = "google_id", length = 255)
+    private String googleId;
 
     @Column(length = 255)
     private String email;
@@ -33,21 +52,24 @@ public class User extends BaseSoftDeleteEntity {
     @Column(name = "avatar_url", length = 500)
     private String avatarUrl;
 
-    @Column(name = "encrypted_github_access_token", nullable = false, length = 1000)
-    private String encryptedGithubAccessToken;
-
     private User(
+        OAuthProvider provider,
+        String displayName,
         Long githubId,
         String githubUsername,
+        String encryptedGithubAccessToken,
+        String googleId,
         String email,
-        String avatarUrl,
-        String encryptedGithubAccessToken
+        String avatarUrl
     ) {
+        this.provider = provider;
+        this.displayName = displayName;
         this.githubId = githubId;
         this.githubUsername = githubUsername;
+        this.encryptedGithubAccessToken = encryptedGithubAccessToken;
+        this.googleId = googleId;
         this.email = email;
         this.avatarUrl = avatarUrl;
-        this.encryptedGithubAccessToken = encryptedGithubAccessToken;
     }
 
     public static User createGithubUser(
@@ -57,7 +79,34 @@ public class User extends BaseSoftDeleteEntity {
         String avatarUrl,
         String encryptedGithubAccessToken
     ) {
-        return new User(githubId, githubUsername, email, avatarUrl, encryptedGithubAccessToken);
+        return new User(
+            OAuthProvider.GITHUB,
+            githubUsername,
+            githubId,
+            githubUsername,
+            encryptedGithubAccessToken,
+            null,
+            email,
+            avatarUrl
+        );
+    }
+
+    public static User createGoogleUser(
+        String googleId,
+        String displayName,
+        String email,
+        String avatarUrl
+    ) {
+        return new User(
+            OAuthProvider.GOOGLE,
+            displayName,
+            null,
+            null,
+            null,
+            googleId,
+            email,
+            avatarUrl
+        );
     }
 
     public void updateGithubProfile(
@@ -67,9 +116,21 @@ public class User extends BaseSoftDeleteEntity {
         String encryptedGithubAccessToken
     ) {
         this.githubUsername = githubUsername;
+        this.displayName = githubUsername;
         this.email = email;
         this.avatarUrl = avatarUrl;
         this.encryptedGithubAccessToken = encryptedGithubAccessToken;
+    }
+
+    public void updateGoogleProfile(String displayName, String email, String avatarUrl) {
+        this.displayName = displayName;
+        this.email = email;
+        this.avatarUrl = avatarUrl;
+    }
+
+    /** GitHub 연동이 필요한 기능(레포 조회·분석)을 쓸 수 있는 계정인지. */
+    public boolean hasGithubLink() {
+        return encryptedGithubAccessToken != null && !encryptedGithubAccessToken.isBlank();
     }
 
     public void markDeleted() {

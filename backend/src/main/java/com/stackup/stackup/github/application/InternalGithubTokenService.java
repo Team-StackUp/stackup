@@ -20,6 +20,11 @@ public class InternalGithubTokenService {
     public String fetchPlainAccessToken(Long userId) {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new DomainException(ApiErrorCode.USER_NOT_FOUND));
+        // Google 로 가입한 계정은 GitHub 토큰이 없다. 그대로 복호화로 넘기면 NPE 가 500 으로
+        // 새어나가므로, 무엇이 부족한지 말해 주는 도메인 에러로 바꾼다.
+        if (!user.hasGithubLink()) {
+            throw new DomainException(ApiErrorCode.AUTH_GITHUB_NOT_LINKED);
+        }
         return tokenCipher.decrypt(user.getEncryptedGithubAccessToken());
     }
 }

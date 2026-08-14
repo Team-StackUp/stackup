@@ -1,6 +1,7 @@
 package com.stackup.stackup.auth.domain;
 
 import com.stackup.stackup.common.entity.BaseTimeEntity;
+import com.stackup.stackup.user.domain.OAuthProvider;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -44,8 +45,17 @@ public class OAuthState extends BaseTimeEntity {
         this.expiresAt = expiresAt;
     }
 
-    public static OAuthState issueGithub(String state, String codeVerifier, Instant expiresAt) {
-        return new OAuthState(state, codeVerifier, OAuthProvider.GITHUB, expiresAt);
+    public static OAuthState issue(
+        OAuthProvider provider,
+        String state,
+        String codeVerifier,
+        Instant expiresAt
+    ) {
+        return new OAuthState(state, codeVerifier, provider, expiresAt);
+    }
+
+    public boolean isProvider(OAuthProvider other) {
+        return provider == other;
     }
 
     public boolean isExpired(Instant now) {

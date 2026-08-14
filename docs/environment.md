@@ -79,6 +79,14 @@ GITHUB_OAUTH_CLIENT_ID=
 GITHUB_OAUTH_CLIENT_SECRET=
 GITHUB_OAUTH_REDIRECT_URI=http://localhost:5173/auth/callback
 
+# ===== Google OAuth (선택) =====
+# 비워 두면 Google 로그인 버튼만 비활성되고 앱은 정상 기동한다.
+# GitHub 쪽과 달리 @NotBlank 검증을 걸지 않은 이유가 이것 — 시크릿이 없는 채로
+# 자동 배포가 돌면 애플리케이션 전체가 부팅에 실패하기 때문.
+GOOGLE_OAUTH_CLIENT_ID=
+GOOGLE_OAUTH_CLIENT_SECRET=
+GOOGLE_OAUTH_REDIRECT_URI=http://localhost:5173/auth/google/callback
+
 # ===== AI Server =====
 AI_SERVER_BASE_URL=http://ai:8000
 ```

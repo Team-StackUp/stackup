@@ -1,6 +1,6 @@
 package com.stackup.stackup.auth.application.dto;
 
-public record GithubLoginResult(
+public record OAuthLoginResult(
     String authorizationUrl,
     String state
 ) {

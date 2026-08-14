@@ -2,7 +2,7 @@ package com.stackup.stackup.auth.presentation.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-public record GithubCallbackResponse(
+public record OAuthCallbackResponse(
     @Schema(description = "StackUp JWT access token", example = "our-jwt-access-token", nullable = false)
     String accessToken,
 

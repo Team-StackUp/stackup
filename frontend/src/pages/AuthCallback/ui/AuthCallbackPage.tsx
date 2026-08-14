@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { completeGithubLogin, useAuth } from '@/features/auth'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { completeGithubLogin, completeGoogleLogin, useAuth } from '@/features/auth'
 import { consumeReturnTo } from '@/features/auth/lib/return-to'
 import { isApiError } from '@/shared/api'
 import { Eyebrow, Heading } from '@/shared/ui'
@@ -10,14 +10,20 @@ const consumedCodes = new Set<string>()
 export default function AuthCallbackPage() {
   const [params] = useSearchParams()
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const { applyLogin } = useAuth()
+
+  // 두 provider 가 같은 페이지를 쓰고 경로로만 갈린다 — 콜백 화면은 문구까지 동일해서
+  // 페이지를 나누면 같은 코드가 두 벌이 된다.
+  const isGoogle = pathname.startsWith('/auth/google')
+  const providerLabel = isGoogle ? 'Google' : 'GitHub'
 
   const code = params.get('code')
   const stateParam = params.get('state')
   const missingParams = !code || !stateParam
 
   const [error, setError] = useState<string | null>(
-    missingParams ? 'GitHub 응답에 code 또는 state가 없습니다.' : null,
+    missingParams ? `${providerLabel} 응답에 code 또는 state가 없습니다.` : null,
   )
 
   useEffect(() => {
@@ -28,7 +34,9 @@ export default function AuthCallbackPage() {
 
     void (async () => {
       try {
-        const response = await completeGithubLogin(code!, stateParam!)
+        const response = isGoogle
+          ? await completeGoogleLogin(code!, stateParam!)
+          : await completeGithubLogin(code!, stateParam!)
         applyLogin(response)
         const dest = consumeReturnTo() ?? '/'
         navigate(dest, { replace: true })
@@ -40,7 +48,7 @@ export default function AuthCallbackPage() {
         }
       }
     })()
-  }, [missingParams, code, stateParam, applyLogin, navigate])
+  }, [missingParams, code, stateParam, applyLogin, navigate, isGoogle])
 
   return (
     <div className="flex min-h-svh items-center justify-center bg-surface-raised px-6 py-16 text-fg">
@@ -70,7 +78,7 @@ export default function AuthCallbackPage() {
             <Spinner />
             <Eyebrow className="mt-6">인증 중</Eyebrow>
             <Heading level="section" as="h1" className="mt-2.5">
-              GitHub 로그인 처리 중…
+              {providerLabel} 로그인 처리 중…
             </Heading>
             <p className="mt-3 text-body font-normal text-fg-muted">
               잠시만 기다려주세요. 곧 이동합니다.
