@@ -42,6 +42,12 @@ describe('sessionProgress', () => {
   it('max가 0이면 ratio 0', () => {
     expect(sessionProgress(session({ totalQuestionCount: 0, maxQuestions: 0 })).ratio).toBe(0)
   })
+  it('실제 질문 수가 목표를 넘어도 분모가 분자보다 작아지지 않는다 — "질문 2 / 1" 회귀 방지', () => {
+    // 일반질문 1개로 만든 세션에 자기소개+추가 질문이 붙어 실제로 발생했던 표시.
+    expect(
+      sessionProgress(session({ totalQuestionCount: 2, generalQuestionCount: 1, maxQuestions: 10 })),
+    ).toEqual({ current: 2, max: 2, ratio: 1 })
+  })
 })
 
 describe('isQuestion/isAnswer', () => {
