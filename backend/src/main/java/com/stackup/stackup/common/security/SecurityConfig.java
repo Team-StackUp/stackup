@@ -4,6 +4,7 @@ import com.stackup.stackup.common.config.properties.CorsProperties;
 import com.stackup.stackup.common.exception.ApiErrorCode;
 import com.stackup.stackup.common.trace.TraceContext;
 import jakarta.servlet.http.HttpServletResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 import org.slf4j.Logger;
@@ -123,7 +124,11 @@ public class SecurityConfig {
 
     private void writeErrorResponse(HttpServletResponse response, ApiErrorCode errorCode) throws java.io.IOException {
         response.setStatus(errorCode.getStatus().value());
+        // charset 을 지정하지 않으면 getWriter() 가 ISO-8859-1 로 인코딩해 한글이 "???" 로 나간다.
+        // 이 경로는 만료 토큰 401 처럼 사용자가 가장 자주 만나는 응답이라 그대로 화면에 노출된다.
+        // (도메인 예외는 Spring 메시지 컨버터를 타서 영향 없음 — 여기만 직접 쓴다)
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         response.getWriter().write("""
             {"code":"%s","message":"%s","traceId":"%s","timestamp":"%s","details":{}}
             """.formatted(

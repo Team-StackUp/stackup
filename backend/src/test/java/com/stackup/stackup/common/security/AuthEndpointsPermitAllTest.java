@@ -1,6 +1,7 @@
 package com.stackup.stackup.common.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 import com.stackup.stackup.auth.domain.OAuthStateRepository;
@@ -61,6 +62,21 @@ class AuthEndpointsPermitAllTest {
   @MockitoBean private SessionQuestionPoolRepository sessionQuestionPoolRepository;
   @MockitoBean private MessageVoiceAnalysisRepository messageVoiceAnalysisRepository;
   @MockitoBean private AiRequestLogRepository aiRequestLogRepository;
+
+  @Test
+  void unauthenticatedError_keepsKoreanMessageReadable() throws Exception {
+    MockMvc mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext)
+        .addFilters(springSecurityFilterChain)
+        .build();
+
+    MvcResult result = mockMvc.perform(get("/api/users/me")).andReturn();
+
+    assertThat(result.getResponse().getContentAsString()).contains("AUTH_INVALID_TOKEN");
+    // 본문 문자열로는 검증할 수 없다 — MockHttpServletResponse 의 기본 인코딩이 실제
+    // 서블릿 컨테이너(ISO-8859-1)와 달라 깨짐이 재현되지 않는다. 대신 "charset 을
+    // 명시했는가"를 고정한다. 이걸 빠뜨리면 운영에서 한글이 "???" 로 나간다.
+    assertThat(result.getResponse().getContentType()).containsIgnoringCase("charset=UTF-8");
+  }
 
   @Test
   void loginStartEndpoints_areReachableWithoutAuthentication() throws Exception {
