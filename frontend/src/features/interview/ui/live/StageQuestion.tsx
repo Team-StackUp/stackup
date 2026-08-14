@@ -65,7 +65,17 @@ export function StageQuestion({
   })
 
   return (
-    <div className="w-full max-w-2xl rounded-2xl border border-surface-raised/50 bg-surface-raised/70 px-6 py-7 shadow-lg backdrop-blur-md sm:px-9 sm:py-10">
+    // 질문은 WebSocket 으로 비동기 도착한다. live region 이 없으면 스크린리더 사용자는
+    // 새 질문이 왔다는 사실 자체를 모른 채 기다리게 된다 — 면접의 핵심 흐름이라
+    // 알림이 필수다. 타이핑 효과로 글자가 이어 붙는 동안 계속 읽지 않도록,
+    // 스트리밍이 끝난 뒤에만 한 번 알리게 aria-busy 로 묶는다.
+    <div
+      role="region"
+      aria-live="polite"
+      aria-busy={streaming}
+      aria-label="면접관 질문"
+      className="w-full max-w-2xl rounded-2xl border border-surface-raised/50 bg-surface-raised/70 px-6 py-7 shadow-lg backdrop-blur-md sm:px-9 sm:py-10"
+    >
       <div className="flex items-center gap-2.5">
         <span
           aria-hidden
