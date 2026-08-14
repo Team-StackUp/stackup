@@ -56,6 +56,8 @@ public class SecurityConfig {
                 .requestMatchers(
                     "/api/auth/github",
                     "/api/auth/github/callback",
+                    "/api/auth/google",
+                    "/api/auth/google/callback",
                     "/api/auth/refresh",
                     "/api/auth/logout",
                     "/api/system/live",
