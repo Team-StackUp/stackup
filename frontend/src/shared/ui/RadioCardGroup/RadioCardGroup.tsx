@@ -1,4 +1,4 @@
-import { useId } from 'react'
+import { useId, useRef } from 'react'
 
 export type RadioOption<T extends string> = { value: T; label: string; description?: string }
 
@@ -19,9 +19,33 @@ export function RadioCardGroup<T extends string>({
   ariaLabel,
 }: RadioCardGroupProps<T>) {
   const baseId = useId()
+  const refs = useRef<(HTMLButtonElement | null)[]>([])
+
+  // radiogroup 은 Tab 이 아니라 화살표로 항목 사이를 이동하고, 그룹 전체가 탭 정지점
+  // 하나를 갖는 패턴(roving tabindex)이다. role 만 선언하고 키 처리를 빼면 스크린리더
+  // 사용자가 기대한 대로 조작할 수 없다.
+  const moveFocus = (from: number, delta: number) => {
+    const next = (from + delta + options.length) % options.length
+    onChange(options[next].value)
+    refs.current[next]?.focus()
+  }
+
+  const onKeyDown = (event: React.KeyboardEvent, index: number) => {
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key]
+    if (step === undefined) return
+    event.preventDefault()
+    moveFocus(index, step)
+  }
+
+  // 선택 항목이 탭 정지점. 아직 선택 전이면 첫 항목이 받는다.
+  const focusableIndex = Math.max(
+    options.findIndex((opt) => opt.value === value),
+    0,
+  )
+
   return (
     <div role="radiogroup" aria-label={ariaLabel} className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-      {options.map((opt) => {
+      {options.map((opt, index) => {
         const selected = opt.value === value
         const labelId = `${baseId}-${opt.value}-label`
         const descId = `${baseId}-${opt.value}-desc`
@@ -29,8 +53,13 @@ export function RadioCardGroup<T extends string>({
           <button
             type="button"
             key={opt.value}
+            ref={(el) => {
+              refs.current[index] = el
+            }}
             role="radio"
             aria-checked={selected}
+            tabIndex={index === focusableIndex ? 0 : -1}
+            onKeyDown={(event) => onKeyDown(event, index)}
             aria-labelledby={labelId}
             aria-describedby={opt.description ? descId : undefined}
             onClick={() => onChange(opt.value)}
