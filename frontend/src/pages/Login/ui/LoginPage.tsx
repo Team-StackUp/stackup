@@ -10,7 +10,7 @@ type LocationState = { returnTo?: string } | null
 
 // 로그인 뒤 무엇이 준비되는지 — 랜딩 히어로의 숫자 지표와 같은 조판으로 보여준다.
 const facts = [
-  { v: '01', label: '레포 분석' },
+  { v: '01', label: '자료 분석' },
   { v: '02', label: 'AI 면접' },
   { v: '03', label: '피드백' },
 ]

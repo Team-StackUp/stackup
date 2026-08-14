@@ -67,7 +67,7 @@ export function SiteFooter({ cta = false }: SiteFooterProps) {
               to={getStartedTo}
               className="inline-flex items-center justify-center rounded-xl bg-white px-5 py-3 text-button font-semibold text-primary transition-colors duration-fast hover:bg-primary-50"
             >
-              GitHub으로 시작하기
+              GitHub·Google로 시작하기
             </Link>
           </div>
         ) : null}

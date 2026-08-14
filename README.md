@@ -59,7 +59,7 @@ flowchart TB
 | 컴포넌트 | 기술 | 책임 |
 |---|---|---|
 | [`frontend/`](./frontend) | React 19 · TypeScript · Vite · Tailwind v4 · TanStack Query | FSD 구조 SPA. 라이브 면접 UI, 피드백 리포트, 다크모드 |
-| [`backend/`](./backend) | Java 21 · Spring Boot 4 · JPA · QueryDSL · Flyway | 인증(GitHub OAuth), 세션 · 메시지 · 피드백 API, **DB 단독 접근** |
+| [`backend/`](./backend) | Java 21 · Spring Boot 4 · JPA · QueryDSL · Flyway | 인증(GitHub · Google OAuth), 세션 · 메시지 · 피드백 API, **DB 단독 접근** |
 | [`ai/`](./ai) | Python 3.13 · FastAPI · LangChain | 문서 분석 · 임베딩, 질문 생성, 답변 평가, 피드백 합성, STT/TTS |
 | [`realtime/`](./realtime) | Go · chi · amqp091-go | 라이브 면접 WebSocket, 작업 상태 SSE, 토큰 스트리밍 중계 |
 | [`infra/`](./infra) | Docker Compose | PostgreSQL(+pgvector) · RabbitMQ · MinIO |
