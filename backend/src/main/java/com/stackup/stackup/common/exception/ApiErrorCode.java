@@ -7,6 +7,8 @@ public enum ApiErrorCode {
     AUTH_EXPIRED_TOKEN(HttpStatus.UNAUTHORIZED, "만료된 토큰입니다."),
     AUTH_REVOKED_TOKEN(HttpStatus.UNAUTHORIZED, "폐기된 토큰입니다."),
     AUTH_GITHUB_OAUTH_FAILED(HttpStatus.UNAUTHORIZED, "GitHub OAuth 인증에 실패했습니다."),
+    AUTH_GOOGLE_OAUTH_FAILED(HttpStatus.UNAUTHORIZED, "Google OAuth 인증에 실패했습니다."),
+    AUTH_GITHUB_NOT_LINKED(HttpStatus.CONFLICT, "GitHub 계정으로 로그인해야 사용할 수 있는 기능입니다."),
     AUTH_CONSENT_REQUIRED(HttpStatus.FORBIDDEN, "필수 동의가 필요합니다."),
 
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없습니다."),

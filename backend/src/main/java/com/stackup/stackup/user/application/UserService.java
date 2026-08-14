@@ -33,6 +33,8 @@ public class UserService {
 
         return new UserProfileResult(
             user.getId(),
+            user.getProvider(),
+            user.getDisplayName(),
             user.getGithubId(),
             user.getGithubUsername(),
             user.getEmail(),

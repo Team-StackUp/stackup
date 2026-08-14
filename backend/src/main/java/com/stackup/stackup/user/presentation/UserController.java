@@ -34,13 +34,7 @@ public record UserController(UserService userService) {
     ) {
         Long userId = principal == null ? null : principal.userId();
         UserProfileResult result = userService.getCurrentUser(userId);
-        return ResponseEntity.ok(new UserProfileResponse(
-            result.id(),
-            result.githubId(),
-            result.githubUsername(),
-            result.email(),
-            result.avatarUrl()
-        ));
+        return ResponseEntity.ok(UserProfileResponse.from(result));
     }
 
     @Operation(

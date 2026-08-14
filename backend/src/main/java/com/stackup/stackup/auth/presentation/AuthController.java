@@ -1,13 +1,13 @@
 package com.stackup.stackup.auth.presentation;
 
 import com.stackup.stackup.auth.application.AuthService;
-import com.stackup.stackup.auth.application.dto.GithubCallbackResult;
-import com.stackup.stackup.auth.application.dto.GithubLoginResult;
+import com.stackup.stackup.auth.application.dto.OAuthCallbackResult;
+import com.stackup.stackup.auth.application.dto.OAuthLoginResult;
 import com.stackup.stackup.auth.application.dto.RefreshTokenResult;
 import com.stackup.stackup.auth.application.dto.StreamTokenResult;
 import com.stackup.stackup.auth.presentation.dto.AuthUserResponse;
-import com.stackup.stackup.auth.presentation.dto.GithubCallbackResponse;
-import com.stackup.stackup.auth.presentation.dto.GithubLoginResponse;
+import com.stackup.stackup.auth.presentation.dto.OAuthCallbackResponse;
+import com.stackup.stackup.auth.presentation.dto.OAuthLoginResponse;
 import com.stackup.stackup.auth.presentation.dto.RefreshTokenResponse;
 import com.stackup.stackup.auth.presentation.dto.StreamTokenResponse;
 import com.stackup.stackup.common.config.properties.SecurityProperties;
@@ -31,7 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/auth")
-@Tag(name = "Auth", description = "GitHub OAuth login and authentication token APIs")
+@Tag(name = "Auth", description = "OAuth login (GitHub, Google) and authentication token APIs")
 public record AuthController(AuthService authService, SecurityProperties securityProperties) {
 
     @Operation(operationId = "startGithubLogin", summary = "Create GitHub OAuth authorization URL")
@@ -39,9 +39,9 @@ public record AuthController(AuthService authService, SecurityProperties securit
         @ApiResponse(responseCode = "200", description = "GitHub authorization URL created")
     })
     @PostMapping("/github")
-    public ResponseEntity<GithubLoginResponse> startGithubLogin() {
-        GithubLoginResult result = authService.startGithubLogin();
-        return ResponseEntity.ok(new GithubLoginResponse(result.authorizationUrl(), result.state()));
+    public ResponseEntity<OAuthLoginResponse> startGithubLogin() {
+        OAuthLoginResult result = authService.startGithubLogin();
+        return ResponseEntity.ok(new OAuthLoginResponse(result.authorizationUrl(), result.state()));
     }
 
     @Operation(operationId = "completeGithubLogin", summary = "Complete GitHub OAuth login")
@@ -50,27 +50,47 @@ public record AuthController(AuthService authService, SecurityProperties securit
         @ApiResponse(responseCode = "401", description = "GitHub OAuth login failed")
     })
     @GetMapping("/github/callback")
-    public ResponseEntity<GithubCallbackResponse> githubCallback(
+    public ResponseEntity<OAuthCallbackResponse> githubCallback(
         @RequestParam(required = false) String code,
         @RequestParam(required = false) String state
     ) {
-        GithubCallbackResult result = authService.completeGithubLogin(code, state);
+        return loginResponse(authService.completeGithubLogin(code, state));
+    }
+
+    @Operation(operationId = "startGoogleLogin", summary = "Create Google OAuth authorization URL")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Google authorization URL created")
+    })
+    @PostMapping("/google")
+    public ResponseEntity<OAuthLoginResponse> startGoogleLogin() {
+        OAuthLoginResult result = authService.startGoogleLogin();
+        return ResponseEntity.ok(new OAuthLoginResponse(result.authorizationUrl(), result.state()));
+    }
+
+    @Operation(operationId = "completeGoogleLogin", summary = "Complete Google OAuth login")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Login completed"),
+        @ApiResponse(responseCode = "401", description = "Google OAuth login failed")
+    })
+    @GetMapping("/google/callback")
+    public ResponseEntity<OAuthCallbackResponse> googleCallback(
+        @RequestParam(required = false) String code,
+        @RequestParam(required = false) String state
+    ) {
+        return loginResponse(authService.completeGoogleLogin(code, state));
+    }
+
+    private ResponseEntity<OAuthCallbackResponse> loginResponse(OAuthCallbackResult result) {
         return ResponseEntity.ok()
             .header(HttpHeaders.SET_COOKIE, refreshTokenCookie(
                 result.refreshTokenRawForCookie(),
                 result.refreshTokenMaxAgeSeconds()
             ).toString())
-            .body(new GithubCallbackResponse(
+            .body(new OAuthCallbackResponse(
                 result.accessToken(),
                 result.tokenType(),
                 result.expiresIn(),
-                new AuthUserResponse(
-                    result.user().id(),
-                    result.user().githubId(),
-                    result.user().githubUsername(),
-                    result.user().email(),
-                    result.user().avatarUrl()
-                ),
+                AuthUserResponse.from(result.user()),
                 result.isNewUser()
             ));
     }

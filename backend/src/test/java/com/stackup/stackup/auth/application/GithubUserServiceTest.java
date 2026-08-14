@@ -6,7 +6,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.stackup.stackup.auth.application.dto.GithubUserProfile;
-import com.stackup.stackup.auth.application.dto.GithubUserUpsertResult;
+import com.stackup.stackup.auth.application.dto.OAuthUserUpsertResult;
 import com.stackup.stackup.user.domain.User;
 import com.stackup.stackup.user.domain.UserRepository;
 import java.util.Optional;
@@ -34,7 +34,7 @@ class GithubUserServiceTest {
             return user;
         });
 
-        GithubUserUpsertResult result = service.upsertGithubUser(profile, "encrypted-token");
+        OAuthUserUpsertResult result = service.upsertGithubUser(profile, "encrypted-token");
 
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
         verify(userRepository).save(userCaptor.capture());
@@ -53,7 +53,7 @@ class GithubUserServiceTest {
         GithubUserProfile profile = new GithubUserProfile(123L, "octocat", "octocat@example.com", "avatar");
         when(userRepository.findByGithubIdAndDeletedFalse(123L)).thenReturn(Optional.of(user));
 
-        GithubUserUpsertResult result = service.upsertGithubUser(profile, "encrypted-token");
+        OAuthUserUpsertResult result = service.upsertGithubUser(profile, "encrypted-token");
 
         assertThat(user.getGithubUsername()).isEqualTo("octocat");
         assertThat(user.getEmail()).isEqualTo("octocat@example.com");

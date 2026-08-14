@@ -1,6 +1,6 @@
 package com.stackup.stackup.auth.application.dto;
 
-public record GithubCallbackResult(
+public record OAuthCallbackResult(
     String accessToken,
     String tokenType,
     long expiresIn,

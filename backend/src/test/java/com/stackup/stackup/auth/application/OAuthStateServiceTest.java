@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.stackup.stackup.auth.application.dto.OAuthStateIssueResult;
+import com.stackup.stackup.user.domain.OAuthProvider;
 import com.stackup.stackup.auth.domain.OAuthState;
 import com.stackup.stackup.auth.domain.OAuthStateRepository;
 import com.stackup.stackup.common.config.properties.SecurityProperties;
@@ -44,7 +45,7 @@ class OAuthStateServiceTest {
             Clock.fixed(NOW, ZoneOffset.UTC)
         );
 
-        OAuthStateIssueResult result = service.issueGithubStateWithPkce();
+        OAuthStateIssueResult result = service.issueStateWithPkce(OAuthProvider.GITHUB);
 
         ArgumentCaptor<OAuthState> stateCaptor = ArgumentCaptor.forClass(OAuthState.class);
         verify(oauthStateRepository).deleteByExpiresAtBefore(NOW);
@@ -60,7 +61,7 @@ class OAuthStateServiceTest {
 
     @Test
     void consumeGithubCodeVerifier_deletesStateAndReturnsVerifier() {
-        OAuthState oauthState = OAuthState.issueGithub("state", "code-verifier", NOW.plusSeconds(60));
+        OAuthState oauthState = OAuthState.issue(OAuthProvider.GITHUB, "state", "code-verifier", NOW.plusSeconds(60));
         when(oauthStateRepository.findByState("state")).thenReturn(Optional.of(oauthState));
 
         OAuthStateService service = new OAuthStateService(
@@ -70,7 +71,7 @@ class OAuthStateServiceTest {
             Clock.fixed(NOW, ZoneOffset.UTC)
         );
 
-        String codeVerifier = service.consumeGithubCodeVerifier("state");
+        String codeVerifier = service.consumeCodeVerifier(OAuthProvider.GITHUB, "state");
 
         assertThat(codeVerifier).isEqualTo("code-verifier");
         verify(oauthStateRepository).delete(oauthState);
@@ -78,7 +79,7 @@ class OAuthStateServiceTest {
 
     @Test
     void consumeGithubCodeVerifier_rejectsExpiredState() {
-        OAuthState oauthState = OAuthState.issueGithub("state", "code-verifier", NOW.minusSeconds(1));
+        OAuthState oauthState = OAuthState.issue(OAuthProvider.GITHUB, "state", "code-verifier", NOW.minusSeconds(1));
         when(oauthStateRepository.findByState("state")).thenReturn(Optional.of(oauthState));
 
         OAuthStateService service = new OAuthStateService(
@@ -88,7 +89,7 @@ class OAuthStateServiceTest {
             Clock.fixed(NOW, ZoneOffset.UTC)
         );
 
-        assertThatThrownBy(() -> service.consumeGithubCodeVerifier("state"))
+        assertThatThrownBy(() -> service.consumeCodeVerifier(OAuthProvider.GITHUB, "state"))
             .isInstanceOfSatisfying(DomainException.class, exception ->
                 assertThat(exception.getErrorCode()).isEqualTo(ApiErrorCode.AUTH_GITHUB_OAUTH_FAILED)
             );
@@ -104,7 +105,7 @@ class OAuthStateServiceTest {
             Clock.fixed(NOW, ZoneOffset.UTC)
         );
 
-        assertThatThrownBy(() -> service.consumeGithubCodeVerifier(" "))
+        assertThatThrownBy(() -> service.consumeCodeVerifier(OAuthProvider.GITHUB, " "))
             .isInstanceOfSatisfying(DomainException.class, exception ->
                 assertThat(exception.getErrorCode()).isEqualTo(ApiErrorCode.AUTH_GITHUB_OAUTH_FAILED)
             );

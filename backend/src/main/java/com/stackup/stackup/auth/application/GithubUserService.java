@@ -2,7 +2,7 @@ package com.stackup.stackup.auth.application;
 
 import com.stackup.stackup.auth.application.dto.AuthenticatedUserResult;
 import com.stackup.stackup.auth.application.dto.GithubUserProfile;
-import com.stackup.stackup.auth.application.dto.GithubUserUpsertResult;
+import com.stackup.stackup.auth.application.dto.OAuthUserUpsertResult;
 import com.stackup.stackup.user.domain.User;
 import com.stackup.stackup.user.domain.UserRepository;
 import org.springframework.stereotype.Service;
@@ -20,7 +20,7 @@ public class GithubUserService {
     }
 
     @Transactional
-    public GithubUserUpsertResult upsertGithubUser(
+    public OAuthUserUpsertResult upsertGithubUser(
         GithubUserProfile profile,
         String encryptedGithubAccessToken
     ) {
@@ -29,7 +29,7 @@ public class GithubUserService {
             .orElseGet(() -> createUser(profile, encryptedGithubAccessToken));
     }
 
-    private GithubUserUpsertResult updateUser(
+    private OAuthUserUpsertResult updateUser(
         User user,
         GithubUserProfile profile,
         String encryptedGithubAccessToken
@@ -40,10 +40,10 @@ public class GithubUserService {
             profile.avatarUrl(),
             encryptedGithubAccessToken
         );
-        return new GithubUserUpsertResult(toResult(user), false);
+        return new OAuthUserUpsertResult(toResult(user), false);
     }
 
-    private GithubUserUpsertResult createUser(
+    private OAuthUserUpsertResult createUser(
         GithubUserProfile profile,
         String encryptedGithubAccessToken
     ) {
@@ -55,16 +55,10 @@ public class GithubUserService {
             encryptedGithubAccessToken
         );
         User savedUser = userRepository.save(user);
-        return new GithubUserUpsertResult(toResult(savedUser), true);
+        return new OAuthUserUpsertResult(toResult(savedUser), true);
     }
 
     private AuthenticatedUserResult toResult(User user) {
-        return new AuthenticatedUserResult(
-            user.getId(),
-            user.getGithubId(),
-            user.getGithubUsername(),
-            user.getEmail(),
-            user.getAvatarUrl()
-        );
+        return AuthUserResults.from(user);
     }
 }

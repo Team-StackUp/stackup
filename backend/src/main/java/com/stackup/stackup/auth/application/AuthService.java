@@ -1,10 +1,14 @@
 package com.stackup.stackup.auth.application;
 
+import com.stackup.stackup.user.domain.OAuthProvider;
 import com.stackup.stackup.auth.infrastructure.GithubOAuthClient;
-import com.stackup.stackup.auth.application.dto.GithubCallbackResult;
-import com.stackup.stackup.auth.application.dto.GithubLoginResult;
+import com.stackup.stackup.auth.infrastructure.GoogleOAuthClient;
+import com.stackup.stackup.auth.infrastructure.dto.GoogleUserInfoResponse;
+import com.stackup.stackup.auth.application.dto.OAuthCallbackResult;
+import com.stackup.stackup.auth.application.dto.OAuthLoginResult;
 import com.stackup.stackup.auth.application.dto.GithubUserProfile;
-import com.stackup.stackup.auth.application.dto.GithubUserUpsertResult;
+import com.stackup.stackup.auth.application.dto.GoogleUserProfile;
+import com.stackup.stackup.auth.application.dto.OAuthUserUpsertResult;
 import com.stackup.stackup.auth.application.dto.OAuthStateIssueResult;
 import com.stackup.stackup.auth.application.dto.RefreshTokenIssueResult;
 import com.stackup.stackup.auth.application.dto.RefreshTokenResult;
@@ -24,36 +28,38 @@ import org.springframework.stereotype.Service;
 @Service
 public record AuthService(
     GithubOAuthClient githubOAuthClient,
+    GoogleOAuthClient googleOAuthClient,
     OAuthStateService oauthStateService,
     GithubApiClient githubApiClient,
     GithubTokenCipher githubTokenCipher,
     GithubUserService githubUserService,
+    GoogleUserService googleUserService,
     RefreshTokenService refreshTokenService,
     JwtTokenProvider jwtTokenProvider,
     StreamTokenProvider streamTokenProvider,
     SecurityProperties securityProperties
 ) {
 
-    public GithubLoginResult startGithubLogin() {
-        OAuthStateIssueResult oauthState = oauthStateService.issueGithubStateWithPkce();
-        return new GithubLoginResult(
+    public OAuthLoginResult startGithubLogin() {
+        OAuthStateIssueResult oauthState = oauthStateService.issueStateWithPkce(OAuthProvider.GITHUB);
+        return new OAuthLoginResult(
             githubOAuthClient.buildAuthorizationUrl(oauthState.state(), oauthState.codeChallenge()),
             oauthState.state()
         );
     }
 
-    public GithubCallbackResult completeGithubLogin(String code, String state) {
+    public OAuthCallbackResult completeGithubLogin(String code, String state) {
         if (code == null || code.isBlank()) {
             throw new DomainException(ApiErrorCode.AUTH_GITHUB_OAUTH_FAILED);
         }
-        String codeVerifier = oauthStateService.consumeGithubCodeVerifier(state);
+        String codeVerifier = oauthStateService.consumeCodeVerifier(OAuthProvider.GITHUB, state);
         String githubAccessToken = githubOAuthClient.exchangeCode(code, codeVerifier);
         GithubUserResponse githubUser = githubApiClient.getUser(githubAccessToken);
         String email = githubUser.email() == null || githubUser.email().isBlank()
             ? githubApiClient.getPrimaryVerifiedEmail(githubAccessToken).orElse(null)
             : githubUser.email();
         String encryptedGithubAccessToken = githubTokenCipher.encrypt(githubAccessToken);
-        GithubUserUpsertResult upsertResult = githubUserService.upsertGithubUser(
+        OAuthUserUpsertResult upsertResult = githubUserService.upsertGithubUser(
             new GithubUserProfile(
                 githubUser.id(),
                 githubUser.login(),
@@ -64,7 +70,7 @@ public record AuthService(
         );
         RefreshTokenIssueResult refreshToken = refreshTokenService.issue(upsertResult.user().id());
 
-        return new GithubCallbackResult(
+        return new OAuthCallbackResult(
             jwtTokenProvider.createAccessToken(upsertResult.user().id()),
             securityProperties.accessTokenType(),
             securityProperties.accessTokenTtlSeconds(),
@@ -73,6 +79,59 @@ public record AuthService(
             refreshToken.rawToken(),
             refreshToken.maxAgeSeconds()
         );
+    }
+
+    public OAuthLoginResult startGoogleLogin() {
+        OAuthStateIssueResult oauthState = oauthStateService.issueStateWithPkce(OAuthProvider.GOOGLE);
+        return new OAuthLoginResult(
+            googleOAuthClient.buildAuthorizationUrl(oauthState.state(), oauthState.codeChallenge()),
+            oauthState.state()
+        );
+    }
+
+    public OAuthCallbackResult completeGoogleLogin(String code, String state) {
+        if (code == null || code.isBlank()) {
+            throw new DomainException(ApiErrorCode.AUTH_GOOGLE_OAUTH_FAILED);
+        }
+        String codeVerifier = oauthStateService.consumeCodeVerifier(OAuthProvider.GOOGLE, state);
+        String googleAccessToken = googleOAuthClient.exchangeCode(code, codeVerifier);
+        GoogleUserInfoResponse profile = googleOAuthClient.fetchUserInfo(googleAccessToken);
+
+        OAuthUserUpsertResult upsertResult = googleUserService.upsertGoogleUser(new GoogleUserProfile(
+            profile.sub(),
+            resolveDisplayName(profile),
+            profile.email(),
+            profile.picture()
+        ));
+        RefreshTokenIssueResult refreshToken = refreshTokenService.issue(upsertResult.user().id());
+
+        return new OAuthCallbackResult(
+            jwtTokenProvider.createAccessToken(upsertResult.user().id()),
+            securityProperties.accessTokenType(),
+            securityProperties.accessTokenTtlSeconds(),
+            upsertResult.user(),
+            upsertResult.newUser(),
+            refreshToken.rawToken(),
+            refreshToken.maxAgeSeconds()
+        );
+    }
+
+    /**
+     * Google 프로필에는 name 이 없을 수 있다(조직 정책 등). 이름이 비면 이메일 로컬파트로,
+     * 그것도 없으면 고정 문구로 — display_name 은 NOT NULL 이고 화면에 항상 노출된다.
+     */
+    private String resolveDisplayName(GoogleUserInfoResponse profile) {
+        if (profile.name() != null && !profile.name().isBlank()) {
+            return truncate(profile.name());
+        }
+        if (profile.email() != null && !profile.email().isBlank()) {
+            return truncate(profile.email().split("@")[0]);
+        }
+        return "사용자";
+    }
+
+    private String truncate(String value) {
+        return value.length() <= 100 ? value : value.substring(0, 100);
     }
 
     public RefreshTokenResult refresh(String refreshToken) {
