@@ -77,7 +77,19 @@ public class SessionQuestionsRequester {
         List<DocumentContext> documents = buildDocumentContexts(event.contextDocumentIds());
         int generalCount = event.generalQuestionCount() != null
             ? event.generalQuestionCount() : DEFAULT_GENERAL_QUESTION_COUNT;
-        int poolCount = Math.max(1, generalCount - 1);  // 자기소개 1자리 예약
+        int poolCount = generalCount - 1;  // 자기소개 1자리 예약
+
+        // 일반질문 수를 1로 잡으면 자기소개가 그 1자리를 다 쓴다 — 풀에 요청할 게 없다.
+        // 예전엔 Math.max(1, …) 로 최소 1개를 강제해서, 사용자가 1을 고르면 질문이 2개
+        // 나갔다(설정 위반). 그렇다고 그냥 발행을 건너뛰면 콜백이 오지 않아 세션이 "질문
+        // 준비 중"에서 영원히 멈추므로, 풀 고갈과 같은 종료 경로를 태운다.
+        if (poolCount <= 0) {
+            log.info("question pool not needed (generalCount={}) — ending after self-intro. sessionId={}",
+                generalCount, event.sessionId());
+            questionsCallbackService.advanceToNextGeneral(event.sessionId());
+            return;
+        }
+
         List<String> recentQuestions = recentQuestions(event.userId(), event.sessionId());
         GenerateQuestionsPayload payload = new GenerateQuestionsPayload(
             event.sessionId(),

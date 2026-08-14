@@ -183,7 +183,7 @@ export function InterviewSetupForm({
         <div className="flex items-center justify-between">
           <span className="text-body text-fg">
             총 질문 상한
-            <span className="ml-1.5 text-caption text-fg-subtle">꼬리질문 포함 전체 질문 최대 개수</span>
+            <span className="ml-1.5 text-caption text-fg-subtle">자기소개·일반질문 기준 · 꼬리질문 제외</span>
           </span>
           <Stepper
             ariaLabel="총 질문 상한"
