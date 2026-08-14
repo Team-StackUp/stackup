@@ -39,7 +39,7 @@ function ThinkingState({ transcribing }: { transcribing: boolean }) {
           />
         ))}
       </span>
-      <p className="text-body font-medium text-fg">
+      <p className="text-body font-medium text-fg" role="status">
         {transcribing ? '답변을 받아 적고 있어요…' : '다음 질문을 준비하고 있어요…'}
       </p>
     </div>
