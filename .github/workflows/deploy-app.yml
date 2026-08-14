@@ -56,6 +56,9 @@ jobs:
           CORE_INTERNAL_API_KEY: ${{ secrets.CORE_INTERNAL_API_KEY }}
           GITHUB_OAUTH_CLIENT_ID: ${{ secrets.GH_OAUTH_CLIENT_ID }}
           GITHUB_OAUTH_CLIENT_SECRET: ${{ secrets.GH_OAUTH_CLIENT_SECRET }}
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          GOOGLE_OAUTH_REDIRECT_URI: ${{ secrets.GOOGLE_OAUTH_REDIRECT_URI }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           DEEPGRAM_API_KEY: ${{ secrets.DEEPGRAM_API_KEY }}
         run: |
@@ -108,6 +111,9 @@ jobs:
           upsert_env "JWT_SECRET" "$JWT_SECRET"
           upsert_env "ENCRYPTION_KEY" "$ENCRYPTION_KEY"
           upsert_env "CORE_INTERNAL_API_KEY" "$CORE_INTERNAL_API_KEY"
+          upsert_env "GOOGLE_OAUTH_CLIENT_ID" "$GOOGLE_OAUTH_CLIENT_ID"
+          upsert_env "GOOGLE_OAUTH_CLIENT_SECRET" "$GOOGLE_OAUTH_CLIENT_SECRET"
+          upsert_env "GOOGLE_OAUTH_REDIRECT_URI" "$GOOGLE_OAUTH_REDIRECT_URI"
           upsert_env "GITHUB_OAUTH_CLIENT_ID" "$GITHUB_OAUTH_CLIENT_ID"
           upsert_env "GITHUB_OAUTH_CLIENT_SECRET" "$GITHUB_OAUTH_CLIENT_SECRET"
           upsert_env "GITHUB_OAUTH_REDIRECT_URI" "https://stack-up.shop/auth/callback"
