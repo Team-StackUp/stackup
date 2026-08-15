@@ -54,6 +54,13 @@ public class SessionService {
             && (command.targetJobDescription() == null || command.targetJobDescription().isBlank())) {
             throw new DomainException(ApiErrorCode.SESSION_JD_REQUIRED);
         }
+        // 상한이 일반질문 수보다 작으면 AI 가 만든 질문 대부분이 버려진다 — 예: 일반질문 15,
+        // 상한 2 면 풀 14개를 생성해 놓고 2번째 질문에서 MAX_QUESTIONS_REACHED 로 끝난다.
+        // 프론트가 막고 있지만 API 를 직접 호출하면 조용히 낭비되므로 서버에서도 막는다.
+        if (command.maxQuestions() != null && command.generalQuestionCount() != null
+            && command.maxQuestions() < command.generalQuestionCount()) {
+            throw new DomainException(ApiErrorCode.SESSION_QUESTION_COUNT_CONFLICT);
+        }
         InterviewSession session = sessionRepository.save(InterviewSession.create(
             user,
             title,
