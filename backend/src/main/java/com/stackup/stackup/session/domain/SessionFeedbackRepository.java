@@ -13,6 +13,9 @@ public interface SessionFeedbackRepository extends JpaRepository<SessionFeedback
 
     Optional<SessionFeedback> findByShareToken(String shareToken);
 
+    @Query("SELECT f FROM SessionFeedback f WHERE f.session.user.id = :userId AND f.shareToken IS NOT NULL")
+    List<SessionFeedback> findSharedByOwner(@Param("userId") Long userId);
+
     boolean existsBySession_Id(Long sessionId);
 
     @Query("""
