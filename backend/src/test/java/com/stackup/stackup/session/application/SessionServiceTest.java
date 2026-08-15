@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -125,6 +126,21 @@ class SessionServiceTest {
             "t", null, SessionMode.TECHNICAL, List.of(JobCategory.BACKEND),
             5, 30, null, null, List.of(8L), null, null
         ))).isInstanceOf(DomainException.class);
+    }
+
+    @Test
+    void create_rejectsMaxQuestionsBelowGeneralCount() {
+        User user = userFixture(1L);
+        when(userRepository.findByIdAndDeletedFalse(1L)).thenReturn(Optional.of(user));
+
+        // 상한(2) < 일반질문(5) — 통과시키면 AI 가 만든 풀 대부분이 버려진다.
+        // 프론트가 막고 있지만 API 직접 호출은 막을 게 없어 서버에서도 검증한다.
+        assertThatThrownBy(() -> service.create(1L, new SessionCreateCommand(
+            "t", null, SessionMode.TECHNICAL, List.of(JobCategory.BACKEND),
+            2, 30, 5, 2, List.of(), null, null
+        ))).isInstanceOf(DomainException.class);
+
+        verify(sessionRepository, never()).save(any(InterviewSession.class));
     }
 
     @Test

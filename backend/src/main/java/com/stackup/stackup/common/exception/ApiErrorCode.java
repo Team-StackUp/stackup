@@ -39,6 +39,8 @@ public enum ApiErrorCode {
     SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "세션을 찾을 수 없습니다."),
     SESSION_FORBIDDEN(HttpStatus.FORBIDDEN, "세션에 접근할 수 없습니다."),
     SESSION_JD_REQUIRED(HttpStatus.BAD_REQUEST, "직무 맞춤 면접은 채용공고(JD)를 입력해야 합니다."),
+    SESSION_QUESTION_COUNT_CONFLICT(HttpStatus.BAD_REQUEST,
+        "총 질문 상한은 일반질문 수보다 작을 수 없습니다."),
     FEEDBACK_NOT_READY(HttpStatus.NOT_FOUND, "피드백이 아직 생성되지 않았습니다."),
     FEEDBACK_NOT_FOUND(HttpStatus.NOT_FOUND, "공유된 피드백을 찾을 수 없습니다."),
     FEEDBACK_ALREADY_EXISTS(HttpStatus.CONFLICT, "피드백이 이미 생성되어 있습니다."),
