@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -96,8 +97,37 @@ class QuestionsCallbackServiceTest {
     }
 
     @Test
-    void apply_poolFailed_publishesErrorEventWithoutSeedingPool() {
-        InterviewSession session = sessionFixture(12L, SessionStatus.READY);
+    void apply_poolShortOfRequestedSize_stillSeedsPartialPoolWithoutEndingSession() {
+        // generalQuestionCount 기본값 3 → 요청한 poolCount = 2. AI 가 1개만 반환해도
+        // (완전 실패는 아니므로) 세션을 끝내지 않고 받은 만큼으로 진행한다 — 아무 질문도
+        // 없는 것보다는 낫다. (조기 종료 자체는 POOL_EXHAUSTED 로 나중에 자연스럽게 일어난다.)
+        InterviewSession session = sessionFixture(14L, SessionStatus.IN_PROGRESS);
+        QuestionsCallbackEnvelope env = poolEnvelope(14L, List.of(
+            new GeneratedQuestion("TECH", "JPA?", null, null, null)));
+        when(processedMessageRepository.existsById("m-1")).thenReturn(false);
+        when(sessionRepository.findById(14L)).thenReturn(Optional.of(session));
+        when(poolRepository.countBySessionId(14L)).thenReturn(0L);
+        when(poolRepository.findFirstBySessionIdAndUsedFalseOrderByIdxAsc(14L)).thenReturn(
+            Optional.of(com.stackup.stackup.session.domain.SessionQuestionPool.of(
+                14L, 0, "JPA?", "TECH", "BACKEND", null, null)));
+        when(messageRepository.save(any(InterviewMessage.class))).thenAnswer(inv -> {
+            InterviewMessage m = inv.getArgument(0);
+            ReflectionTestUtils.setField(m, "id", 501L);
+            return m;
+        });
+
+        service.apply(env);
+
+        // save 1회: 풀 시딩(1문항). save 1회 더: insertGeneralFromPool 의 markUsed 갱신.
+        verify(poolRepository, times(2)).save(any());
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.IN_PROGRESS);
+        assertThat(session.getTotalQuestionCount()).isEqualTo(1);
+    }
+
+    @Test
+    void apply_poolFailed_endsSessionGracefullyWithoutSeedingPool() {
+        // POOL 요청은 자기소개 답변(=세션 시작) 이후에만 발행되므로 실제로는 항상 IN_PROGRESS.
+        InterviewSession session = sessionFixture(12L, SessionStatus.IN_PROGRESS);
         QuestionsCallbackPayload payload = new QuestionsCallbackPayload(
             12L, "POOL", List.of(), null, null, null, null, null, null,
             "FAILED", "GENERATION_FAILED", "gateway 500", true
@@ -107,26 +137,35 @@ class QuestionsCallbackServiceTest {
 
         when(processedMessageRepository.existsById("m-pool-failed")).thenReturn(false);
         when(sessionRepository.findById(12L)).thenReturn(Optional.of(session));
+        when(sessionRepository.finishIfInProgress(any(), any(), any())).thenReturn(1);
 
         service.apply(env);
 
         verify(poolRepository, never()).save(any());
+        verify(processedMessageRepository).save(any(ProcessedMessage.class));
+        // POOL 생성이 실패했다고 세션을 무기한(최대 maxDurationMinutes까지) IN_PROGRESS 로
+        // 방치하지 않는다 — 자기소개까지는 답변됐으니 정상 종료시켜 피드백 흐름을 태운다.
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.COMPLETED);
         ArgumentCaptor<Object> ev = ArgumentCaptor.forClass(Object.class);
         verify(events, atLeastOnce()).publishEvent(ev.capture());
-        assertThat(ev.getAllValues()).anySatisfy(e -> {
-            assertThat(e).isInstanceOf(RealtimeNotifyEvent.class);
-            RealtimeNotifyEvent rne = (RealtimeNotifyEvent) e;
-            assertThat(rne.type()).isEqualTo(SseEventType.ERROR);
-            assertThat(rne.payload()).isInstanceOf(QuestionsCallbackService.SessionErrorNotice.class);
-            QuestionsCallbackService.SessionErrorNotice notice =
-                (QuestionsCallbackService.SessionErrorNotice) rne.payload();
-            assertThat(notice.scope()).isEqualTo("POOL");
-            assertThat(notice.errorCode()).isEqualTo("GENERATION_FAILED");
-            assertThat(notice.retriable()).isTrue();
-        });
-        verify(processedMessageRepository).save(any(ProcessedMessage.class));
-        // 세션 상태는 그대로 — 실패했다고 세션을 종료시키지 않는다.
-        assertThat(session.getStatus()).isEqualTo(SessionStatus.READY);
+        assertThat(ev.getAllValues()).anySatisfy(e ->
+            assertThat(e).isInstanceOf(com.stackup.stackup.session.application.event.SessionEndedEvent.class));
+    }
+
+    @Test
+    void apply_poolOkButEmpty_endsSessionGracefully() {
+        // status=OK 인데 questions 가 비어 온 경우(예: 중복회피 필터링으로 전부 걸러짐) —
+        // FAILED 로 마킹되지 않았다는 이유로 조용히 무시되면 세션이 영원히 멈춘다.
+        InterviewSession session = sessionFixture(13L, SessionStatus.IN_PROGRESS);
+        QuestionsCallbackEnvelope env = poolEnvelope(13L, List.of());
+        when(processedMessageRepository.existsById("m-1")).thenReturn(false);
+        when(sessionRepository.findById(13L)).thenReturn(Optional.of(session));
+        when(sessionRepository.finishIfInProgress(any(), any(), any())).thenReturn(1);
+
+        service.apply(env);
+
+        verify(poolRepository, never()).save(any());
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.COMPLETED);
     }
 
     @Test

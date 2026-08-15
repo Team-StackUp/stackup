@@ -120,7 +120,12 @@ public class QuestionsCallbackService {
     private void applyInitialQuestion(InterviewSession session, QuestionsCallbackPayload payload) {
         List<GeneratedQuestion> questions = payload.questions();
         if (questions == null || questions.isEmpty()) {
-            log.warn("callback.questions initial result with no questions. sessionId={}", session.getId());
+            // status=OK 인데 결과가 비어 온 경우(예: 중복회피 필터링으로 전부 걸러짐).
+            // 실패로 마킹되지 않았다는 이유로 조용히 무시하면 풀이 영원히 비어 있는 채
+            // 세션만 IN_PROGRESS 로 남는다 — POOL 생성 실패와 동일하게 취급한다.
+            log.warn("callback.questions initial result with no questions — treating as pool failure. "
+                + "sessionId={}", session.getId());
+            endSessionOnPoolFailure(session, "POOL_EMPTY_RESULT");
             return;
         }
         if (poolRepository.countBySessionId(session.getId()) > 0) {
@@ -136,17 +141,42 @@ public class QuestionsCallbackService {
                 session.getId(), idx++, q.question(), q.category(), jobCategory,
                 q.targetEvidence(), q.expectedSignal()));
         }
+        // 요청한 개수(generalQuestionCount-1)보다 적게 왔으면 설정한 일반질문 수를 못 채우고
+        // 조기 종료(POOL_EXHAUSTED)된다 — 사용자 눈엔 "마지막 질문 전에 갑자기 끝난" 것처럼
+        // 보인다. 세션을 막지는 않되(부분 결과도 없는 것보다 낫다) 크게 로그를 남긴다.
+        int expectedPoolCount = session.getGeneralQuestionCount() - 1;
+        if (questions.size() < expectedPoolCount) {
+            log.warn("callback.questions pool short of requested size — interview will end early. "
+                    + "sessionId={}, requested={}, received={}",
+                session.getId(), expectedPoolCount, questions.size());
+        }
         poolRepository.findFirstBySessionIdAndUsedFalseOrderByIdxAsc(session.getId())
             .ifPresent(first -> insertGeneralFromPool(session, first, "INITIAL_QUESTION_READY"));
         log.info("callback.questions pool seeded. sessionId={}, poolSize={}", session.getId(), questions.size());
     }
 
-    // POOL 생성 실패: 저장할 게 없으니 SSE 로만 알린다. 세션은 READY/IN_PROGRESS 유지 —
-    // 재시도 트리거는 프론트 담당(에러 신호 없이 무기한 대기하던 것만 우선 해소).
+    // POOL 생성 실패: 예전엔 SSE 로만 알리고 세션은 IN_PROGRESS 로 남겨뒀다(재시도는 프론트
+    // 담당 가정). 그런데 실제로 재시도를 트리거하는 곳이 어디에도 없어서, 실패하면 세션이
+    // "질문 준비 중"에 무기한 멈추고 최대 maxDurationMinutes(+스위퍼 주기)가 지나서야 타임아웃
+    // 으로 종료됐다 — 사용자에게는 "면접이 갑자기 끝났다"로 보인다. 자기소개는 이미 답변된
+    // 상태이므로(POOL 요청은 자기소개 답변 이후에만 발행됨) 여기서 바로 정상 종료시켜
+    // 피드백 흐름을 태운다(꼬리질문 생성 실패를 advanceToNextGeneral 로 자연스럽게 이어가는
+    // 것과 같은 원칙 — 조용히 멈추기보다 앞으로 나아가며 끝낸다).
     private void applyPoolFailed(InterviewSession session, QuestionsCallbackPayload payload) {
         log.warn("callback.questions POOL generation failed. sessionId={}, errorCode={}, retriable={}, message={}",
             session.getId(), payload.errorCode(), payload.retriable(), payload.errorMessage());
-        publishErrorEvent(session, "POOL", payload);
+        endSessionOnPoolFailure(session, "POOL_GENERATION_FAILED");
+    }
+
+    private void endSessionOnPoolFailure(InterviewSession session, String reason) {
+        if (session.getStatus() == SessionStatus.IN_PROGRESS) {
+            endSession(session, reason);
+        } else {
+            // start() 이전(READY)이면 종료 전이가 불가능하다 — 실제 운영에서는 POOL 요청이
+            // 자기소개 답변(=IN_PROGRESS) 이후에만 발행되므로 발생하지 않아야 하는 방어 분기.
+            log.warn("callback.questions POOL failure on non-IN_PROGRESS session — cannot auto-end. "
+                + "sessionId={}, status={}", session.getId(), session.getStatus());
+        }
     }
 
     // 풀에서 다음 일반질문을 꺼내 삽입(꼬리질문 m개 소진 후 호출). 없으면 종료.
