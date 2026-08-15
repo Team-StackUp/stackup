@@ -168,8 +168,10 @@ public class QuestionsCallbackService {
     private void insertGeneralFromPool(InterviewSession session, SessionQuestionPool pool, String reason) {
         pool.markUsed();
         poolRepository.save(pool);
-        long currentMsgs = messageRepository.countBySession_Id(session.getId());
-        int nextSeq = (int) currentMsgs + 1;
+        // 시퀀스는 개수가 아니라 최대값 기준으로 매긴다. (session_id, sequence_number) 에
+        // 유니크 제약이 있고 placeholder 를 지우는 경로(DONT_KNOW)가 있어서, 개수로 매기면
+        // 삭제된 메시지가 마지막이 아닌 순간 이미 쓰인 번호를 다시 발급해 INSERT 가 터진다.
+        int nextSeq = messageRepository.findMaxSequenceBySessionId(session.getId()) + 1;
         InterviewMessage message = messageRepository.save(
             InterviewMessage.interviewer(session, nextSeq, pool.getQuestion(),
                 pool.getCategory(), pool.getTargetEvidence(), pool.getExpectedSignal()));
@@ -244,7 +246,7 @@ public class QuestionsCallbackService {
             message = messageRepository.save(placeholder);
         } else {
             // 레거시 폴백: placeholder 없이 도착한 콜백(롤아웃 호환).
-            int nextSeq = (int) messageRepository.countBySession_Id(session.getId()) + 1;
+            int nextSeq = messageRepository.findMaxSequenceBySessionId(session.getId()) + 1;
             message = messageRepository.save(clarification
                 ? InterviewMessage.clarification(session, nextSeq, payload.followupQuestion(), parent)
                 : InterviewMessage.followup(session, nextSeq, payload.followupQuestion(), parent));
