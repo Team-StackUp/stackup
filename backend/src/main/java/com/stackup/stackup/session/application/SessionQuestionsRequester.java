@@ -74,7 +74,7 @@ public class SessionQuestionsRequester {
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onSelfIntroAnswered(SelfIntroAnsweredEvent event) {
-        List<DocumentContext> documents = buildDocumentContexts(event.contextDocumentIds());
+        List<DocumentContext> documents = buildDocumentContexts(event.userId(), event.contextDocumentIds());
         int generalCount = event.generalQuestionCount() != null
             ? event.generalQuestionCount() : DEFAULT_GENERAL_QUESTION_COUNT;
         int poolCount = generalCount - 1;  // 자기소개 1자리 예약
@@ -128,15 +128,20 @@ public class SessionQuestionsRequester {
             sessionIds, PageRequest.of(0, maxRecentQuestions));
     }
 
-    private List<DocumentContext> buildDocumentContexts(List<Long> documentIds) {
+    // findById 대신 findActiveByIdAndOwner 를 쓴다 — 세션 생성 이후 사용자가 워크스페이스에서
+    // 이력서/레포/자소서를 삭제(soft delete)했을 수 있다. findById 는 삭제 여부를 보지 않아서,
+    // 삭제를 눌렀는데도 자기소개 답변 이후 질문 풀 생성 시점에 그 문서의 요약·기술스택·원문
+    // (fetchMarkdown 으로 S3 재조회)이 계속 AI 에 전달되는 문제가 있었다 — "삭제"가 사용자
+    // 눈에는 지워졌지만 실제로는 계속 쓰이는 셈이라 삭제의 의미가 없어진다.
+    private List<DocumentContext> buildDocumentContexts(Long userId, List<Long> documentIds) {
         if (documentIds == null || documentIds.isEmpty()) {
             return List.of();
         }
         List<DocumentContext> result = new ArrayList<>(documentIds.size());
         for (Long id : documentIds) {
-            AnalyzedDocument doc = documentRepository.findById(id).orElse(null);
+            AnalyzedDocument doc = documentRepository.findActiveByIdAndOwner(id, userId).orElse(null);
             if (doc == null || doc.getAnalysisStatus() != AnalysisStatus.ANALYZED) {
-                continue;  // 미완료 문서는 컨텍스트에서 skip (SessionService 가 이미 검증 — 방어)
+                continue;  // 삭제되었거나 미완료인 문서는 컨텍스트에서 skip
             }
             result.add(new DocumentContext(
                 doc.getId(),
