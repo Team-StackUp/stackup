@@ -108,7 +108,10 @@ public class SessionFollowupRequester {
             .toList();
 
         // 스트리밍 표시용 placeholder 선INSERT (seq 예약). 콜백에서 content 채움.
-        int placeholderSeq = (int) messageRepository.countBySession_Id(session.getId()) + 1;
+        // 시퀀스는 개수가 아니라 최대값 기준으로 매긴다. (session_id, sequence_number) 에
+        // 유니크 제약이 있고 placeholder 를 지우는 경로(DONT_KNOW)가 있어서, 개수로 매기면
+        // 삭제된 메시지가 마지막이 아닌 순간 이미 쓰인 번호를 다시 발급해 INSERT 가 터진다.
+        int placeholderSeq = messageRepository.findMaxSequenceBySessionId(session.getId()) + 1;
         InterviewMessage placeholder = messageRepository.save(
             InterviewMessage.followupPlaceholder(session, placeholderSeq, parent));
         // placeholder 를 프론트 메시지 목록에 즉시 노출 → 토큰 델타가 채울 버블 확보.

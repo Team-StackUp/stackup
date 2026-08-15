@@ -174,7 +174,7 @@ class QuestionsCallbackServiceTest {
         when(processedMessageRepository.existsById("m-2")).thenReturn(false);
         when(sessionRepository.findById(11L)).thenReturn(Optional.of(session));
         when(messageRepository.findById(200L)).thenReturn(Optional.of(parentMessageFixture(session)));
-        when(messageRepository.countBySession_Id(11L)).thenReturn(8L);
+        when(messageRepository.findMaxSequenceBySessionId(11L)).thenReturn(8);
         when(messageRepository.save(any(InterviewMessage.class))).thenAnswer(inv -> {
             InterviewMessage m = inv.getArgument(0);
             ReflectionTestUtils.setField(m, "id", 700L);
@@ -217,7 +217,7 @@ class QuestionsCallbackServiceTest {
         when(sessionRepository.findById(11L)).thenReturn(Optional.of(session));
         when(messageRepository.findById(500L)).thenReturn(Optional.empty());
         when(messageRepository.findById(600L)).thenReturn(Optional.of(answer));
-        when(messageRepository.countBySession_Id(11L)).thenReturn(2L);
+        when(messageRepository.findMaxSequenceBySessionId(11L)).thenReturn(2);
         when(messageRepository.save(any(InterviewMessage.class)))
             .thenAnswer(inv -> inv.getArgument(0));
 
@@ -242,7 +242,7 @@ class QuestionsCallbackServiceTest {
         when(processedMessageRepository.existsById("m-clar")).thenReturn(false);
         when(sessionRepository.findById(11L)).thenReturn(Optional.of(session));
         when(messageRepository.findById(500L)).thenReturn(Optional.empty());
-        when(messageRepository.countBySession_Id(11L)).thenReturn(2L);
+        when(messageRepository.findMaxSequenceBySessionId(11L)).thenReturn(2);
         when(messageRepository.save(any(InterviewMessage.class))).thenAnswer(inv -> inv.getArgument(0));
 
         service.apply(env);
