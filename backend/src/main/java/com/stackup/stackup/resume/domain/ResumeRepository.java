@@ -9,4 +9,6 @@ public interface ResumeRepository extends JpaRepository<Resume, Long> {
     List<Resume> findByUser_IdAndDeletedFalse(Long userId);
 
     Optional<Resume> findByIdAndUser_IdAndDeletedFalse(Long id, Long userId);
+
+    boolean existsByUser_IdAndSourceUrlAndDeletedFalse(Long userId, String sourceUrl);
 }

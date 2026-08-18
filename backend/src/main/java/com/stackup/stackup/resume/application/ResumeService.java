@@ -7,11 +7,13 @@ import com.stackup.stackup.resume.application.dto.ResumeResult;
 import com.stackup.stackup.resume.application.dto.ResumeUploadCommand;
 import com.stackup.stackup.resume.application.event.ResumeDeletedEvent;
 import com.stackup.stackup.resume.application.event.ResumeUploadedEvent;
+import com.stackup.stackup.resume.application.event.WebResumeRegisteredEvent;
 import com.stackup.stackup.resume.domain.Resume;
 import com.stackup.stackup.resume.domain.ResumeFileType;
 import com.stackup.stackup.resume.domain.ResumeRepository;
 import com.stackup.stackup.user.domain.User;
 import com.stackup.stackup.user.domain.UserRepository;
+import java.net.URI;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
@@ -32,6 +34,7 @@ public class ResumeService {
     private final ResumeRepository resumeRepository;
     private final UserRepository userRepository;
     private final ObjectStorageClient storage;
+    private final WebResumeUrlValidator urlValidator;
     private final ApplicationEventPublisher events;
 
     @Transactional
@@ -51,6 +54,40 @@ public class ResumeService {
         // document 도메인 listener 가 동일 트랜잭션 안에서 AnalyzedDocument(PROCESSING) 생성 + AFTER_COMMIT 으로 analyze.resume 발행.
         events.publishEvent(new ResumeUploadedEvent(userId, resume.getId()));
         return ResumeResult.of(resume);
+    }
+
+    /**
+     * 웹 이력서(URL) 등록 — 포트폴리오·블로그·노션 링크. S3 업로드 없이 URL 만 저장하고
+     * 본문 추출·분석은 AI 서버가 한다(analyze.web). docs/messaging.md §5.3.
+     */
+    @Transactional
+    public ResumeResult registerWeb(Long userId, String rawUrl) {
+        URI url = urlValidator.validate(rawUrl);
+        String normalized = url.toString();
+
+        User user = userRepository.findByIdAndDeletedFalse(userId)
+            .orElseThrow(() -> new DomainException(ApiErrorCode.USER_NOT_FOUND));
+
+        // 같은 URL 을 다시 등록하면 임베딩이 중복돼 질문이 한쪽으로 쏠린다.
+        if (resumeRepository.existsByUser_IdAndSourceUrlAndDeletedFalse(userId, normalized)) {
+            throw new DomainException(ApiErrorCode.RESUME_URL_DUPLICATE);
+        }
+
+        Resume resume = resumeRepository.save(
+            Resume.createWeb(user, displayNameOf(url), normalized)
+        );
+
+        // document 도메인 listener 가 AnalyzedDocument(PROCESSING) 생성 + AFTER_COMMIT 으로 analyze.web 발행.
+        events.publishEvent(new WebResumeRegisteredEvent(userId, resume.getId()));
+        return ResumeResult.of(resume);
+    }
+
+    // 목록에 보여줄 이름. original_filename 은 NOT NULL 이라 URL 에서 사람이 읽을 만한 값을 만든다.
+    private String displayNameOf(URI url) {
+        String host = url.getHost();
+        String path = url.getPath() == null ? "" : url.getPath();
+        String name = path.isBlank() || path.equals("/") ? host : host + path;
+        return name.length() > 500 ? name.substring(0, 500) : name;
     }
 
     public List<ResumeResult> list(Long userId) {

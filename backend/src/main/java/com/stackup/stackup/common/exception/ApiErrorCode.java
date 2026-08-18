@@ -19,6 +19,8 @@ public enum ApiErrorCode {
     RESUME_EMPTY_FILE(HttpStatus.BAD_REQUEST, "빈 파일은 업로드할 수 없습니다."),
     RESUME_NOT_FOUND(HttpStatus.NOT_FOUND, "이력서를 찾을 수 없습니다."),
     RESUME_IN_USE(HttpStatus.CONFLICT, "사용 중인 이력서입니다."),
+    RESUME_INVALID_URL(HttpStatus.BAD_REQUEST, "등록할 수 없는 URL 입니다."),
+    RESUME_URL_DUPLICATE(HttpStatus.CONFLICT, "이미 등록된 URL 입니다."),
 
     COVER_LETTER_EMPTY(HttpStatus.BAD_REQUEST, "답변이 입력된 문항이 최소 1개 필요합니다."),
     COVER_LETTER_NOT_FOUND(HttpStatus.NOT_FOUND, "자소서를 찾을 수 없습니다."),

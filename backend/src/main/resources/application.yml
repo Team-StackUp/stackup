@@ -105,6 +105,7 @@ app:
         names:
           ai-analyze-resume: ai.analyze.resume
           ai-analyze-repository: ai.analyze.repository
+          ai-analyze-web: ai.analyze.web
           ai-analyze-cover-letter: ai.analyze.cover_letter
           ai-generate-questions: ai.generate.questions
           ai-generate-followup: ai.generate.followup
@@ -119,6 +120,7 @@ app:
       routing-keys:
         analyze-resume: analyze.resume
         analyze-repository: analyze.repository
+        analyze-web: analyze.web
         analyze-cover-letter: analyze.cover_letter
         generate-questions: generate.questions
         generate-followup: generate.followup
