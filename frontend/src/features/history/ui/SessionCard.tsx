@@ -25,9 +25,21 @@ const JOB: Record<string, string> = {
   DBA: 'DBA',
 }
 
+/**
+ * 상태별로 눌렀을 때 갈 곳. 예전에는 COMPLETED 만 링크였고 나머지는 아예 눌리지 않아,
+ * 중단된 면접의 문답을 다시 볼 방법도 · 진행 중이던 면접으로 돌아갈 방법도 없었다.
+ * (CANCELLED 는 시작 전 취소라 볼 것이 없어 그대로 둔다.)
+ */
+const LINK: Record<string, { to: (id: number) => string; cta: string }> = {
+  COMPLETED: { to: (id) => `/sessions/${id}/feedback`, cta: '리포트 →' },
+  INTERRUPTED: { to: (id) => `/sessions/${id}`, cta: '기록 보기 →' },
+  IN_PROGRESS: { to: (id) => `/sessions/${id}`, cta: '이어서 →' },
+  READY: { to: (id) => `/sessions/${id}`, cta: '시작하기 →' },
+}
+
 export function SessionCard({ session }: { session: Session }) {
   const status = session.status ? STATUS[session.status] : undefined
-  const completed = session.status === 'COMPLETED'
+  const link = session.status ? LINK[session.status] : undefined
   const jobs = session.jobCategories?.length
     ? session.jobCategories
     : session.jobCategory
@@ -48,15 +60,17 @@ export function SessionCard({ session }: { session: Session }) {
       </div>
       <div className="flex items-center gap-3">
         {status && <StatusBadge tone={status.tone}>{status.label}</StatusBadge>}
-        {completed && (
-          <span className="shrink-0 text-caption font-medium text-primary-fg">리포트 →</span>
+        {link && (
+          <span className="shrink-0 text-caption font-medium text-primary-fg">
+            {link.cta}
+          </span>
         )}
       </div>
     </div>
   )
 
-  return completed ? (
-    <Link to={`/sessions/${session.id}/feedback`}>{body}</Link>
+  return link && session.id != null ? (
+    <Link to={link.to(session.id)}>{body}</Link>
   ) : (
     body
   )

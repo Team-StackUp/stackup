@@ -9,6 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.stackup.stackup.common.exception.ApiErrorCode;
 import com.stackup.stackup.common.exception.DomainException;
 import com.stackup.stackup.common.storage.ObjectStorageClient;
 import com.stackup.stackup.session.application.dto.MessageResult;
@@ -81,7 +82,7 @@ class InterviewMessageServiceTest {
 
         when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(10L, 1L)).thenReturn(Optional.of(session));
         when(messageRepository.findFirstBySession_IdOrderBySequenceNumberDesc(10L)).thenReturn(Optional.of(question));
-        when(messageRepository.save(any(InterviewMessage.class))).thenAnswer(inv -> {
+        when(messageRepository.saveAndFlush(any(InterviewMessage.class))).thenAnswer(inv -> {
             InterviewMessage m = inv.getArgument(0);
             ReflectionTestUtils.setField(m, "id", 200L);
             return m;
@@ -111,6 +112,27 @@ class InterviewMessageServiceTest {
         verify(events, never()).publishEvent(any(AnswerSubmittedEvent.class));
     }
 
+    // 같은 턴에 두 요청이 동시에 들어오면 둘 다 같은 seq 를 계산한다.
+    // (session_id, sequence_number) UNIQUE 가 한쪽을 막는데, 500 이 아니라 '이미 답변된 턴'이어야 한다.
+    @Test
+    void submitAnswer_translatesSequenceConflictToInvalidState() {
+        InterviewSession session = sessionInProgress(10L);
+        InterviewMessage question = InterviewMessage.interviewer(session, 1, "Q1?");
+        ReflectionTestUtils.setField(question, "id", 100L);
+
+        when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(10L, 1L)).thenReturn(Optional.of(session));
+        when(messageRepository.findFirstBySession_IdOrderBySequenceNumberDesc(10L)).thenReturn(Optional.of(question));
+        when(messageRepository.saveAndFlush(any(InterviewMessage.class)))
+            .thenThrow(new org.springframework.dao.DataIntegrityViolationException(
+                "duplicate key value violates unique constraint"));
+
+        assertThatThrownBy(() -> service.submitAnswer(1L, 10L, "answer", null))
+            .isInstanceOfSatisfying(DomainException.class, e ->
+                assertThat(e.getErrorCode()).isEqualTo(ApiErrorCode.SESSION_INVALID_STATE));
+
+        verify(events, never()).publishEvent(any(AnswerSubmittedEvent.class));
+    }
+
     @Test
     void submitAnswer_rejectsWhenPreviousMessageNotInterviewer() {
         InterviewSession session = sessionInProgress(10L);
@@ -135,7 +157,7 @@ class InterviewMessageServiceTest {
 
         when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(10L, 1L)).thenReturn(Optional.of(session));
         when(messageRepository.findFirstBySession_IdOrderBySequenceNumberDesc(10L)).thenReturn(Optional.of(failedVoice));
-        when(messageRepository.save(any(InterviewMessage.class))).thenAnswer(inv -> {
+        when(messageRepository.saveAndFlush(any(InterviewMessage.class))).thenAnswer(inv -> {
             InterviewMessage m = inv.getArgument(0);
             ReflectionTestUtils.setField(m, "id", 201L);
             return m;
