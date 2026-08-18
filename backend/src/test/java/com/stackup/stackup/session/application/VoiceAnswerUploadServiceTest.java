@@ -52,7 +52,7 @@ class VoiceAnswerUploadServiceTest {
         when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(10L, 1L)).thenReturn(Optional.of(session));
         when(messageRepository.findFirstBySession_IdOrderBySequenceNumberDesc(10L))
             .thenReturn(Optional.of(question));
-        when(messageRepository.save(any(InterviewMessage.class))).thenAnswer(inv -> {
+        when(messageRepository.saveAndFlush(any(InterviewMessage.class))).thenAnswer(inv -> {
             InterviewMessage m = inv.getArgument(0);
             ReflectionTestUtils.setField(m, "id", 200L);
             return m;
@@ -133,6 +133,24 @@ class VoiceAnswerUploadServiceTest {
                 assertThat(e.getErrorCode()).isEqualTo(ApiErrorCode.SESSION_INVALID_STATE));
 
         verify(messageRepository, never()).save(any());
+    }
+
+    // 텍스트 답변과 동일 — 동시 제출로 seq 가 충돌하면 500 이 아니라 '이미 답변된 턴'.
+    @Test
+    void createVoicePlaceholder_translatesSequenceConflictToInvalidState() {
+        InterviewSession session = sessionInProgress(10L);
+        InterviewMessage question = InterviewMessage.interviewer(session, 1, "Q1?");
+        ReflectionTestUtils.setField(question, "id", 100L);
+
+        when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(10L, 1L)).thenReturn(Optional.of(session));
+        when(messageRepository.findFirstBySession_IdOrderBySequenceNumberDesc(10L))
+            .thenReturn(Optional.of(question));
+        when(messageRepository.saveAndFlush(any(InterviewMessage.class)))
+            .thenThrow(new org.springframework.dao.DataIntegrityViolationException("duplicate key"));
+
+        assertThatThrownBy(() -> service.createVoicePlaceholder(1L, 10L, null))
+            .isInstanceOfSatisfying(DomainException.class, e ->
+                assertThat(e.getErrorCode()).isEqualTo(ApiErrorCode.SESSION_INVALID_STATE));
     }
 
     // ── attachAudioAndRequestAnalysis ─────────────────────────────────────────

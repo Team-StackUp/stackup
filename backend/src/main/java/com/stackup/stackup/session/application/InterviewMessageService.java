@@ -25,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -167,10 +168,22 @@ public class InterviewMessageService {
             .orElseThrow(() -> new DomainException(ApiErrorCode.SESSION_INVALID_STATE));
         InterviewMessage parentQuestion = resolveAnswerParent(latest);
         int nextSeq = latest.getSequenceNumber() + 1;
-        InterviewMessage answer = messageRepository.save(
-            InterviewMessage.interviewee(session, nextSeq, content, parentQuestion,
-                idempotencyKey != null && !idempotencyKey.isBlank() ? idempotencyKey : null)
-        );
+        InterviewMessage answer;
+        try {
+            // saveAndFlush — INSERT 를 여기서 터뜨려야 아래에서 잡을 수 있다. 커밋 시점까지
+            // 미루면 트랜잭션 밖에서 500 으로 새어 나간다.
+            answer = messageRepository.saveAndFlush(
+                InterviewMessage.interviewee(session, nextSeq, content, parentQuestion,
+                    idempotencyKey != null && !idempotencyKey.isBlank() ? idempotencyKey : null)
+            );
+        } catch (DataIntegrityViolationException e) {
+            // 같은 질문에 두 요청이 동시에 들어오면 둘 다 같은 nextSeq 를 계산한다.
+            // (session_id, sequence_number) UNIQUE 가 한쪽을 막는데, 그대로 두면 사용자에겐
+            // 정체불명의 500 이 된다. 실제 의미는 '이 턴은 이미 답변됐다' 이므로 그렇게 알린다.
+            log.info("answer sequence conflict — turn already answered. sessionId={}, seq={}",
+                sessionId, nextSeq);
+            throw new DomainException(ApiErrorCode.SESSION_INVALID_STATE);
+        }
 
         events.publishEvent(new AnswerSubmittedEvent(
             userId, sessionId, parentQuestion.getId(), answer.getId()

@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -61,10 +62,19 @@ public class VoiceAnswerUploadService {
             throw new DomainException(ApiErrorCode.SESSION_INVALID_STATE);
         }
         int nextSeq = latest.getSequenceNumber() + 1;
-        InterviewMessage placeholder = messageRepository.save(
-            InterviewMessage.voiceInterviewee(session, nextSeq, latest,
-                idempotencyKey != null && !idempotencyKey.isBlank() ? idempotencyKey : null)
-        );
+        InterviewMessage placeholder;
+        try {
+            // 텍스트 답변(InterviewMessageService.submitAnswer)과 같은 이유로 saveAndFlush +
+            // 제약 위반 변환 — 같은 턴에 동시 제출이 들어오면 둘 다 같은 seq 를 계산한다.
+            placeholder = messageRepository.saveAndFlush(
+                InterviewMessage.voiceInterviewee(session, nextSeq, latest,
+                    idempotencyKey != null && !idempotencyKey.isBlank() ? idempotencyKey : null)
+            );
+        } catch (DataIntegrityViolationException e) {
+            log.info("voice answer sequence conflict — turn already answered. sessionId={}, seq={}",
+                sessionId, nextSeq);
+            throw new DomainException(ApiErrorCode.SESSION_INVALID_STATE);
+        }
         return new VoicePlaceholder(session, placeholder, latest);
     }
 
