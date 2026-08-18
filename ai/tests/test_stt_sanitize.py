@@ -56,7 +56,9 @@ def test_sanitize_transcription_drops_hallucination_segment() -> None:
         language="ko",
         duration_sec=30.0,
         segments=[
-            TranscriptionSegment(start_sec=0.0, end_sec=4.0, text="타임아웃을 잡았습니다."),
+            TranscriptionSegment(
+                start_sec=0.0, end_sec=4.0, text="타임아웃을 잡았습니다."
+            ),
             TranscriptionSegment(
                 start_sec=29.0, end_sec=30.0, text="MBC 뉴스 김재경입니다."
             ),
@@ -69,5 +71,7 @@ def test_sanitize_transcription_drops_hallucination_segment() -> None:
     assert len(cleaned.segments) == 1
     assert cleaned.segments[0].text == "타임아웃을 잡았습니다."
     # 환각이 없는 결과는 동일 객체를 그대로 반환(불필요한 재할당 방지).
-    clean_in = TranscriptionResult(text="정상 답변입니다.", language="ko", duration_sec=2.0, segments=[])
+    clean_in = TranscriptionResult(
+        text="정상 답변입니다.", language="ko", duration_sec=2.0, segments=[]
+    )
     assert sanitize_transcription(clean_in) is clean_in

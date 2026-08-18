@@ -225,9 +225,7 @@ class TtsConsumer:
             ext = self._EXT_BY_CONTENT_TYPE.get(
                 res.content_type.split(";")[0].strip(), "mp3"
             )
-            seg_key = (
-                f"interview/tts/{req.session_id}/{req.message_id}/seg-{seq}.{ext}"
-            )
+            seg_key = f"interview/tts/{req.session_id}/{req.message_id}/seg-{seq}.{ext}"
             try:
                 await self._storage.put_bytes(
                     seg_key, res.audio_bytes, content_type=res.content_type

@@ -41,15 +41,34 @@ def test_keeps_substantive_answers(text: str) -> None:
 
 def test_coaching_pairs_skip_short_confirmation() -> None:
     msgs = [
-        FeedbackMessageItem(id=1, sequence_number=1, role="INTERVIEWER",
-                            content="그럼 인덱스를 직접 만드셨나요?", category="TECH_CHOICE"),
-        FeedbackMessageItem(id=2, sequence_number=2, role="INTERVIEWEE",
-                            content="네 맞습니다.", parent_message_id=1),
-        FeedbackMessageItem(id=3, sequence_number=3, role="INTERVIEWER",
-                            content="어떤 컬럼으로 복합 인덱스를 구성했나요?", category="TECH_CHOICE"),
-        FeedbackMessageItem(id=4, sequence_number=4, role="INTERVIEWEE",
-                            content="조회 조건인 user_id 와 created_at 으로 복합 인덱스를 잡았습니다.",
-                            parent_message_id=3),
+        FeedbackMessageItem(
+            id=1,
+            sequence_number=1,
+            role="INTERVIEWER",
+            content="그럼 인덱스를 직접 만드셨나요?",
+            category="TECH_CHOICE",
+        ),
+        FeedbackMessageItem(
+            id=2,
+            sequence_number=2,
+            role="INTERVIEWEE",
+            content="네 맞습니다.",
+            parent_message_id=1,
+        ),
+        FeedbackMessageItem(
+            id=3,
+            sequence_number=3,
+            role="INTERVIEWER",
+            content="어떤 컬럼으로 복합 인덱스를 구성했나요?",
+            category="TECH_CHOICE",
+        ),
+        FeedbackMessageItem(
+            id=4,
+            sequence_number=4,
+            role="INTERVIEWEE",
+            content="조회 조건인 user_id 와 created_at 으로 복합 인덱스를 잡았습니다.",
+            parent_message_id=3,
+        ),
     ]
     pairs = _collect_coachable_pairs(msgs)
     answer_ids = [a.id for _, a in pairs]

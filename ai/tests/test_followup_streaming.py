@@ -79,7 +79,9 @@ async def test_stream_emits_full_question_with_lt_operator():
 
 @pytest.mark.asyncio
 async def test_stream_dont_know_emits_no_question_tokens():
-    pieces = ["<intent>DONT_KNOW</intent><question>모르면 이렇게</question><meta>{}</meta>"]
+    pieces = [
+        "<intent>DONT_KNOW</intent><question>모르면 이렇게</question><meta>{}</meta>"
+    ]
     prompt = ChatPromptTemplate.from_messages([("human", "{answer_text}")])
     gen = StreamingFollowupGenerator(prompt=prompt, llm=_FakeStreamLLM(pieces))
     seen = []

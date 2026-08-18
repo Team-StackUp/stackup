@@ -22,16 +22,22 @@ class CoreAiLogCallback(AsyncCallbackHandler):
     metadata 에서 토큰 수를 추출한다.
     """
 
-    def __init__(self, *, core_client: CoreClient, request_type: str, default_model: str) -> None:
+    def __init__(
+        self, *, core_client: CoreClient, request_type: str, default_model: str
+    ) -> None:
         self._core = core_client
         self._request_type = request_type
         self._default_model = default_model
         self._start_at: dict[UUID, float] = {}
 
-    async def on_llm_start(self, serialized, prompts, *, run_id: UUID, **kwargs: Any) -> None:
+    async def on_llm_start(
+        self, serialized, prompts, *, run_id: UUID, **kwargs: Any
+    ) -> None:
         self._start_at[run_id] = time.perf_counter()
 
-    async def on_llm_end(self, response: LLMResult, *, run_id: UUID, **kwargs: Any) -> None:
+    async def on_llm_end(
+        self, response: LLMResult, *, run_id: UUID, **kwargs: Any
+    ) -> None:
         latency_ms = self._latency_ms(run_id)
         in_tok, out_tok, model = _extract_usage(response, self._default_model)
         await self._fire(
@@ -44,7 +50,9 @@ class CoreAiLogCallback(AsyncCallbackHandler):
             error_message=None,
         )
 
-    async def on_llm_error(self, error: BaseException, *, run_id: UUID, **kwargs: Any) -> None:
+    async def on_llm_error(
+        self, error: BaseException, *, run_id: UUID, **kwargs: Any
+    ) -> None:
         latency_ms = self._latency_ms(run_id)
         await self._fire(
             request_type=self._request_type,
@@ -69,10 +77,13 @@ class CoreAiLogCallback(AsyncCallbackHandler):
                 await self._core.record_ai_log(**kwargs)
             except Exception as exc:
                 log.warn("core.ai_log.background_failed", error=str(exc), **kwargs)
+
         asyncio.create_task(_do())
 
 
-def _extract_usage(response: LLMResult, default_model: str) -> tuple[int | None, int | None, str]:
+def _extract_usage(
+    response: LLMResult, default_model: str
+) -> tuple[int | None, int | None, str]:
     in_tok = out_tok = None
     model = default_model
     try:
@@ -90,8 +101,16 @@ def _extract_usage(response: LLMResult, default_model: str) -> tuple[int | None,
                     info = getattr(gen, "generation_info", None) or {}
                     usage = info.get("usage_metadata") or info.get("token_usage") or {}
                     if isinstance(usage, dict):
-                        in_tok = in_tok or usage.get("input_tokens") or usage.get("prompt_tokens")
-                        out_tok = out_tok or usage.get("output_tokens") or usage.get("completion_tokens")
+                        in_tok = (
+                            in_tok
+                            or usage.get("input_tokens")
+                            or usage.get("prompt_tokens")
+                        )
+                        out_tok = (
+                            out_tok
+                            or usage.get("output_tokens")
+                            or usage.get("completion_tokens")
+                        )
     except Exception as exc:
         log.debug("ai_log.usage_extract_failed", error=str(exc))
     return in_tok, out_tok, model

@@ -8,7 +8,9 @@ from ai_server.rag.embedder import MockEmbeddingProvider
 
 
 def test_contextualize_prefixes_summary_and_heading() -> None:
-    out = _contextualize("본문 내용", heading_path="주요 경험 > 결제", summary="백엔드 지원자")
+    out = _contextualize(
+        "본문 내용", heading_path="주요 경험 > 결제", summary="백엔드 지원자"
+    )
     assert out.startswith("[백엔드 지원자 > 주요 경험 > 결제]")
     assert out.endswith("본문 내용")
 

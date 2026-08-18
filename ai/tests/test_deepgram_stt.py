@@ -34,14 +34,26 @@ async def test_deepgram_returns_segments_and_logprob_from_utterances():
                 }
             ],
             "utterances": [
-                {"start": 0.0, "end": 2.5, "transcript": "안녕하세요", "confidence": 0.95},
-                {"start": 3.0, "end": 6.0, "transcript": "백엔드 지원자입니다", "confidence": 0.88},
+                {
+                    "start": 0.0,
+                    "end": 2.5,
+                    "transcript": "안녕하세요",
+                    "confidence": 0.95,
+                },
+                {
+                    "start": 3.0,
+                    "end": 6.0,
+                    "transcript": "백엔드 지원자입니다",
+                    "confidence": 0.88,
+                },
             ],
         },
     }
     async with _client(status=200, body=response) as client:
         provider = DeepgramSttProvider(api_key="k", client=client)
-        result = await provider.transcribe(audio_bytes=b"fake", content_type="audio/webm")
+        result = await provider.transcribe(
+            audio_bytes=b"fake", content_type="audio/webm"
+        )
 
     assert result.text.startswith("안녕하세요")
     assert result.duration_sec == 6.0
@@ -66,7 +78,9 @@ async def test_deepgram_fallback_segment_when_no_utterances():
     }
     async with _client(status=200, body=response) as client:
         provider = DeepgramSttProvider(api_key="k", client=client)
-        result = await provider.transcribe(audio_bytes=b"fake", content_type="audio/webm")
+        result = await provider.transcribe(
+            audio_bytes=b"fake", content_type="audio/webm"
+        )
 
     assert result.text == "한 줄 답변"
     assert len(result.segments) == 1

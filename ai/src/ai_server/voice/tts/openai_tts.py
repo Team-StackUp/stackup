@@ -47,4 +47,6 @@ class OpenAiTtsProvider(TtsProvider):
         if not audio:
             raise TtsError("TTS_EMPTY_AUDIO", "empty audio body")
         # OpenAI 는 duration 을 주지 않음 → None (Core completeTts 가 null 허용).
-        return TtsResult(audio_bytes=audio, duration_sec=None, content_type="audio/mpeg")
+        return TtsResult(
+            audio_bytes=audio, duration_sec=None, content_type="audio/mpeg"
+        )

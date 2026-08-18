@@ -18,9 +18,19 @@ def test_keeps_only_verbatim_substrings():
 def test_dedup_and_cap():
     body = "가가 나나 다다 라라 마마 바바 사사 가가"
     out = _filter_highlights(
-        ["가가", "가가", "나나", "다다", "라라", "마마", "바바", "사사"], body, None, cap=6
+        ["가가", "가가", "나나", "다다", "라라", "마마", "바바", "사사"],
+        body,
+        None,
+        cap=6,
     )
-    assert out == ["가가", "나나", "다다", "라라", "마마", "바바"]  # 중복 제거 + 6개 상한
+    assert out == [
+        "가가",
+        "나나",
+        "다다",
+        "라라",
+        "마마",
+        "바바",
+    ]  # 중복 제거 + 6개 상한
 
 
 def test_empty_when_no_match_or_no_body():

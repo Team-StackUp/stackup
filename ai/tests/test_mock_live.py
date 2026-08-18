@@ -5,7 +5,9 @@ from ai_server.voice.stt.mock_live import MockLiveSttProvider
 
 @pytest.mark.asyncio
 async def test_mock_live_emits_partials_then_final():
-    provider = MockLiveSttProvider(script=["안녕", "안녕하세요", "안녕하세요 반갑습니다"])
+    provider = MockLiveSttProvider(
+        script=["안녕", "안녕하세요", "안녕하세요 반갑습니다"]
+    )
     session = provider.open_session(content_type="audio/webm", language="ko")
     await session.start()
     # 오디오 청크 3개 투입

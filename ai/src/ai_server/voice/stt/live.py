@@ -10,8 +10,8 @@ from ai_server.voice.stt.base import TranscriptionResult
 @dataclass(frozen=True)
 class LiveTranscriptEvent:
     text: str
-    is_final: bool          # 발화(utterance) 확정 조각인지
-    speech_final: bool      # 발화 끝(턴 종료 신호)
+    is_final: bool  # 발화(utterance) 확정 조각인지
+    speech_final: bool  # 발화 끝(턴 종료 신호)
 
 
 class LiveSttSession(ABC):
@@ -42,4 +42,6 @@ class LiveSttProvider(ABC):
     model_name: str = "live-stt"
 
     @abstractmethod
-    def open_session(self, *, content_type: str, language: str | None) -> LiveSttSession: ...
+    def open_session(
+        self, *, content_type: str, language: str | None
+    ) -> LiveSttSession: ...
