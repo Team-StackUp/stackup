@@ -111,8 +111,8 @@ class SessionQuestionsRequesterTest {
     // record 라 mock 이 안 된다 — 실제 인스턴스를 만든다. 이 테스트가 보는 건 generateQuestions 뿐.
     private RabbitMqProperties.RoutingKeyProperties routingKeys() {
         return new RabbitMqProperties.RoutingKeyProperties(
-            "x", "x", "x", "generate.questions", "x", "x", "x", "x",
-            "x", "x", "x", "x", "x", "x", "x", "x"
+            "x", "x", "x", "x", "generate.questions", "x", "x", "x",
+            "x", "x", "x", "x", "x", "x", "x", "x", "x"
         );
     }
 }

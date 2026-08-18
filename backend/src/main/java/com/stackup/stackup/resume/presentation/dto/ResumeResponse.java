@@ -11,6 +11,8 @@ public record ResumeResponse(
     String filePath,
     ResumeFileType fileType,
     Long fileSize,
+    // WEB 타입의 원문 URL. PDF 는 null.
+    String sourceUrl,
     ResumeStatus status,
     Instant createdAt,
     Instant updatedAt
@@ -22,6 +24,7 @@ public record ResumeResponse(
             result.filePath(),
             result.fileType(),
             result.fileSize(),
+            result.sourceUrl(),
             result.status(),
             result.createdAt(),
             result.updatedAt()

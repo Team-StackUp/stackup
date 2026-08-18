@@ -10,6 +10,7 @@ import com.stackup.stackup.coverletter.domain.CoverLetterRepository;
 import com.stackup.stackup.document.application.dto.AnalyzeCoverLetterPayload;
 import com.stackup.stackup.document.application.dto.AnalyzeRepositoryPayload;
 import com.stackup.stackup.document.application.dto.AnalyzeResumePayload;
+import com.stackup.stackup.document.application.dto.AnalyzeWebPayload;
 import com.stackup.stackup.document.domain.AnalyzedDocument;
 import com.stackup.stackup.document.domain.AnalyzedDocumentRepository;
 import com.stackup.stackup.github.domain.GithubRepository;
@@ -55,6 +56,28 @@ public class AnalysisRequestService {
             userId,
             doc.getId(),
             new AnalyzeResumePayload(resume.getId(), resume.getFilePath(), doc.getId())
+        ));
+        return new AnalysisHandle(doc.getId(), resume.getId(), null);
+    }
+
+    // 웹 이력서(URL) 분석. PDF 와 같은 Resume 행·AnalyzedDocument 를 쓰고 payload 만 URL 기반이다.
+    @Transactional
+    public AnalysisHandle requestWebResumeAnalysis(Long userId, Long resumeId) {
+        Resume resume = resumeRepository.findById(resumeId)
+            .orElseThrow(() -> new IllegalArgumentException("resume not found: " + resumeId));
+        if (!resume.getUser().getId().equals(userId)) {
+            throw new IllegalArgumentException("resume does not belong to user");
+        }
+        if (resume.getSourceUrl() == null || resume.getSourceUrl().isBlank()) {
+            throw new IllegalArgumentException("web resume has no source url: " + resumeId);
+        }
+        AnalyzedDocument doc = analyzedDocumentRepository.save(AnalyzedDocument.forResume(resume));
+        resume.markAnalyzing();
+
+        events.publishEvent(new WebResumeAnalysisRequestedEvent(
+            userId,
+            doc.getId(),
+            new AnalyzeWebPayload(resume.getId(), resume.getSourceUrl(), doc.getId())
         ));
         return new AnalysisHandle(doc.getId(), resume.getId(), null);
     }
@@ -141,6 +164,16 @@ public class AnalysisRequestService {
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onWebResumeAnalysisRequested(WebResumeAnalysisRequestedEvent event) {
+        publisher.publishToAi(
+            properties.routingKeys().analyzeWeb(),
+            event.payload(),
+            new MessageContext(event.userId(), null, event.documentId(), null)
+        );
+    }
+
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onRepositoryAnalysisRequested(RepositoryAnalysisRequestedEvent event) {
         publisher.publishToAi(
             properties.routingKeys().analyzeRepository(),
@@ -163,6 +196,9 @@ public class AnalysisRequestService {
     }
 
     record ResumeAnalysisRequestedEvent(Long userId, Long documentId, AnalyzeResumePayload payload) {
+    }
+
+    record WebResumeAnalysisRequestedEvent(Long userId, Long documentId, AnalyzeWebPayload payload) {
     }
 
     record RepositoryAnalysisRequestedEvent(Long userId, Long documentId, AnalyzeRepositoryPayload payload) {

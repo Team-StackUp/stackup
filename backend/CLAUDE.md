@@ -85,7 +85,7 @@ com.stackup.stackup.{domain}/
 | `user` | 사용자 CRUD, 회원 탈퇴, 프로필 조회 | US-02, US-04 |
 | `user.consent` | 개인정보처리동의 기록·조회·철회 | US-03 |
 | `github` | GitHub API 연동, 레포 목록/등록/메타 동기화 | US-07, US-08 |
-| `resume` | 이력서 업로드(S3)·메타 저장·목록·삭제 | US-05, US-06 |
+| `resume` | 이력서 업로드(S3)·메타 저장·목록·삭제 + **웹 이력서(URL) 등록**(`file_type=WEB`, `source_url`; SSRF 가드 `WebResumeUrlValidator`) | US-05, US-06, US-09 |
 | `coverletter` | 자소서(공채) 문항별 텍스트 입력·메타 저장·목록·삭제. inline 텍스트→`analyze.cover_letter`→분석 파이프라인 재사용. AnalyzedDocument 에 `cover_letter_id` 다형성 FK 추가 | — |
 | `document` | 분석 문서(이력서/레포/자소서 공통) 메타 + S3 경로 | US-09~12 |
 | `session` | 면접 세션·메시지·피드백 (가장 큰 도메인) | US-13~20, US-24~27 |
@@ -427,6 +427,19 @@ docker compose up -d
   로 다음 일반질문으로 진행 — 턴이 사라진 것처럼 보이지 않으면서 면접은 멈추지 않는다.
 - **문장 단위 TTS 세그먼트 프록시 본 구현 (Part B)**: `InterviewMessageService.streamAudioSegment` + `GET /api/sessions/{sid}/messages/{mid}/audio/segments/{seq}?ext=`. AI 가 휘발성으로 쓴 라이브 세그먼트를 규칙(`interview/tts/{sid}/{mid}/seg-{seq}.{ext}`)으로 재구성해 프록시(DB 미기록). 소유권+ext 화이트리스트+seq>=0 검증으로 임의 키 노출 차단.
 - AI 호출 로깅 (US-30) 본 구현: `/api/internal/ai-logs` + `ai_request_logs` INSERT
+- **웹 이력서(URL) 본 구현 (US-09)**: `POST /api/resumes/web { url }`. AI 서버에 웹 분석이 이미
+  완성돼 있었는데(`analyze.web` consumer) Core 발행부가 없어 반쪽이던 걸 배선했다. `docs/messaging.md §5.3`
+  대로 **resume 도메인을 재사용** — V24 로 `resumes` 에 `file_type='WEB'`·`source_url` 추가(+`file_path`
+  nullable, 타입별 필수 locator CHECK). 흐름은 PDF 와 대칭:
+  `ResumeService.registerWeb` → `WebResumeRegisteredEvent` → `WebResumeAnalysisEventListener` →
+  `AnalysisRequestService.requestWebResumeAnalysis`(AnalyzedDocument 생성) → AFTER_COMMIT `analyze.web` 발행.
+  콜백은 `AnalysisCallbackService` 가 `context.documentId` 로 처리하므로 **무변경 재사용**.
+  - **SSRF 가드 필수** (`WebResumeUrlValidator`): 사용자 URL 을 AI 서버가 그대로 fetch 하고, AI 는 docker
+    네트워크에서 Core·PG·RabbitMQ·MinIO 에 닿는다. http(s) 만 허용 + userinfo 거부 + 호스트를 **해석한
+    주소**로 사설/루프백/링크로컬/멀티캐스트/IPv6 unique-local 차단(이름이 아니라 주소로 판단하므로 사설
+    IP 로 해석되는 공개 도메인도 막힌다). 거부 응답에 내부 주소는 노출하지 않는다. DNS 해석기는 주입
+    가능(테스트가 네트워크 미의존). 여긴 첫 관문이고 실질 방어선은 AI 쪽 `url_guard.py` 다.
+  - 같은 URL 재등록은 409(`RESUME_URL_DUPLICATE`) — 임베딩 중복으로 질문이 쏠리는 것 방지.
 - **Spring AI 미사용** — LLM·임베딩 호출은 모두 AI 서버 위임. Core는 RabbitMQ 발행만 담당.
 - **Redis 미사용** — 휘발성 데이터는 DB short-lived 레코드 또는 인메모리로.
 

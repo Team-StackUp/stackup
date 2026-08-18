@@ -18,6 +18,12 @@ export async function uploadResume(file: File): Promise<Resume> {
   return response.data
 }
 
+// 웹 이력서(URL) 등록. 파일 업로드 없이 URL 만 보내고 본문 추출은 서버(AI)가 한다.
+export async function registerWebResume(url: string): Promise<Resume> {
+  const response = await apiClient.post<Resume>('/api/resumes/web', { url })
+  return response.data
+}
+
 export async function deleteResume(id: number): Promise<void> {
   await apiClient.delete(`/api/resumes/${id}`)
 }

@@ -6,6 +6,13 @@ import pytest
 from ai_server.analyzer.sources.web import WebFetchError, WebSourceExtractor
 
 
+# DNS 를 타지 않는다 — example.com 계열은 공개 IP, 그 외 리터럴은 그대로.
+def _fake_resolver(host: str) -> list[str]:
+    if host.endswith("example.com"):
+        return ["93.184.216.34"]
+    return [host]
+
+
 def _make_client(
     *,
     status: int = 200,
@@ -39,7 +46,7 @@ async def test_extract_returns_main_body_text() -> None:
         "<footer>foot</footer></body></html>"
     )
     client = _make_client(body=html)
-    extractor = WebSourceExtractor(client=client)
+    extractor = WebSourceExtractor(client=client, resolver=_fake_resolver)
     result = await extractor.extract("https://example.com/r")
 
     assert result.source_type == "WEB"
@@ -51,7 +58,7 @@ async def test_extract_returns_main_body_text() -> None:
 
 @pytest.mark.asyncio
 async def test_rejects_non_http_locator() -> None:
-    extractor = WebSourceExtractor(client=_make_client())
+    extractor = WebSourceExtractor(client=_make_client(), resolver=_fake_resolver)
     with pytest.raises(WebFetchError) as exc_info:
         await extractor.extract("ftp://example.com/x")
     assert exc_info.value.code == "INVALID_WEB_URL"
@@ -61,7 +68,7 @@ async def test_rejects_non_http_locator() -> None:
 @pytest.mark.asyncio
 async def test_raises_on_http_error_status() -> None:
     client = _make_client(status=503)
-    extractor = WebSourceExtractor(client=client)
+    extractor = WebSourceExtractor(client=client, resolver=_fake_resolver)
     with pytest.raises(WebFetchError) as exc_info:
         await extractor.extract("https://example.com/r")
     assert exc_info.value.code == "WEB_HTTP_STATUS"
@@ -71,7 +78,7 @@ async def test_raises_on_http_error_status() -> None:
 @pytest.mark.asyncio
 async def test_raises_on_4xx_as_non_retriable() -> None:
     client = _make_client(status=404)
-    extractor = WebSourceExtractor(client=client)
+    extractor = WebSourceExtractor(client=client, resolver=_fake_resolver)
     with pytest.raises(WebFetchError) as exc_info:
         await extractor.extract("https://example.com/r")
     assert exc_info.value.code == "WEB_HTTP_STATUS"
@@ -81,7 +88,7 @@ async def test_raises_on_4xx_as_non_retriable() -> None:
 @pytest.mark.asyncio
 async def test_rejects_non_html_content_type() -> None:
     client = _make_client(content_type="application/pdf")
-    extractor = WebSourceExtractor(client=client)
+    extractor = WebSourceExtractor(client=client, resolver=_fake_resolver)
     with pytest.raises(WebFetchError) as exc_info:
         await extractor.extract("https://example.com/r")
     assert exc_info.value.code == "WEB_NOT_HTML"
@@ -91,7 +98,9 @@ async def test_rejects_non_html_content_type() -> None:
 async def test_rejects_oversized_html() -> None:
     big = b"<html>" + b"a" * 1024 + b"</html>"
     client = _make_client(body=big)
-    extractor = WebSourceExtractor(client=client, max_html_bytes=512)
+    extractor = WebSourceExtractor(
+        client=client, max_html_bytes=512, resolver=_fake_resolver
+    )
     with pytest.raises(WebFetchError) as exc_info:
         await extractor.extract("https://example.com/r")
     assert exc_info.value.code == "WEB_HTML_TOO_LARGE"
@@ -100,7 +109,9 @@ async def test_rejects_oversized_html() -> None:
 @pytest.mark.asyncio
 async def test_raises_on_empty_body() -> None:
     client = _make_client(body="<html><body></body></html>")
-    extractor = WebSourceExtractor(client=client, enable_render_fallback=False)
+    extractor = WebSourceExtractor(
+        client=client, enable_render_fallback=False, resolver=_fake_resolver
+    )
     with pytest.raises(WebFetchError) as exc_info:
         await extractor.extract("https://example.com/r")
     assert exc_info.value.code == "EMPTY_WEB_BODY"
@@ -111,7 +122,7 @@ async def test_raises_on_empty_body() -> None:
 async def test_empty_body_falls_back_to_render() -> None:
     # 1차 fetch = JS 셸(본문 없음) → 렌더 폴백으로 본문 확보
     client = _make_client(body='<html><body><div id="root"></div></body></html>')
-    extractor = WebSourceExtractor(client=client)
+    extractor = WebSourceExtractor(client=client, resolver=_fake_resolver)
     rendered_html = (
         "<html><body><article><h1>김OO</h1>"
         "<p>프론트엔드 개발자. React 포트폴리오.</p></article></body></html>"
@@ -127,7 +138,7 @@ async def test_empty_body_falls_back_to_render() -> None:
 @pytest.mark.asyncio
 async def test_render_fallback_returning_none_raises_empty() -> None:
     client = _make_client(body='<html><body><div id="root"></div></body></html>')
-    extractor = WebSourceExtractor(client=client)
+    extractor = WebSourceExtractor(client=client, resolver=_fake_resolver)
     extractor._render = AsyncMock(return_value=None)  # 렌더 실패/불가
     with pytest.raises(WebFetchError) as exc_info:
         await extractor.extract("https://example.com/spa")
@@ -137,7 +148,7 @@ async def test_render_fallback_returning_none_raises_empty() -> None:
 @pytest.mark.asyncio
 async def test_raises_on_httpx_error_as_retriable() -> None:
     client = _make_client(raise_exc=httpx.ConnectError("dns fail"))
-    extractor = WebSourceExtractor(client=client)
+    extractor = WebSourceExtractor(client=client, resolver=_fake_resolver)
     with pytest.raises(WebFetchError) as exc_info:
         await extractor.extract("https://example.com/r")
     assert exc_info.value.code == "WEB_FETCH_FAILED"

@@ -93,7 +93,7 @@ ai/
 |-------|-------------|------|
 | `ai.analyze.resume` | `analyze.resume` | 본 구현 (PDF → MD) |
 | `ai.analyze.repository` | `analyze.repository` | 본 구현 (GitHub README + tree + 소스 sampling) |
-| `ai.analyze.web` | `analyze.web` | 본 구현 (URL → trafilatura) |
+| `ai.analyze.web` | `analyze.web` | 본 구현 (URL → trafilatura, SSRF 가드 `analyzer/sources/url_guard.py`) |
 | `ai.analyze.cover_letter` | `analyze.cover_letter` | 본 구현 (자소서 문항 inline 텍스트 → MD, `TextSourceExtractor`) |
 | `ai.generate.questions` | `generate.questions` | 본 구현 (Pro 모델, 질문 풀 생성, US-18) |
 | `ai.generate.followup` | `generate.followup` | 본 구현 (Flash 모델, 답변 평가+꼬리질문, US-19) |
@@ -318,6 +318,12 @@ docker run --env-file .env -p 8000:8000 stackup-ai
 - FastAPI 부트스트랩 + 헬스체크
 - 분석 consumer 본 구현 — `analyze.resume` / `analyze.repository` / `analyze.web`:
   - PDF·GitHub Repo·웹 URL 소스 추출 추상화 (`analyzer/sources/`)
+  - **웹 URL 은 SSRF 가드 필수** (`analyzer/sources/url_guard.py`): 이 프로세스는 docker 네트워크에서
+    Core·PG·RabbitMQ·MinIO 에 닿고 배포 호스트에서는 클라우드 메타데이터(169.254.169.254)에도 닿는다.
+    스킴·userinfo 검사 + 호스트를 **해석한 주소**로 사설/루프백/링크로컬/멀티캐스트/예약/IPv6
+    unique-local 차단. `follow_redirects` 는 끄고 홉마다 재검증(상대 Location 은 절대화 후 검사,
+    5홉 제한). Playwright 렌더 폴백도 검증된 최종 URL 로 실행. Core 의 `WebResumeUrlValidator` 는
+    첫 관문이고 DNS rebinding·리다이렉트로 우회되므로 소켓을 여는 이쪽 검사가 실질 방어선이다.
   - LLM 분석 (`chain/document_analysis_chain.py`, Gemini Pro + Pydantic 출력 파서)
   - 분석 MD를 스토리지에 저장
   - `callback.analysis` 발행 (status `ANALYZED` / `FAILED`, retriable 플래그 포함)

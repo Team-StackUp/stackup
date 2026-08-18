@@ -197,6 +197,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/resumes/web": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 웹 이력서(URL) 등록 + 분석 트리거 (US-09)
+         * @description 포트폴리오·블로그·노션 등 공개 URL 을 이력서 자료로 등록한다. 파일 업로드 없이 URL 만 저장하고, 본문 추출·요약·임베딩은 AI 서버가 수행(analyze.web). 결과는 /realtime/stream/me (DOC_STATE) 로 통지된다. http·https 공개 주소만 허용(내부망 차단).
+         */
+        post: operations["registerWebResume"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/repositories": {
         parameters: {
             query?: never;
@@ -1029,15 +1049,19 @@ export interface components {
             originalFilename?: string;
             filePath?: string;
             /** @enum {string} */
-            fileType?: "PDF";
+            fileType?: "PDF" | "WEB";
             /** Format: int64 */
             fileSize?: number;
+            sourceUrl?: string;
             /** @enum {string} */
             status?: "PENDING" | "ANALYZING" | "ANALYZED" | "FAILED";
             /** Format: date-time */
             createdAt?: string;
             /** Format: date-time */
             updatedAt?: string;
+        };
+        WebResumeCreateRequest: {
+            url: string;
         };
         RegisterRepositoryRequest: {
             /** Format: int64 */
@@ -2087,6 +2111,57 @@ export interface operations {
             };
             /** @description 인증 실패 */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResumeResponse"];
+                };
+            };
+        };
+    };
+    registerWebResume: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebResumeCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description 등록 + 분석 트리거 성공 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResumeResponse"];
+                };
+            };
+            /** @description URL 형식 오류 / 비-http(s) / 내부망 주소 */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResumeResponse"];
+                };
+            };
+            /** @description 인증 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ResumeResponse"];
+                };
+            };
+            /** @description 이미 등록된 URL */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

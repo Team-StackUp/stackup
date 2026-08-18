@@ -1,7 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { isApiError } from '@/shared/api'
 import { toast } from '@/shared/ui'
-import { deleteResume, fetchResumes, uploadResume } from '../api/resume'
+import {
+  deleteResume,
+  fetchResumes,
+  registerWebResume,
+  uploadResume,
+} from '../api/resume'
 import type { Resume } from './types'
 
 const errMessage = (e: unknown, fallback: string) =>
@@ -25,6 +30,17 @@ export function useUploadResume() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: resumeKeys.all })
       toast.success('이력서를 업로드했어요. 분석이 곧 시작됩니다.')
+    },
+  })
+}
+
+export function useRegisterWebResume() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: registerWebResume,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: resumeKeys.all })
+      toast.success('링크를 등록했어요. 분석이 곧 시작됩니다.')
     },
   })
 }

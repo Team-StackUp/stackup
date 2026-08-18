@@ -59,6 +59,7 @@ class RabbitMqConfigTest {
                 new RabbitMqProperties.Queues.Names(
                     "ai.analyze.resume",
                     "ai.analyze.repository",
+                    "ai.analyze.web",
                     "ai.analyze.cover_letter",
                     "ai.generate.questions",
                     "ai.generate.followup",
@@ -75,6 +76,7 @@ class RabbitMqConfigTest {
             new RabbitMqProperties.RoutingKeyProperties(
                 "analyze.resume",
                 "analyze.repository",
+                "analyze.web",
                 "analyze.cover_letter",
                 "generate.questions",
                 "generate.followup",

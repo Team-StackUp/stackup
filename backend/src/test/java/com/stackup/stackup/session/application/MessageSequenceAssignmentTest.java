@@ -86,8 +86,8 @@ class MessageSequenceAssignmentTest {
 
     private RabbitMqProperties.RoutingKeyProperties routingKeys() {
         return new RabbitMqProperties.RoutingKeyProperties(
-            "x", "x", "x", "x", "generate.followup", "x", "x", "x",
-            "x", "x", "x", "x", "x", "x", "x", "x"
+            "x", "x", "x", "x", "x", "generate.followup", "x", "x",
+            "x", "x", "x", "x", "x", "x", "x", "x", "x"
         );
     }
 }

@@ -855,6 +855,66 @@
         }
       }
     },
+    "/api/resumes/web" : {
+      "post" : {
+        "tags" : [ "Resumes" ],
+        "summary" : "웹 이력서(URL) 등록 + 분석 트리거 (US-09)",
+        "description" : "포트폴리오·블로그·노션 등 공개 URL 을 이력서 자료로 등록한다. 파일 업로드 없이 URL 만 저장하고, 본문 추출·요약·임베딩은 AI 서버가 수행(analyze.web). 결과는 /realtime/stream/me (DOC_STATE) 로 통지된다. http·https 공개 주소만 허용(내부망 차단).",
+        "operationId" : "registerWebResume",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/WebResumeCreateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "등록 + 분석 트리거 성공",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ResumeResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "URL 형식 오류 / 비-http(s) / 내부망 주소",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ResumeResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ResumeResponse"
+                }
+              }
+            }
+          },
+          "409" : {
+            "description" : "이미 등록된 URL",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ResumeResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/repositories" : {
       "get" : {
         "tags" : [ "Repositories" ],
@@ -3130,11 +3190,14 @@
           },
           "fileType" : {
             "type" : "string",
-            "enum" : [ "PDF" ]
+            "enum" : [ "PDF", "WEB" ]
           },
           "fileSize" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "sourceUrl" : {
+            "type" : "string"
           },
           "status" : {
             "type" : "string",
@@ -3149,6 +3212,17 @@
             "format" : "date-time"
           }
         }
+      },
+      "WebResumeCreateRequest" : {
+        "type" : "object",
+        "properties" : {
+          "url" : {
+            "type" : "string",
+            "maxLength" : 2000,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "url" ]
       },
       "RegisterRepositoryRequest" : {
         "type" : "object",
