@@ -3,21 +3,16 @@ package com.stackup.stackup.session.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.stackup.stackup.common.config.properties.RabbitMqProperties;
 import com.stackup.stackup.common.exception.ApiErrorCode;
 import com.stackup.stackup.common.exception.DomainException;
-import com.stackup.stackup.common.messaging.MessageContext;
-import com.stackup.stackup.common.messaging.RabbitMessagePublisher;
-import com.stackup.stackup.common.storage.ObjectStorageClient;
-import com.stackup.stackup.session.application.dto.AnalyzeVoicePayload;
+import com.stackup.stackup.common.messaging.RealtimeNotifyEvent;
+import com.stackup.stackup.session.application.VoiceAnswerUploadService.VoicePlaceholder;
 import com.stackup.stackup.session.application.dto.MessageResult;
-import com.stackup.stackup.session.application.dto.VoiceAnswerUploadCommand;
+import com.stackup.stackup.session.application.event.VoiceAnswerUploadedEvent;
 import com.stackup.stackup.session.domain.InterviewMessage;
 import com.stackup.stackup.session.domain.InterviewMessageRepository;
 import com.stackup.stackup.session.domain.InterviewSession;
@@ -26,159 +21,204 @@ import com.stackup.stackup.session.domain.JobCategory;
 import com.stackup.stackup.session.domain.MessageStatus;
 import com.stackup.stackup.session.domain.SessionMode;
 import com.stackup.stackup.user.domain.User;
-import java.io.ByteArrayInputStream;
-import java.time.Duration;
 import java.util.Optional;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class VoiceAnswerUploadServiceTest {
 
+    private static final String KEY = "interview/voice/raw/10/200.webm";
+
     @Mock InterviewSessionRepository sessionRepository;
     @Mock InterviewMessageRepository messageRepository;
-    @Mock ObjectStorageClient storage;
-    @Mock RabbitMessagePublisher publisher;
+    @Mock ApplicationEventPublisher events;
+    @InjectMocks VoiceAnswerUploadService service;
 
-    VoiceAnswerUploadService service;
-
-    @BeforeEach
-    void setUp() {
-        service = new VoiceAnswerUploadService(
-            sessionRepository,
-            messageRepository,
-            storage,
-            publisher,
-            rabbitMqProperties()
-        );
-    }
+    // ── createVoicePlaceholder ────────────────────────────────────────────────
 
     @Test
-    void submit_savesAudioAndPublishesAnalyzeVoice() {
+    void createVoicePlaceholder_insertsAfterLatestQuestion() {
         InterviewSession session = sessionInProgress(10L);
-        InterviewMessage question = InterviewMessage.interviewer(session, 1, "Tell me about ACID.");
+        InterviewMessage question = InterviewMessage.interviewer(session, 3, "Tell me about ACID.");
         ReflectionTestUtils.setField(question, "id", 100L);
 
         when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(10L, 1L)).thenReturn(Optional.of(session));
-        when(messageRepository.findFirstBySession_IdOrderBySequenceNumberDesc(10L)).thenReturn(Optional.of(question));
+        when(messageRepository.findFirstBySession_IdOrderBySequenceNumberDesc(10L))
+            .thenReturn(Optional.of(question));
         when(messageRepository.save(any(InterviewMessage.class))).thenAnswer(inv -> {
             InterviewMessage m = inv.getArgument(0);
             ReflectionTestUtils.setField(m, "id", 200L);
             return m;
         });
 
-        MessageResult result = service.submit(1L, 10L,
-            command("voice-bytes".getBytes(), "audio/webm", "idem-1"));
+        VoicePlaceholder vp = service.createVoicePlaceholder(1L, 10L, "idem-1");
 
-        assertThat(result.id()).isEqualTo(200L);
-        assertThat(result.status()).isEqualTo(MessageStatus.CREATED);
-        assertThat(result.audioFilePath()).isEqualTo("interview/voice/raw/10/200.webm");
-        verify(storage).put(eq("interview/voice/raw/10/200.webm"), any(), eq(11L), eq("audio/webm"));
-
-        ArgumentCaptor<AnalyzeVoicePayload> payloadCaptor = ArgumentCaptor.forClass(AnalyzeVoicePayload.class);
-        verify(publisher).publishToAi(eq("analyze.voice"), payloadCaptor.capture(), any(MessageContext.class));
-        AnalyzeVoicePayload payload = payloadCaptor.getValue();
-        assertThat(payload.sessionId()).isEqualTo(10L);
-        assertThat(payload.messageId()).isEqualTo(200L);
-        assertThat(payload.parentQuestionMessageId()).isEqualTo(100L);
-        assertThat(payload.audioS3Key()).isEqualTo("interview/voice/raw/10/200.webm");
-        assertThat(payload.previousQuestionText()).isEqualTo("Tell me about ACID.");
+        assertThat(vp.placeholder().getId()).isEqualTo(200L);
+        assertThat(vp.placeholder().getSequenceNumber()).isEqualTo(4);
+        assertThat(vp.placeholder().getStatus()).isEqualTo(MessageStatus.CREATED);
+        assertThat(vp.placeholder().getAudioFilePath()).isNull();
+        assertThat(vp.parentQuestion()).isSameAs(question);
     }
 
     @Test
-    void submit_rejectsEmptyAudio() {
-        assertThatThrownBy(() -> service.submit(1L, 10L,
-            command(new byte[0], "audio/webm", null)))
-            .isInstanceOfSatisfying(DomainException.class, exception ->
-                assertThat(exception.getErrorCode()).isEqualTo(ApiErrorCode.VOICE_EMPTY_FILE));
+    void createVoicePlaceholder_returnsExistingOnIdempotencyHit() {
+        InterviewSession session = sessionInProgress(10L);
+        InterviewMessage question = InterviewMessage.interviewer(session, 1, "q");
+        InterviewMessage existing = InterviewMessage.voiceInterviewee(session, 2, question, "idem-1");
+        ReflectionTestUtils.setField(existing, "id", 200L);
 
-        verify(sessionRepository, never()).findByIdAndUser_IdAndDeletedFalse(any(), any());
+        when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(10L, 1L)).thenReturn(Optional.of(session));
+        when(messageRepository.findBySession_IdAndIdempotencyKey(10L, "idem-1"))
+            .thenReturn(Optional.of(existing));
+
+        VoicePlaceholder vp = service.createVoicePlaceholder(1L, 10L, "idem-1");
+
+        assertThat(vp.placeholder()).isSameAs(existing);
+        verify(messageRepository, never()).save(any());
     }
 
     @Test
-    void submit_rejectsTooLargeAudio() {
-        VoiceAnswerUploadCommand cmd = new VoiceAnswerUploadCommand(
-            new ByteArrayInputStream(new byte[] {1}),
-            25L * 1024 * 1024 + 1,
-            "audio/webm",
-            "a.webm",
-            null
-        );
+    void createVoicePlaceholder_rejectsWhenSessionNotFound() {
+        when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(10L, 1L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.submit(1L, 10L, cmd))
-            .isInstanceOfSatisfying(DomainException.class, exception ->
-                assertThat(exception.getErrorCode()).isEqualTo(ApiErrorCode.VOICE_FILE_TOO_LARGE));
+        assertThatThrownBy(() -> service.createVoicePlaceholder(1L, 10L, null))
+            .isInstanceOfSatisfying(DomainException.class, e ->
+                assertThat(e.getErrorCode()).isEqualTo(ApiErrorCode.SESSION_NOT_FOUND));
     }
 
     @Test
-    void submit_rejectsUnsupportedContentType() {
-        assertThatThrownBy(() -> service.submit(1L, 10L,
-            command("x".getBytes(), "text/plain", null)))
-            .isInstanceOfSatisfying(DomainException.class, exception ->
-                assertThat(exception.getErrorCode()).isEqualTo(ApiErrorCode.VOICE_INVALID_CONTENT_TYPE));
-    }
-
-    @Test
-    void submit_rejectsWhenSessionIsNotInProgress() {
+    void createVoicePlaceholder_rejectsWhenSessionIsNotInProgress() {
         InterviewSession session = sessionFixture(10L);
 
         when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(10L, 1L)).thenReturn(Optional.of(session));
 
-        assertThatThrownBy(() -> service.submit(1L, 10L,
-            command("voice".getBytes(), "audio/webm", null)))
-            .isInstanceOfSatisfying(DomainException.class, exception ->
-                assertThat(exception.getErrorCode()).isEqualTo(ApiErrorCode.SESSION_INVALID_STATE));
+        assertThatThrownBy(() -> service.createVoicePlaceholder(1L, 10L, null))
+            .isInstanceOfSatisfying(DomainException.class, e ->
+                assertThat(e.getErrorCode()).isEqualTo(ApiErrorCode.SESSION_INVALID_STATE));
 
-        verify(storage, never()).put(any(), any(), anyLong(), any());
-        verify(publisher, never()).publishToAi(any(), any(), any());
+        verify(messageRepository, never()).save(any());
     }
 
     @Test
-    void submit_rejectsWhenNoQuestionMessageExists() {
+    void createVoicePlaceholder_rejectsWhenNoQuestionMessageExists() {
         InterviewSession session = sessionInProgress(10L);
 
         when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(10L, 1L)).thenReturn(Optional.of(session));
-        when(messageRepository.findFirstBySession_IdOrderBySequenceNumberDesc(10L)).thenReturn(Optional.empty());
+        when(messageRepository.findFirstBySession_IdOrderBySequenceNumberDesc(10L))
+            .thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.submit(1L, 10L,
-            command("voice".getBytes(), "audio/webm", null)))
-            .isInstanceOfSatisfying(DomainException.class, exception ->
-                assertThat(exception.getErrorCode()).isEqualTo(ApiErrorCode.SESSION_INVALID_STATE));
-
-        verify(storage, never()).put(any(), any(), anyLong(), any());
-        verify(publisher, never()).publishToAi(any(), any(), any());
+        assertThatThrownBy(() -> service.createVoicePlaceholder(1L, 10L, null))
+            .isInstanceOfSatisfying(DomainException.class, e ->
+                assertThat(e.getErrorCode()).isEqualTo(ApiErrorCode.SESSION_INVALID_STATE));
     }
 
     @Test
-    void submit_rejectsWhenLastMessageIsNotQuestion() {
+    void createVoicePlaceholder_rejectsWhenLastMessageIsNotQuestion() {
         InterviewSession session = sessionInProgress(10L);
         InterviewMessage priorAnswer = InterviewMessage.interviewee(session, 1, "already answered", null, null);
 
         when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(10L, 1L)).thenReturn(Optional.of(session));
-        when(messageRepository.findFirstBySession_IdOrderBySequenceNumberDesc(10L)).thenReturn(Optional.of(priorAnswer));
+        when(messageRepository.findFirstBySession_IdOrderBySequenceNumberDesc(10L))
+            .thenReturn(Optional.of(priorAnswer));
 
-        assertThatThrownBy(() -> service.submit(1L, 10L,
-            command("voice".getBytes(), "audio/webm", null)))
-            .isInstanceOfSatisfying(DomainException.class, exception ->
-                assertThat(exception.getErrorCode()).isEqualTo(ApiErrorCode.SESSION_INVALID_STATE));
+        assertThatThrownBy(() -> service.createVoicePlaceholder(1L, 10L, null))
+            .isInstanceOfSatisfying(DomainException.class, e ->
+                assertThat(e.getErrorCode()).isEqualTo(ApiErrorCode.SESSION_INVALID_STATE));
 
-        verify(storage, never()).put(any(), any(), anyLong(), any());
-        verify(publisher, never()).publishToAi(any(), any(), any());
+        verify(messageRepository, never()).save(any());
     }
 
-    private VoiceAnswerUploadCommand command(byte[] content, String contentType, String idempotencyKey) {
-        return new VoiceAnswerUploadCommand(
-            new ByteArrayInputStream(content),
-            content.length,
-            contentType,
-            "answer.webm",
-            idempotencyKey
-        );
+    // ── attachAudioAndRequestAnalysis ─────────────────────────────────────────
+
+    // analyze.voice 는 여기서 직접 발행하지 않는다 — 이벤트만 내고 AFTER_COMMIT 리스너가 발행한다.
+    @Test
+    void attachAudio_setsPathAndPublishesUploadedEvent() {
+        InterviewMessage placeholder = voicePlaceholder(200L);
+
+        when(messageRepository.findById(200L)).thenReturn(Optional.of(placeholder));
+
+        MessageResult result = service.attachAudioAndRequestAnalysis(
+            1L, 10L, 200L, KEY, "audio/webm");
+
+        assertThat(result.id()).isEqualTo(200L);
+        assertThat(result.audioFilePath()).isEqualTo(KEY);
+        assertThat(placeholder.getAudioFilePath()).isEqualTo(KEY);
+
+        ArgumentCaptor<VoiceAnswerUploadedEvent> captor =
+            ArgumentCaptor.forClass(VoiceAnswerUploadedEvent.class);
+        verify(events).publishEvent(captor.capture());
+        VoiceAnswerUploadedEvent event = captor.getValue();
+        assertThat(event.userId()).isEqualTo(1L);
+        assertThat(event.sessionId()).isEqualTo(10L);
+        assertThat(event.messageId()).isEqualTo(200L);
+        assertThat(event.audioS3Key()).isEqualTo(KEY);
+        assertThat(event.contentType()).isEqualTo("audio/webm");
+    }
+
+    @Test
+    void attachAudio_doesNotRepublishWhenAlreadyAttached() {
+        InterviewMessage placeholder = voicePlaceholder(200L);
+        placeholder.attachAudio(KEY);
+
+        when(messageRepository.findById(200L)).thenReturn(Optional.of(placeholder));
+
+        MessageResult result = service.attachAudioAndRequestAnalysis(
+            1L, 10L, 200L, "interview/voice/raw/10/200-retry.webm", "audio/webm");
+
+        assertThat(result.audioFilePath()).isEqualTo(KEY);
+        verify(events, never()).publishEvent(any(VoiceAnswerUploadedEvent.class));
+    }
+
+    @Test
+    void attachAudio_rejectsWhenMessageNotFound() {
+        when(messageRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.attachAudioAndRequestAnalysis(
+            1L, 10L, 999L, KEY, "audio/webm"))
+            .isInstanceOfSatisfying(DomainException.class, e ->
+                assertThat(e.getErrorCode()).isEqualTo(ApiErrorCode.VOICE_MESSAGE_NOT_FOUND));
+    }
+
+    // ── failVoiceUpload ───────────────────────────────────────────────────────
+
+    // 업로드 실패 보상: 메시지를 지우지 않고 FAILED 로 두고 SSE 로 알린다(턴 잠김 방지).
+    @Test
+    void failVoiceUpload_marksFailedAndNotifies() {
+        InterviewMessage placeholder = voicePlaceholder(200L);
+
+        when(messageRepository.findById(200L)).thenReturn(Optional.of(placeholder));
+
+        service.failVoiceUpload(10L, 200L);
+
+        assertThat(placeholder.getStatus()).isEqualTo(MessageStatus.FAILED);
+        verify(events, org.mockito.Mockito.times(2)).publishEvent(any(RealtimeNotifyEvent.class));
+    }
+
+    @Test
+    void failVoiceUpload_isNoopWhenMessageMissing() {
+        when(messageRepository.findById(200L)).thenReturn(Optional.empty());
+
+        service.failVoiceUpload(10L, 200L);
+
+        verify(events, never()).publishEvent(any());
+    }
+
+    // ── fixtures ──────────────────────────────────────────────────────────────
+
+    private InterviewMessage voicePlaceholder(Long id) {
+        InterviewSession session = sessionInProgress(10L);
+        InterviewMessage question = InterviewMessage.interviewer(session, 1, "Tell me about ACID.");
+        ReflectionTestUtils.setField(question, "id", 100L);
+        InterviewMessage placeholder = InterviewMessage.voiceInterviewee(session, 2, question, null);
+        ReflectionTestUtils.setField(placeholder, "id", id);
+        return placeholder;
     }
 
     private InterviewSession sessionInProgress(Long id) {
@@ -195,52 +235,5 @@ class VoiceAnswerUploadServiceTest {
         );
         ReflectionTestUtils.setField(s, "id", id);
         return s;
-    }
-
-    private RabbitMqProperties rabbitMqProperties() {
-        return new RabbitMqProperties(
-            "core",
-            "1",
-            new RabbitMqProperties.Message("application/json", "UTF-8", "X-Trace-Id"),
-            new RabbitMqProperties.Template(true),
-            new RabbitMqProperties.Exchanges(true, false,
-                new RabbitMqProperties.Exchanges.Names("core.ai", "ai.core", "realtime")),
-            new RabbitMqProperties.Queues(true,
-                new RabbitMqProperties.Queues.Names(
-                    "ai.analyze.resume",
-                    "ai.analyze.repository",
-                    "ai.analyze.cover_letter",
-                    "ai.generate.questions",
-                    "ai.generate.followup",
-                    "ai.generate.feedback",
-                    "ai.analyze.voice",
-                    "ai.generate.tts",
-                    "core.callback.analysis",
-                    "core.callback.questions",
-                    "core.callback.feedback",
-                    "core.callback.voice",
-                    "core.callback.tts"
-                )),
-            new RabbitMqProperties.RoutingKeyProperties(
-                "analyze.resume",
-                "analyze.repository",
-                "analyze.cover_letter",
-                "generate.questions",
-                "generate.followup",
-                "generate.feedback",
-                "analyze.voice",
-                "generate.tts",
-                "callback.analysis",
-                "callback.questions",
-                "callback.feedback",
-                "callback.voice",
-                "callback.tts",
-                "session.notify",
-                "realtime.user.notify",
-                "realtime.document.notify"
-            ),
-            new RabbitMqProperties.DeadLetter("dlx", "dlq."),
-            new RabbitMqProperties.Retry(3, Duration.ofSeconds(1), 2.0, Duration.ofSeconds(10))
-        );
     }
 }
