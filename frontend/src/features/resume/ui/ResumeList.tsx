@@ -25,8 +25,8 @@ export function ResumeList() {
   if (data.length === 0) {
     return (
       <EmptyState
-        title="아직 업로드한 이력서가 없어요"
-        description="위에서 PDF 이력서를 올리면 분석이 자동으로 시작됩니다."
+        title="아직 등록한 자료가 없어요"
+        description="위에서 PDF 이력서를 올리거나 포트폴리오 링크를 등록하면 분석이 자동으로 시작됩니다."
       />
     )
   }
@@ -55,6 +55,7 @@ function ResumeCard({
   onDelete: () => void
 }) {
   const meta = STATUS_META[resume.status]
+  const isWeb = resume.fileType === 'WEB'
   const [confirmOpen, setConfirmOpen] = useState(false)
   const progress = useAnalysisProgress('RESUME', resume.id)
   const showProgress =
@@ -67,19 +68,31 @@ function ResumeCard({
         aria-hidden
         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-fg"
       >
-        <FileIcon />
+        {isWeb ? <LinkIcon /> : <FileIcon />}
       </span>
 
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
-          <p className="min-w-0 flex-1 truncate text-body font-semibold text-fg-strong">
-            {resume.originalFilename}
-          </p>
+          {isWeb && resume.sourceUrl ? (
+            <a
+              href={resume.sourceUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              title={resume.sourceUrl}
+              className="min-w-0 flex-1 truncate text-body font-semibold text-fg-strong underline decoration-border-strong underline-offset-2 hover:decoration-primary"
+            >
+              {resume.originalFilename}
+            </a>
+          ) : (
+            <p className="min-w-0 flex-1 truncate text-body font-semibold text-fg-strong">
+              {resume.originalFilename}
+            </p>
+          )}
           <button
             type="button"
             disabled={deleting}
             onClick={() => setConfirmOpen(true)}
-            aria-label="이력서 삭제"
+            aria-label={isWeb ? '링크 삭제' : '이력서 삭제'}
             className="shrink-0 rounded-md p-1 text-fg-subtle opacity-0 transition-colors duration-fast hover:bg-surface hover:text-danger-700 focus-visible:opacity-100 group-hover:opacity-100 disabled:opacity-40"
           >
             <TrashIcon />
@@ -88,7 +101,7 @@ function ResumeCard({
 
         <ConfirmDialog
           open={confirmOpen}
-          title="이력서를 삭제하시겠습니까?"
+          title={isWeb ? '링크를 삭제하시겠습니까?' : '이력서를 삭제하시겠습니까?'}
           description={`'${resume.originalFilename}'을(를) 삭제합니다. 이 작업은 되돌릴 수 없습니다.`}
           confirmLabel="삭제"
           danger
@@ -100,7 +113,11 @@ function ResumeCard({
         <div className="mt-2 flex items-center gap-2">
           <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
           <span className="truncate text-caption text-fg-muted">
-            {showProgress ? progress.message : formatFileSize(resume.fileSize)}
+            {showProgress
+              ? progress.message
+              : isWeb
+                ? '웹 링크'
+                : formatFileSize(resume.fileSize)}
           </span>
         </div>
       </div>
@@ -123,6 +140,25 @@ function FileIcon() {
       <path d="M5 2.5h6l4 4V16a1.5 1.5 0 0 1-1.5 1.5h-8A1.5 1.5 0 0 1 4 16V4A1.5 1.5 0 0 1 5 2.5Z" />
       <path d="M11 2.5V6a1 1 0 0 0 1 1h3" />
       <path d="M7 10.5h6M7 13.5h4" />
+    </svg>
+  )
+}
+
+function LinkIcon() {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      width="20"
+      height="20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M8.5 11.5 11.5 8.5" />
+      <path d="M7.5 13.5 6 15a2.8 2.8 0 0 1-4-4l1.5-1.5" />
+      <path d="M12.5 6.5 14 5a2.8 2.8 0 0 1 4 4l-1.5 1.5" />
     </svg>
   )
 }
