@@ -7,6 +7,13 @@ import structlog
 import trafilatura
 
 from ai_server.analyzer.sources.base import ExtractedSource, SourceExtractor
+from ai_server.analyzer.sources.url_guard import (
+    BlockedUrlError,
+    Resolver,
+    assert_public_http_url,
+    default_resolver,
+    is_redirect,
+)
 
 log = structlog.get_logger(__name__)
 
@@ -28,20 +35,19 @@ class WebSourceExtractor(SourceExtractor):
         max_html_bytes: int = 2_000_000,
         enable_render_fallback: bool = True,
         client: httpx.AsyncClient | None = None,
+        resolver: Resolver = default_resolver,
+        max_redirects: int = 5,
     ) -> None:
         self._timeout_sec = timeout_sec
         self._max_html_bytes = max_html_bytes
         self._enable_render_fallback = enable_render_fallback
         self._client = client
+        self._resolver = resolver
+        self._max_redirects = max_redirects
 
     async def extract(self, locator: str) -> ExtractedSource:
         url = locator.strip()
-        if not (url.startswith("http://") or url.startswith("https://")):
-            raise WebFetchError(
-                code="INVALID_WEB_URL",
-                message=f"locator must be http(s) URL, got: {locator!r}",
-                retriable=False,
-            )
+        self._require_public(url)
 
         html, final_url, content_type = await self._fetch_html(url)
         text = await asyncio.to_thread(_extract_main_text, html, final_url)
@@ -49,7 +55,7 @@ class WebSourceExtractor(SourceExtractor):
 
         # 본문이 비면 JS 렌더링 SPA(React 포폴 등)일 가능성 → Playwright 로 렌더 후 재추출.
         if not text.strip() and self._enable_render_fallback:
-            rendered_html = await self._render(url)
+            rendered_html = await self._render(final_url)
             if rendered_html:
                 html = rendered_html
                 text = await asyncio.to_thread(_extract_main_text, html, final_url)
@@ -100,12 +106,26 @@ class WebSourceExtractor(SourceExtractor):
             log.warning("web.render.failed", url=url, error=str(exc))
             return None
 
+    # SSRF 가드. Core 에서도 검증하지만 DNS rebinding·리다이렉트로 우회되므로
+    # 실제 요청을 보내기 직전에(그리고 리다이렉트 홉마다) 다시 확인한다.
+    def _require_public(self, url: str) -> None:
+        try:
+            assert_public_http_url(url, resolver=self._resolver)
+        except BlockedUrlError as err:
+            raise WebFetchError(
+                code=err.code,
+                message=err.message,
+                retriable=False,
+            ) from err
+
     async def _fetch_html(self, url: str) -> tuple[str, str, str]:
         if self._client is not None:
             return await self._do_fetch(self._client, url)
         async with httpx.AsyncClient(
             timeout=self._timeout_sec,
-            follow_redirects=True,
+            # 자동 추적을 끄고 홉마다 목적지를 검증한다 — 공개 URL 이 내부 주소로
+            # 리다이렉트하는 경로를 막기 위해.
+            follow_redirects=False,
             headers={
                 "User-Agent": "StackUp-AI/1.0 (+resume web extractor)",
                 "Accept": "text/html,application/xhtml+xml",
@@ -118,14 +138,29 @@ class WebSourceExtractor(SourceExtractor):
         client: httpx.AsyncClient,
         url: str,
     ) -> tuple[str, str, str]:
-        try:
-            resp = await client.get(url)
-        except httpx.HTTPError as exc:
+        current = url
+        for _ in range(self._max_redirects + 1):
+            try:
+                resp = await client.get(current)
+            except httpx.HTTPError as exc:
+                raise WebFetchError(
+                    code="WEB_FETCH_FAILED",
+                    message=f"HTTP 요청 실패: {exc}",
+                    retriable=True,
+                ) from exc
+
+            location = resp.headers.get("location")
+            if not (is_redirect(resp.status_code) and location):
+                break
+            # 상대 Location 도 절대 URL 로 만든 뒤 검증한다.
+            current = str(httpx.URL(current).join(location))
+            self._require_public(current)
+        else:
             raise WebFetchError(
-                code="WEB_FETCH_FAILED",
-                message=f"HTTP 요청 실패: {exc}",
-                retriable=True,
-            ) from exc
+                code="WEB_TOO_MANY_REDIRECTS",
+                message=f"리다이렉트가 한도({self._max_redirects})를 초과",
+                retriable=False,
+            )
 
         if resp.status_code >= 400:
             raise WebFetchError(
