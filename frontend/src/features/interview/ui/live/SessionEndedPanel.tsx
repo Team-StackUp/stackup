@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom'
 import { Button } from '@/shared/ui/Button'
 import { Eyebrow } from '@/shared/ui'
-import type { SessionStatus } from '@/domain/session'
+import type { Session, SessionStatus } from '@/domain/session'
+import { useRetrySession } from '../../model/useRetrySession'
 import { InterviewTranscript } from '../InterviewTranscript'
 
 const messageByStatus: Partial<Record<SessionStatus, string>> = {
@@ -19,10 +20,14 @@ const showsTranscript = (status: SessionStatus) =>
 export function SessionEndedPanel({
   status,
   sessionId,
+  session,
 }: {
   status: SessionStatus
   sessionId: number
+  session?: Session
 }) {
+  const retry = useRetrySession(session?.contextDocumentIds?.length)
+
   return (
     <div className="flex h-full flex-col overflow-y-auto">
       <div className="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center">
@@ -39,6 +44,14 @@ export function SessionEndedPanel({
               <Button>피드백 보기</Button>
             </Link>
           )}
+          {/* 중단됐든 끝났든, 같은 조건으로 한 번 더 해보는 게 다음 행동이다. */}
+          <Button
+            variant={status === 'COMPLETED' ? 'secondary' : 'primary'}
+            loading={retry.isPending}
+            onClick={() => retry.mutate(sessionId)}
+          >
+            같은 설정으로 다시
+          </Button>
           <Link to="/workspace">
             <Button variant="secondary">워크스페이스로</Button>
           </Link>

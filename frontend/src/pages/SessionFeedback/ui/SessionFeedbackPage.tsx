@@ -9,13 +9,16 @@ import {
   useFeedback,
   useRegenerateFeedback,
 } from '@/features/feedback'
-import { InterviewTranscript } from '@/features/interview'
+import { InterviewTranscript, useRetrySession, useSession } from '@/features/interview'
 
 export default function SessionFeedbackPage() {
   const { id } = useParams<{ id: string }>()
   const sessionId = Number(id)
   const { data, isLoading, isError, error, refetch } = useFeedback(sessionId)
   const regenerate = useRegenerateFeedback(sessionId)
+  // 재도전은 원본 세션의 자료 수를 알아야 "몇 개가 빠졌는지" 안내할 수 있다.
+  const { data: session } = useSession(sessionId)
+  const retry = useRetrySession(session?.contextDocumentIds?.length)
 
   return (
     <div className="flex min-h-svh flex-col bg-surface-raised text-fg">
@@ -26,9 +29,14 @@ export default function SessionFeedbackPage() {
           title="면접 피드백"
           description="점수 옆에 그렇게 매긴 근거가 함께 붙습니다."
           actions={
-            <Link to="/workspace">
-              <Button variant="secondary">워크스페이스로</Button>
-            </Link>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button loading={retry.isPending} onClick={() => retry.mutate(sessionId)}>
+                같은 설정으로 다시
+              </Button>
+              <Link to="/workspace">
+                <Button variant="secondary">워크스페이스로</Button>
+              </Link>
+            </div>
           }
         />
 

@@ -176,6 +176,87 @@ class SessionServiceTest {
         assertThat(result.title()).isEqualTo("토스 백엔드 직무 맞춤 면접");
     }
 
+    // ── retry (같은 설정으로 다시) ─────────────────────────────────────────────
+
+    @Test
+    void retry_copiesSettingsIntoNewSession() {
+        User user = userFixture(1L);
+        InterviewSession source = InterviewSession.create(
+            user, "백엔드 모의면접", "메모", SessionMode.JOB_TAILORED,
+            List.of(JobCategory.BACKEND, JobCategory.INFRA), 8, 45, 4, 3
+        );
+        ReflectionTestUtils.setField(source, "id", 50L);
+        source.assignTargetRole("스택업", "JD 본문");
+
+        when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(50L, 1L)).thenReturn(Optional.of(source));
+        when(contextRepository.findBySession_Id(50L)).thenReturn(List.of());
+        when(userRepository.findByIdAndDeletedFalse(1L)).thenReturn(Optional.of(user));
+        when(sessionRepository.save(any(InterviewSession.class))).thenAnswer(inv -> {
+            InterviewSession s = inv.getArgument(0);
+            ReflectionTestUtils.setField(s, "id", 101L);
+            return s;
+        });
+
+        SessionResult result = service.retry(1L, 50L);
+
+        assertThat(result.id()).isEqualTo(101L);
+        assertThat(result.title()).isEqualTo("백엔드 모의면접");
+        assertThat(result.memo()).isEqualTo("메모");
+        assertThat(result.mode()).isEqualTo(SessionMode.JOB_TAILORED);
+        assertThat(result.jobCategories())
+            .containsExactly(JobCategory.BACKEND, JobCategory.INFRA);
+        assertThat(result.maxQuestions()).isEqualTo(8);
+        assertThat(result.maxDurationMinutes()).isEqualTo(45);
+        assertThat(result.generalQuestionCount()).isEqualTo(4);
+        assertThat(result.maxFollowupsPerQuestion()).isEqualTo(3);
+        // JOB_TAILORED 의 JD 가 빠지면 새 세션이 SESSION_JD_REQUIRED 로 막힌다.
+        assertThat(result.targetCompanyName()).isEqualTo("스택업");
+        assertThat(result.targetJobDescription()).isEqualTo("JD 본문");
+        assertThat(result.status()).isEqualTo(SessionStatus.READY);
+        verify(events).publishEvent(any(SessionCreatedEvent.class));
+    }
+
+    // 원본 설정을 그대로 재전송하면 그 사이 삭제된 자료 하나 때문에 404 로 전체가 막힌다.
+    @Test
+    void retry_skipsDeletedOrUnanalyzedContextDocuments() {
+        User user = userFixture(1L);
+        InterviewSession source = sessionFixture(50L);
+        // mock 생성·스터빙은 when(...) 바깥에서 먼저 끝낸다(중첩 스터빙 금지).
+        AnalyzedDocument alive = analyzedDocFixture(7L, AnalysisStatus.ANALYZED);
+        AnalyzedDocument deleted = analyzedDocFixture(8L, AnalysisStatus.ANALYZED);
+        AnalyzedDocument reanalyzing = analyzedDocFixture(9L, AnalysisStatus.PROCESSING);
+        List<SessionContext> contexts = List.of(
+            contextFixture(source, alive),
+            contextFixture(source, deleted),      // 그 사이 삭제됨
+            contextFixture(source, reanalyzing)   // 재분석 중
+        );
+
+        when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(50L, 1L)).thenReturn(Optional.of(source));
+        when(contextRepository.findBySession_Id(50L)).thenReturn(contexts);
+        when(documentRepository.findActiveByIdAndOwner(7L, 1L)).thenReturn(Optional.of(alive));
+        when(documentRepository.findActiveByIdAndOwner(8L, 1L)).thenReturn(Optional.empty());
+        when(documentRepository.findActiveByIdAndOwner(9L, 1L)).thenReturn(Optional.of(reanalyzing));
+        when(userRepository.findByIdAndDeletedFalse(1L)).thenReturn(Optional.of(user));
+        when(sessionRepository.save(any(InterviewSession.class))).thenAnswer(inv -> {
+            InterviewSession s = inv.getArgument(0);
+            ReflectionTestUtils.setField(s, "id", 101L);
+            return s;
+        });
+
+        SessionResult result = service.retry(1L, 50L);
+
+        // 살아있는 7L 만 다시 연결 — 나머지는 조용히 제외한다(호출자가 원본과 비교해 안내).
+        assertThat(result.contextDocumentIds()).containsExactly(7L);
+    }
+
+    @Test
+    void retry_rejectsSessionOfAnotherUser() {
+        when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(50L, 1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.retry(1L, 50L))
+            .isInstanceOf(DomainException.class);
+    }
+
     @Test
     void start_transitionsReadyToInProgress() {
         InterviewSession session = sessionFixture(50L);
@@ -288,6 +369,10 @@ class SessionServiceTest {
         );
         ReflectionTestUtils.setField(s, "id", id);
         return s;
+    }
+
+    private SessionContext contextFixture(InterviewSession session, AnalyzedDocument doc) {
+        return SessionContext.link(session, doc);
     }
 
     private AnalyzedDocument analyzedDocFixture(Long id, AnalysisStatus status) {

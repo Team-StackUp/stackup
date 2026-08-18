@@ -92,6 +92,43 @@ public class SessionService {
         return SessionResult.of(session, linkedIds);
     }
 
+    /**
+     * 같은 설정으로 새 면접을 만든다(US-13 재도전).
+     *
+     * <p>세션 설정을 그대로 복사하되 **자료(context)는 지금도 살아있는 것만** 잇는다. 원본 설정을
+     * 그대로 재전송하면 그 사이 삭제된 이력서 하나 때문에 {@code DOC_NOT_FOUND}(404)로 전체가
+     * 막힌다 — 사용자 입장에선 "다시 하기"가 이유 없이 실패하는 것으로 보인다. 빠진 자료는
+     * 응답의 {@code contextDocumentIds} 로 드러나므로 호출자가 원본과 비교해 안내할 수 있다.
+     */
+    @Transactional
+    public SessionResult retry(Long userId, Long sourceSessionId) {
+        InterviewSession source = loadOwned(userId, sourceSessionId);
+        List<Long> reusableDocumentIds = contextDocumentIds(sourceSessionId).stream()
+            .filter(id -> isReusableContext(id, userId))
+            .toList();
+
+        return create(userId, new SessionCreateCommand(
+            source.getTitle(),
+            source.getMemo(),
+            source.getMode(),
+            new ArrayList<>(source.getJobCategories()),
+            source.getMaxQuestions(),
+            source.getMaxDurationMinutes(),
+            source.getGeneralQuestionCount(),
+            source.getMaxFollowupsPerQuestion(),
+            reusableDocumentIds,
+            source.getTargetCompanyName(),
+            source.getTargetJobDescription()
+        ));
+    }
+
+    // 삭제됐거나 아직 분석이 끝나지 않은 자료는 조용히 제외한다(linkContexts 는 둘 다 예외를 던진다).
+    private boolean isReusableContext(Long documentId, Long userId) {
+        return documentRepository.findActiveByIdAndOwner(documentId, userId)
+            .filter(doc -> doc.getAnalysisStatus() == AnalysisStatus.ANALYZED)
+            .isPresent();
+    }
+
     public Page<SessionResult> listPaged(Long userId, Pageable pageable) {
         loadUser(userId);
         return sessionRepository.findByUser_IdAndDeletedFalse(userId, pageable)

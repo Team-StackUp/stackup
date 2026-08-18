@@ -440,6 +440,12 @@ docker compose up -d
     IP 로 해석되는 공개 도메인도 막힌다). 거부 응답에 내부 주소는 노출하지 않는다. DNS 해석기는 주입
     가능(테스트가 네트워크 미의존). 여긴 첫 관문이고 실질 방어선은 AI 쪽 `url_guard.py` 다.
   - 같은 URL 재등록은 409(`RESUME_URL_DUPLICATE`) — 임베딩 중복으로 질문이 쏠리는 것 방지.
+- **같은 설정으로 다시 면접 본 구현**: `POST /api/sessions/{id}/retry` → `SessionService.retry` 가
+  원본 세션의 설정(모드·직군·질문 수·JD 등)을 복사해 `create` 를 호출한다. **연결 자료는 지금도
+  살아있고 ANALYZED 인 것만** 다시 잇는다 — `linkContexts` 는 삭제된 문서에 `DOC_NOT_FOUND`(404),
+  분석 미완료에 `DOC_NOT_ANALYZED` 를 던지므로, 원본 설정을 그대로 재전송하면 그 사이 자료 하나
+  지운 사용자는 재도전 자체가 막힌다. 빠진 자료는 응답 `contextDocumentIds` 를 원본과 비교해
+  프론트가 안내한다.
 - **Spring AI 미사용** — LLM·임베딩 호출은 모두 AI 서버 위임. Core는 RabbitMQ 발행만 담당.
 - **Redis 미사용** — 휘발성 데이터는 DB short-lived 레코드 또는 인메모리로.
 

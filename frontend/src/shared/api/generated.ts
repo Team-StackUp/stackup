@@ -80,6 +80,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sessions/{sessionId}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 같은 설정으로 다시 면접 (US-13 재도전)
+         * @description 기존 세션의 설정(모드·직군·질문 수·JD 등)을 그대로 복사해 새 세션을 만든다. 연결 자료는 지금도 살아있고 분석이 끝난 것만 다시 잇는다 — 그 사이 삭제된 자료 때문에 재도전 전체가 404 로 막히지 않게 하기 위함. 응답의 contextDocumentIds 를 원본과 비교하면 무엇이 빠졌는지 알 수 있다.
+         */
+        post: operations["retrySession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sessions/{sessionId}/messages": {
         parameters: {
             query?: never;
@@ -1707,6 +1727,46 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["StreamTokenResponse"];
+                };
+            };
+        };
+    };
+    retrySession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 새 세션 생성 완료 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SessionResponse"];
+                };
+            };
+            /** @description 인증 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SessionResponse"];
+                };
+            };
+            /** @description 원본 세션 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SessionResponse"];
                 };
             };
         };
