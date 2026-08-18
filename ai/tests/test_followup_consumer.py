@@ -12,6 +12,7 @@ from ai_server.messaging.idempotency import LruIdempotencyStore
 from ai_server.model.messages.followup import (
     AnswerEvaluation,
     FollowupCallbackPayload,
+    GenerateFollowupRequest,
 )
 
 
@@ -555,9 +556,7 @@ async def test_callback_includes_answer_message_id():
 # ---------------------------------------------------------------------------
 
 
-def _make_req() -> "GenerateFollowupRequest":
-    from ai_server.model.messages.followup import GenerateFollowupRequest
-
+def _make_req() -> GenerateFollowupRequest:
     return GenerateFollowupRequest(
         session_id=99,
         parent_message_id=501,
