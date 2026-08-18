@@ -59,7 +59,13 @@ export function LiveInterview({ sessionId }: { sessionId: number }) {
     return <InterviewLobby sessionId={sessionId} session={session} />
   }
   if (status !== 'IN_PROGRESS') {
-    return <SessionEndedPanel status={status ?? 'COMPLETED'} sessionId={sessionId} />
+    return (
+      <SessionEndedPanel
+        status={status ?? 'COMPLETED'}
+        sessionId={sessionId}
+        session={session}
+      />
+    )
   }
   // 면접은 시작됐지만 첫 질문이 아직 안 왔으면 스테이지 진입 전 대기 화면을 보여준다.
   if (!firstQuestionReady) {
