@@ -5,7 +5,11 @@ import { useEffect, useRef, useState } from 'react'
 export function useTypewriter(fullText: string, enabled: boolean): string {
   const [count, setCount] = useState(enabled ? 0 : fullText.length)
   const targetRef = useRef(fullText)
-  targetRef.current = fullText
+  // 렌더 중 ref 대입은 react-hooks/refs 위반이라 커밋 후 이펙트에서 갱신한다.
+  // 아래 타자기 이펙트보다 먼저 선언해, 같은 커밋에서 ref 가 항상 먼저 최신화되게 한다.
+  useEffect(() => {
+    targetRef.current = fullText
+  }, [fullText])
 
   useEffect(() => {
     if (!enabled) {

@@ -26,8 +26,13 @@ export function useInterviewSocket({
   const socketRef = useRef<WebSocket | null>(null)
   const onEventRef = useRef(onEvent)
   const onStatusRef = useRef(onStatusChange)
-  onEventRef.current = onEvent
-  onStatusRef.current = onStatusChange
+  // 콜백은 매 렌더 새로 만들어지므로 ref 로 최신 것을 넘긴다(연결 이펙트를 재실행시키지 않기 위해).
+  // 렌더 중 대입은 react-hooks/refs 위반이라 커밋 후 이펙트에서 갱신하고, 아래 연결 이펙트보다
+  // 먼저 선언해 같은 커밋에서 ref 가 항상 먼저 최신화되게 한다.
+  useEffect(() => {
+    onEventRef.current = onEvent
+    onStatusRef.current = onStatusChange
+  }, [onEvent, onStatusChange])
 
   useEffect(() => {
     if (!enabled || sessionId == null) return
