@@ -1,22 +1,27 @@
 # Git 컨벤션
 
-> 브랜치 전략, 커밋 메시지, PR 규약. 본 컨벤션은 `.github/PULL_REQUEST_TEMPLATE.md` 와 `.github/workflows/lint.yml` 의 전제와 일치한다.
+> 브랜치 전략, 커밋 메시지, PR 규약. 본 컨벤션은 `.github/pull_request_template.md` 와 `.github/workflows/ci.yml` 의 전제와 일치한다.
 
 ---
 
 ## 1. 브랜치 전략
 
 ### 1.1 브랜치 종류
+
+**기본 브랜치는 `dev` 다** (`origin/HEAD -> origin/dev`). 모든 작업 브랜치는 `dev` 로 PR 을 낸다.
+`develop` 브랜치는 존재하지 않는다 — 과거 문서/워크플로가 이 이름을 전제해 CI 가 실행되지 않았으므로,
+새 워크플로를 만들 때 트리거 브랜치는 반드시 `dev` (필요 시 `main` 추가) 로 둔다.
+
 | 브랜치 | 용도 | 머지 대상 |
 |--------|------|-----------|
+| `dev` | 통합 개발 + 자동 배포 기준 (기본 브랜치) | main |
 | `main` | 배포 가능한 최신 상태 | (보호) |
-| `develop` | 통합 개발 (옵션 — 본 프로젝트 기준 직접 main 사용 가능) | main |
-| `feature/*` | 신규 기능 | main (또는 develop) |
-| `fix/*` | 버그 수정 | main |
-| `hotfix/*` | 긴급 운영 수정 | main + cherry-pick to develop |
-| `chore/*` | 비기능 변경 (lint, deps, doc) | main |
-| `refactor/*` | 동작 변경 없는 구조 개선 | main |
-| `docs/*` | 문서만 | main |
+| `feature/*` | 신규 기능 | dev |
+| `fix/*` | 버그 수정 | dev |
+| `hotfix/*` | 긴급 운영 수정 | dev (+ 필요 시 main cherry-pick) |
+| `chore/*` | 비기능 변경 (lint, deps, doc) | dev |
+| `refactor/*` | 동작 변경 없는 구조 개선 | dev |
+| `docs/*` | 문서만 | dev |
 
 ### 1.2 명명
 ```
@@ -31,7 +36,7 @@ chore/add-renovate-config
 
 ### 1.3 브랜치 수명
 - feature: ≤ 1주 (장기 시 재분기 검토)
-- 매일 main → feature 병합으로 충돌 최소화 (`git rebase main` 권장)
+- 매일 dev → feature 병합으로 충돌 최소화 (`git rebase dev` 권장)
 
 ---
 
@@ -95,7 +100,7 @@ docs(architecture): RabbitMQ 토폴로지 다이어그램 추가
 커밋 메시지와 동일 포맷. squash merge 시 그대로 commit이 됨.
 
 ### 3.3 본문 (PR 템플릿)
-`.github/PULL_REQUEST_TEMPLATE.md` 가 자동 적용. 다음 섹션 권장:
+`.github/pull_request_template.md` 가 자동 적용. 다음 섹션 권장:
 
 ```markdown
 ## 작업 내용
@@ -127,20 +132,20 @@ docs(architecture): RabbitMQ 토폴로지 다이어그램 추가
 ### 3.5 머지 정책
 - **Squash merge** 기본 (히스토리 깔끔)
 - 단, 의미 있는 커밋이 여러 개라면 일반 merge도 허용
-- main 직접 푸시 금지
-- 1명 이상 approve + CI green 필수
+- dev 직접 푸시 금지
+- 1명 이상 approve + CI green 필수 (`ci.yml` 의 frontend·backend·ai·realtime 4개 잡)
 
 ---
 
 ## 4. 충돌 해결
 
-- 본인 브랜치에서 `git rebase main` (merge 대신)
+- 본인 브랜치에서 `git rebase dev` (merge 대신)
 - 충돌 발생 시 양쪽 변경의 의도를 확인 (단순 텍스트 머지 X)
 - DB 마이그레이션 충돌: 버전 번호 재할당 + 순서 정합성 확인
 
 ---
 
-## 5. 보호 정책 (main)
+## 5. 보호 정책 (dev · main)
 
 - 직접 push 금지
 - PR + CI green + 1 approve 필수
