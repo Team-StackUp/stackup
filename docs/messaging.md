@@ -494,6 +494,37 @@ AI followup consumer 가 토큰 스트림 중 문장 경계마다 그 문장만 
 - 세그먼트 S3 키 규칙(AI·Core 공유): `interview/tts/{sessionId}/{messageId}/seg-{seq}.{ext}`. Core 는 DB 미기록, `GET …/messages/{mid}/audio/segments/{seq}?ext=` 프록시에서 소유권 검증 후 규칙으로 키 재구성(ext 화이트리스트 wav|mp3|ogg|m4a).
 - 상세 SSE 스펙: [`event-stream.md §3.2-1`](./event-stream.md).
 
+### 5.14 발행 시점 규약 — 반드시 커밋 후에 발행한다
+
+**Core 의 모든 작업 요청 발행(`stackup.core-to-ai`)은 DB 커밋 이후에 일어나야 한다.**
+트랜잭션 안에서 발행하면 이후 커밋이 실패했을 때 AI 는 존재하지 않는 행을 대상으로 작업하고,
+결과 콜백은 "not found" 로 드롭되어 **사용자 입력이 조용히 사라진다**.
+
+구현 패턴 — 도메인 이벤트 + `AFTER_COMMIT` 리스너:
+
+```java
+// 1) 트랜잭션 안: DB 쓰기 + 도메인 이벤트만
+events.publishEvent(new VoiceAnswerUploadedEvent(userId, sessionId, messageId, key, contentType));
+
+// 2) 커밋 후: envelope 발행
+@Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW)
+@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+public void onVoiceAnswerUploaded(VoiceAnswerUploadedEvent event) { … publisher.publishToAi(…); }
+```
+
+| Routing Key | 발행 주체 (`AFTER_COMMIT`) | 트리거 이벤트 |
+|---|---|---|
+| `generate.questions` | `SessionQuestionsRequester` | `SessionCreatedEvent` · `SelfIntroAnsweredEvent` |
+| `generate.followup` | `SessionFollowupRequester` | `AnswerSubmittedEvent` |
+| `generate.tts` | `SessionTtsRequester` | `QuestionPersistedEvent` |
+| `generate.feedback` | `SessionFeedbackRequester` | `SessionEndedEvent` |
+| `analyze.voice` | `VoiceAnalysisRequester` | `VoiceAnswerUploadedEvent` |
+| `analyze.resume` · `analyze.repository` · `analyze.cover_letter` | `AnalysisRequestService` | `*AnalysisRequestedEvent` |
+
+**S3 PUT 도 트랜잭션 밖에서 한다.** 업로드(최대 25MB)가 끝날 때까지 DB 커넥션을 붙잡으면
+커넥션 풀을 잠식한다. 업로드 후 별도 트랜잭션에서 키를 붙이고, 업로드가 실패하면 이미 커밋된
+placeholder 를 `FAILED` 로 확정해 클라이언트의 턴이 잠기지 않게 보상한다.
+
 ---
 
 ## 6. 재시도·DLQ 정책

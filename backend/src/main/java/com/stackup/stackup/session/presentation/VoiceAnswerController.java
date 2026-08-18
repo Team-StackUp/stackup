@@ -1,7 +1,7 @@
 package com.stackup.stackup.session.presentation;
 
 import com.stackup.stackup.common.security.UserPrincipal;
-import com.stackup.stackup.session.application.VoiceAnswerUploadService;
+import com.stackup.stackup.session.application.VoiceAnswerSubmitService;
 import com.stackup.stackup.session.application.VoiceStreamService;
 import com.stackup.stackup.session.application.dto.MessageResult;
 import com.stackup.stackup.session.application.dto.VoiceAnswerUploadCommand;
@@ -30,7 +30,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RequiredArgsConstructor
 public class VoiceAnswerController {
 
-    private final VoiceAnswerUploadService uploadService;
+    private final VoiceAnswerSubmitService submitService;
     private final VoiceStreamService streamService;
 
     @Operation(
@@ -61,7 +61,7 @@ public class VoiceAnswerController {
             audio.getOriginalFilename(),
             idempotencyKey
         );
-        MessageResult result = uploadService.submit(principal.userId(), sessionId, cmd);
+        MessageResult result = submitService.submit(principal.userId(), sessionId, cmd);
         return MessageResponse.from(result);
     }
 
