@@ -14,8 +14,12 @@ def test_word_count_and_wpm():
         language="ko",
         duration_sec=60.0,
         segments=[
-            TranscriptionSegment(start_sec=0.0, end_sec=60.0, text="저는 백엔드 개발자 입니다",
-                                 avg_logprob=-0.2),
+            TranscriptionSegment(
+                start_sec=0.0,
+                end_sec=60.0,
+                text="저는 백엔드 개발자 입니다",
+                avg_logprob=-0.2,
+            ),
         ],
     )
     m = analyze(result, filler_pattern=FILLER_PATTERN)

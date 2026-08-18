@@ -10,7 +10,11 @@ import structlog
 import websockets
 
 from ai_server.voice.stt.base import TranscriptionResult, TranscriptionSegment
-from ai_server.voice.stt.live import LiveSttProvider, LiveSttSession, LiveTranscriptEvent
+from ai_server.voice.stt.live import (
+    LiveSttProvider,
+    LiveSttSession,
+    LiveTranscriptEvent,
+)
 from ai_server.voice.stt.sanitize import (
     sanitize_transcription,
     strip_stt_hallucinations,
@@ -20,8 +24,16 @@ log = structlog.get_logger(__name__)
 
 
 class _DeepgramLiveSession(LiveSttSession):
-    def __init__(self, *, api_key: str, url: str, model: str, language: str,
-                 endpointing_ms: int, content_type: str) -> None:
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        url: str,
+        model: str,
+        language: str,
+        endpointing_ms: int,
+        content_type: str,
+    ) -> None:
         self._api_key = api_key
         self._url = url
         self._model = model
@@ -63,7 +75,7 @@ class _DeepgramLiveSession(LiveSttSession):
                 msg = json.loads(raw)
                 mtype = msg.get("type")
                 if mtype == "Results":
-                    alt = (((msg.get("channel") or {}).get("alternatives") or [{}])[0])
+                    alt = ((msg.get("channel") or {}).get("alternatives") or [{}])[0]
                     text = str(alt.get("transcript") or "")
                     is_final = bool(msg.get("is_final"))
                     speech_final = bool(msg.get("speech_final"))
@@ -135,8 +147,9 @@ class _DeepgramLiveSession(LiveSttSession):
 class DeepgramLiveSttProvider(LiveSttProvider):
     model_name = "deepgram-live"
 
-    def __init__(self, *, api_key: str, url: str, model: str, language: str,
-                 endpointing_ms: int) -> None:
+    def __init__(
+        self, *, api_key: str, url: str, model: str, language: str, endpointing_ms: int
+    ) -> None:
         if not api_key:
             raise ValueError("Deepgram API key 누락")
         self._api_key = api_key
@@ -145,7 +158,9 @@ class DeepgramLiveSttProvider(LiveSttProvider):
         self._language = language
         self._endpointing_ms = endpointing_ms
 
-    def open_session(self, *, content_type: str, language: str | None) -> LiveSttSession:
+    def open_session(
+        self, *, content_type: str, language: str | None
+    ) -> LiveSttSession:
         return _DeepgramLiveSession(
             api_key=self._api_key,
             url=self._url,

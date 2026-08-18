@@ -9,10 +9,11 @@ InterviewMode = Literal["PERSONALITY", "TECHNICAL", "INTEGRATED"]
 
 class AnalyzeVoiceRequest(BaseModel):
     """Core 가 음성 답변 업로드 commit 후 발행."""
+
     model_config = camel_config()
 
     session_id: int
-    message_id: int                         # interview_messages.id (placeholder, STT 후 content 채움)
+    message_id: int  # interview_messages.id (placeholder, STT 후 content 채움)
     parent_question_message_id: int | None = None
     audio_s3_key: str
     content_type: str
@@ -23,6 +24,7 @@ class AnalyzeVoiceRequest(BaseModel):
 
 class VoiceCallbackPayload(BaseModel):
     """AI → Core. STT 결과 + 음성 지표."""
+
     model_config = camel_config()
 
     session_id: int
@@ -32,4 +34,4 @@ class VoiceCallbackPayload(BaseModel):
     silence_duration_sec: float | None = None
     filler_word_counts: dict[str, int] = Field(default_factory=dict)
     pronunciation_accuracy: float | None = None
-    error_code: str | None = None           # 실패 시 코드 (Core 가 message FAILED 마킹)
+    error_code: str | None = None  # 실패 시 코드 (Core 가 message FAILED 마킹)

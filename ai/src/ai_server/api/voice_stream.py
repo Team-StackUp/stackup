@@ -86,7 +86,11 @@ async def voice_stream(
             await asyncio.wait_for(pump, timeout=10.0)
         except asyncio.TimeoutError:
             pump.cancel()
-            log.warn("voice_stream.pump.timeout", session_id=session_id, message_id=message_id)
+            log.warn(
+                "voice_stream.pump.timeout",
+                session_id=session_id,
+                message_id=message_id,
+            )
         result = await session.result()
         await session.close()
 

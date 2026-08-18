@@ -1,5 +1,3 @@
-import os
-
 import pytest
 
 from ai_server.config.settings import Settings

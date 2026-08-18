@@ -4,14 +4,22 @@ from ai_server.messaging.consumers.feedback_consumer import _session_rag_query
 from ai_server.model.messages.feedback import FeedbackMessageItem
 
 
-def _msg(mid: int, role: str, content: str, seq: int | None = None) -> FeedbackMessageItem:
-    return FeedbackMessageItem(id=mid, sequence_number=seq or mid, role=role, content=content)
+def _msg(
+    mid: int, role: str, content: str, seq: int | None = None
+) -> FeedbackMessageItem:
+    return FeedbackMessageItem(
+        id=mid, sequence_number=seq or mid, role=role, content=content
+    )
 
 
 def test_joins_substantive_answers_excludes_short_confirmations() -> None:
     msgs = [
         _msg(1, "INTERVIEWER", "인덱스를 어떻게 튜닝했나요?"),
-        _msg(2, "INTERVIEWEE", "복합 인덱스를 user_id, created_at 으로 잡아 풀스캔을 제거했습니다."),
+        _msg(
+            2,
+            "INTERVIEWEE",
+            "복합 인덱스를 user_id, created_at 으로 잡아 풀스캔을 제거했습니다.",
+        ),
         _msg(3, "INTERVIEWER", "그럼 커버링 인덱스였나요?"),
         _msg(4, "INTERVIEWEE", "네 맞습니다."),  # 짧은 확인 → 제외
         _msg(5, "INTERVIEWER", "캐시는요?"),

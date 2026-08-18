@@ -1,0 +1,130 @@
+name: CI
+
+# 기본 브랜치는 dev 다(origin/HEAD -> origin/dev). 이전 lint.yml 은 트리거가
+# main/develop 이라 한 번도 실행되지 않았고, 그 사이 dev 에 eslint 에러와
+# 의존성 취약점이 그대로 쌓였다. 트리거를 실제 브랜치에 맞추고 레이어별
+# 테스트까지 함께 돌린다.
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+
+# 같은 브랜치에 연속 push 하면 이전 실행은 취소한다(러너 점유 방지).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend (lint · types · test · build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Lint
+        working-directory: ./frontend
+        run: npm run lint
+
+      - name: Type check
+        working-directory: ./frontend
+        run: npm run type-check
+
+      - name: Test
+        working-directory: ./frontend
+        run: npm run test
+
+      # 타입체크가 통과해도 번들 단계에서 깨지는 경우(정적 자산·플러그인)를 잡는다.
+      - name: Build
+        working-directory: ./frontend
+        run: npm run build
+
+  backend:
+    name: Backend (Core, Spring)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      # checkstyle 은 build.gradle 에 플러그인이 없어 태스크 자체가 없다.
+      # 도입하는 PR 에서 이 잡에 단계를 추가한다.
+      - name: Test
+        working-directory: ./backend
+        run: ./gradlew test --no-daemon
+
+      - name: Upload test report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-report
+          path: backend/build/reports/tests/test
+
+  ai:
+    name: AI (FastAPI/LangChain)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install
+        working-directory: ./ai
+        run: uv sync --extra dev
+
+      - name: Lint (flake8)
+        working-directory: ./ai
+        run: uv run flake8 .
+
+      - name: Format check (black)
+        working-directory: ./ai
+        run: uv run black --check .
+
+      - name: Test
+        working-directory: ./ai
+        run: uv run pytest -q
+
+  realtime:
+    name: RealTime (Go)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Go 코드는 realtime/ 에 있다. 이전 워크플로는 ./backend 에서 실행해
+      # go.mod 가 없어 조용히 통과했고, realtime 은 검증된 적이 없다.
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: realtime/go.mod
+          cache-dependency-path: realtime/go.sum
+
+      - name: Build
+        working-directory: ./realtime
+        run: go build ./...
+
+      - name: Vet
+        working-directory: ./realtime
+        run: go vet ./...
+
+      - name: Test
+        working-directory: ./realtime
+        run: go test ./...

@@ -14,7 +14,7 @@ class _FakePublisher:
 
 
 class _Settings:
-    core_internal_api_key = ""          # 빈 값이면 인증 skip
+    core_internal_api_key = ""  # 빈 값이면 인증 skip
     voice_filler_pattern = r"(음+|어+|그+)"
     ai_callback_routing_voice = "callback.voice"
 
@@ -31,7 +31,9 @@ def _app(publisher):
 def test_stream_publishes_callback_voice_on_stop():
     publisher = _FakePublisher()
     client = TestClient(_app(publisher))
-    with client.websocket_connect("/internal/voice/stream?sessionId=7&messageId=42") as ws:
+    with client.websocket_connect(
+        "/internal/voice/stream?sessionId=7&messageId=42"
+    ) as ws:
         ws.send_bytes(b"chunk1")
         ws.send_bytes(b"chunk2")
         # 부분 자막 수신

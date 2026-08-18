@@ -50,7 +50,9 @@ class _RecordingNotifier:
     def __init__(self):
         self.audio: list[dict] = []
 
-    async def emit_audio(self, *, session_id, message_id, seq, ext, duration_sec, trace_id):
+    async def emit_audio(
+        self, *, session_id, message_id, seq, ext, duration_sec, trace_id
+    ):
         self.audio.append(
             {"session_id": session_id, "message_id": message_id, "seq": seq, "ext": ext}
         )

@@ -4,7 +4,11 @@ import asyncio
 from collections.abc import AsyncIterator
 
 from ai_server.voice.stt.base import TranscriptionResult, TranscriptionSegment
-from ai_server.voice.stt.live import LiveSttProvider, LiveSttSession, LiveTranscriptEvent
+from ai_server.voice.stt.live import (
+    LiveSttProvider,
+    LiveSttSession,
+    LiveTranscriptEvent,
+)
 
 
 class _MockLiveSession(LiveSttSession):
@@ -21,7 +25,9 @@ class _MockLiveSession(LiveSttSession):
         # 청크마다 부분 transcript 한 조각 방출 (스크립트 순서대로).
         idx = min(self._pushes, len(self._script) - 1)
         await self._queue.put(
-            LiveTranscriptEvent(text=self._script[idx], is_final=False, speech_final=False)
+            LiveTranscriptEvent(
+                text=self._script[idx], is_final=False, speech_final=False
+            )
         )
         self._pushes += 1
 
@@ -63,5 +69,7 @@ class MockLiveSttProvider(LiveSttProvider):
     def __init__(self, script: list[str] | None = None) -> None:
         self._script = script or ["부분", "부분 transcript", "부분 transcript 완성"]
 
-    def open_session(self, *, content_type: str, language: str | None) -> LiveSttSession:
+    def open_session(
+        self, *, content_type: str, language: str | None
+    ) -> LiveSttSession:
         return _MockLiveSession(self._script)
