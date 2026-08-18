@@ -25,7 +25,7 @@ interview_sessions → session_feedbacks
 | 2 | `refresh_tokens` | JWT refresh token (해시 저장) |
 | 3 | `user_consents` | 개인정보처리동의 이력 |
 | 4 | `repositories` | 면접 분석용 GitHub 레포 메타 |
-| 5 | `resumes` | 이력서 메타 (실 파일은 S3) |
+| 5 | `resumes` | 이력서 메타 — PDF(실 파일은 S3) + 웹 URL 자료(`file_type='WEB'`, `source_url`) |
 | 5-1 | `cover_letters` | 자소서(공채) 문항별 텍스트 (`items` JSONB: `[{question,answer}]`). V20 |
 | 6 | `analyzed_documents` | AI 분석 결과 메타 + S3 경로. 다형성 FK `resume_id`/`repository_id`/`cover_letter_id`(V20) 중 정확히 하나 |
 | 7 | `interview_sessions` | 면접 세션 설정·상태·히스토리 |
@@ -112,19 +112,25 @@ CREATE TABLE repositories (
     UNIQUE (user_id, github_repo_id)
 );
 
--- 5. resumes
+-- 5. resumes  (PDF 업로드 + 웹 URL 자료를 함께 담는다 — V24)
 CREATE TABLE resumes (
     id                BIGSERIAL      PRIMARY KEY,
     user_id           BIGINT         NOT NULL REFERENCES users(id),
-    original_filename VARCHAR(500)   NOT NULL,
-    file_path         VARCHAR(1000)  NOT NULL,           -- S3 key only
-    file_type         VARCHAR(20)    NOT NULL CHECK (file_type IN ('PDF')),
-    file_size         BIGINT,
+    original_filename VARCHAR(500)   NOT NULL,           -- WEB 은 host+path 를 표시명으로
+    file_path         VARCHAR(1000),                     -- S3 key only. WEB 은 NULL
+    file_type         VARCHAR(20)    NOT NULL CHECK (file_type IN ('PDF','WEB')),
+    file_size         BIGINT,                            -- WEB 은 NULL
+    source_url        VARCHAR(2000),                     -- WEB 전용 원문 URL. PDF 는 NULL
     status            VARCHAR(20)    NOT NULL DEFAULT 'PENDING'
                       CHECK (status IN ('PENDING','ANALYZING','ANALYZED','FAILED')),
     created_at        TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
     updated_at        TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
-    is_deleted        BOOLEAN        NOT NULL DEFAULT FALSE
+    is_deleted        BOOLEAN        NOT NULL DEFAULT FALSE,
+    -- 타입별 필수 locator 를 DB 에서 강제
+    CONSTRAINT chk_resumes_locator_by_type CHECK (
+        (file_type = 'PDF' AND file_path IS NOT NULL)
+        OR (file_type = 'WEB' AND source_url IS NOT NULL)
+    )
 );
 
 -- 6. analyzed_documents
