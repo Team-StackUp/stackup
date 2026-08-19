@@ -1376,9 +1376,6 @@ export interface components {
         ComponentHealthResponse: {
             name?: string;
             status?: string;
-            details?: {
-                [key: string]: unknown;
-            };
         };
         SystemHealthResponse: {
             status?: string;

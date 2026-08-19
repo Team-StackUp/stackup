@@ -3966,10 +3966,6 @@
           },
           "status" : {
             "type" : "string"
-          },
-          "details" : {
-            "type" : "object",
-            "additionalProperties" : { }
           }
         }
       },
