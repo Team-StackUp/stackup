@@ -3,8 +3,12 @@ import { useQuery } from '@tanstack/react-query'
 import { selectQuestions } from '@/domain/practice'
 import type { PracticeTrack } from '@/domain/practice'
 import { loadQuestionBank } from '../api/loadQuestionBank'
+import { useQuestionRunner } from '@/shared/hooks'
 
 const DEFAULT_COUNT = 8
+
+// 트랙별로 답변 메모를 따로 보관한다. 프론트 로컬 전용이라 서버 계약과 무관.
+const storageKeyFor = (track: PracticeTrack) => `stackup:practice-answers:${track}`
 
 export function usePracticeSession(track: PracticeTrack, count: number = DEFAULT_COUNT) {
   const bankQuery = useQuery({
@@ -15,9 +19,6 @@ export function usePracticeSession(track: PracticeTrack, count: number = DEFAULT
 
   // seed 가 바뀌면 같은 은행에서 질문을 다시 뽑는다(다시 풀기).
   const [seed, setSeed] = useState(0)
-  const [index, setIndex] = useState(0)
-  const [revealed, setRevealed] = useState(false)
-  const [answers, setAnswers] = useState<Record<string, string>>({})
 
   const questions = useMemo(() => {
     if (!bankQuery.data) return []
@@ -26,28 +27,13 @@ export function usePracticeSession(track: PracticeTrack, count: number = DEFAULT
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bankQuery.data, count, seed])
 
-  const total = questions.length
-  const current = questions[index]
-  const isLast = index >= total - 1
-  const done = total > 0 && index >= total
-
-  const reveal = useCallback(() => setRevealed(true), [])
-
-  const next = useCallback(() => {
-    setRevealed(false)
-    setIndex((i) => i + 1)
-  }, [])
-
-  const setAnswer = useCallback((id: string, value: string) => {
-    setAnswers((prev) => ({ ...prev, [id]: value }))
-  }, [])
+  const questionIds = useMemo(() => questions.map((q) => q.id), [questions])
+  const runner = useQuestionRunner(questionIds, storageKeyFor(track))
 
   const restart = useCallback(() => {
-    setIndex(0)
-    setRevealed(false)
-    setAnswers({})
+    runner.reset()
     setSeed((s) => s + 1)
-  }, [])
+  }, [runner])
 
   return {
     bankTitle: bankQuery.data?.title,
@@ -56,16 +42,16 @@ export function usePracticeSession(track: PracticeTrack, count: number = DEFAULT
     error: bankQuery.error as Error | undefined,
     refetch: bankQuery.refetch,
     questions,
-    current,
-    index,
-    total,
-    isLast,
-    done,
-    revealed,
-    answers,
-    reveal,
-    next,
-    setAnswer,
+    current: questions[runner.index],
+    index: runner.index,
+    total: runner.total,
+    isLast: runner.isLast,
+    done: runner.done,
+    revealed: runner.revealed,
+    answers: runner.answers,
+    reveal: runner.reveal,
+    next: runner.next,
+    setAnswer: runner.setAnswer,
     restart,
   }
 }
