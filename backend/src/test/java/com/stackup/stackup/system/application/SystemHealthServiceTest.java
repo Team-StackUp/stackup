@@ -38,7 +38,7 @@ class SystemHealthServiceTest {
     void ready_usesDatabaseAndRabbitmqIndicators() {
         HealthEndpoint healthEndpoint = healthEndpoint(Map.of(
             "db", indicator(Status.UP, Map.of("connections", 12)),
-            "rabbitmq", indicator(Status.UP, Map.of("host", "localhost"))
+            "rabbit", indicator(Status.UP, Map.of("host", "localhost"))   // Actuator 실제 키
         ));
         SystemHealthService systemHealthService = new SystemHealthService(healthEndpoint);
 
@@ -54,7 +54,7 @@ class SystemHealthServiceTest {
     void health_includesDatabaseRabbitmqS3AndAiServer() {
         HealthEndpoint healthEndpoint = healthEndpoint(Map.of(
             "db", indicator(Status.UP, Map.of()),
-            "rabbitmq", indicator(Status.DOWN, Map.of("reachable", false))
+            "rabbit", indicator(Status.DOWN, Map.of("reachable", false))  // Actuator 실제 키
         ));
         SystemHealthService systemHealthService = new SystemHealthService(healthEndpoint);
 
@@ -64,6 +64,44 @@ class SystemHealthServiceTest {
         assertThat(response.components()).containsKeys("database", "rabbitmq", "s3", "aiServer");
         assertThat(response.components().get("s3").status()).isEqualTo(Status.UNKNOWN.getCode());
         assertThat(response.components().get("aiServer").status()).isEqualTo(Status.UNKNOWN.getCode());
+    }
+
+    /**
+     * 응답 키와 Actuator 컴포넌트 키가 다르다는 사실 자체를 못 박는다.
+     *
+     * <p>운영에서 rabbitmq 가 영구 UNKNOWN 이었던 원인이 여기였다 — Actuator 는
+     * {@code rabbitHealthContributor} 빈을 "rabbit" 으로 등록하는데 "rabbitmq" 로 조회했다.
+     * 기존 테스트는 픽스처를 "rabbitmq" 로 등록해서 같은 실수를 그대로 재현하고 있었다.
+     */
+    @Test
+    void health_readsRabbitFromActuatorKeyNotResponseKey() {
+        HealthEndpoint healthEndpoint = healthEndpoint(Map.of(
+            "db", indicator(Status.UP, Map.of()),
+            "rabbit", indicator(Status.UP, Map.of("version", "3.13"))
+        ));
+        SystemHealthService systemHealthService = new SystemHealthService(healthEndpoint);
+
+        var response = systemHealthService.ready();
+
+        // 응답 키는 그대로 rabbitmq — 공개 계약은 바뀌지 않는다.
+        assertThat(response.components().get("rabbitmq").status()).isEqualTo(Status.UP.getCode());
+        assertThat(response.components().get("rabbitmq").details()).containsEntry("version", "3.13");
+        assertThat(response.status()).isEqualTo(Status.UP.getCode());
+    }
+
+    // Actuator 에 없는 이름으로 조회하면 UNKNOWN 이 된다 — 회귀 시 이 테스트가 아니라
+    // 위 테스트가 깨지도록, 여기서는 '없을 때의 동작'만 확인한다.
+    @Test
+    void health_reportsUnknownWhenActuatorHasNoSuchComponent() {
+        HealthEndpoint healthEndpoint = healthEndpoint(Map.of(
+            "db", indicator(Status.UP, Map.of())
+        ));
+        SystemHealthService systemHealthService = new SystemHealthService(healthEndpoint);
+
+        var response = systemHealthService.ready();
+
+        assertThat(response.components().get("rabbitmq").status()).isEqualTo(Status.UNKNOWN.getCode());
+        assertThat(response.status()).isEqualTo(Status.UNKNOWN.getCode());
     }
 
     private static HealthEndpoint healthEndpoint(Map<String, HealthIndicator> indicators) {

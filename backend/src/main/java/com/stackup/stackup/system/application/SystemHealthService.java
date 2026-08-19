@@ -15,8 +15,12 @@ import org.springframework.stereotype.Service;
 @Service
 public class SystemHealthService {
 
+    // 응답 키(name)와 Actuator 컴포넌트 키(actuatorPath)는 다르다.
+    // Actuator 키는 Spring 이 등록하는 빈 이름에서 접미사를 뗀 값이다 —
+    // DataSourceHealthContributor→"db", rabbitHealthContributor→"rabbit".
+    // "rabbitmq" 로 조회하면 항상 null 이라 rabbitmq 컴포넌트가 영구 UNKNOWN 이 된다.
     private static final ComponentSpec DATABASE = new ComponentSpec("database", "db");
-    private static final ComponentSpec RABBITMQ = new ComponentSpec("rabbitmq", "rabbitmq");
+    private static final ComponentSpec RABBITMQ = new ComponentSpec("rabbitmq", "rabbit");
     private static final ComponentSpec S3 = new ComponentSpec("s3", "s3");
     private static final ComponentSpec AI_SERVER = new ComponentSpec("aiServer", "aiServer");
 

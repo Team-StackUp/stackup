@@ -166,9 +166,16 @@ GET /api/system/health
 }
 ```
 
-- Spring Boot Actuator + 커스텀 indicator
+- Spring Boot Actuator 의 컴포넌트를 이름으로 조회해 재구성한다(`SystemHealthService`).
+- **응답 키와 Actuator 컴포넌트 키는 다르다.** Actuator 키는 Spring 이 등록하는 빈 이름에서
+  접미사를 뗀 값이라 `database`→`db`, `rabbitmq`→**`rabbit`** 이다. 여기를 틀리면 조회가
+  null 을 돌려줘 그 컴포넌트가 **영구 UNKNOWN** 이 된다(에러가 아니라 조용한 무응답).
+- `s3`·`aiServer` 는 아직 커스텀 indicator 가 없어 UNKNOWN 이다 → `/health` 의 종합 status 도
+  UNKNOWN 으로 고정된다. 종합 판단이 필요하면 현재는 `/ready`(database·rabbitmq)를 쓴다.
 - K8s liveness: 단순 200 응답 (`/api/system/live`)
 - K8s readiness: 의존성 포함 (`/api/system/ready`)
+- 컨테이너 healthcheck 는 Spring 자체 `/actuator/health` 를 쓴다(docker-compose) — 이쪽은
+  Actuator 종합이라 RabbitMQ 장애를 정상적으로 잡는다.
 
 ---
 
