@@ -1,5 +1,7 @@
 package com.stackup.stackup.session.application;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.stackup.stackup.common.exception.ApiErrorCode;
 import com.stackup.stackup.common.exception.DomainException;
 import com.stackup.stackup.common.security.StreamTokenProvider;
@@ -16,6 +18,8 @@ import com.stackup.stackup.session.domain.JobCategory;
 import com.stackup.stackup.session.domain.SessionMode;
 import com.stackup.stackup.session.domain.SessionContext;
 import com.stackup.stackup.session.domain.SessionContextRepository;
+import com.stackup.stackup.session.domain.SessionFeedbackRepository;
+import com.stackup.stackup.session.domain.SessionFocusArea;
 import com.stackup.stackup.session.domain.SessionStatus;
 import com.stackup.stackup.user.domain.User;
 import com.stackup.stackup.user.domain.UserRepository;
@@ -23,8 +27,12 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -38,12 +46,22 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class SessionService {
 
+    private static final Logger log = LoggerFactory.getLogger(SessionService.class);
+    private static final JsonMapper JSON = JsonMapper.builder().build();
+
     private final InterviewSessionRepository sessionRepository;
     private final SessionContextRepository contextRepository;
     private final AnalyzedDocumentRepository documentRepository;
+    private final SessionFeedbackRepository feedbackRepository;
     private final UserRepository userRepository;
     private final ApplicationEventPublisher events;
     private final StreamTokenProvider streamTokenProvider;
+
+    // 이 점수 미만인 평가 축을 '약점'으로 본다.
+    // 필드 초기값을 함께 두는 이유: Spring 밖(단위 테스트)에서는 @Value 가 주입되지 않아
+    // 0.0 이 되고, 그러면 모든 축이 '기준 이상'으로 판정돼 조용히 다른 동작을 한다.
+    @Value("${interview.weakness-focus.score-threshold:70}")
+    private double weaknessScoreThreshold = 70;
 
     @Transactional
     public SessionResult create(Long userId, SessionCreateCommand command) {
@@ -101,13 +119,13 @@ public class SessionService {
      * 응답의 {@code contextDocumentIds} 로 드러나므로 호출자가 원본과 비교해 안내할 수 있다.
      */
     @Transactional
-    public SessionResult retry(Long userId, Long sourceSessionId) {
+    public SessionResult retry(Long userId, Long sourceSessionId, boolean focusOnWeakness) {
         InterviewSession source = loadOwned(userId, sourceSessionId);
         List<Long> reusableDocumentIds = contextDocumentIds(sourceSessionId).stream()
             .filter(id -> isReusableContext(id, userId))
             .toList();
 
-        return create(userId, new SessionCreateCommand(
+        SessionResult created = create(userId, new SessionCreateCommand(
             source.getTitle(),
             source.getMemo(),
             source.getMode(),
@@ -120,6 +138,66 @@ public class SessionService {
             source.getTargetCompanyName(),
             source.getTargetJobDescription()
         ));
+
+        if (!focusOnWeakness) {
+            return created;
+        }
+        List<SessionFocusArea> weakAreas = weakAreasOf(sourceSessionId);
+        if (weakAreas.isEmpty()) {
+            // 피드백이 없는 세션(중단 등) — 집중 영역 없이 일반 재도전과 같아진다.
+            return created;
+        }
+        // 같은 트랜잭션이라 dirty checking 으로 반영된다.
+        InterviewSession newSession = sessionRepository.findById(created.id())
+            .orElseThrow(() -> new DomainException(ApiErrorCode.SESSION_NOT_FOUND));
+        newSession.assignFocusAreas(toJson(weakAreas));
+        return SessionResult.of(newSession, created.contextDocumentIds());
+    }
+
+    /**
+     * 원본 세션의 피드백에서 약한 평가 축을 고른다.
+     *
+     * <p>기준 미만인 축만, 낮은 순으로 최대 2개. 전부 기준 이상이면 **가장 낮은 하나**를 고른다 —
+     * 사용자가 "약점 집중"을 눌렀는데 아무것도 안 바뀌면 버튼이 고장난 것처럼 보인다.
+     * 피드백이 없으면(중단 세션 등) 빈 목록이라 일반 재도전과 같아진다.
+     */
+    private List<SessionFocusArea> weakAreasOf(Long sourceSessionId) {
+        return feedbackRepository.findBySession_Id(sourceSessionId)
+            .map(feedback -> {
+                List<Map.Entry<SessionFocusArea, Double>> scored = new ArrayList<>();
+                addScore(scored, SessionFocusArea.TECHNICAL, feedback.getTechnicalAccuracy());
+                addScore(scored, SessionFocusArea.LOGIC, feedback.getLogicScore());
+                addScore(scored, SessionFocusArea.COMMUNICATION, feedback.getCommunicationScore());
+                scored.sort(Map.Entry.comparingByValue());
+
+                List<SessionFocusArea> weak = scored.stream()
+                    .filter(e -> e.getValue() < weaknessScoreThreshold)
+                    .limit(2)
+                    .map(Map.Entry::getKey)
+                    .collect(Collectors.toCollection(ArrayList::new));
+                if (weak.isEmpty() && !scored.isEmpty()) {
+                    weak.add(scored.get(0).getKey());
+                }
+                return weak;
+            })
+            .orElseGet(List::of);
+    }
+
+    private void addScore(List<Map.Entry<SessionFocusArea, Double>> target,
+                          SessionFocusArea area, Double score) {
+        if (score != null) {
+            target.add(Map.entry(area, score));
+        }
+    }
+
+    private String toJson(List<SessionFocusArea> areas) {
+        try {
+            return JSON.writeValueAsString(areas.stream().map(Enum::name).toList());
+        } catch (JsonProcessingException e) {
+            // 직렬화가 실패해도 재도전 자체는 성공해야 한다 — 집중 영역만 없는 일반 면접이 된다.
+            log.warn("focus_areas serialize failed. areas={}", areas, e);
+            return null;
+        }
     }
 
     // 삭제됐거나 아직 분석이 끝나지 않은 자료는 조용히 제외한다(linkContexts 는 둘 다 예외를 던진다).

@@ -5,6 +5,7 @@ import com.stackup.stackup.common.security.UserPrincipal;
 import com.stackup.stackup.session.application.SessionService;
 import com.stackup.stackup.session.presentation.dto.SessionCreateRequest;
 import com.stackup.stackup.session.presentation.dto.SessionResponse;
+import com.stackup.stackup.session.presentation.dto.SessionRetryRequest;
 import com.stackup.stackup.session.presentation.dto.SessionUpdateRequest;
 import com.stackup.stackup.session.presentation.dto.StreamTokenResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -91,6 +92,8 @@ public class SessionController {
         operationId = "retrySession",
         summary = "같은 설정으로 다시 면접 (US-13 재도전)",
         description = "기존 세션의 설정(모드·직군·질문 수·JD 등)을 그대로 복사해 새 세션을 만든다. "
+            + "focusOnWeakness=true 면 원본 피드백에서 낮았던 평가 축을 집중 영역으로 새겨, 질문 생성이 "
+            + "그 영역을 검증하는 질문을 우선 배치한다. "
             + "연결 자료는 지금도 살아있고 분석이 끝난 것만 다시 잇는다 — 그 사이 삭제된 자료 때문에 "
             + "재도전 전체가 404 로 막히지 않게 하기 위함. 응답의 contextDocumentIds 를 원본과 비교하면 "
             + "무엇이 빠졌는지 알 수 있다."
@@ -104,9 +107,12 @@ public class SessionController {
     @ResponseStatus(HttpStatus.CREATED)
     public SessionResponse retry(
         @AuthenticationPrincipal UserPrincipal principal,
-        @PathVariable Long sessionId
+        @PathVariable Long sessionId,
+        @RequestBody(required = false) SessionRetryRequest request
     ) {
-        return SessionResponse.from(sessionService.retry(principal.userId(), sessionId));
+        boolean focusOnWeakness = request != null && request.focusOnWeaknessOrDefault();
+        return SessionResponse.from(
+            sessionService.retry(principal.userId(), sessionId, focusOnWeakness));
     }
 
     @Operation(operationId = "updateSessionMeta", summary = "세션 제목/메모 수정")

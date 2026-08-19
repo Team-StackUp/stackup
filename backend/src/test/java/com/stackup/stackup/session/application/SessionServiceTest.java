@@ -21,6 +21,8 @@ import com.stackup.stackup.session.domain.InterviewSessionRepository;
 import com.stackup.stackup.session.domain.JobCategory;
 import com.stackup.stackup.session.domain.SessionContext;
 import com.stackup.stackup.session.domain.SessionContextRepository;
+import com.stackup.stackup.session.domain.SessionFeedback;
+import com.stackup.stackup.session.domain.SessionFeedbackRepository;
 import com.stackup.stackup.session.domain.SessionMode;
 import com.stackup.stackup.session.domain.SessionStatus;
 import com.stackup.stackup.user.domain.User;
@@ -42,6 +44,7 @@ class SessionServiceTest {
     @Mock SessionContextRepository contextRepository;
     @Mock AnalyzedDocumentRepository documentRepository;
     @Mock UserRepository userRepository;
+    @Mock SessionFeedbackRepository feedbackRepository;
     @Mock ApplicationEventPublisher events;
     @InjectMocks SessionService service;
 
@@ -197,7 +200,7 @@ class SessionServiceTest {
             return s;
         });
 
-        SessionResult result = service.retry(1L, 50L);
+        SessionResult result = service.retry(1L, 50L, false);
 
         assertThat(result.id()).isEqualTo(101L);
         assertThat(result.title()).isEqualTo("백엔드 모의면접");
@@ -243,17 +246,71 @@ class SessionServiceTest {
             return s;
         });
 
-        SessionResult result = service.retry(1L, 50L);
+        SessionResult result = service.retry(1L, 50L, false);
 
         // 살아있는 7L 만 다시 연결 — 나머지는 조용히 제외한다(호출자가 원본과 비교해 안내).
         assertThat(result.contextDocumentIds()).containsExactly(7L);
+    }
+
+    // 약점 집중: 기준(70) 미만인 축만, 낮은 순으로 최대 2개.
+    @Test
+    void retry_marksWeakestAxesAsFocusAreas() {
+        User user = userFixture(1L);
+        InterviewSession source = sessionFixture(50L);
+        SessionFeedback feedback = feedbackFixture(source, 82.0, 55.0, 61.0);
+
+        when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(50L, 1L)).thenReturn(Optional.of(source));
+        when(contextRepository.findBySession_Id(50L)).thenReturn(List.of());
+        when(userRepository.findByIdAndDeletedFalse(1L)).thenReturn(Optional.of(user));
+        when(feedbackRepository.findBySession_Id(50L)).thenReturn(Optional.of(feedback));
+        captureCreatedSession(101L);
+
+        SessionResult result = service.retry(1L, 50L, true);
+
+        // 55(논리) < 61(전달력) < 70 → 둘 다. 82(기술)는 기준 이상이라 제외.
+        assertThat(result.focusAreas()).containsExactly("LOGIC", "COMMUNICATION");
+    }
+
+    // 전부 기준 이상이어도 가장 낮은 하나는 고른다 — 눌렀는데 아무것도 안 바뀌면 고장으로 보인다.
+    @Test
+    void retry_picksLowestAxisEvenWhenAllScoresAreStrong() {
+        User user = userFixture(1L);
+        InterviewSession source = sessionFixture(50L);
+        SessionFeedback feedback = feedbackFixture(source, 91.0, 88.0, 95.0);
+
+        when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(50L, 1L)).thenReturn(Optional.of(source));
+        when(contextRepository.findBySession_Id(50L)).thenReturn(List.of());
+        when(userRepository.findByIdAndDeletedFalse(1L)).thenReturn(Optional.of(user));
+        when(feedbackRepository.findBySession_Id(50L)).thenReturn(Optional.of(feedback));
+        captureCreatedSession(101L);
+
+        SessionResult result = service.retry(1L, 50L, true);
+
+        assertThat(result.focusAreas()).containsExactly("LOGIC");
+    }
+
+    // 중단 세션은 피드백이 없다 — 집중 영역 없이 일반 재도전과 같아진다.
+    @Test
+    void retry_withoutFeedbackFallsBackToPlainRetry() {
+        User user = userFixture(1L);
+        InterviewSession source = sessionFixture(50L);
+
+        when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(50L, 1L)).thenReturn(Optional.of(source));
+        when(contextRepository.findBySession_Id(50L)).thenReturn(List.of());
+        when(userRepository.findByIdAndDeletedFalse(1L)).thenReturn(Optional.of(user));
+        when(feedbackRepository.findBySession_Id(50L)).thenReturn(Optional.empty());
+        captureCreatedSession(101L);
+
+        SessionResult result = service.retry(1L, 50L, true);
+
+        assertThat(result.focusAreas()).isEmpty();
     }
 
     @Test
     void retry_rejectsSessionOfAnotherUser() {
         when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(50L, 1L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.retry(1L, 50L))
+        assertThatThrownBy(() -> service.retry(1L, 50L, false))
             .isInstanceOf(DomainException.class);
     }
 
@@ -355,6 +412,28 @@ class SessionServiceTest {
 
         assertThat(session.isDeleted()).isTrue();
         verify(sessionRepository, org.mockito.Mockito.never()).delete(any(InterviewSession.class));
+    }
+
+    // create() 가 save 하는 세션에 id 를 매기고, retry 가 다시 찾을 수 있게 findById 도 이어준다.
+    private void captureCreatedSession(Long id) {
+        InterviewSession[] holder = new InterviewSession[1];
+        when(sessionRepository.save(any(InterviewSession.class))).thenAnswer(inv -> {
+            InterviewSession s = inv.getArgument(0);
+            ReflectionTestUtils.setField(s, "id", id);
+            holder[0] = s;
+            return s;
+        });
+        org.mockito.Mockito.lenient().when(sessionRepository.findById(id))
+            .thenAnswer(inv -> Optional.ofNullable(holder[0]));
+    }
+
+    private SessionFeedback feedbackFixture(
+        InterviewSession session, Double technical, Double logic, Double communication) {
+        SessionFeedback feedback = mock(SessionFeedback.class);
+        org.mockito.Mockito.lenient().when(feedback.getTechnicalAccuracy()).thenReturn(technical);
+        org.mockito.Mockito.lenient().when(feedback.getLogicScore()).thenReturn(logic);
+        org.mockito.Mockito.lenient().when(feedback.getCommunicationScore()).thenReturn(communication);
+        return feedback;
     }
 
     private User userFixture(Long id) {

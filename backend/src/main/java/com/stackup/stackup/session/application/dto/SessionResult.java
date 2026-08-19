@@ -1,5 +1,8 @@
 package com.stackup.stackup.session.application.dto;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.stackup.stackup.session.domain.InterviewSession;
 import com.stackup.stackup.session.domain.JobCategory;
 import com.stackup.stackup.session.domain.SessionMode;
@@ -26,9 +29,26 @@ public record SessionResult(
     // 직무 맞춤 모드 전용. 다른 모드는 null.
     String targetCompanyName,
     String targetJobDescription,
+    // 약점 집중 재도전의 겨냥 축(SessionFocusArea name). 일반 면접은 빈 목록.
+    List<String> focusAreas,
     Instant createdAt,
     Instant updatedAt
 ) {
+    private static final JsonMapper JSON = JsonMapper.builder().build();
+    private static final TypeReference<List<String>> FOCUS_AREA_TYPE = new TypeReference<>() {};
+
+    // 저장은 JSON 문자열, 응답은 목록. 파싱 실패는 '집중 영역 없음'으로 흘린다(조회가 깨지면 안 된다).
+    private static List<String> parseFocusAreas(String json) {
+        if (json == null || json.isBlank()) {
+            return List.of();
+        }
+        try {
+            return JSON.readValue(json, FOCUS_AREA_TYPE);
+        } catch (JsonProcessingException e) {
+            return List.of();
+        }
+    }
+
     public static SessionResult of(InterviewSession session, List<Long> documentIds) {
         return new SessionResult(
             session.getId(),
@@ -48,6 +68,7 @@ public record SessionResult(
             documentIds,
             session.getTargetCompanyName(),
             session.getTargetJobDescription(),
+            parseFocusAreas(session.getFocusAreas()),
             session.getCreatedAt(),
             session.getUpdatedAt()
         );

@@ -446,6 +446,17 @@ docker compose up -d
   분석 미완료에 `DOC_NOT_ANALYZED` 를 던지므로, 원본 설정을 그대로 재전송하면 그 사이 자료 하나
   지운 사용자는 재도전 자체가 막힌다. 빠진 자료는 응답 `contextDocumentIds` 를 원본과 비교해
   프론트가 안내한다.
+- **약점 집중 재도전 본 구현 (B-3)**: `POST /api/sessions/{id}/retry` 에 `{"focusOnWeakness":true}`
+  를 주면 `SessionService.retry` 가 원본 세션 피드백에서 낮은 평가 축을 골라 새 세션의
+  `focus_areas`(V25, JSONB, `SessionFocusArea` name 배열)에 새긴다. 선정 기준: 임계값
+  (`interview.weakness-focus.score-threshold`, 기본 70) 미만인 축을 낮은 순 최대 2개.
+  **전부 기준 이상이어도 가장 낮은 하나는 고른다** — 눌렀는데 아무것도 안 바뀌면 고장으로 보인다.
+  피드백이 없으면(중단 세션) 빈 목록이라 일반 재도전과 같아진다.
+  `SessionQuestionsRequester` 가 세션에서 읽어 `generate.questions.focusAreas` 로 싣고,
+  AI 프롬프트가 그 영역을 검증하는 질문을 과반으로 배치한다(단, 자료 근거 없는 질문 생성 금지 —
+  target_evidence 필수 조건은 면제되지 않는다).
+  - `@Value` 필드에 **자바 초기값도 함께** 둔다(`= 70`). Spring 밖(단위 테스트)에서는 주입이
+    안 돼 0.0 이 되고, 그러면 모든 축이 '기준 이상'으로 판정돼 조용히 다른 동작을 한다.
 - **Spring AI 미사용** — LLM·임베딩 호출은 모두 AI 서버 위임. Core는 RabbitMQ 발행만 담당.
 - **Redis 미사용** — 휘발성 데이터는 DB short-lived 레코드 또는 인메모리로.
 

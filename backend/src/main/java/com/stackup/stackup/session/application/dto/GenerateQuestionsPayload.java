@@ -19,7 +19,9 @@ public record GenerateQuestionsPayload(
     String selfIntroAnswer,
     // 직무 맞춤 모드 전용. 지원 회사명 + 채용공고(JD). 적합도·지원동기 질문의 근거. 다른 모드는 null.
     String targetCompanyName,
-    String targetJobDescription
+    String targetJobDescription,
+    // 약점 집중 재도전에서만 채워진다(SessionFocusArea name 목록). 비어 있으면 일반 면접.
+    List<String> focusAreas
 ) {
     public record DocumentContext(
         Long documentId,
