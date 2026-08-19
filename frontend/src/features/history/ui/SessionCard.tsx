@@ -32,7 +32,7 @@ const JOB: Record<string, string> = {
  */
 const LINK: Record<string, { to: (id: number) => string; cta: string }> = {
   COMPLETED: { to: (id) => `/sessions/${id}/feedback`, cta: '리포트 →' },
-  INTERRUPTED: { to: (id) => `/sessions/${id}`, cta: '기록 보기 →' },
+  INTERRUPTED: { to: (id) => `/sessions/${id}`, cta: '이어하기 →' },
   IN_PROGRESS: { to: (id) => `/sessions/${id}`, cta: '이어서 →' },
   READY: { to: (id) => `/sessions/${id}`, cta: '시작하기 →' },
 }

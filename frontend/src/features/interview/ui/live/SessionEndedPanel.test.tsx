@@ -12,6 +12,10 @@ vi.mock('../../model/useRetrySession', () => ({
     return { mutate: retryMutate, isPending: false }
   },
 }))
+const resumeMutate = vi.fn()
+vi.mock('../../model/useResumeSession', () => ({
+  useResumeSession: () => ({ mutate: resumeMutate, isPending: false }),
+}))
 vi.mock('../InterviewTranscript', () => ({
   InterviewTranscript: () => <div data-testid="transcript" />,
 }))
@@ -19,6 +23,7 @@ vi.mock('../InterviewTranscript', () => ({
 beforeEach(() => {
   retryMutate.mockClear()
   lastSourceCount.mockClear()
+  resumeMutate.mockClear()
 })
 
 function renderPanel(status: 'COMPLETED' | 'INTERRUPTED' | 'CANCELLED') {
@@ -77,6 +82,24 @@ describe('SessionEndedPanel', () => {
 
     expect(
       screen.queryByRole('button', { name: '약점 집중해서 다시' }),
+    ).not.toBeInTheDocument()
+  })
+
+  // 중단된 면접의 첫 선택지는 새로 만드는 게 아니라 하던 걸 이어가는 것이다.
+  it('중단 세션은 이어서 진행하기를 제안한다', async () => {
+    renderPanel('INTERRUPTED')
+
+    await userEvent.click(screen.getByRole('button', { name: '이어서 진행하기' }))
+
+    expect(resumeMutate).toHaveBeenCalled()
+  })
+
+  // 완료 세션은 이미 피드백이 나갔다 — 이어갈 대화가 없다.
+  it('완료 세션에는 이어하기를 제안하지 않는다', () => {
+    renderPanel('COMPLETED')
+
+    expect(
+      screen.queryByRole('button', { name: '이어서 진행하기' }),
     ).not.toBeInTheDocument()
   })
 

@@ -30,12 +30,12 @@ describe('SessionCard', () => {
     expect(screen.getByText('리포트 →')).toBeInTheDocument()
   })
 
-  // 중단된 면접은 피드백이 없다. 문답 기록으로 갈 경로가 없으면 한 말이 통째로 사라진다.
-  it('중단 세션은 세션 화면(기록)으로 간다', () => {
+  // 중단된 면접은 피드백이 없다. 세션 화면에서 기록을 보고 이어서 진행할 수 있다.
+  it('중단 세션은 세션 화면(이어하기)으로 간다', () => {
     renderCard({ status: 'INTERRUPTED' })
 
     expect(screen.getByRole('link')).toHaveAttribute('href', '/sessions/7')
-    expect(screen.getByText('기록 보기 →')).toBeInTheDocument()
+    expect(screen.getByText('이어하기 →')).toBeInTheDocument()
   })
 
   // 진행 중 면접에서 이탈했을 때 돌아갈 경로.
