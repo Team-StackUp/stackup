@@ -124,6 +124,7 @@ class QuestionsConsumer:
                 self_introduction=req.self_intro_answer,
                 target_company_name=req.target_company_name,
                 target_job_description=req.target_job_description,
+                focus_areas=req.focus_areas,
             )
         except Exception as exc:  # noqa: BLE001
             log.exception(

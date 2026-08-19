@@ -45,6 +45,9 @@ class GenerateQuestionsRequest(BaseModel):
     # 직무 맞춤(JOB_TAILORED) 모드 전용. 지원 회사명 + 채용공고(JD) 원문. 다른 모드는 None/빈값.
     target_company_name: str | None = None
     target_job_description: str | None = None
+    # 약점 집중 재도전에서만 채워진다. TECHNICAL|LOGIC|COMMUNICATION 중 1~2개.
+    # 지난 면접에서 낮았던 평가 축이며, 그 영역을 검증하는 질문을 우선 배치한다.
+    focus_areas: list[str] = []
 
 
 class GeneratedQuestion(BaseModel):
