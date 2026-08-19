@@ -329,6 +329,39 @@ class QuestionsCallbackServiceTest {
         assertThat(cap.getValue()).isSameAs(placeholder);
     }
 
+    // 이어하기 복구가 placeholder 를 실패로 확정하고 다음 일반질문으로 넘긴 뒤, 늦게 도착한
+    // 콜백이 그 자리를 되살리면 살아있는 질문이 두 개가 된다. 종료 세션은 terminal 가드가
+    // 막지만 재개된 세션은 IN_PROGRESS 라 여기까지 온다.
+    @Test
+    void apply_followupOnFailedPlaceholder_isDropped() {
+        InterviewSession session = sessionFixture(25L, SessionStatus.IN_PROGRESS);
+        InterviewMessage placeholder = InterviewMessage.followupPlaceholder(
+            session, 3, parentMessageFixture(session));
+        ReflectionTestUtils.setField(placeholder, "id", 305L);
+        placeholder.failFollowup();   // 재개 복구가 이미 실패로 확정한 상태
+
+        QuestionsCallbackPayload payload = new QuestionsCallbackPayload(
+            25L, "FOLLOWUP", null, 200L, null, "뒤늦게 도착한 꼬리질문?",
+            null, "NORMAL", 305L
+        );
+        QuestionsCallbackEnvelope env = new QuestionsCallbackEnvelope(
+            "m-late-followup", "callback.questions", "1", "t", null, "ai", payload, null);
+
+        when(processedMessageRepository.existsById("m-late-followup")).thenReturn(false);
+        when(sessionRepository.findById(25L)).thenReturn(Optional.of(session));
+        when(messageRepository.findById(200L)).thenReturn(Optional.of(parentMessageFixture(session)));
+        when(messageRepository.findById(305L)).thenReturn(Optional.of(placeholder));
+
+        service.apply(env);
+
+        // 실패 상태·문구가 그대로여야 한다(되살아나면 안 된다).
+        assertThat(placeholder.getStatus())
+            .isEqualTo(com.stackup.stackup.session.domain.MessageStatus.FAILED);
+        assertThat(placeholder.getContent())
+            .isEqualTo(InterviewMessage.FOLLOWUP_GENERATION_FAILED_TEXT);
+        verify(messageRepository, never()).save(any(InterviewMessage.class));
+    }
+
     @Test
     void apply_followupClarification_updatesPlaceholderWithoutCounting() {
         InterviewSession session = sessionFixture(21L, SessionStatus.IN_PROGRESS);

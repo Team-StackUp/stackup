@@ -481,6 +481,10 @@ docker compose up -d
     정상 질문이면 그대로(답하면 됨) / "(생성 중)" placeholder 면 `failFollowup` + 다음 일반질문 /
     자기소개 답변인데 풀이 0건이면 `SelfIntroAnsweredEvent` 재발행(넘기면 POOL_EXHAUSTED 로
     세션이 끝나버린다) / 그 외 답변이면 다음 일반질문.
+  - **재개는 terminal 가드의 전제를 깬다.** 종료 세션에 늦게 온 콜백은 `isTerminal()` 로 드롭되지만,
+    재개된 세션은 IN_PROGRESS 라 그대로 통과한다. 그래서 `applyFollowup` 이 **이미 FAILED 인
+    placeholder 를 되살리지 않도록** 막는다 — 복구가 실패 확정 + 다음 질문까지 마친 뒤 늦은 콜백이
+    그 자리를 채우면 살아있는 질문이 두 개가 된다. POOL 은 `countBySessionId > 0` 로 이미 멱등.
 - **Spring AI 미사용** — LLM·임베딩 호출은 모두 AI 서버 위임. Core는 RabbitMQ 발행만 담당.
 - **Redis 미사용** — 휘발성 데이터는 DB short-lived 레코드 또는 인메모리로.
 
