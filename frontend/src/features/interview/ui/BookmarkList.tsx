@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { EmptyState, ListSkeleton, QueryError, StatusBadge } from '@/shared/ui'
+import { Button } from '@/shared/ui/Button'
 import { categoryLabel } from '../lib/categoryLabel'
 import { useBookmarks, useSetQuestionBookmark } from '../model/useBookmarks'
 import type { BookmarkedQuestion } from '../api/bookmarkApi'
+import { BookmarkDrill } from './BookmarkDrill'
 
 export function BookmarkList() {
   const { data = [], isPending, isError, refetch } = useBookmarks()
+  const [drilling, setDrilling] = useState(false)
 
   if (isPending) {
     return <ListSkeleton label="오답노트를 불러오는 중…" />
@@ -25,12 +28,24 @@ export function BookmarkList() {
     )
   }
 
+  if (drilling) {
+    return <BookmarkDrill items={data} onExit={() => setDrilling(false)} />
+  }
+
   return (
-    <ul className="flex flex-col gap-3">
-      {data.map((item) => (
-        <BookmarkCard key={item.messageId} item={item} />
-      ))}
-    </ul>
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-caption text-fg-subtle">담아둔 질문 {data.length}개</p>
+        <Button size="sm" onClick={() => setDrilling(true)}>
+          복습 시작
+        </Button>
+      </div>
+      <ul className="flex flex-col gap-3">
+        {data.map((item) => (
+          <BookmarkCard key={item.messageId} item={item} />
+        ))}
+      </ul>
+    </div>
   )
 }
 

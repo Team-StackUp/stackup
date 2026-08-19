@@ -78,8 +78,15 @@ shared/api/
 
 ## 6. shared/hooks (도메인 비종속만)
 
-권장 후보:
+현재 구현:
 - `useEventStream(url, options)` — SSE 추상화 (재연결, 폴링 fallback)
+- `useAnalysisProgress`, `useCopyToClipboard`
+- `useQuestionRunner(questionIds, storageKey?)` — 질문을 한 개씩 넘기며 답을 적고 정답을 확인하는
+  드릴 상태 기계. **연습 면접과 오답노트가 함께 쓰므로 여기 있다** — features 끼리는 서로
+  import 할 수 없다(FSD §3). 질문 id 목록만 받고 질문을 어디서 얻는지는 모른다(도메인 비종속).
+  `storageKey` 를 주면 답변 메모를 localStorage 에 남긴다(새로고침 유실 방지).
+
+권장 후보:
 - `useDebounce(value, ms)`
 - `useThrottle(callback, ms)`
 - `useMediaQuery(query)`
