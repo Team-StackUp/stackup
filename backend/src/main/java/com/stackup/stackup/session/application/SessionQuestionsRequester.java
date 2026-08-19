@@ -15,6 +15,7 @@ import com.stackup.stackup.session.application.dto.GenerateQuestionsPayload;
 import com.stackup.stackup.session.application.dto.GenerateQuestionsPayload.DocumentContext;
 import com.stackup.stackup.session.application.event.SelfIntroAnsweredEvent;
 import com.stackup.stackup.session.application.event.SessionCreatedEvent;
+import com.stackup.stackup.session.domain.InterviewSession;
 import com.stackup.stackup.session.domain.InterviewSessionRepository;
 import com.stackup.stackup.session.domain.SessionQuestionPoolRepository;
 import java.io.IOException;
@@ -44,6 +45,7 @@ public class SessionQuestionsRequester {
     private static final Logger log = LoggerFactory.getLogger(SessionQuestionsRequester.class);
     private static final JsonMapper JSON = JsonMapper.builder().build();
     private static final TypeReference<List<String>> TECH_STACK_TYPE = new TypeReference<>() {};
+    private static final TypeReference<List<String>> FOCUS_AREA_TYPE = new TypeReference<>() {};
     private static final long MAX_MARKDOWN_BYTES = 200_000L;  // envelope 비대화 방지
     private static final int DEFAULT_GENERAL_QUESTION_COUNT = 3;
 
@@ -91,6 +93,7 @@ public class SessionQuestionsRequester {
         }
 
         List<String> recentQuestions = recentQuestions(event.userId(), event.sessionId());
+        List<String> focusAreas = focusAreas(event.sessionId());
         GenerateQuestionsPayload payload = new GenerateQuestionsPayload(
             event.sessionId(),
             event.mode(),
@@ -101,7 +104,8 @@ public class SessionQuestionsRequester {
             recentQuestions,
             event.selfIntroAnswer(),
             event.targetCompanyName(),
-            event.targetJobDescription()
+            event.targetJobDescription(),
+            focusAreas
         );
         publisher.publishToAi(
             properties.routingKeys().generateQuestions(),
@@ -109,9 +113,26 @@ public class SessionQuestionsRequester {
             new MessageContext(event.userId(), event.sessionId(), null, null)
         );
         log.info("generate.questions published (post self-intro). sessionId={}, doc_count={}, "
-                + "pool_count={}, max={}, recent_q={}, intro_len={}",
+                + "pool_count={}, max={}, recent_q={}, intro_len={}, focus={}",
             event.sessionId(), documents.size(), poolCount, event.maxQuestions(), recentQuestions.size(),
-            event.selfIntroAnswer() == null ? 0 : event.selfIntroAnswer().length());
+            event.selfIntroAnswer() == null ? 0 : event.selfIntroAnswer().length(), focusAreas);
+    }
+
+    // 약점 집중 재도전으로 만들어진 세션이면 겨냥할 평가 축을 꺼낸다. 아니면 빈 목록.
+    // 이벤트를 늘리지 않고 세션에서 직접 읽는다(이미 sessionRepository 를 쓰고 있다).
+    private List<String> focusAreas(Long sessionId) {
+        return sessionRepository.findById(sessionId)
+            .map(InterviewSession::getFocusAreas)
+            .filter(json -> json != null && !json.isBlank())
+            .map(json -> {
+                try {
+                    return JSON.readValue(json, FOCUS_AREA_TYPE);
+                } catch (JsonProcessingException e) {
+                    log.warn("focus_areas parse failed. sessionId={}, raw={}", sessionId, json, e);
+                    return List.<String>of();
+                }
+            })
+            .orElseGet(List::of);
     }
 
     // 같은 유저의 최근 N개 세션에서 출제된 질문을 모아 AI 의 중복 회피용으로 전달.

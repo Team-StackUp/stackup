@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { StatusBadge } from '@/shared/ui/StatusBadge'
+import { focusAreaLabel } from '../../lib/focusArea'
 import { Button } from '@/shared/ui/Button'
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 import { isQuestion, isTranscribing, sessionProgress } from '@/domain/session'
@@ -80,6 +81,7 @@ export function InterviewStage({
   const [transcriptOpen, setTranscriptOpen] = useState(false)
   const [endConfirmOpen, setEndConfirmOpen] = useState(false)
   const progress = sessionProgress(session)
+  const focusAreas = session.focusAreas ?? []
   const currentQuestion = [...items].reverse().find(isQuestion)
   const lastItem = items[items.length - 1]
   const transcribing = Boolean(lastItem && isTranscribing(lastItem))
@@ -114,6 +116,12 @@ export function InterviewStage({
           </h1>
           <p className="font-mono text-caption tracking-tight text-fg-subtle">
             질문 {progress.current} / {progress.max}
+            {/* 약점 집중 면접이면 무엇을 겨냥하는지 보여준다 — 질문 성격이 달라진 이유다. */}
+            {focusAreas.length > 0 && (
+              <span className="ml-2 font-sans text-caption text-primary-fg">
+                {focusAreas.map(focusAreaLabel).join('·')} 집중
+              </span>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">

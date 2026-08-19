@@ -52,6 +52,15 @@ export function SessionEndedPanel({
           >
             같은 설정으로 다시
           </Button>
+          {/* 약점 집중은 피드백 점수가 근거라 완료 세션에서만 뜻이 있다. */}
+          {status === 'COMPLETED' && (
+            <Button
+              loading={retry.isPending}
+              onClick={() => retry.mutate({ sessionId, focusOnWeakness: true })}
+            >
+              약점 집중해서 다시
+            </Button>
+          )}
           <Link to="/workspace">
             <Button variant="secondary">워크스페이스로</Button>
           </Link>

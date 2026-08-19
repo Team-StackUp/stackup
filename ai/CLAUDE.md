@@ -333,6 +333,11 @@ docker run --env-file .env -p 8000:8000 stackup-ai
   - 콜백: `callback.questions` (`kind=POOL|FOLLOWUP`)
   - **자기소개 기반 질문 생성**: `generate.questions` 는 자기소개 답변을 받은 뒤 발행되며, payload 의
     `selfIntroAnswer` 를 프롬프트(`chain/prompts/question_generation.py`)의 1차 근거로 사용한다(없으면 자료만으로).
+  - **약점 집중 질문 생성**: payload 의 `focusAreas`(TECHNICAL|LOGIC|COMMUNICATION, 지난 면접에서
+    낮았던 축)가 채워지면 프롬프트의 집중 영역 블록(`_format_focus_areas`, 축별 질문 설계 관점을
+    `_FOCUS_GUIDE` 로 명시)이 그 영역을 검증하는 질문을 과반으로 배치하게 한다. 라벨만 넘기면 LLM 이
+    제각각 해석하므로 관점 문구를 붙인다. 근거 없는 질문 생성 금지 조건은 그대로 — 자료가 부족하면
+    집중 비중을 줄인다. 지정이 없으면 "(지정 없음)" 이 들어가 일반 면접과 동일.
   - **직무 맞춤(JOB_TAILORED) 질문 생성**: `mode=JOB_TAILORED` 면 payload 의 `targetCompanyName`·
     `targetJobDescription`(JD)이 채워진다. 프롬프트가 `target_role` 블록으로 받아 이력서↔JD 교집합·갭,
     JD 요구 충족 검증, 지원동기·컬처핏 질문을 우선 생성한다(다른 모드는 '(일반 면접)' 안내라 무시).

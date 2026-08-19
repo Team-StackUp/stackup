@@ -25,6 +25,8 @@ public record SessionResponse(
     List<Long> contextDocumentIds,
     String targetCompanyName,
     String targetJobDescription,
+    // 약점 집중 재도전의 겨냥 축(TECHNICAL|LOGIC|COMMUNICATION). 일반 면접은 빈 목록.
+    List<String> focusAreas,
     Instant createdAt,
     Instant updatedAt
 ) {
@@ -47,6 +49,7 @@ public record SessionResponse(
             r.contextDocumentIds(),
             r.targetCompanyName(),
             r.targetJobDescription(),
+            r.focusAreas(),
             r.createdAt(),
             r.updatedAt()
         );

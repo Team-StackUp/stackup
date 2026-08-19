@@ -63,6 +63,23 @@ describe('SessionEndedPanel', () => {
     expect(retryMutate).toHaveBeenCalledWith(7)
   })
 
+  it('완료 세션은 약점 집중 재도전도 제안한다', async () => {
+    renderPanel('COMPLETED')
+
+    await userEvent.click(screen.getByRole('button', { name: '약점 집중해서 다시' }))
+
+    expect(retryMutate).toHaveBeenCalledWith({ sessionId: 7, focusOnWeakness: true })
+  })
+
+  // 약점은 피드백 점수가 근거다 — 피드백이 없는 중단 세션에는 제안하지 않는다.
+  it('중단 세션에는 약점 집중을 제안하지 않는다', () => {
+    renderPanel('INTERRUPTED')
+
+    expect(
+      screen.queryByRole('button', { name: '약점 집중해서 다시' }),
+    ).not.toBeInTheDocument()
+  })
+
   // 자료 수를 넘겨야 "삭제된 자료 N개 제외" 안내가 가능하다.
   it('원본 세션의 자료 수를 재도전 훅에 넘긴다', () => {
     render(

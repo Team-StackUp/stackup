@@ -16,6 +16,8 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -88,6 +90,13 @@ public class InterviewSession extends BaseSoftDeleteEntity {
     @Column(name = "target_job_description", columnDefinition = "text")
     private String targetJobDescription;
 
+    // 약점 집중 재도전에서 겨냥할 평가 축. SessionFocusArea enum name 의 JSON 배열
+    // (예: ["LOGIC","COMMUNICATION"]). 지정 없으면 null — 일반 면접과 동일하게 동작한다.
+    // 직렬화/역직렬화는 application 레이어가 한다(SessionFeedback.improvementKeywords 와 같은 방식).
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "focus_areas", columnDefinition = "jsonb")
+    private String focusAreas;
+
     @Column(nullable = false, length = 20)
     @Enumerated(EnumType.STRING)
     private SessionStatus status = SessionStatus.READY;
@@ -153,6 +162,11 @@ public class InterviewSession extends BaseSoftDeleteEntity {
         }
         return new InterviewSession(user, title, memo, mode, jobCategories,
             maxQuestions, maxDurationMinutes, generalQuestionCount, maxFollowupsPerQuestion);
+    }
+
+    // 약점 집중 재도전에서만 채워진다. assignTargetRole 과 같은 이유로 별도 메서드.
+    public void assignFocusAreas(String focusAreasJson) {
+        this.focusAreas = focusAreasJson;
     }
 
     // 직무 맞춤 모드의 타깃 회사/JD 부여. create 시그니처를 늘리지 않으려 별도 메서드로 둔다.

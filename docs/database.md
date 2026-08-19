@@ -169,6 +169,7 @@ CREATE TABLE interview_sessions (
     -- 직무 맞춤(JOB_TAILORED) 모드 전용. 지원 회사명 + 채용공고(JD) 원문. 다른 모드는 NULL. (V18)
     target_company_name   VARCHAR(200),
     target_job_description TEXT,
+    focus_areas            JSONB,                     -- 약점 집중 재도전의 겨냥 축 배열(TECHNICAL|LOGIC|COMMUNICATION). 일반 면접은 NULL
     status                VARCHAR(20)  NOT NULL DEFAULT 'READY'
                           CHECK (status IN ('READY','IN_PROGRESS','INTERRUPTED','COMPLETED','CANCELLED')),
     total_question_count  INT          DEFAULT 0,
