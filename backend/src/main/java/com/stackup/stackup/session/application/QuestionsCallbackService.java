@@ -15,6 +15,7 @@ import com.stackup.stackup.session.domain.InterviewMessageRepository;
 import com.stackup.stackup.session.domain.InterviewSession;
 import com.stackup.stackup.session.domain.InterviewSessionRepository;
 import com.stackup.stackup.session.domain.MessageRole;
+import com.stackup.stackup.session.domain.MessageStatus;
 import com.stackup.stackup.session.domain.SessionQuestionPool;
 import com.stackup.stackup.session.domain.SessionQuestionPoolRepository;
 import com.stackup.stackup.session.domain.SessionStatus;
@@ -247,6 +248,16 @@ public class QuestionsCallbackService {
         InterviewMessage placeholder = payload.followupMessageId() == null
             ? null
             : messageRepository.findById(payload.followupMessageId()).orElse(null);
+
+        // 이미 실패로 확정된 placeholder 면 그 턴은 지나갔다 — 이어하기 복구
+        // (SessionResumeService.recoverTurn)가 실패 처리하고 다음 일반질문으로 넘긴 뒤,
+        // 늦게 도착한 콜백이 그 자리를 되살리면 살아있는 질문이 두 개가 된다.
+        // 종료 세션은 terminal 가드가 막지만, 재개된 세션은 IN_PROGRESS 라 여기까지 온다.
+        if (placeholder != null && placeholder.getStatus() == MessageStatus.FAILED) {
+            log.info("callback.questions FOLLOWUP dropped — placeholder already failed (turn moved on). "
+                + "sessionId={}, msg={}", session.getId(), placeholder.getId());
+            return;
+        }
 
         // 모르겠음 → 이 주제 그만, 다음 일반질문. placeholder 는 삭제(seq 연속성 유지).
         if ("DONT_KNOW".equalsIgnoreCase(intent)) {
