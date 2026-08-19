@@ -54,6 +54,17 @@ public class S3ObjectStorageClient implements ObjectStorageClient {
             .build();
     }
 
+    // 버킷 존재·자격증명·엔드포인트 도달성을 한 번에 확인하는 가장 싼 호출.
+    @Override
+    public void verifyAvailable() {
+        try {
+            s3Client.headBucket(b -> b.bucket(properties.bucket()));
+        } catch (RuntimeException e) {
+            throw new StorageException(StorageErrorType.UNAVAILABLE,
+                "object storage is not reachable: " + e.getMessage(), e);
+        }
+    }
+
     @Override
     public StoredObject put(String key, InputStream content, long size, String contentType) {
         requireKey(key);

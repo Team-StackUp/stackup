@@ -27,6 +27,12 @@ management:
     health:
       probes:
         enabled: true
+      # 컨테이너 healthcheck 는 이 그룹을 본다(docker-compose). 백엔드가 **자기 일을 하려면
+      # 반드시 필요한 것**만 넣는다 — DB·RabbitMQ. s3/aiServer 는 종합(/actuator/health)에만
+      # 들어간다: AI 가 죽었다고 백엔드를 rotation 에서 빼면 로그인·히스토리까지 못 쓰게 된다.
+      group:
+        readiness:
+          include: readinessState, db, rabbit
 
 springdoc:
   api-docs:

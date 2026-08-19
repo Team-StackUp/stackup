@@ -194,7 +194,9 @@ services:
       minio:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:38010/actuator/health >/dev/null || exit 1"]
+      # 종합(/actuator/health)이 아니라 readiness 그룹을 본다 — s3/aiServer 장애로
+      # 백엔드 컨테이너가 unhealthy 가 되면 정작 멀쩡한 로그인·히스토리까지 끊긴다.
+      test: ["CMD-SHELL", "curl -sf http://localhost:38010/actuator/health/readiness >/dev/null || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 15
