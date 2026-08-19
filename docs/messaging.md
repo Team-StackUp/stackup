@@ -239,7 +239,8 @@
     "recentQuestions": ["이전 면접 질문 텍스트", "..."],
     "selfIntroAnswer": "안녕하세요, 결제 시스템을 만든 백엔드 3년차입니다…",
     "targetCompanyName": "토스",
-    "targetJobDescription": "Kotlin/Spring 백엔드, 대용량 결제 시스템 경험 우대 …"
+    "targetJobDescription": "Kotlin/Spring 백엔드, 대용량 결제 시스템 경험 우대 …",
+    "focusAreas": ["LOGIC", "COMMUNICATION"]
   },
   "context": { "userId": 123, "sessionId": 99 }
 }
