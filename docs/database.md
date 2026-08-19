@@ -217,6 +217,8 @@ CREATE TABLE interview_messages (
 --   tts_* (V7), category/target_evidence/expected_signal (V9), answer_* 평가 4종 (V10),
 --   clarification (V13), 그리고 질문별 복기 3종 (V19):
 --     model_answer TEXT, answer_rewrite TEXT, coaching_comment TEXT  -- 답변(INTERVIEWEE)에만, 종료 세션 조회에서만 노출
+--   bookmarked BOOLEAN NOT NULL DEFAULT FALSE (V26)  -- 오답노트. 질문(INTERVIEWER)에만 의미.
+--     부분 인덱스 idx_interview_messages_bookmarked ON (session_id) WHERE bookmarked = TRUE
 
 -- 10. message_voice_analyses
 CREATE TABLE message_voice_analyses (
