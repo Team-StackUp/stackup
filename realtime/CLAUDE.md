@@ -91,7 +91,7 @@ config는 cmd, internal/* 모두에서 import 가능
 |----|--------|------|------|------|
 | - | GET | `/health` | 헬스체크 | 활성 |
 | RT2 | GET | `/realtime/stream/me` | user 채널 SSE (분석 상태). userId는 토큰에서 | 활성 |
-| RT2 | GET | `/realtime/stream/documents/{id}` | document 채널 SSE | 활성 |
+| RT2 | GET | `/realtime/stream/documents/{id}` | document 채널 SSE (DOCUMENT 스코프 토큰 필요 — 현재 발급처 없음) | 활성 |
 | RT2 | GET | `/realtime/stream/sessions/{id}` | session 채널 SSE (feedback.ready 등 비-라이브) | 활성 |
 | RT1 | WS | `/realtime/sessions/{id}` | 라이브 텍스트 면접 (서버→클라 push + 클라→서버 답변) | 활성 |
 | RT3 | WS | `/realtime/sessions/{id}/audio` | 실시간 음성 답변 스트림 (오디오 업 ↔ 자막 다운, AI WS 프록시) | 활성 |
@@ -222,7 +222,15 @@ docker build -t stackup-realtime ./realtime
 - AMQP `q.realtime.session.notify` consumer 활성 — `messageType` 기반 채널 라우팅 → fan-out
 - WebSocket(RT1 라이브 면접) 활성 — `/realtime/sessions/{id}` 서버→클라 push + 클라→서버 답변 프록시(Core 내부 REST)
 - WebSocket(RT3 실시간 음성) 활성 — `/realtime/sessions/{id}/audio` 브라우저↔AI WS 오디오 프록시(`WSAudioHandler`, `REALTIME_AI_WS_URL`). 오디오 전용 순수 파이프, STT·메트릭·`callback.voice`는 AI 책임
-- 리소스 소유권 검증 미구현 — 현재 토큰 진위(userId)만 검증. 후속 플랜에서 리소스 스코프 토큰 또는 Core 조회로 강화
+- **리소스 스코프 검증 활성** — 토큰 진위뿐 아니라 `resourceType`/`resourceId` 가 요청 경로의
+  대상과 일치하는지 확인한다(`transport/router.go`). RealTime 은 DB 를 보지 않으므로, Core 가
+  소유권을 확인해 발급한 토큰의 범위를 강제하는 것이 유일한 소유권 검사다.
+  - `sessions/{id}`(SSE·WS·audio) → `SESSION` + 같은 id
+  - `documents/{id}` → `DOCUMENT` + 같은 id. 이 채널로는 분석 요약·기술스택·문서 경로가
+    흐르므로(= 남의 이력서 내용) 검증 없이 열어두면 id 를 바꿔가며 긁을 수 있다.
+    현재 Core 는 DOCUMENT 스코프 토큰을 발급하지 않고 프론트도 이 채널을 쓰지 않는다
+    (분석 상태는 user 채널 `/realtime/stream/me` 로 받는다)
+  - `stream/me` → 경로에 id 가 없고 토큰의 `userId` 로 채널을 만든다(조작 여지 없음)
 - DLQ 활성 — handler 실패 메시지는 `dlq.q.realtime.session.notify` 로 격리
 - Prometheus 노출 미구현
 
