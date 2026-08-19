@@ -465,6 +465,17 @@ docker compose up -d
   `findByParentMessage_IdIn` 으로 한 번에 받아 매핑한다(질문마다 조회하면 N+1).
   `QuestionBookmarkController` 는 URL 이 `/api/users/me/*` 지만 `UserStatsController` 와 같은 이유로
   session 슬라이스에 둔다(user → session 직접 의존 회피).
+- **중단 세션 이어하기 본 구현 (B-5)**: `PATCH /api/sessions/{id}/resume` — INTERRUPTED 만 재개
+  가능(완료·취소는 422, 새로 하려면 `/retry`). `resumeIfInterrupted` 조건부 UPDATE 로 전이를
+  차지하고 `ended_at` 을 지우며 `resumed_at`(V27)을 찍는다.
+  - **시간 한도 기준을 `durationAnchor()`(= resumedAt ?? startedAt) 로 바꿨다.** startedAt 기준
+    그대로면 한참 뒤 재개했을 때 스위퍼가 즉시 다시 중단시킨다. startedAt 은 '처음 시작한 시각'
+    으로 보존된다. 이어하기를 반복하면 총 시간이 늘어나지만, 연습 도구라 허용하는 트레이드오프.
+  - **핵심은 전이가 아니라 끊긴 턴 복구다**(`SessionResumeService.recoverTurn`). 중단은 보통 턴
+    한가운데서 일어나고 그동안 온 콜백은 terminal 가드가 전부 드롭했다. 마지막 메시지로 분기:
+    정상 질문이면 그대로(답하면 됨) / "(생성 중)" placeholder 면 `failFollowup` + 다음 일반질문 /
+    자기소개 답변인데 풀이 0건이면 `SelfIntroAnsweredEvent` 재발행(넘기면 POOL_EXHAUSTED 로
+    세션이 끝나버린다) / 그 외 답변이면 다음 일반질문.
 - **Spring AI 미사용** — LLM·임베딩 호출은 모두 AI 서버 위임. Core는 RabbitMQ 발행만 담당.
 - **Redis 미사용** — 휘발성 데이터는 DB short-lived 레코드 또는 인메모리로.
 

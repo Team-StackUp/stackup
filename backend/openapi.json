@@ -1848,6 +1848,65 @@
         }
       }
     },
+    "/api/sessions/{sessionId}/resume" : {
+      "patch" : {
+        "tags" : [ "Sessions" ],
+        "summary" : "중단된 면접 이어하기 (INTERRUPTED→IN_PROGRESS)",
+        "description" : "중단된 세션을 다시 진행 가능한 상태로 되돌린다. 상태만 바꾸는 게 아니라 끊긴 턴을 복구한다 — 생성 중이던 꼬리질문은 실패로 확정하고 다음 질문으로 넘기며, 질문 풀 생성 요청이 유실됐다면 다시 요청한다. 시간 한도는 재개 시각부터 다시 잰다. 완료·취소 세션은 이어할 수 없다(422) — 새로 시작하려면 /retry 를 쓴다.",
+        "operationId" : "resumeSession",
+        "parameters" : [ {
+          "name" : "sessionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "재개됨",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "세션 없음",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "422" : {
+            "description" : "INTERRUPTED 아님",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/sessions/{sessionId}/interrupt" : {
       "patch" : {
         "tags" : [ "Sessions" ],
