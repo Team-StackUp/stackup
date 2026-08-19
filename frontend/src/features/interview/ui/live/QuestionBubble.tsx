@@ -4,6 +4,24 @@ import { categoryLabel } from '../../lib/categoryLabel'
 import { useTtsPlayback } from '../../lib/media/useTtsPlayback'
 import { FOLLOWUP_GENERATING_TEXT } from '../../model/streamingBuffer'
 import { useTypewriter } from '../../lib/useTypewriter'
+import { useSetQuestionBookmark } from '../../model/useBookmarks'
+
+function StarIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 20 20"
+      fill={filled ? 'currentColor' : 'none'}
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="m10 2.8 2.2 4.6 5 .7-3.6 3.5.9 5-4.5-2.4-4.5 2.4.9-5L2.8 8.1l5-.7z" />
+    </svg>
+  )
+}
 
 function PlayIcon({ playing }: { playing: boolean }) {
   return (
@@ -17,12 +35,16 @@ export function QuestionBubble({
   message,
   autoPlay = false,
   streaming = false,
+  bookmarkable = false,
 }: {
   message: Message
   autoPlay?: boolean
   streaming?: boolean
+  /** 오답노트 표시 버튼 노출. 라이브 중엔 끄고(집중 방해) 종료 세션 기록에서만 켠다. */
+  bookmarkable?: boolean
 }) {
   const label = categoryLabel(message.category)
+  const bookmark = useSetQuestionBookmark(message.sessionId ?? 0)
   const hasMeta = Boolean(label || message.targetEvidence)
   const ttsReady = message.ttsStatus === 'SUCCEEDED'
   const isSentinel = message.content === FOLLOWUP_GENERATING_TEXT
@@ -38,11 +60,36 @@ export function QuestionBubble({
   return (
     <div className="flex justify-start">
       <div className="flex max-w-[80%] flex-col gap-1.5">
-        {hasMeta && (
+        {(hasMeta || bookmarkable) && (
           <div className="flex flex-wrap items-center gap-2">
             {label && <StatusBadge tone="info">{label}</StatusBadge>}
             {message.targetEvidence && (
               <span className="text-caption text-fg-muted">근거: {message.targetEvidence}</span>
+            )}
+            {bookmarkable && message.id != null && (
+              <button
+                type="button"
+                disabled={bookmark.isPending}
+                aria-pressed={message.bookmarked ?? false}
+                aria-label={
+                  message.bookmarked ? '오답노트에서 빼기' : '오답노트에 담기'
+                }
+                onClick={() =>
+                  bookmark.mutate({
+                    messageId: message.id as number,
+                    bookmarked: !(message.bookmarked ?? false),
+                  })
+                }
+                className={[
+                  'rounded-md px-1.5 py-0.5 text-caption transition-colors duration-fast',
+                  message.bookmarked
+                    ? 'text-primary-fg hover:bg-surface'
+                    : 'text-fg-subtle hover:bg-surface hover:text-fg-muted',
+                  'disabled:opacity-40',
+                ].join(' ')}
+              >
+                <StarIcon filled={message.bookmarked ?? false} />
+              </button>
             )}
           </div>
         )}

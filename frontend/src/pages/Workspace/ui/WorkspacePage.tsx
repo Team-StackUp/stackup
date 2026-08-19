@@ -8,11 +8,13 @@ import { ResumesView } from './ResumesView'
 import { ReposView } from './ReposView'
 import { CoverLettersView } from './CoverLettersView'
 import { HistoryView } from './HistoryView'
+import { BookmarksView } from './BookmarksView'
 
-type View = 'home' | 'resumes' | 'repos' | 'cover-letters' | 'history'
+type View = 'home' | 'resumes' | 'repos' | 'cover-letters' | 'history' | 'bookmarks'
 
 function resolveView(pathname: string): View {
   if (pathname.startsWith('/workspace/history')) return 'history'
+  if (pathname.startsWith('/workspace/bookmarks')) return 'bookmarks'
   if (pathname.startsWith('/workspace/resumes')) return 'resumes'
   if (pathname.startsWith('/workspace/repos')) return 'repos'
   if (pathname.startsWith('/workspace/cover-letters')) return 'cover-letters'
@@ -53,6 +55,11 @@ export default function WorkspacePage() {
       title: '면접 히스토리',
       description: '지난 면접 기록과 점수 추이를 확인하세요.',
     },
+    bookmarks: {
+      eyebrow: '워크스페이스',
+      title: '오답노트',
+      description: '다시 볼 질문을 모아 복습하세요.',
+    },
   }[view]
 
   return (
@@ -72,6 +79,7 @@ export default function WorkspacePage() {
           {view === 'repos' && <ReposView />}
           {view === 'cover-letters' && <CoverLettersView />}
           {view === 'history' && <HistoryView />}
+          {view === 'bookmarks' && <BookmarksView />}
         </div>
       </main>
     </div>
