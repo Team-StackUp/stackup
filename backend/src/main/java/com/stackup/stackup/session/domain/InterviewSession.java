@@ -193,6 +193,15 @@ public class InterviewSession extends BaseSoftDeleteEntity {
         this.startedAt = Instant.now();
     }
 
+    // 중단 → 진행 재개. 조건부 UPDATE(resumeIfInterrupted) 로 DB 는 이미 바뀌었고,
+    // 벌크 UPDATE 는 영속성 컨텍스트를 갱신하지 않으므로 인메모리 상태를 맞춘다
+    // (start() 뒤에 session.start() 를 부르는 것과 같은 이유). now 는 UPDATE 와 같은 값을 넘긴다.
+    public void resume(Instant now) {
+        this.status = SessionStatus.IN_PROGRESS;
+        this.resumedAt = now;
+        this.endedAt = null;
+    }
+
     public void end() {
         if (status != SessionStatus.IN_PROGRESS) {
             throw new IllegalStateException("session is not IN_PROGRESS to end (current=" + status + ")");

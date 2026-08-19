@@ -471,6 +471,11 @@ docker compose up -d
   - **시간 한도 기준을 `durationAnchor()`(= resumedAt ?? startedAt) 로 바꿨다.** startedAt 기준
     그대로면 한참 뒤 재개했을 때 스위퍼가 즉시 다시 중단시킨다. startedAt 은 '처음 시작한 시각'
     으로 보존된다. 이어하기를 반복하면 총 시간이 늘어나지만, 연습 도구라 허용하는 트레이드오프.
+  - **조건부 UPDATE 뒤에는 인메모리 상태를 반드시 맞춘다**(`session.resume(now)`). 벌크
+    UPDATE 는 영속성 컨텍스트를 갱신하지 않아서, 같은 트랜잭션에서 `findById` 해도 1차 캐시의
+    낡은 엔티티(INTERRUPTED)가 돌아온다. 그러면 `advanceToNextGeneral` 이 상태 검사에서
+    조용히 되돌아가 복구가 통째로 죽고 응답 status 도 INTERRUPTED 로 나간다.
+    `SessionService.start` 가 `startIfReady` 뒤에 `session.start()` 를 부르는 것과 같은 이유.
   - **핵심은 전이가 아니라 끊긴 턴 복구다**(`SessionResumeService.recoverTurn`). 중단은 보통 턴
     한가운데서 일어나고 그동안 온 콜백은 terminal 가드가 전부 드롭했다. 마지막 메시지로 분기:
     정상 질문이면 그대로(답하면 됨) / "(생성 중)" placeholder 면 `failFollowup` + 다음 일반질문 /
