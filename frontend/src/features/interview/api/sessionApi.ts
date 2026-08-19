@@ -12,8 +12,15 @@ export async function getSession(id: number): Promise<S['SessionResponse']> {
 }
 
 // 같은 설정으로 새 세션 생성. 삭제된 자료는 서버가 알아서 빼고 잇는다(응답의 contextDocumentIds).
-export async function retrySession(id: number): Promise<S['SessionResponse']> {
-  return (await apiClient.post<S['SessionResponse']>(`/api/sessions/${id}/retry`)).data
+export async function retrySession(
+  id: number,
+  options: { focusOnWeakness?: boolean } = {},
+): Promise<S['SessionResponse']> {
+  return (
+    await apiClient.post<S['SessionResponse']>(`/api/sessions/${id}/retry`, {
+      focusOnWeakness: options.focusOnWeakness ?? false,
+    })
+  ).data
 }
 
 export async function startSession(id: number): Promise<S['SessionResponse']> {

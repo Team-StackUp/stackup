@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { toast } from '@/shared/ui'
 import { retrySession } from '../api/sessionApi'
+import { focusAreaLabel } from '../lib/focusArea'
 import { sessionKeys } from './useSession'
 
 /**
@@ -15,7 +16,10 @@ export function useRetrySession(sourceContextCount?: number) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: retrySession,
+    mutationFn: (input: number | { sessionId: number; focusOnWeakness?: boolean }) =>
+      typeof input === 'number'
+        ? retrySession(input)
+        : retrySession(input.sessionId, { focusOnWeakness: input.focusOnWeakness }),
     onSuccess: (session) => {
       void queryClient.invalidateQueries({ queryKey: sessionKeys.all })
       const linked = session.contextDocumentIds?.length ?? 0
@@ -23,6 +27,11 @@ export function useRetrySession(sourceContextCount?: number) {
         toast.info(
           `삭제된 자료 ${sourceContextCount - linked}개는 제외하고 시작합니다.`,
         )
+      }
+      // 집중 영역이 잡혔으면 무엇을 겨냥하는지 알려준다 — 모르면 질문이 달라진 이유를 알 수 없다.
+      const focus = session.focusAreas ?? []
+      if (focus.length > 0) {
+        toast.info(`${focus.map(focusAreaLabel).join('·')} 중심으로 질문합니다.`)
       }
       navigate(`/sessions/${session.id}`)
     },

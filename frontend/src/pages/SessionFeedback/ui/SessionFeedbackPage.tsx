@@ -30,7 +30,18 @@ export default function SessionFeedbackPage() {
           description="점수 옆에 그렇게 매긴 근거가 함께 붙습니다."
           actions={
             <div className="flex flex-wrap items-center gap-2">
-              <Button loading={retry.isPending} onClick={() => retry.mutate(sessionId)}>
+              {/* 점수가 나온 뒤라, 여기서는 약점 집중이 기본 제안이다. */}
+              <Button
+                loading={retry.isPending}
+                onClick={() => retry.mutate({ sessionId, focusOnWeakness: true })}
+              >
+                약점 집중해서 다시
+              </Button>
+              <Button
+                variant="secondary"
+                loading={retry.isPending}
+                onClick={() => retry.mutate(sessionId)}
+              >
                 같은 설정으로 다시
               </Button>
               <Link to="/workspace">
