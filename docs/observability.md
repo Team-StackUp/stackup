@@ -170,12 +170,19 @@ GET /api/system/health
 - **응답 키와 Actuator 컴포넌트 키는 다르다.** Actuator 키는 Spring 이 등록하는 빈 이름에서
   접미사를 뗀 값이라 `database`→`db`, `rabbitmq`→**`rabbit`** 이다. 여기를 틀리면 조회가
   null 을 돌려줘 그 컴포넌트가 **영구 UNKNOWN** 이 된다(에러가 아니라 조용한 무응답).
-- `s3`·`aiServer` 는 아직 커스텀 indicator 가 없어 UNKNOWN 이다 → `/health` 의 종합 status 도
-  UNKNOWN 으로 고정된다. 종합 판단이 필요하면 현재는 `/ready`(database·rabbitmq)를 쓴다.
+- `s3` 는 `headBucket`(엔드포인트·자격증명·버킷을 한 번에 확인), `aiServer` 는 **작업 큐의
+  컨슈머 수**로 판단한다. AI 를 HTTP 로 찌르지 않는 이유는 아키텍처 §4.1 — Core→AI 는
+  RabbitMQ 전용이고, 컨슈머 수가 더 정확한 신호이기도 하다(프로세스 생존보다 "큐를 실제로
+  구독 중인가"가 중요). 컨슈머 0 이면 DOWN, 브로커 자체가 죽었으면 UNKNOWN(그건 rabbitmq
+  컴포넌트가 알려준다).
 - K8s liveness: 단순 200 응답 (`/api/system/live`)
 - K8s readiness: 의존성 포함 (`/api/system/ready`)
-- 컨테이너 healthcheck 는 Spring 자체 `/actuator/health` 를 쓴다(docker-compose) — 이쪽은
-  Actuator 종합이라 RabbitMQ 장애를 정상적으로 잡는다.
+- **컨테이너 healthcheck 는 `/actuator/health/readiness`** 를 쓴다(docker-compose).
+  readiness 그룹은 `readinessState + db + rabbit` 로 명시돼 있다 — 백엔드가 자기 일을 하려면
+  반드시 필요한 것만. s3·aiServer 는 종합(`/actuator/health`)에만 들어간다: **AI 가 죽었다고
+  백엔드를 rotation 에서 빼면 정작 멀쩡한 로그인·히스토리까지 끊긴다.**
+- 그룹 멤버십 검증(`validate-group-membership`)은 기본값 그대로 **켜 둔다**. 이름을 틀리면
+  부팅이 실패해 배포 게이트에서 잡힌다 — 조용히 UNKNOWN 이 되는 것보다 낫다(§실제 사례).
 
 ---
 
