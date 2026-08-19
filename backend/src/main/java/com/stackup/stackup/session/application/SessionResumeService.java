@@ -58,17 +58,20 @@ public class SessionResumeService {
             throw new DomainException(ApiErrorCode.SESSION_INVALID_STATE);
         }
         // 원자적 재개 전이 — 중복 요청 중 하나만 차지한다(다른 전이와 같은 패턴).
-        if (sessionRepository.resumeIfInterrupted(sessionId, Instant.now()) == 0) {
+        Instant now = Instant.now();
+        if (sessionRepository.resumeIfInterrupted(sessionId, now) == 0) {
             throw new DomainException(ApiErrorCode.SESSION_INVALID_STATE);
         }
-        // 조건부 UPDATE 는 영속성 컨텍스트를 우회하므로 엔티티를 다시 읽는다.
-        sessionRepository.flush();
-        InterviewSession resumed = sessionRepository.findById(sessionId).orElseThrow();
+        // 벌크 UPDATE 는 영속성 컨텍스트를 갱신하지 않는다. 다시 findById 해도 1차 캐시의
+        // 낡은 엔티티(INTERRUPTED)가 돌아오므로, 같은 트랜잭션의 advanceToNextGeneral 이
+        // 상태 검사에서 조용히 되돌아가고 응답 status 도 INTERRUPTED 로 나간다.
+        // SessionService.start 와 같은 방식으로 인메모리 상태를 맞춘다.
+        session.resume(now);
 
-        recoverTurn(userId, resumed);
-        publishState(resumed);
+        recoverTurn(userId, session);
+        publishState(session);
         log.info("session resumed. sessionId={}, userId={}", sessionId, userId);
-        return SessionResult.of(resumed, contextDocumentIds(sessionId));
+        return SessionResult.of(session, contextDocumentIds(sessionId));
     }
 
     /**

@@ -91,6 +91,26 @@ class SessionResumeServiceTest {
                 assertThat(e.getErrorCode()).isEqualTo(ApiErrorCode.SESSION_INVALID_STATE));
     }
 
+    // 벌크 UPDATE 는 영속성 컨텍스트를 갱신하지 않는다. 인메모리까지 맞추지 않으면
+    // 같은 트랜잭션의 복구 로직과 응답이 모두 INTERRUPTED 를 보고 조용히 아무것도 안 한다.
+    @Test
+    void resume_syncsInMemoryStateAfterBulkUpdate() {
+        InterviewSession session = resumable(10L);
+        InterviewMessage question = InterviewMessage.interviewer(session, 3, "질문");
+        when(messageRepository.findFirstBySession_IdOrderBySequenceNumberDesc(10L))
+            .thenReturn(Optional.of(question));
+
+        SessionResult result = service.resume(1L, 10L);
+
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.IN_PROGRESS);
+        assertThat(session.getResumedAt()).isNotNull();
+        // 중단 시 찍힌 종료 시각은 지워져야 한다 — 남아 있으면 '종료된 면접'으로 보인다.
+        assertThat(session.getEndedAt()).isNull();
+        // 시간 한도는 재개 시각부터 다시 잰다.
+        assertThat(session.durationAnchor()).isEqualTo(session.getResumedAt());
+        assertThat(result.status()).isEqualTo(SessionStatus.IN_PROGRESS);
+    }
+
     // ── 턴 복구 ───────────────────────────────────────────────────────────────
 
     // 답할 질문이 그대로 남아 있으면 건드릴 게 없다.
@@ -186,17 +206,23 @@ class SessionResumeServiceTest {
 
     // ── fixtures ──────────────────────────────────────────────────────────────
 
-    /** 소유권·전이·재조회까지 통과해 복구 단계로 들어가는 세션. */
+    /**
+     * 소유권·전이를 통과해 복구 단계로 들어가는 세션.
+     *
+     * <p>**같은 인스턴스 하나만 쓴다.** 예전엔 findById 가 별도의 IN_PROGRESS 인스턴스를
+     * 돌려주도록 목을 걸었는데, 그게 실제 버그를 가렸다 — 벌크 UPDATE 는 영속성 컨텍스트를
+     * 갱신하지 않으므로 운영에서는 낡은 INTERRUPTED 엔티티가 돌아오고, 그 결과
+     * advanceToNextGeneral 이 상태 검사에서 조용히 되돌아가 복구가 전혀 일어나지 않았다.
+     * 이제 서비스가 `session.resume()` 으로 인메모리 상태를 맞춰야만 테스트가 통과한다.
+     */
     private InterviewSession resumable(Long id) {
-        InterviewSession interrupted = sessionFixture(id, SessionStatus.INTERRUPTED);
-        InterviewSession afterResume = sessionFixture(id, SessionStatus.IN_PROGRESS);
+        InterviewSession session = sessionFixture(id, SessionStatus.INTERRUPTED);
 
         when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(id, 1L))
-            .thenReturn(Optional.of(interrupted));
+            .thenReturn(Optional.of(session));
         when(sessionRepository.resumeIfInterrupted(eq(id), any(Instant.class))).thenReturn(1);
-        when(sessionRepository.findById(id)).thenReturn(Optional.of(afterResume));
         lenient().when(contextRepository.findBySession_Id(id)).thenReturn(List.of());
-        return afterResume;
+        return session;
     }
 
     private InterviewSession sessionFixture(Long id, SessionStatus status) {
