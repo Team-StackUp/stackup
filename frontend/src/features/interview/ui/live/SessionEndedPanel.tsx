@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { Button } from '@/shared/ui/Button'
 import { Eyebrow } from '@/shared/ui'
 import type { Session, SessionStatus } from '@/domain/session'
+import { useResumeSession } from '../../model/useResumeSession'
 import { useRetrySession } from '../../model/useRetrySession'
 import { InterviewTranscript } from '../InterviewTranscript'
 
@@ -27,6 +28,7 @@ export function SessionEndedPanel({
   session?: Session
 }) {
   const retry = useRetrySession(session?.contextDocumentIds?.length)
+  const resume = useResumeSession(sessionId)
 
   return (
     <div className="flex h-full flex-col overflow-y-auto">
@@ -39,6 +41,12 @@ export function SessionEndedPanel({
           {messageByStatus[status] ?? '면접이 종료되었습니다.'}
         </p>
         <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
+          {/* 중단된 면접은 이어서 하는 게 첫 선택지다 — 하던 대화가 그대로 남아 있다. */}
+          {status === 'INTERRUPTED' && (
+            <Button loading={resume.isPending} onClick={() => resume.mutate()}>
+              이어서 진행하기
+            </Button>
+          )}
           {status === 'COMPLETED' && (
             <Link to={`/sessions/${sessionId}/feedback`}>
               <Button>피드백 보기</Button>
@@ -46,7 +54,7 @@ export function SessionEndedPanel({
           )}
           {/* 중단됐든 끝났든, 같은 조건으로 한 번 더 해보는 게 다음 행동이다. */}
           <Button
-            variant={status === 'COMPLETED' ? 'secondary' : 'primary'}
+            variant="secondary"
             loading={retry.isPending}
             onClick={() => retry.mutate(sessionId)}
           >

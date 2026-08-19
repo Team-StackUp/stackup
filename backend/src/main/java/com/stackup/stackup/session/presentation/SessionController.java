@@ -2,6 +2,7 @@ package com.stackup.stackup.session.presentation;
 
 import com.stackup.stackup.common.response.PageResponse;
 import com.stackup.stackup.common.security.UserPrincipal;
+import com.stackup.stackup.session.application.SessionResumeService;
 import com.stackup.stackup.session.application.SessionService;
 import com.stackup.stackup.session.presentation.dto.SessionCreateRequest;
 import com.stackup.stackup.session.presentation.dto.SessionResponse;
@@ -36,6 +37,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class SessionController {
 
     private final SessionService sessionService;
+    private final SessionResumeService resumeService;
 
     @Operation(
         operationId = "createSession",
@@ -130,6 +132,28 @@ public class SessionController {
         return SessionResponse.from(sessionService.updateMeta(
             principal.userId(), sessionId, request.title(), request.memo()
         ));
+    }
+
+    @Operation(
+        operationId = "resumeSession",
+        summary = "중단된 면접 이어하기 (INTERRUPTED→IN_PROGRESS)",
+        description = "중단된 세션을 다시 진행 가능한 상태로 되돌린다. 상태만 바꾸는 게 아니라 "
+            + "끊긴 턴을 복구한다 — 생성 중이던 꼬리질문은 실패로 확정하고 다음 질문으로 넘기며, "
+            + "질문 풀 생성 요청이 유실됐다면 다시 요청한다. 시간 한도는 재개 시각부터 다시 잰다. "
+            + "완료·취소 세션은 이어할 수 없다(422) — 새로 시작하려면 /retry 를 쓴다."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "재개됨"),
+        @ApiResponse(responseCode = "401", description = "인증 실패"),
+        @ApiResponse(responseCode = "404", description = "세션 없음"),
+        @ApiResponse(responseCode = "422", description = "INTERRUPTED 아님")
+    })
+    @PatchMapping("/{sessionId}/resume")
+    public SessionResponse resume(
+        @AuthenticationPrincipal UserPrincipal principal,
+        @PathVariable Long sessionId
+    ) {
+        return SessionResponse.from(resumeService.resume(principal.userId(), sessionId));
     }
 
     @Operation(operationId = "startSession", summary = "세션 시작 (READY→IN_PROGRESS) (US-17)")

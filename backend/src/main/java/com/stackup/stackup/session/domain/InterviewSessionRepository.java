@@ -58,6 +58,15 @@ public interface InterviewSessionRepository extends JpaRepository<InterviewSessi
         + "where s.id = :id and s.status = com.stackup.stackup.session.domain.SessionStatus.READY")
     int startIfReady(@Param("id") Long id, @Param("now") Instant now);
 
+    // 원자적 재개 전이: INTERRUPTED 일 때만 IN_PROGRESS 로 되돌린다. endedAt 을 지우고
+    // resumedAt 을 새로 찍어 시간 한도를 이 자리 기준으로 다시 재게 한다.
+    // 다른 전이와 같은 조건부 UPDATE 패턴 — 중복 요청 중 하나만 1을 받는다.
+    @Modifying
+    @Query("update InterviewSession s set s.status = com.stackup.stackup.session.domain.SessionStatus.IN_PROGRESS, "
+        + "s.resumedAt = :now, s.endedAt = null "
+        + "where s.id = :id and s.status = com.stackup.stackup.session.domain.SessionStatus.INTERRUPTED")
+    int resumeIfInterrupted(@Param("id") Long id, @Param("now") Instant now);
+
     // 원자적 취소 전이: READY 일 때만 CANCELLED 로 (동시 start 와의 레이스 차단).
     @Modifying
     @Query("update InterviewSession s set s.status = com.stackup.stackup.session.domain.SessionStatus.CANCELLED "

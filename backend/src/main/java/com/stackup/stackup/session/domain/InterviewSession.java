@@ -110,6 +110,11 @@ public class InterviewSession extends BaseSoftDeleteEntity {
     @Column(name = "ended_at")
     private Instant endedAt;
 
+    // 중단 후 이어하기로 재개한 시각. 시간 한도는 이 값 기준으로 다시 잰다(없으면 startedAt).
+    // startedAt 은 '처음 시작한 시각'으로 보존한다.
+    @Column(name = "resumed_at")
+    private Instant resumedAt;
+
     private InterviewSession(User user, String title, String memo, SessionMode mode,
                              List<JobCategory> jobCategories,
                              Integer maxQuestions, Integer maxDurationMinutes,
@@ -173,6 +178,11 @@ public class InterviewSession extends BaseSoftDeleteEntity {
     public void assignTargetRole(String companyName, String jobDescription) {
         this.targetCompanyName = companyName;
         this.targetJobDescription = jobDescription;
+    }
+
+    // 시간 한도의 기준 시각. 이어하기로 재개했다면 그 자리(sitting)의 시작이 기준이다.
+    public Instant durationAnchor() {
+        return resumedAt != null ? resumedAt : startedAt;
     }
 
     public void start() {

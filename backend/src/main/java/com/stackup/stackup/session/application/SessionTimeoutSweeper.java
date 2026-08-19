@@ -52,11 +52,13 @@ public class SessionTimeoutSweeper {
         }
     }
 
+    // 기준 시각은 startedAt 이 아니라 durationAnchor() — 이어하기로 재개했다면 그 시각부터
+    // 다시 잰다. 아니면 재개하자마자 스위퍼가 즉시 다시 중단시킨다.
     private boolean isTimedOut(InterviewSession s, Instant now) {
-        if (s.getStartedAt() == null || s.getMaxDurationMinutes() == null) {
+        Instant anchor = s.durationAnchor();
+        if (anchor == null || s.getMaxDurationMinutes() == null) {
             return false;
         }
-        Instant deadline = s.getStartedAt().plus(s.getMaxDurationMinutes(), ChronoUnit.MINUTES);
-        return now.isAfter(deadline);
+        return now.isAfter(anchor.plus(s.getMaxDurationMinutes(), ChronoUnit.MINUTES));
     }
 }
