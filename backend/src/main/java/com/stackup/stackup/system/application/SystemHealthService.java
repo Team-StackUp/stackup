@@ -57,11 +57,9 @@ public class SystemHealthService {
     private ComponentHealthResponse resolveComponent(ComponentSpec spec) {
         HealthDescriptor descriptor = resolveDescriptor(spec.actuatorPath());
         if (descriptor == null) {
-            return new ComponentHealthResponse(spec.name(), Status.UNKNOWN.getCode(), Map.of());
+            return new ComponentHealthResponse(spec.name(), Status.UNKNOWN.getCode());
         }
-
-        Map<String, Object> details = extractDetails(descriptor);
-        return new ComponentHealthResponse(spec.name(), descriptor.getStatus().getCode(), details);
+        return new ComponentHealthResponse(spec.name(), descriptor.getStatus().getCode());
     }
 
     protected HealthDescriptor resolveDescriptor(String path) {
@@ -72,13 +70,6 @@ public class SystemHealthService {
         }
     }
 
-    private Map<String, Object> extractDetails(HealthDescriptor descriptor) {
-        try {
-            return Map.copyOf((Map<String, Object>) descriptor.getClass().getMethod("getDetails").invoke(descriptor));
-        } catch (ReflectiveOperationException | ClassCastException ex) {
-            return Map.of();
-        }
-    }
 
     private String aggregateStatus(Iterable<ComponentHealthResponse> components) {
         boolean hasUnknown = false;

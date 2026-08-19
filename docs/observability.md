@@ -158,13 +158,19 @@ GET /api/system/health
 {
   "status": "UP",
   "components": {
-    "database":  { "status": "UP" },
-    "rabbitmq":  { "status": "UP", "details": { "queues": 6 } },
-    "s3":        { "status": "UP" },
-    "aiServer":  { "status": "UP", "details": { "endpoint": "..." } }
+    "database": { "name": "database", "status": "UP" },
+    "rabbitmq": { "name": "rabbitmq", "status": "UP" },
+    "s3":       { "name": "s3",       "status": "UP" },
+    "aiServer": { "name": "aiServer", "status": "UP" }
   }
 }
 ```
+
+> **상태만 담는다.** 이 엔드포인트는 permitAll 이라 인증 없이 열린다. Actuator 는 기본값이
+> `show-details: never` 인데 예전엔 이 서비스가 descriptor 에서 상세를 직접 꺼내 그 보호를
+> 우회했다 — RabbitMQ 버전·S3 버킷명·큐 이름과 적체량이 그대로 나갔다.
+> 상세가 필요하면 **호스트에서** Spring 자체 `/actuator/health` 를 본다(nginx 가 외부로
+> 라우팅하지 않는다).
 
 - Spring Boot Actuator 의 컴포넌트를 이름으로 조회해 재구성한다(`SystemHealthService`).
 - **응답 키와 Actuator 컴포넌트 키는 다르다.** Actuator 키는 Spring 이 등록하는 빈 이름에서

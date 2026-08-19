@@ -15,6 +15,7 @@ import org.springframework.boot.health.actuate.endpoint.SimpleStatusAggregator;
 import org.springframework.boot.health.actuate.endpoint.StatusAggregator;
 import org.springframework.boot.health.contributor.Health;
 import org.springframework.boot.health.contributor.HealthIndicator;
+import com.stackup.stackup.system.application.dto.ComponentHealthResponse;
 import org.springframework.boot.health.contributor.Status;
 import org.springframework.boot.health.registry.DefaultHealthContributorRegistry;
 import org.springframework.boot.health.registry.DefaultReactiveHealthContributorRegistry;
@@ -47,7 +48,6 @@ class SystemHealthServiceTest {
         assertThat(response.status()).isEqualTo(Status.UP.getCode());
         assertThat(response.components()).containsKeys("database", "rabbitmq");
         assertThat(response.components()).doesNotContainKeys("s3", "aiServer");
-        assertThat(response.components().get("database").details()).containsEntry("connections", 12);
     }
 
     @Test
@@ -85,7 +85,6 @@ class SystemHealthServiceTest {
 
         // 응답 키는 그대로 rabbitmq — 공개 계약은 바뀌지 않는다.
         assertThat(response.components().get("rabbitmq").status()).isEqualTo(Status.UP.getCode());
-        assertThat(response.components().get("rabbitmq").details()).containsEntry("version", "3.13");
         assertThat(response.status()).isEqualTo(Status.UP.getCode());
     }
 
@@ -102,6 +101,30 @@ class SystemHealthServiceTest {
 
         assertThat(response.components().get("rabbitmq").status()).isEqualTo(Status.UNKNOWN.getCode());
         assertThat(response.status()).isEqualTo(Status.UNKNOWN.getCode());
+    }
+
+    /**
+     * 공개(permitAll) 엔드포인트라 상세를 담지 않는다.
+     *
+     * <p>Actuator 는 기본값이 {@code show-details: never} 인데 이 서비스가 descriptor 에서
+     * 상세를 직접 꺼내 쓰면서 그 보호를 우회하고 있었다 — RabbitMQ 버전·S3 버킷명·큐 이름과
+     * 적체량이 인증 없이 나갔다. 상세가 필요하면 호스트에서 /actuator/health 를 본다.
+     */
+    @Test
+    void health_doesNotExposeComponentDetails() {
+        HealthEndpoint healthEndpoint = healthEndpoint(Map.of(
+            "db", indicator(Status.UP, Map.of("database", "PostgreSQL")),
+            "rabbit", indicator(Status.UP, Map.of("version", "4.3.5"))
+        ));
+        SystemHealthService systemHealthService = new SystemHealthService(healthEndpoint);
+
+        var response = systemHealthService.health();
+
+        // 상태는 그대로 전달되지만 상세는 응답 타입에 아예 없다.
+        assertThat(response.components().get("rabbitmq").status()).isEqualTo(Status.UP.getCode());
+        assertThat(ComponentHealthResponse.class.getRecordComponents())
+            .extracting(java.lang.reflect.RecordComponent::getName)
+            .containsExactly("name", "status");
     }
 
     private static HealthEndpoint healthEndpoint(Map<String, HealthIndicator> indicators) {
