@@ -27,6 +27,9 @@
     "name" : "Documents",
     "description" : "분석 문서(이력서/레포 공통) 조회. 상세 조회 시 분석 마크다운의 presigned S3 URL 포함."
   }, {
+    "name" : "Users (Bookmarks)",
+    "description" : "오답노트 — 다시 볼 질문 모아보기."
+  }, {
     "name" : "Users (Stats)",
     "description" : "사용자 면접 통계 — 총/완료 세션 수, 평균 점수, 최근 점수 추이."
   }, {
@@ -67,6 +70,83 @@
     "description" : "X-Internal-API-Key 필요. AI 서버가 질문/피드백 생성 시 컨텍스트 청크 검색 (pgvector cosine)."
   } ],
   "paths" : {
+    "/api/sessions/{sessionId}/messages/{messageId}/bookmark" : {
+      "put" : {
+        "tags" : [ "Session Messages" ],
+        "summary" : "질문 오답노트 표시/해제",
+        "description" : "다시 볼 질문을 표시한다. 질문(INTERVIEWER) 메시지에만 걸 수 있다. 모아보기는 GET /api/users/me/bookmarks.",
+        "operationId" : "setQuestionBookmark",
+        "parameters" : [ {
+          "name" : "sessionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "messageId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/QuestionBookmarkRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "표시 상태",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/QuestionBookmarkResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/QuestionBookmarkResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "세션 또는 메시지 없음",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/QuestionBookmarkResponse"
+                }
+              }
+            }
+          },
+          "422" : {
+            "description" : "질문이 아닌 메시지",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/QuestionBookmarkResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/internal/documents/{documentId}/embeddings" : {
       "put" : {
         "tags" : [ "Internal: Document Embeddings" ],
@@ -2028,6 +2108,42 @@
         }
       }
     },
+    "/api/users/me/bookmarks" : {
+      "get" : {
+        "tags" : [ "Users (Bookmarks)" ],
+        "summary" : "오답노트 목록",
+        "description" : "표시해 둔 질문과 그때 내 답변·모범 답안·코칭을 함께 반환한다. 표시/해제는 PUT /api/sessions/{sessionId}/messages/{messageId}/bookmark.",
+        "operationId" : "listBookmarkedQuestions",
+        "responses" : {
+          "200" : {
+            "description" : "최근 표시 순 목록",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/BookmarkedQuestionResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/BookmarkedQuestionResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/system/ready" : {
       "get" : {
         "tags" : [ "system-controller" ],
@@ -2832,6 +2948,26 @@
   },
   "components" : {
     "schemas" : {
+      "QuestionBookmarkRequest" : {
+        "type" : "object",
+        "properties" : {
+          "bookmarked" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "QuestionBookmarkResponse" : {
+        "type" : "object",
+        "properties" : {
+          "messageId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "bookmarked" : {
+            "type" : "boolean"
+          }
+        }
+      },
       "ChunkRequest" : {
         "type" : "object",
         "properties" : {
@@ -3219,6 +3355,9 @@
           },
           "deliveryComment" : {
             "type" : "string"
+          },
+          "bookmarked" : {
+            "type" : "boolean"
           }
         }
       },
@@ -3719,6 +3858,44 @@
             "items" : {
               "$ref" : "#/components/schemas/RecentScore"
             }
+          }
+        }
+      },
+      "BookmarkedQuestionResponse" : {
+        "type" : "object",
+        "properties" : {
+          "messageId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sessionId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sessionTitle" : {
+            "type" : "string"
+          },
+          "category" : {
+            "type" : "string"
+          },
+          "question" : {
+            "type" : "string"
+          },
+          "expectedSignal" : {
+            "type" : "string"
+          },
+          "myAnswer" : {
+            "type" : "string"
+          },
+          "modelAnswer" : {
+            "type" : "string"
+          },
+          "coachingComment" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
           }
         }
       },

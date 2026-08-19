@@ -41,7 +41,9 @@ public record MessageResponse(
     Double pronunciationAccuracy,
     // 전달력 메트릭에서 산정한 배지(GOOD/FAIR/POOR)와 한 줄 코칭.
     String deliveryRating,
-    String deliveryComment
+    String deliveryComment,
+    // 오답노트 표시 여부(질문 메시지에만 의미 있음).
+    boolean bookmarked
 ) {
     public static MessageResponse from(MessageResult r) {
         return new MessageResponse(
@@ -74,7 +76,8 @@ public record MessageResponse(
             r.fillerWordCounts(),
             r.pronunciationAccuracy(),
             r.deliveryRating(),
-            r.deliveryComment()
+            r.deliveryComment(),
+            r.bookmarked()
         );
     }
 }

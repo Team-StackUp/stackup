@@ -125,6 +125,10 @@ public class InterviewMessage extends BaseTimeEntity {
     @Column(nullable = false)
     private boolean clarification = false;
 
+    // 오답노트 — 다시 볼 질문으로 표시됐는지. 질문(INTERVIEWER) 메시지에만 쓴다.
+    @Column(nullable = false)
+    private boolean bookmarked = false;
+
     private InterviewMessage(InterviewSession session, Integer sequenceNumber, MessageRole role,
                              String content, InterviewMessage parentMessage,
                              MessageStatus initialStatus, String idempotencyKey) {
@@ -213,6 +217,12 @@ public class InterviewMessage extends BaseTimeEntity {
             VOICE_TRANSCRIPTION_PENDING_TEXT,
             parent, MessageStatus.CREATED, idempotencyKey);
         return m;
+    }
+
+    // 오답노트 토글. 질문이 아닌 메시지를 표시하려는 시도는 호출부에서 막는다.
+    // (setter 네이밍은 ArchUnit 이 막는다 — 엔티티는 의미 있는 도메인 메서드로만 바뀐다.)
+    public void applyBookmark(boolean value) {
+        this.bookmarked = value;
     }
 
     public void markStatus(MessageStatus newStatus) {

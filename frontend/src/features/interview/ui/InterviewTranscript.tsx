@@ -40,7 +40,7 @@ export function InterviewTranscript({ sessionId }: { sessionId: number }) {
       <div className="flex flex-col gap-3">
         {items.map((m) =>
           isQuestion(m) ? (
-            <QuestionBubble key={m.id} message={m} />
+            <QuestionBubble key={m.id} message={m} bookmarkable />
           ) : (
             <div key={m.id} className="flex flex-col items-end gap-1">
               <AnswerBubble message={m} />

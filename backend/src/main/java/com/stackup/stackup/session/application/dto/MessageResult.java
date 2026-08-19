@@ -43,7 +43,9 @@ public record MessageResult(
     Double pronunciationAccuracy,
     // 위 메트릭에서 결정론적으로 산정한 전달력 평가(배지 GOOD/FAIR/POOR + 한 줄 코칭). 음성 답변에만.
     String deliveryRating,
-    String deliveryComment
+    String deliveryComment,
+    // 오답노트 표시 여부(질문 메시지에만 의미 있음).
+    boolean bookmarked
 ) {
     public static MessageResult of(InterviewMessage m) {
         return of(m, null, null, false);
@@ -98,7 +100,8 @@ public record MessageResult(
             revealInsights ? fillerWordCounts : null,
             revealInsights ? pronunciationAccuracy : null,
             delivery == null ? null : delivery.rating(),
-            delivery == null ? null : delivery.comment()
+            delivery == null ? null : delivery.comment(),
+            m.isBookmarked()
         );
     }
 }
