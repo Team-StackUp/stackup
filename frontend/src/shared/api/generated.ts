@@ -511,6 +511,26 @@ export interface paths {
         patch: operations["startSession"];
         trace?: never;
     };
+    "/api/sessions/{sessionId}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * 중단된 면접 이어하기 (INTERRUPTED→IN_PROGRESS)
+         * @description 중단된 세션을 다시 진행 가능한 상태로 되돌린다. 상태만 바꾸는 게 아니라 끊긴 턴을 복구한다 — 생성 중이던 꼬리질문은 실패로 확정하고 다음 질문으로 넘기며, 질문 풀 생성 요청이 유실됐다면 다시 요청한다. 시간 한도는 재개 시각부터 다시 잰다. 완료·취소 세션은 이어할 수 없다(422) — 새로 시작하려면 /retry 를 쓴다.
+         */
+        patch: operations["resumeSession"];
+        trace?: never;
+    };
     "/api/sessions/{sessionId}/interrupt": {
         parameters: {
             query?: never;
@@ -3035,6 +3055,55 @@ export interface operations {
                 };
             };
             /** @description READY 아님 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SessionResponse"];
+                };
+            };
+        };
+    };
+    resumeSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 재개됨 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SessionResponse"];
+                };
+            };
+            /** @description 인증 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SessionResponse"];
+                };
+            };
+            /** @description 세션 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SessionResponse"];
+                };
+            };
+            /** @description INTERRUPTED 아님 */
             422: {
                 headers: {
                     [name: string]: unknown;
