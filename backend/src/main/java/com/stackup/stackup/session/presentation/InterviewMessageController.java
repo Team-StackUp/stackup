@@ -2,7 +2,10 @@ package com.stackup.stackup.session.presentation;
 
 import com.stackup.stackup.common.security.UserPrincipal;
 import com.stackup.stackup.session.application.InterviewMessageService;
+import com.stackup.stackup.session.application.QuestionBookmarkService;
 import com.stackup.stackup.session.presentation.dto.MessageResponse;
+import com.stackup.stackup.session.presentation.dto.QuestionBookmarkRequest;
+import com.stackup.stackup.session.presentation.dto.QuestionBookmarkResponse;
 import com.stackup.stackup.session.presentation.dto.MessageSubmitRequest;
 import com.stackup.stackup.session.application.InterviewMessageService.AudioStream;
 import io.swagger.v3.oas.annotations.Operation;
@@ -23,6 +26,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -37,6 +41,33 @@ import org.springframework.web.bind.annotation.RestController;
 public class InterviewMessageController {
 
     private final InterviewMessageService messageService;
+    private final QuestionBookmarkService bookmarkService;
+
+    @Operation(
+        operationId = "setQuestionBookmark",
+        summary = "질문 오답노트 표시/해제",
+        description = "다시 볼 질문을 표시한다. 질문(INTERVIEWER) 메시지에만 걸 수 있다. "
+            + "모아보기는 GET /api/users/me/bookmarks."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "표시 상태"),
+        @ApiResponse(responseCode = "401", description = "인증 실패"),
+        @ApiResponse(responseCode = "404", description = "세션 또는 메시지 없음"),
+        @ApiResponse(responseCode = "422", description = "질문이 아닌 메시지")
+    })
+    @PutMapping("/{messageId}/bookmark")
+    public QuestionBookmarkResponse setBookmark(
+        @AuthenticationPrincipal UserPrincipal principal,
+        @PathVariable Long sessionId,
+        @PathVariable Long messageId,
+        @Valid @RequestBody QuestionBookmarkRequest request
+    ) {
+        return new QuestionBookmarkResponse(
+            messageId,
+            bookmarkService.setBookmark(
+                principal.userId(), sessionId, messageId, request.bookmarkedOrDefault())
+        );
+    }
 
     @Operation(operationId = "listSessionMessages", summary = "세션 메시지 시퀀스 (US-20)")
     @ApiResponses({

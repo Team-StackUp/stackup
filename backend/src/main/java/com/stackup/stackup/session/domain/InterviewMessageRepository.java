@@ -20,4 +20,17 @@ public interface InterviewMessageRepository extends JpaRepository<InterviewMessa
 
     @Query("select coalesce(max(m.sequenceNumber), 0) from InterviewMessage m where m.session.id = :sessionId")
     int findMaxSequenceBySessionId(@Param("sessionId") Long sessionId);
+
+    // 오답노트 목록. 삭제된 세션의 질문은 제외한다(세션을 지우면 그 질문도 사라지는 게 맞다).
+    @Query("""
+        select m from InterviewMessage m
+        where m.session.user.id = :userId
+          and m.session.deleted = false
+          and m.bookmarked = true
+        order by m.id desc
+        """)
+    List<InterviewMessage> findBookmarkedByOwner(@Param("userId") Long userId);
+
+    // 질문에 달린 답변(있으면 1개). 오답노트에 '내 답변 + 코칭'을 함께 보여주기 위해.
+    List<InterviewMessage> findByParentMessage_IdIn(List<Long> parentMessageIds);
 }

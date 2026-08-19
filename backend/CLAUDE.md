@@ -457,6 +457,14 @@ docker compose up -d
   target_evidence 필수 조건은 면제되지 않는다).
   - `@Value` 필드에 **자바 초기값도 함께** 둔다(`= 70`). Spring 밖(단위 테스트)에서는 주입이
     안 돼 0.0 이 되고, 그러면 모든 축이 '기준 이상'으로 판정돼 조용히 다른 동작을 한다.
+- **오답노트 본 구현 (B-4)**: `PUT /api/sessions/{sid}/messages/{mid}/bookmark` (표시/해제) +
+  `GET /api/users/me/bookmarks` (모아보기). V26 으로 `interview_messages.bookmarked` + 부분 인덱스.
+  **질문(INTERVIEWER) 메시지에만** 걸 수 있다(`MESSAGE_NOT_BOOKMARKABLE`) — 답변을 표시해도 복습할 게 없다.
+  요청은 토글이 아니라 **명시적 상태**를 받는다: 토글이면 재전송·더블클릭이 상태를 뒤집는다.
+  목록은 질문 + 그때 내 답변 + 모범답안/코칭을 한 묶음으로 반환하며, 답변은
+  `findByParentMessage_IdIn` 으로 한 번에 받아 매핑한다(질문마다 조회하면 N+1).
+  `QuestionBookmarkController` 는 URL 이 `/api/users/me/*` 지만 `UserStatsController` 와 같은 이유로
+  session 슬라이스에 둔다(user → session 직접 의존 회피).
 - **Spring AI 미사용** — LLM·임베딩 호출은 모두 AI 서버 위임. Core는 RabbitMQ 발행만 담당.
 - **Redis 미사용** — 휘발성 데이터는 DB short-lived 레코드 또는 인메모리로.
 
