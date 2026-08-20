@@ -32,6 +32,7 @@ function MicIcon() {
 
 export function AnswerComposer({
   disabled = false,
+  disabledReason = 'awaiting-question',
   submitLocked = false,
   onSubmit,
   restoreDraft,
@@ -39,6 +40,8 @@ export function AnswerComposer({
   voiceUploading = false,
 }: {
   disabled?: boolean
+  /** 입력이 막힌 이유 — 안내 문구가 달라진다. 연결 끊김을 '질문 대기'로 적으면 오도한다. */
+  disabledReason?: 'awaiting-question' | 'disconnected'
   submitLocked?: boolean
   onSubmit: (content: string) => void
   restoreDraft?: { content: string; nonce: number } | null
@@ -110,7 +113,9 @@ export function AnswerComposer({
         {voiceUploading ? (
           <span className="text-body text-fg">음성 답변 업로드 중…</span>
         ) : requesting ? (
-          <span className="text-body text-fg-muted">마이크 준비 중…</span>
+          <span className="text-body text-fg-muted">
+            마이크 권한을 기다리는 중… 브라우저 알림에서 허용해 주세요.
+          </span>
         ) : (
           <span className="flex min-w-0 items-center gap-3 text-body text-fg">
             <span className="flex items-center gap-2">
@@ -125,12 +130,14 @@ export function AnswerComposer({
             </span>
           </span>
         )}
-        {!voiceUploading && !requesting && (
+        {/* 권한 대기 중에도 나갈 수 있어야 한다 — 프롬프트를 놓치면 getUserMedia 가 영원히
+            응답하지 않고, 그동안 텍스트 입력창이 사라져 답변 자체가 막힌다. */}
+        {!voiceUploading && (
           <div className="flex shrink-0 items-center gap-2">
             <Button variant="ghost" onClick={cancel}>
-              취소
+              {requesting ? '텍스트로 답변' : '취소'}
             </Button>
-            <Button onClick={finishRecording}>전송</Button>
+            {!requesting && <Button onClick={finishRecording}>전송</Button>}
           </div>
         )}
       </div>
@@ -150,7 +157,9 @@ export function AnswerComposer({
           aria-label="답변 입력"
           placeholder={
             disabled
-              ? '질문을 기다리는 중…'
+              ? disabledReason === 'disconnected'
+                ? '연결이 끊겨 지금은 보낼 수 없어요. 재연결되면 이어서 답변할 수 있습니다.'
+                : '질문을 기다리는 중…'
               : submitLocked
                 ? '질문이 끝나면 전송할 수 있어요'
                 : '답변을 입력하세요 (Enter 전송, Shift+Enter 줄바꿈)'

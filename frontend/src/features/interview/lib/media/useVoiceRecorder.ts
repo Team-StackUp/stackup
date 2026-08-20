@@ -19,6 +19,9 @@ export function useVoiceRecorder() {
       : 'idle',
   )
 
+  // 권한 요청은 사용자가 프롬프트를 방치하면 영원히 pending 이다. 취소 시 이 값을 올려
+  // 뒤늦게 도착한 스트림을 무효화한다 — 안 그러면 취소 후에도 녹음이 시작되고 마이크가 켜진다.
+  const requestIdRef = useRef(0)
   const recorderRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const chunksRef = useRef<Blob[]>([])
@@ -37,12 +40,19 @@ export function useVoiceRecorder() {
 
   const start = useCallback(async (): Promise<boolean> => {
     if (status === 'unsupported' || status === 'recording') return false
+    const requestId = ++requestIdRef.current
     setStatus('requesting')
     let stream: MediaStream
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true })
     } catch {
-      setStatus('denied')
+      // 취소 뒤 늦게 거부가 오면 이미 idle 인 상태를 denied 로 되돌리면 안 된다.
+      if (requestIdRef.current === requestId) setStatus('denied')
+      return false
+    }
+    // 대기 중에 취소했으면 방금 열린 트랙을 바로 닫는다(마이크 표시등이 계속 켜진 채 남는다).
+    if (requestIdRef.current !== requestId) {
+      stream.getTracks().forEach((t) => t.stop())
       return false
     }
     const mimeType = pickMimeType()
@@ -79,8 +89,10 @@ export function useVoiceRecorder() {
     })
   }, [cleanup])
 
-  // 녹음 폐기(업로드 안 함).
+  // 녹음 폐기(업로드 안 함). 아직 권한 대기 중이어도 호출할 수 있다 — 그 경우 진행 중인
+  // getUserMedia 를 무효화해 사용자가 텍스트 입력으로 돌아갈 수 있게 한다.
   const cancel = useCallback(() => {
+    requestIdRef.current += 1
     const recorder = recorderRef.current
     if (recorder && recorder.state !== 'inactive') {
       recorder.onstop = null
