@@ -146,7 +146,8 @@ UI 표현:
 
 ## 9. 모바일 대응
 
-- 면접 세션은 데스크탑 우선. 모바일 진입 시 "데스크탑 환경 권장" 배너 (dismissable)
+- 면접 세션은 데스크탑 우선. 좁은 화면(<768px) 진입 시 1회성 안내 배너 — `SmallScreenNotice`
+  (dismiss 상태는 localStorage 영속, 마운트 시점 폭만 판정해 리사이즈마다 끼어들지 않음)
 - 외 페이지: 768px 이하에서 SideNav → Drawer로 전환, TopNav 햄버거 메뉴
 
 ---

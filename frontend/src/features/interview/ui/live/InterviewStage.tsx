@@ -8,6 +8,7 @@ import type { Session } from '@/domain/session'
 import type { ConnectionStatus, ThreadItem } from '../../model/useLiveInterview'
 import type { DeliveryMode } from '../../model/useDeliveryMode'
 import { ConnectionBanner } from './ConnectionBanner'
+import { SmallScreenNotice } from './SmallScreenNotice'
 import { AnswerComposer } from './AnswerComposer'
 import { StageQuestion } from './StageQuestion'
 import { DeliveryModeToggle } from './DeliveryModeToggle'
@@ -124,9 +125,13 @@ export function InterviewStage({
             )}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        {/* shrink-0 이 없으면 좁은 화면에서 버튼 글자가 눌려 읽히지 않는다.
+            연결 배지는 좁은 화면에서 숨긴다 — ConnectionBanner 가 같은 내용을 이미 알린다. */}
+        <div className="flex shrink-0 items-center gap-2">
           <DeliveryModeToggle value={deliveryMode} onChange={onDeliveryModeChange} />
-          <StatusBadge tone={connTone[connection]}>{connLabel[connection]}</StatusBadge>
+          <span className="hidden sm:inline">
+            <StatusBadge tone={connTone[connection]}>{connLabel[connection]}</StatusBadge>
+          </span>
           <Button variant="ghost" size="sm" onClick={() => setTranscriptOpen(true)}>
             기록
           </Button>
@@ -136,6 +141,7 @@ export function InterviewStage({
         </div>
       </header>
 
+      <SmallScreenNotice />
       <ConnectionBanner connection={connection} />
 
       <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-6 overflow-y-auto px-5 py-8">
