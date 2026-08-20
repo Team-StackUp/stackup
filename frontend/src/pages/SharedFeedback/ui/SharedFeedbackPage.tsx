@@ -3,9 +3,12 @@ import { SiteNav } from '@/widgets/site-nav'
 import { SiteFooter } from '@/widgets/site-footer'
 import { FeedbackReport, useSharedFeedback } from '@/features/feedback'
 import { PageHeader } from '@/shared/ui'
+import { useNoIndex } from '@/shared/hooks'
 
 // 공유 토큰으로 피드백을 보는 공개(비로그인) 페이지.
 export default function SharedFeedbackPage() {
+  // 링크를 받은 사람만 보라고 만든 페이지다 — 검색 결과에 뜨면 안 된다.
+  useNoIndex()
   const { token } = useParams<{ token: string }>()
   const { data, isLoading, isError } = useSharedFeedback(token ?? '')
 
