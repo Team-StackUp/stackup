@@ -152,6 +152,59 @@ class QuestionsCallbackServiceTest {
             assertThat(e).isInstanceOf(com.stackup.stackup.session.application.event.SessionEndedEvent.class));
     }
 
+    // AI 의 errorMessage 는 `str(exc)` 그대로다 — LLM 게이트웨이 주소·조직 식별자·쿼터 상세가
+    // 들어올 수 있고, SSE 는 그걸 브라우저까지 실어 나른다. 원문은 서버 로그에만 남아야 한다.
+    @Test
+    void apply_followupFailedWithoutPlaceholder_doesNotLeakInternalErrorMessage() {
+        InterviewSession session = sessionFixture(21L, SessionStatus.IN_PROGRESS);
+        String internal = "Connection error: [Errno -2] cannot connect to "
+            + "https://factchat-cloud.mindlogic.ai/v1/gateway (org-abc123, quota 0/500)";
+        QuestionsCallbackPayload payload = new QuestionsCallbackPayload(
+            21L, "FOLLOWUP", List.of(), null, null, null, null, null, null,
+            "FAILED", "GENERATION_FAILED", internal, true
+        );
+        QuestionsCallbackEnvelope env = new QuestionsCallbackEnvelope(
+            "m-fu-leak", "callback.questions", "1", "t", null, "ai", payload, null);
+
+        when(processedMessageRepository.existsById("m-fu-leak")).thenReturn(false);
+        when(sessionRepository.findById(21L)).thenReturn(Optional.of(session));
+
+        service.apply(env);
+
+        ArgumentCaptor<Object> ev = ArgumentCaptor.forClass(Object.class);
+        verify(events, atLeastOnce()).publishEvent(ev.capture());
+        assertThat(ev.getAllValues())
+            .filteredOn(e -> e instanceof RealtimeNotifyEvent)
+            .isNotEmpty()
+            .allSatisfy(e -> assertThat(e.toString())
+                .doesNotContain("mindlogic")
+                .doesNotContain("org-abc123")
+                .doesNotContain("Errno"));
+    }
+
+    // 모르는 코드가 와도 그대로 실어 보내지 않는다 — errorCode 역시 AI 가 채우는 문자열이다.
+    @Test
+    void apply_followupFailedWithUnknownErrorCode_fallsBackToKnownCode() {
+        InterviewSession session = sessionFixture(22L, SessionStatus.IN_PROGRESS);
+        QuestionsCallbackPayload payload = new QuestionsCallbackPayload(
+            22L, "FOLLOWUP", List.of(), null, null, null, null, null, null,
+            "FAILED", "RateLimitError: org-secret exceeded", "boom", true
+        );
+        QuestionsCallbackEnvelope env = new QuestionsCallbackEnvelope(
+            "m-fu-code", "callback.questions", "1", "t", null, "ai", payload, null);
+
+        when(processedMessageRepository.existsById("m-fu-code")).thenReturn(false);
+        when(sessionRepository.findById(22L)).thenReturn(Optional.of(session));
+
+        service.apply(env);
+
+        ArgumentCaptor<Object> ev = ArgumentCaptor.forClass(Object.class);
+        verify(events, atLeastOnce()).publishEvent(ev.capture());
+        assertThat(ev.getAllValues())
+            .filteredOn(e -> e instanceof RealtimeNotifyEvent)
+            .allSatisfy(e -> assertThat(e.toString()).doesNotContain("org-secret"));
+    }
+
     @Test
     void apply_poolOkButEmpty_endsSessionGracefully() {
         // status=OK 인데 questions 가 비어 온 경우(예: 중복회피 필터링으로 전부 걸러짐) —

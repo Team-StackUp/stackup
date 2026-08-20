@@ -21,6 +21,7 @@ import com.stackup.stackup.session.domain.SessionQuestionPoolRepository;
 import com.stackup.stackup.session.domain.SessionStatus;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -325,9 +326,14 @@ public class QuestionsCallbackService {
         advanceToNextGeneral(session.getId());
     }
 
+    // AI 가 보내는 errorMessage 는 `str(exc)` 그대로다 — LLM 게이트웨이 주소·조직 식별자·쿼터
+    // 상세, 파싱 실패 시엔 모델 원문까지 들어올 수 있다. 이걸 SSE 로 흘리면 브라우저까지 그대로
+    // 나간다(프론트는 쓰지도 않는다). 원문은 위 log.warn 이 서버에 남기고, 클라이언트에는
+    // 우리가 정의한 코드로만 만든 안내 문구를 보낸다.
     private void publishErrorEvent(InterviewSession session, String scope, QuestionsCallbackPayload payload) {
         SessionErrorNotice notice = new SessionErrorNotice(
-            session.getId(), scope, payload.errorCode(), payload.errorMessage(), payload.retriable());
+            session.getId(), scope, safeErrorCode(payload.errorCode()),
+            userFacingMessage(payload.errorCode()), payload.retriable());
         events.publishEvent(RealtimeNotifyEvent.session(session.getId(), SseEventType.ERROR, notice));
         events.publishEvent(RealtimeNotifyEvent.user(session.getUser().getId(), SseEventType.ERROR, notice));
     }
@@ -371,8 +377,25 @@ public class QuestionsCallbackService {
     public record SessionMessageNotice(Long sessionId, Long messageId, String reason) {
     }
 
+    // 알려진 코드만 통과시킨다. errorCode 도 결국 AI 가 채우는 문자열이라, 언젠가 예외 속성에서
+    // 끌어다 쓰게 되면 같은 경로로 새어 나간다 — 화이트리스트로 값 범위를 묶어 둔다.
+    private static final Map<String, String> ERROR_MESSAGES = Map.of(
+        "GENERATION_FAILED", "질문 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+        "GENERATION_SCHEMA_INVALID", "질문 생성 결과를 해석하지 못했습니다. 잠시 후 다시 시도해 주세요."
+    );
+    private static final String UNKNOWN_ERROR_CODE = "GENERATION_FAILED";
+
+    private static String safeErrorCode(String code) {
+        return ERROR_MESSAGES.containsKey(code) ? code : UNKNOWN_ERROR_CODE;
+    }
+
+    private static String userFacingMessage(String code) {
+        return ERROR_MESSAGES.getOrDefault(code, ERROR_MESSAGES.get(UNKNOWN_ERROR_CODE));
+    }
+
+    // errorMessage 가 아니라 message — 내부 원문이 아니라 사용자에게 보여줄 문구다.
     public record SessionErrorNotice(
-        Long sessionId, String scope, String errorCode, String errorMessage, Boolean retriable
+        Long sessionId, String scope, String errorCode, String message, Boolean retriable
     ) {
     }
 }
