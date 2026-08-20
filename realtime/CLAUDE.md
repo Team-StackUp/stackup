@@ -99,6 +99,7 @@ config는 cmd, internal/* 모두에서 import 가능
 > 모든 `/realtime/stream/*` (SSE) 및 `/realtime/sessions/{id}` (WS) 는 인증 필요 — `?access_token=<stream-token>` 쿼리로 Core 발급 토큰 검증 (EventSource/WS 헤더 한계 우회). `internal/auth` 미들웨어가 처리.
 > WS는 SSE(`/realtime/stream/*`)와 **다른 path**라 Upgrade 헤더 분기가 필요 없다. WS 핸들러(`coder/websocket`)는 session 채널 fan-out을 그대로 구독(서버→클라)하고, 수신한 답변(`{type:"answer",content,idempotencyKey?}`)을 `internal/core` 클라이언트로 Core 내부 REST(`POST /api/internal/sessions/{id}/messages`)에 프록시한다.
 > RT3(`/realtime/sessions/{id}/audio`)는 `WSAudioHandler`(`transport/ws_audio.go`)가 브라우저 WS를 AI WS(`REALTIME_AI_WS_URL` + `?sessionId=&messageId=`, `X-Internal-API-Key` 헤더)로 **양방향 프록시**한다. `messageId`는 사전에 Core `POST /api/sessions/{id}/messages/voice/stream-begin`이 만든 placeholder. 오디오 내용은 해석하지 않고 프레임 타입을 보존하며 복사만(`copyWS`).
+> 브라우저의 `?contentType=` 을 AI 로 전달한다 — AI 가 이 값으로 STT 세션의 디코더를 고르므로, 넘기지 않으면 무엇을 보내든 `audio/webm` 으로 가정되어 Safari(mp4) 같은 경우 틀어진다. 사용자 제어 값이라 화이트리스트(webm/ogg/mp4/mpeg/wav)를 통과한 base MIME 만 붙이고, 그 외에는 기존 기본값으로 떨어진다.
 
 ---
 

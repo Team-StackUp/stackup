@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/Team-StackUp/stackup/realtime/internal/auth"
@@ -48,7 +50,10 @@ func (h *WSAudioHandler) ServeAudioWS(w http.ResponseWriter, r *http.Request) {
 	defer client.CloseNow()
 
 	ctx := r.Context()
-	aiURL := fmt.Sprintf("%s?sessionId=%d&messageId=%d", h.AIBaseURL, sid, mid)
+	// 브라우저가 실제로 만드는 코덱을 AI 에 알려야 STT 세션이 맞는 디코더로 열린다.
+	// 지금까지는 넘기지 않아 AI 가 항상 audio/webm 으로 가정했다 — Safari(mp4)에서는 틀린다.
+	contentType := resolveAudioContentType(r.URL.Query().Get("contentType"))
+	aiURL := buildAIStreamURL(h.AIBaseURL, sid, mid, contentType)
 	upstream, _, err := websocket.Dial(ctx, aiURL, &websocket.DialOptions{
 		HTTPHeader: http.Header{"X-Internal-API-Key": {h.InternalKey}},
 	})
@@ -68,6 +73,31 @@ func (h *WSAudioHandler) ServeAudioWS(w http.ResponseWriter, r *http.Request) {
 
 	<-errc // 한쪽이 끝나면 종료
 	slog.Info("ws_audio.proxy.end", "session_id", sid, "message_id", mid)
+}
+
+// AI 가 다룰 수 있고 Core 가 저장을 허용하는 오디오 타입만 통과시킨다.
+// 값은 사용자(브라우저)가 정하므로 그대로 업스트림 URL 에 붙이지 않는다.
+var allowedAudioContentTypes = map[string]struct{}{
+	"audio/webm": {},
+	"audio/ogg":  {},
+	"audio/mp4":  {},
+	"audio/mpeg": {},
+	"audio/wav":  {},
+}
+
+// resolveAudioContentType 은 "audio/webm;codecs=opus" 같은 값에서 base MIME 만 뽑고,
+// 허용 목록에 없으면 기존 동작과 같은 기본값(audio/webm)으로 떨어진다.
+func resolveAudioContentType(raw string) string {
+	base := strings.ToLower(strings.TrimSpace(strings.SplitN(raw, ";", 2)[0]))
+	if _, ok := allowedAudioContentTypes[base]; ok {
+		return base
+	}
+	return "audio/webm"
+}
+
+func buildAIStreamURL(base string, sessionID, messageID int64, contentType string) string {
+	return fmt.Sprintf("%s?sessionId=%d&messageId=%d&contentType=%s",
+		base, sessionID, messageID, url.QueryEscape(contentType))
 }
 
 // copyWS 는 src 에서 받은 프레임을 dst 로 그대로 전달한다 (타입 보존).
