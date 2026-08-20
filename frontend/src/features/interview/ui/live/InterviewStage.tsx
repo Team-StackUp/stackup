@@ -59,6 +59,7 @@ export function InterviewStage({
   onSubmitVoice,
   voiceUploading,
   onEnd,
+  onInterrupt,
   wasSegmented,
   isSpeaking,
   deliveryMode,
@@ -74,6 +75,8 @@ export function InterviewStage({
   onSubmitVoice: (audio: Blob) => void
   voiceUploading: boolean
   onEnd: () => void
+  /** 잠시 중단 — 대화를 남긴 채 나중에 이어서 진행한다. */
+  onInterrupt: () => void
   wasSegmented: (id: number) => boolean
   isSpeaking: (id: number) => boolean
   deliveryMode: DeliveryMode
@@ -81,6 +84,7 @@ export function InterviewStage({
 }) {
   const [transcriptOpen, setTranscriptOpen] = useState(false)
   const [endConfirmOpen, setEndConfirmOpen] = useState(false)
+  const [pauseConfirmOpen, setPauseConfirmOpen] = useState(false)
   const progress = sessionProgress(session)
   const focusAreas = session.focusAreas ?? []
   const currentQuestion = [...items].reverse().find(isQuestion)
@@ -134,6 +138,10 @@ export function InterviewStage({
           </span>
           <Button variant="ghost" size="sm" onClick={() => setTranscriptOpen(true)}>
             기록
+          </Button>
+          {/* 종료(되돌릴 수 없음, 즉시 피드백)만 있으면 잠깐 자리를 비워야 할 때 방법이 없다. */}
+          <Button variant="ghost" size="sm" onClick={() => setPauseConfirmOpen(true)}>
+            잠시 중단
           </Button>
           <Button variant="danger" size="sm" onClick={() => setEndConfirmOpen(true)}>
             종료
@@ -193,6 +201,19 @@ export function InterviewStage({
           onClose={() => setTranscriptOpen(false)}
         />
       )}
+
+      <ConfirmDialog
+        open={pauseConfirmOpen}
+        title="면접을 잠시 중단할까요?"
+        description="지금까지 주고받은 대화는 그대로 남습니다. 바로 다음 화면에서 이어서 진행할 수 있고, 나중에 히스토리에서도 다시 들어올 수 있어요. 피드백은 아직 만들어지지 않습니다."
+        confirmLabel="중단하기"
+        cancelLabel="계속 진행"
+        onConfirm={() => {
+          setPauseConfirmOpen(false)
+          onInterrupt()
+        }}
+        onCancel={() => setPauseConfirmOpen(false)}
+      />
 
       <ConfirmDialog
         open={endConfirmOpen}

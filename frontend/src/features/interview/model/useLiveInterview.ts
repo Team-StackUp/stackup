@@ -33,7 +33,7 @@ export function useLiveInterview(sessionId: number, deliveryMode: DeliveryMode =
     // 끊겼거나 아직 연결 전이면 5초 폴링으로 소실 이벤트를 메운다(최후 방어선).
     status === 'IN_PROGRESS' && connection !== 'open' ? 5_000 : false,
   )
-  const { end } = useSessionLifecycle(sessionId)
+  const { end, interrupt } = useSessionLifecycle(sessionId)
 
   const [optimistic, setOptimistic] = useState<OptimisticAnswer[]>([])
   // 전송 실패로 롤백된 답변 본문 — 컴포저가 입력창을 복원하는 데 사용(nonce 로 매 실패마다 트리거).
@@ -302,6 +302,8 @@ export function useLiveInterview(sessionId: number, deliveryMode: DeliveryMode =
     voiceUploading: voiceMutation.isPending,
     voiceError: voiceMutation.isError,
     endSession: () => end.mutate(),
+    // 잠시 중단 — 대화를 남긴 채 INTERRUPTED 로. 나중에 '이어서 진행하기' 로 돌아온다.
+    interruptSession: () => interrupt.mutate(),
     isLoading: sessionQuery.isLoading,
     // 세션 조회 실패를 화면에 알리기 위한 것 — 없으면 LiveInterview 의
     // `isLoading || !session` 분기가 에러 시에도 스피너를 영원히 돌린다.
