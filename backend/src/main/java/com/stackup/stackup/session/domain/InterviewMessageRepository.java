@@ -31,6 +31,20 @@ public interface InterviewMessageRepository extends JpaRepository<InterviewMessa
         """)
     List<InterviewMessage> findBookmarkedByOwner(@Param("userId") Long userId);
 
+    // STT 콜백을 기다리다 멈춰 있는 음성 답변. content 가 아직 pending sentinel 이고
+    // 진행 중 세션에 속한 것만. (callback.voice 가 유실되면 이 상태로 영구히 남는다.)
+    @Query("""
+        select m from InterviewMessage m
+        where m.role = com.stackup.stackup.session.domain.MessageRole.INTERVIEWEE
+          and m.status = com.stackup.stackup.session.domain.MessageStatus.CREATED
+          and m.content = :pendingText
+          and m.createdAt < :before
+          and m.session.deleted = false
+          and m.session.status = com.stackup.stackup.session.domain.SessionStatus.IN_PROGRESS
+        """)
+    List<InterviewMessage> findStaleTranscribing(@Param("pendingText") String pendingText,
+                                                 @Param("before") java.time.Instant before);
+
     // 질문에 달린 답변(있으면 1개). 오답노트에 '내 답변 + 코칭'을 함께 보여주기 위해.
     List<InterviewMessage> findByParentMessage_IdIn(List<Long> parentMessageIds);
 }
