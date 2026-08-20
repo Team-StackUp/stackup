@@ -485,6 +485,16 @@ docker compose up -d
     재개된 세션은 IN_PROGRESS 라 그대로 통과한다. 그래서 `applyFollowup` 이 **이미 FAILED 인
     placeholder 를 되살리지 않도록** 막는다 — 복구가 실패 확정 + 다음 질문까지 마친 뒤 늦은 콜백이
     그 자리를 채우면 살아있는 질문이 두 개가 된다. POOL 은 `countBySessionId > 0` 로 이미 멱등.
+- **STT 콜백 유실 복구 본 구현**: 음성 답변은 `(transcribing)` placeholder 로 먼저 저장되고
+  `callback.voice` 가 도착해야 채워진다. 그 콜백이 유실되면(AI 크래시·DLQ 격리·브로커 단절)
+  메시지가 그 상태로 남고 프론트 턴 판정상 **답변 차례가 오지 않아 면접이 멈춘다** —
+  세션 시간 초과로 통째로 끝날 때까지. 질문 생성 쪽은 실패 신호로 이미 해결했지만 음성엔
+  대응이 없었다. `StaleTranscriptionSweeper`(기본 2분 주기)가 `interview.voice.
+  stale-transcription-minutes`(기본 5분)를 넘긴 placeholder 를 찾아
+  `VoiceTranscriptionRecoveryService.failStaleTranscription` 으로 FAILED 확정한다
+  (`STT_CALLBACK_TIMEOUT`). 그러면 기존 STT 실패 경로를 그대로 타서 사용자가 같은 질문에
+  텍스트로 다시 답할 수 있다. 목록 생성 후 콜백이 도착한 경우를 위해 확정 직전 상태를 다시
+  확인한다(완료된 답변을 실패로 되돌리지 않는다).
 - **Spring AI 미사용** — LLM·임베딩 호출은 모두 AI 서버 위임. Core는 RabbitMQ 발행만 담당.
 - **Redis 미사용** — 휘발성 데이터는 DB short-lived 레코드 또는 인메모리로.
 
