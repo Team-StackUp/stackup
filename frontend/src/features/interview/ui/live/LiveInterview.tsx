@@ -22,6 +22,7 @@ export function LiveInterview({ sessionId }: { sessionId: number }) {
     submitVoice,
     voiceUploading,
     endSession,
+    interruptSession,
     isLoading,
     questionStreaming,
     wasSegmented,
@@ -85,6 +86,7 @@ export function LiveInterview({ sessionId }: { sessionId: number }) {
       onSubmitVoice={submitVoice}
       voiceUploading={voiceUploading}
       onEnd={endSession}
+      onInterrupt={interruptSession}
       wasSegmented={wasSegmented}
       isSpeaking={isSpeaking}
       deliveryMode={deliveryMode}
