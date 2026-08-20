@@ -168,6 +168,9 @@ export function InterviewStage({
       <div className="relative z-10">
         <AnswerComposer
           disabled={awaitingQuestion || connection !== 'open'}
+          disabledReason={
+            connection !== 'open' && !awaitingQuestion ? 'disconnected' : 'awaiting-question'
+          }
           submitLocked={questionStreaming}
           onSubmit={onSubmit}
           restoreDraft={restoreDraft}
