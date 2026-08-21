@@ -142,8 +142,20 @@ public class GithubTokenCipher {
 ### 5.3 회원 탈퇴 (US-04)
 - soft delete (`is_deleted = TRUE`)
 - refresh_tokens 전부 revoke
+- **보관 중이던 GitHub access token 폐기** (`User.withdraw`) — `repo` 스코프라 비공개 레포까지
+  읽는 살아있는 자격증명이다. hard delete 가 Phase 2 인 만큼, 여기서 지우지 않으면 떠난
+  사용자의 GitHub 접근 권한을 무기한 보관하게 된다. 삭제된 행은 provider 식별자 CHECK 제약에서
+  제외된다(V28) — 살아있는 유니크 인덱스(V3·V22)와 같은 규약.
+  - GitHub 쪽 grant 자체의 무효화는 사용자가 GitHub Settings 에서 해야 한다. 우리가 할 수
+    있는 건 사본을 갖지 않는 것까지다.
+- 피드백 공유 토큰 전부 revoke (`UserDeletionShareRevokeListener`) — 탈퇴 후에도 열리는 공개
+  링크가 남지 않게
 - 30일 후 hard delete + S3 객체 삭제 (Phase 2 자동화)
-- 동일 GitHub 계정 재가입 시 신규 사용자로 생성 (기존 데이터 복구 X)
+- 동일 GitHub 계정 재가입 시 신규 사용자로 생성 (기존 데이터 복구 X) — 유니크 인덱스가
+  `WHERE is_deleted = FALSE` 부분 인덱스라 가능하다(V3·V22)
+
+> **미구현**: 탈퇴를 실행할 프론트엔드 화면이 없다. `DELETE /api/users/me` 는 동작하지만
+> 사용자가 도달할 경로가 없다.
 
 ### 5.4 데이터 최소 수집
 - GitHub OAuth 시 요청 scope 최소화: `read:user`, `user:email`, `repo` (private 분석 위해)

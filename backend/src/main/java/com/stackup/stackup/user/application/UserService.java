@@ -42,9 +42,11 @@ public class UserService {
         );
     }
 
-    // 회원 탈퇴: User soft delete + UserDeletedEvent 발행.
-    // auth 슬라이스 listener 가 모든 refresh token 을 revoke 한다 (도메인 분리).
-    // GitHub 측 access_token 무효화는 사용자가 GitHub Settings 에서 별도 수행.
+    // 회원 탈퇴: User soft delete + 보관 중이던 GitHub access token 폐기 + UserDeletedEvent 발행.
+    // auth 슬라이스 listener 가 모든 refresh token 을, session 슬라이스 listener 가 공유
+    // 토큰을 revoke 한다 (도메인 분리).
+    // GitHub 쪽 grant 자체의 무효화는 사용자가 GitHub Settings 에서 별도 수행해야 한다 —
+    // 우리가 할 수 있는 건 사본을 갖지 않는 것까지다(User.withdraw).
     @Transactional
     public void deleteAccount(Long userId) {
         if (userId == null) {
@@ -52,7 +54,7 @@ public class UserService {
         }
         User user = userRepository.findByIdAndDeletedFalse(userId)
             .orElseThrow(() -> new DomainException(ApiErrorCode.USER_ALREADY_DELETED));
-        user.markDeleted();
+        user.withdraw();
         events.publishEvent(new UserDeletedEvent(userId));
     }
 }
