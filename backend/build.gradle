@@ -79,6 +79,10 @@ dependencies {
 	testImplementation 'org.testcontainers:postgresql'
 	testImplementation 'org.testcontainers:rabbitmq'
 
+	testImplementation 'org.testcontainers:junit-jupiter'
+	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+	testImplementation 'org.springframework.boot:spring-boot-data-jpa-test'
+
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 

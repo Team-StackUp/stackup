@@ -229,11 +229,41 @@ spring.jpa.hibernate.ddl-auto=validate   # Flyway 사용 → validate
 
 ## 15. 테스트
 
-- 단위: `*Test.java` (Spring 컨텍스트 X, 빠름)
+- 단위: `*Test.java` (Spring 컨텍스트 X, 빠름) — 기본값. 대부분 여기서 끝낸다.
+- **리포지토리: `*RepositoryTest.java` + `@PostgresRepositoryTest`** — 실제 PG(+pgvector) 컨테이너 (아래 §15.1)
 - 통합: `*IT.java` 또는 `*IntegrationTest.java` + Testcontainers (PG/RabbitMQ)
 - 아키텍처: `*ArchTest.java` (ArchUnit) — 의존성 방향·패키지 규칙 검증 (§16)
 - Builder 패턴으로 fixture (`UserBuilder.aUser()`)
 - 자세한 전략: [`/docs/testing-strategy.md`](../docs/testing-strategy.md)
+
+### 15.1 `@PostgresRepositoryTest` — 쿼리 검증
+
+기본 테스트 프로파일(`application-test.yml`)은 DataSource·Hibernate·Flyway 오토컨피그를
+**제외**하고 리포지토리를 전부 목으로 대체한다. 빠르지만 그 대가로 **`@Query` 의 JPQL 이
+아무 검증도 받지 못한다** — 문법 오류는 물론이고 "삭제된 행을 안 걸렀다" 같은 의미 결함도
+그대로 통과한다(실제로 통계 쿼리 5개가 그랬다. `SessionFeedbackRepositoryTest` 참고).
+
+`@PostgresRepositoryTest` 를 붙이면 실제 PostgreSQL 컨테이너에서 돈다:
+
+```java
+@PostgresRepositoryTest
+class SessionFeedbackRepositoryTest {
+    @Autowired SessionFeedbackRepository feedbackRepository;
+    // ...
+}
+```
+
+- 이미지는 `pgvector/pgvector:pg17` — `infra/postgres/Dockerfile` 과 같은 계열이어야 한다
+  (마이그레이션이 vector 타입·인덱스를 쓴다). **운영 PG 버전을 올리면 `PostgresTestContainer`
+  의 태그도 같이 올린다.**
+- 스키마는 운영과 같은 **Flyway 마이그레이션**으로 만들고 `ddl-auto: validate` 를 건다 →
+  엔티티 매핑과 마이그레이션이 어긋나면 컨텍스트 로딩에서 바로 터진다. 배포 후에야 알던
+  사고를 CI 로 당기는 부수 효과.
+- 컨테이너는 **JVM 당 하나**만 뜬다(`PostgresTestContainer`). 테스트가 늘어도 기동 비용은 한 번.
+- `@DataJpaTest` 라 각 테스트는 트랜잭션 안에서 돌고 끝나면 롤백된다.
+- CI(`ubuntu-latest`)는 Docker 가 이미 있어 별도 설정이 필요 없다. 다만 첫 실행에 이미지를
+  받으므로 백엔드 잡이 그만큼 길어진다 — **쿼리 동작을 봐야 하는 테스트에만** 쓰고,
+  서비스 로직은 계속 Mockito 단위 테스트로 다룬다.
 
 ## 16. ArchUnit — 아키텍처 룰 자동 검증
 
