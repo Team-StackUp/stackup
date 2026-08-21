@@ -136,4 +136,20 @@ public class User extends BaseSoftDeleteEntity {
     public void markDeleted() {
         this.deleted = true;
     }
+
+    /**
+     * 회원 탈퇴. soft delete 와 함께 **GitHub access token 을 버린다.**
+     *
+     * <p>이 토큰은 `repo` 스코프라 비공개 레포까지 읽을 수 있는 살아있는 자격증명이다.
+     * hard delete 는 Phase 2 이므로 여기서 지우지 않으면 "삭제해 달라"고 한 사용자의
+     * GitHub 접근 권한이 우리 DB 에 무기한 남는다 — DB 가 유출되면 이미 떠난 사람들의
+     * 비공개 레포까지 열린다.
+     *
+     * <p>GitHub 쪽 grant 자체의 무효화는 사용자가 GitHub Settings 에서 해야 한다.
+     * 우리가 할 수 있는 것은 사본을 갖지 않는 것까지다.
+     */
+    public void withdraw() {
+        markDeleted();
+        this.encryptedGithubAccessToken = null;
+    }
 }
