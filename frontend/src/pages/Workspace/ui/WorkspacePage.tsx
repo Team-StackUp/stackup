@@ -9,12 +9,14 @@ import { ReposView } from './ReposView'
 import { CoverLettersView } from './CoverLettersView'
 import { HistoryView } from './HistoryView'
 import { BookmarksView } from './BookmarksView'
+import { AccountView } from './AccountView'
 
-type View = 'home' | 'resumes' | 'repos' | 'cover-letters' | 'history' | 'bookmarks'
+type View = 'home' | 'resumes' | 'repos' | 'cover-letters' | 'history' | 'bookmarks' | 'account'
 
 function resolveView(pathname: string): View {
   if (pathname.startsWith('/workspace/history')) return 'history'
   if (pathname.startsWith('/workspace/bookmarks')) return 'bookmarks'
+  if (pathname.startsWith('/workspace/account')) return 'account'
   if (pathname.startsWith('/workspace/resumes')) return 'resumes'
   if (pathname.startsWith('/workspace/repos')) return 'repos'
   if (pathname.startsWith('/workspace/cover-letters')) return 'cover-letters'
@@ -60,6 +62,11 @@ export default function WorkspacePage() {
       title: '오답노트',
       description: '다시 볼 질문을 모아 복습하세요.',
     },
+    account: {
+      eyebrow: '워크스페이스',
+      title: '계정 설정',
+      description: '로그인 정보를 확인하고 계정을 관리하세요.',
+    },
   }[view]
 
   return (
@@ -80,6 +87,7 @@ export default function WorkspacePage() {
           {view === 'cover-letters' && <CoverLettersView />}
           {view === 'history' && <HistoryView />}
           {view === 'bookmarks' && <BookmarksView />}
+          {view === 'account' && <AccountView />}
         </div>
       </main>
     </div>

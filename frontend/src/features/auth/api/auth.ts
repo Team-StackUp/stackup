@@ -56,6 +56,11 @@ export async function logout(): Promise<void> {
   await apiClient.delete('/api/auth/logout')
 }
 
+// 회원 탈퇴. 204 를 받으면 이 계정으로는 더 이상 로그인할 수 없다.
+export async function deleteAccount(): Promise<void> {
+  await apiClient.delete('/api/users/me')
+}
+
 export async function createStreamToken(): Promise<string> {
   const response = await apiClient.post<{ streamToken: string }>(
     '/api/auth/stream-token',
