@@ -17,6 +17,7 @@ const navItems: NavItem[] = [
   { to: '/workspace/cover-letters', label: '자소서', icon: <CoverLetterIcon /> },
   { to: '/workspace/history', label: '히스토리', icon: <HistoryIcon /> },
   { to: '/workspace/bookmarks', label: '오답노트', icon: <BookmarkIcon /> },
+  { to: '/workspace/account', label: '계정 설정', icon: <AccountIcon /> },
 ]
 
 export function WorkspaceSidebar() {
@@ -209,6 +210,25 @@ function RepoIcon() {
       <circle cx="6" cy="15" r="2" />
       <circle cx="14" cy="7.5" r="2" />
       <path d="M6 7v6M6 13a4 4 0 0 0 4-4h2.2" />
+    </svg>
+  )
+}
+
+function AccountIcon() {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      width="18"
+      height="18"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <circle cx="10" cy="7" r="3.2" />
+      <path d="M4 16.5c0-2.6 2.7-4.2 6-4.2s6 1.6 6 4.2" />
     </svg>
   )
 }

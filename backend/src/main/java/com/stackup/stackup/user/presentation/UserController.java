@@ -39,8 +39,8 @@ public record UserController(UserService userService) {
 
     @Operation(
         operationId = "deleteCurrentUser",
-        summary = "회원 탈퇴 (soft delete + 모든 refresh token revoke)",
-        description = "User row 의 is_deleted=true. 모든 refresh_token revoke. GitHub access token 무효화는 사용자가 GitHub Settings 에서 별도 수행."
+        summary = "회원 탈퇴 (soft delete + 토큰 폐기)",
+        description = "User row 의 is_deleted=true. 보관 중이던 GitHub access token 폐기. 모든 refresh_token 과 피드백 공유 토큰 revoke. GitHub 쪽 grant 무효화는 사용자가 GitHub Settings 에서 별도 수행."
     )
     @ApiResponses({
         @ApiResponse(responseCode = "204", description = "탈퇴 처리됨"),

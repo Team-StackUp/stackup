@@ -154,8 +154,9 @@ public class GithubTokenCipher {
 - 동일 GitHub 계정 재가입 시 신규 사용자로 생성 (기존 데이터 복구 X) — 유니크 인덱스가
   `WHERE is_deleted = FALSE` 부분 인덱스라 가능하다(V3·V22)
 
-> **미구현**: 탈퇴를 실행할 프론트엔드 화면이 없다. `DELETE /api/users/me` 는 동작하지만
-> 사용자가 도달할 경로가 없다.
+화면: `/workspace/account` (계정 설정). 탈퇴 전에 무엇이 사라지는지 명시하고, 되돌릴 수 없는
+액션이므로 확인 다이얼로그를 거친다. GitHub 앱 승인 자체는 우리가 취소할 수 없으므로
+`github.com/settings/applications` 경로를 함께 안내한다.
 
 ### 5.4 데이터 최소 수집
 - GitHub OAuth 시 요청 scope 최소화: `read:user`, `user:email`, `repo` (private 분석 위해)

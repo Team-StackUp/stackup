@@ -97,6 +97,14 @@ export const router = createBrowserRouter([
           </RequireAuth>
         ),
       },
+      {
+        path: '/workspace/account',
+        element: (
+          <RequireAuth>
+            <WorkspacePage />
+          </RequireAuth>
+        ),
+      },
       { path: '/history', element: <Navigate to="/workspace/history" replace /> },
       {
         path: '/design-system/*',
