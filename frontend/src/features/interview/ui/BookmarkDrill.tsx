@@ -4,6 +4,7 @@ import { TextArea } from '@/shared/ui/TextArea'
 import { Eyebrow, StatusBadge } from '@/shared/ui'
 import { useQuestionRunner } from '@/shared/hooks'
 import { categoryLabel } from '../lib/categoryLabel'
+import { ReviewBlock } from './ReviewBlock'
 import type { BookmarkedQuestion } from '../api/bookmarkApi'
 
 const STORAGE_KEY = 'stackup:bookmark-drill-answers'
@@ -95,7 +96,10 @@ export function BookmarkDrill({
           {current.myAnswer && (
             <Panel title="그때 내 답변" body={current.myAnswer} tone="muted" />
           )}
-          {current.modelAnswer && <Panel title="모범 답안" body={current.modelAnswer} />}
+          {/* 모범 답안만 GFM 마크다운 계약 — 내 답변·코칭은 plain 유지. */}
+          {current.modelAnswer && (
+            <Panel title="모범 답안" body={current.modelAnswer} markdown />
+          )}
           {current.coachingComment && (
             <Panel title="코칭" body={current.coachingComment} tone="muted" />
           )}
@@ -124,22 +128,19 @@ function Panel({
   title,
   body,
   tone = 'strong',
+  markdown = false,
 }: {
   title: string
   body: string
   tone?: 'strong' | 'muted'
+  markdown?: boolean
 }) {
   return (
-    <div className="rounded-lg border border-border bg-surface px-3 py-2.5">
-      <Eyebrow className="mb-1">{title}</Eyebrow>
-      <p
-        className={[
-          'whitespace-pre-wrap text-body font-normal leading-relaxed',
-          tone === 'strong' ? 'text-fg-strong' : 'text-fg-muted',
-        ].join(' ')}
-      >
-        {body}
-      </p>
-    </div>
+    <ReviewBlock
+      label={<Eyebrow className="mb-1">{title}</Eyebrow>}
+      body={body}
+      tone={tone}
+      markdown={markdown}
+    />
   )
 }

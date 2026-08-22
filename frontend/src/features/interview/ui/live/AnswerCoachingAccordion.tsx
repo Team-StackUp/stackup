@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Message } from '@/domain/session'
+import { Markdown } from '@/shared/ui'
 
 // 답변 구조 채점값(FULL_STAR/PARTIAL_STAR/NONE) → 한국어 라벨.
 const STRUCTURE_LABEL: Record<string, string> = {
@@ -129,17 +130,15 @@ export function AnswerCoachingAccordion({ message }: { message: Message }) {
           {message.modelAnswer && (
             <div className="flex flex-col gap-1">
               <span className="text-caption text-fg-subtle">모범 답안</span>
-              <p className="whitespace-pre-wrap text-body text-fg-muted">
-                {message.modelAnswer}
-              </p>
+              {/* 모범 답안·리라이트는 GFM 마크다운 계약 필드 — 코드·리스트가 실제로 온다
+                  (docs/messaging.md §5.11). 나머지 코칭 텍스트는 plain text 계약. */}
+              <Markdown className="text-fg-muted">{message.modelAnswer}</Markdown>
             </div>
           )}
           {message.answerRewrite && (
             <div className="flex flex-col gap-1">
               <span className="text-caption text-fg-subtle">내 답변, 이렇게 고치면</span>
-              <p className="whitespace-pre-wrap text-body text-fg-muted">
-                {message.answerRewrite}
-              </p>
+              <Markdown className="text-fg-muted">{message.answerRewrite}</Markdown>
             </div>
           )}
         </div>

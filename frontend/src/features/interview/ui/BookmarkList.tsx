@@ -6,6 +6,7 @@ import { categoryLabel } from '../lib/categoryLabel'
 import { useBookmarks, useSetQuestionBookmark } from '../model/useBookmarks'
 import type { BookmarkedQuestion } from '../api/bookmarkApi'
 import { BookmarkDrill } from './BookmarkDrill'
+import { ReviewBlock } from './ReviewBlock'
 
 export function BookmarkList() {
   const { data = [], isPending, isError, refetch } = useBookmarks()
@@ -112,7 +113,10 @@ function BookmarkCard({ item }: { item: BookmarkedQuestion }) {
               {item.myAnswer && (
                 <Block title="그때 내 답변" body={item.myAnswer} tone="muted" />
               )}
-              {item.modelAnswer && <Block title="모범 답안" body={item.modelAnswer} />}
+              {/* 모범 답안만 GFM 마크다운 계약 — 내 답변(사용자 입력)·코칭(plain 계약)은 렌더 금지. */}
+              {item.modelAnswer && (
+                <Block title="모범 답안" body={item.modelAnswer} markdown />
+              )}
               {item.coachingComment && (
                 <Block title="코칭" body={item.coachingComment} tone="muted" />
               )}
@@ -133,23 +137,20 @@ function Block({
   title,
   body,
   tone = 'strong',
+  markdown = false,
 }: {
   title: string
   body: string
   tone?: 'strong' | 'muted'
+  markdown?: boolean
 }) {
   return (
-    <div className="rounded-lg border border-border bg-surface px-3 py-2.5">
-      <p className="text-caption font-medium text-fg-subtle">{title}</p>
-      <p
-        className={[
-          'mt-1 whitespace-pre-wrap text-body font-normal leading-relaxed',
-          tone === 'strong' ? 'text-fg-strong' : 'text-fg-muted',
-        ].join(' ')}
-      >
-        {body}
-      </p>
-    </div>
+    <ReviewBlock
+      label={<p className="text-caption font-medium text-fg-subtle">{title}</p>}
+      body={body}
+      tone={tone}
+      markdown={markdown}
+    />
   )
 }
 

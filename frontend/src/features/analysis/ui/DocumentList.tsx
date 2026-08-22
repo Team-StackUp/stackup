@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { EmptyState, ListSkeleton, Modal, StatusBadge, type StatusTone, QueryError } from '@/shared/ui'
+import { EmptyState, ListSkeleton, Markdown, Modal, StatusBadge, type StatusTone, QueryError } from '@/shared/ui'
 import { DOCUMENT_SOURCE_LABEL as SOURCE_LABEL } from '@/domain/rag'
 import type { DocumentFilter } from '../api/analysis'
 import { useDocuments } from '../model/useDocuments'
+import { useDocumentMarkdown } from '../model/useDocumentMarkdown'
 import type {
   AnalysisSourceType,
   AnalysisStatus,
@@ -170,6 +171,9 @@ function DocumentCard({
 }
 
 function DocumentDetail({ doc }: { doc: AnalyzedDocument }) {
+  // 분석 원문(마크다운)은 열람 요청 시에만 로드 — 모달 오픈만으로 presigned 발급을 낭비하지 않는다.
+  const [showRaw, setShowRaw] = useState(false)
+  const markdown = useDocumentMarkdown(doc.id, showRaw)
   return (
     <div className="space-y-5">
       {doc.summary ? (
@@ -198,6 +202,32 @@ function DocumentDetail({ doc }: { doc: AnalyzedDocument }) {
               </li>
             ))}
           </ul>
+        </section>
+      ) : null}
+
+      {doc.analysisStatus === 'ANALYZED' && doc.documentPath ? (
+        <section>
+          <button
+            type="button"
+            aria-expanded={showRaw}
+            onClick={() => setShowRaw((v) => !v)}
+            className="text-caption font-medium text-primary-fg hover:underline"
+          >
+            {showRaw ? '분석 원문 접기' : '분석 원문 보기'}
+          </button>
+          {showRaw &&
+            (markdown.isPending ? (
+              <p className="mt-2 text-caption text-fg-subtle">원문을 불러오는 중…</p>
+            ) : markdown.isError ? (
+              <QueryError
+                message="분석 원문을 불러오지 못했습니다."
+                onRetry={() => markdown.refetch()}
+              />
+            ) : (
+              <div className="mt-3 max-w-readable rounded-lg border border-border bg-surface-raised p-4">
+                <Markdown className="text-fg">{markdown.data ?? ''}</Markdown>
+              </div>
+            ))}
         </section>
       ) : null}
     </div>
