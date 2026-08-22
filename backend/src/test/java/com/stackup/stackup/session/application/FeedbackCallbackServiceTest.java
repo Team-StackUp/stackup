@@ -136,6 +136,61 @@ class FeedbackCallbackServiceTest {
         verify(feedbackRepository, never()).save(any(SessionFeedback.class));
     }
 
+    @Test
+    void apply_failedCallbackSkipsSaveAndPushesErrorSse() {
+        // AI 의 예상 못 한 예외로 생성 자체가 실패한 콜백 — 저장 없이 SSE ERROR 로만 알리고 멱등 마킹.
+        InterviewSession session = sessionFixture(50L);
+        FeedbackCallbackEnvelope env = envelope(50L, "fb-fail",
+            new FeedbackCallbackPayload(50L, null, null, null, null, null, null,
+                List.of(), List.of(), List.of(), List.of(), List.of(), null,
+                "FAILED", "UNEXPECTED", "boom: internal detail", true));
+        when(processedMessageRepository.existsById("fb-fail")).thenReturn(false);
+        when(sessionRepository.findById(50L)).thenReturn(Optional.of(session));
+        when(feedbackRepository.existsBySession_Id(50L)).thenReturn(false);
+
+        service.apply(env);
+
+        verify(feedbackRepository, never()).save(any(SessionFeedback.class));
+        ArgumentCaptor<Object> evCap = ArgumentCaptor.forClass(Object.class);
+        verify(events, atLeastOnce()).publishEvent(evCap.capture());
+        List<RealtimeNotifyEvent> errors = evCap.getAllValues().stream()
+            .filter(RealtimeNotifyEvent.class::isInstance)
+            .map(RealtimeNotifyEvent.class::cast)
+            .filter(e -> e.type() == SseEventType.ERROR)
+            .toList();
+        assertThat(errors).hasSize(2); // session + user 채널
+        assertThat(errors).extracting(RealtimeNotifyEvent::channel)
+            .containsExactlyInAnyOrder(RealtimeNotifyEvent.Channel.SESSION, RealtimeNotifyEvent.Channel.USER);
+        assertThat(errors).allSatisfy(e -> {
+            QuestionsCallbackService.SessionErrorNotice notice =
+                (QuestionsCallbackService.SessionErrorNotice) e.payload();
+            assertThat(notice.scope()).isEqualTo("FEEDBACK");
+            assertThat(notice.errorCode()).isEqualTo("FEEDBACK_GENERATION_FAILED");
+            // AI errorMessage 원문(내부 상세)은 클라이언트로 새지 않는다.
+            assertThat(notice.message()).doesNotContain("internal detail");
+            assertThat(notice.retriable()).isTrue();
+        });
+        verify(processedMessageRepository).save(any());
+    }
+
+    @Test
+    void apply_nullStatusTreatedAsOk() {
+        // 구버전 콜백(status 미명시)은 OK 로 취급 — 기존 저장 경로 회귀 방지.
+        InterviewSession session = sessionFixture(50L);
+        FeedbackCallbackEnvelope env = envelope(50L, "fb-legacy",
+            new FeedbackCallbackPayload(50L, 80.0, null, null, null, null, null,
+                List.of(), List.of(), List.of(), List.of(), List.of(), null,
+                null, null, null, null));
+        when(processedMessageRepository.existsById("fb-legacy")).thenReturn(false);
+        when(sessionRepository.findById(50L)).thenReturn(Optional.of(session));
+        when(feedbackRepository.existsBySession_Id(50L)).thenReturn(false);
+        when(feedbackRepository.save(any(SessionFeedback.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.apply(env);
+
+        verify(feedbackRepository).save(any(SessionFeedback.class));
+    }
+
     private FeedbackCallbackEnvelope envelope(Long sessionId, String messageId, FeedbackCallbackPayload payload) {
         return new FeedbackCallbackEnvelope(messageId, "callback.feedback", "1", "t", null, "ai", payload, null);
     }

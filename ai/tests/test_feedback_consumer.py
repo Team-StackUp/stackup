@@ -135,6 +135,7 @@ async def test_consumer_generates_feedback_and_publishes_callback():
     payload: FeedbackCallbackPayload = publisher.publish.await_args.kwargs["payload"]
     assert payload.session_id == 50
     assert payload.overall_score == 85.0
+    assert payload.status == "OK"  # 실패 신호 도입 후에도 성공 콜백은 OK(기본값)
     assert publisher.publish.await_args.kwargs["message_type"] == "callback.feedback"
 
 
@@ -165,6 +166,119 @@ async def test_consumer_publishes_degraded_feedback_when_panel_generation_fails(
     assert payload.technical_accuracy is None
     assert "일시적 오류" in payload.weaknesses_summary
     assert payload.panel_breakdown == []
+
+
+@pytest.mark.asyncio
+async def test_consumer_publishes_failed_callback_on_unexpected_error():
+    """보호 구간(패널·부가 평가) 밖의 예상 못 한 예외는 예전엔 reject→DLQ 로만 가서
+    Core 가 실패를 모른 채 세션이 '피드백 생성 중'에 무기한 멈췄다 — 이제 FAILED
+    콜백을 발행하고 ack 해야 한다."""
+    generator = _generator()
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+    core = MagicMock()
+
+    consumer = FeedbackConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.feedback",
+        core_client=core,
+        embedder=None,
+    )
+    consumer._build_rag_context = AsyncMock(side_effect=RuntimeError("rag down"))
+
+    await consumer.handle(_StubMessage(_envelope()))  # raise 없이 ack 경로
+
+    publisher.publish.assert_awaited_once()
+    payload: FeedbackCallbackPayload = publisher.publish.await_args.kwargs["payload"]
+    assert payload.session_id == 50
+    assert payload.status == "FAILED"
+    assert payload.error_code == "UNEXPECTED"
+    assert payload.error_message == "RuntimeError: rag down"
+    assert payload.retriable is True
+    assert payload.overall_score is None
+    assert publisher.publish.await_args.kwargs["message_type"] == "callback.feedback"
+
+
+@pytest.mark.asyncio
+async def test_consumer_marks_schema_error_not_retriable():
+    """TypeError(LLM 출력 스키마 불일치)는 재시도해도 똑같이 죽는다 —
+    questions/followup consumer 와 동일하게 retriable=false 로 분류."""
+    generator = _generator()
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+
+    consumer = FeedbackConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.feedback",
+        core_client=MagicMock(),
+        embedder=None,
+    )
+    consumer._build_rag_context = AsyncMock(side_effect=TypeError("bad schema"))
+
+    await consumer.handle(_StubMessage(_envelope()))
+
+    payload: FeedbackCallbackPayload = publisher.publish.await_args.kwargs["payload"]
+    assert payload.status == "FAILED"
+    assert payload.error_code == "GENERATION_SCHEMA_INVALID"
+    assert payload.retriable is False
+
+
+@pytest.mark.asyncio
+async def test_consumer_does_not_send_failed_when_success_publish_fails():
+    """생성이 성공했는데 OK 콜백 발행만 실패한 경우 — FAILED 로 오인 발행하지 않고
+    원 예외로 DLQ 에 보내 재처리 가능하게 남긴다(멱등 마킹도 되돌림)."""
+    generator = _generator()
+    publisher = MagicMock()
+    publisher.publish = AsyncMock(side_effect=ConnectionError("mq down"))
+    store = LruIdempotencyStore(max_size=10)
+
+    consumer = FeedbackConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=store,
+        callback_routing_key="callback.feedback",
+        core_client=MagicMock(),
+        embedder=None,
+    )
+
+    with pytest.raises(ConnectionError, match="mq down"):
+        await consumer.handle(_StubMessage(_envelope()))
+
+    publisher.publish.assert_awaited_once()  # FAILED 재발행 시도 없음
+    payload: FeedbackCallbackPayload = publisher.publish.await_args.kwargs["payload"]
+    assert payload.status == "OK"
+    # unmark 됐으므로 재주입 시 duplicate skip 되지 않는다.
+    assert store.is_seen_then_mark("fb-1") is False
+
+
+@pytest.mark.asyncio
+async def test_consumer_reraises_when_failed_callback_publish_also_fails():
+    """폴백(FAILED 콜백) 발행마저 실패하면 원 예외를 다시 던져 DLQ 로 보낸다(최후 안전망)."""
+    generator = _generator()
+    publisher = MagicMock()
+    publisher.publish = AsyncMock(side_effect=ConnectionError("mq down"))
+    core = MagicMock()
+    store = LruIdempotencyStore(max_size=10)
+
+    consumer = FeedbackConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=store,
+        callback_routing_key="callback.feedback",
+        core_client=core,
+        embedder=None,
+    )
+    consumer._build_rag_context = AsyncMock(side_effect=RuntimeError("rag down"))
+
+    with pytest.raises(RuntimeError, match="rag down"):
+        await consumer.handle(_StubMessage(_envelope()))
+
+    # unmark 됐으므로 DLQ 재주입 시 duplicate skip 으로 삼켜지지 않는다.
+    assert store.is_seen_then_mark("fb-1") is False
 
 
 @pytest.mark.asyncio

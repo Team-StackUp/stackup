@@ -3,6 +3,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from ai_server.model._config import camel_config
+from ai_server.model.messages.questions import GenerationStatus
 
 InterviewMode = Literal["PERSONALITY", "TECHNICAL", "INTEGRATED", "JOB_TAILORED"]
 
@@ -120,3 +121,8 @@ class FeedbackCallbackPayload(BaseModel):
     # 질문별 복기(답변 메시지별 모범 답안·리라이트·코칭). 비면 복기 없음.
     answer_coaching: list[AnswerCoachingItem] = Field(default_factory=list)
     report_s3_key: str | None = None
+    # 실패 신호 (questions/analysis 콜백과 동일 규약). status 미명시(구버전)는 OK 취급.
+    status: GenerationStatus = "OK"
+    error_code: str | None = None
+    error_message: str | None = None
+    retriable: bool | None = None

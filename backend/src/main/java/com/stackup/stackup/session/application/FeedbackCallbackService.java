@@ -70,6 +70,11 @@ public class FeedbackCallbackService {
             markProcessed(envelope.messageId());
             return;
         }
+        if (payload.isFailed()) {
+            applyFeedbackFailed(session, payload);
+            markProcessed(envelope.messageId());
+            return;
+        }
 
         SessionFeedback feedback = SessionFeedback.of(
             session,
@@ -127,6 +132,22 @@ public class FeedbackCallbackService {
 
     public record SessionFeedbackNotice(Long sessionId, Long feedbackId) {
     }
+
+    // AI 의 예상 못 한 예외로 피드백 생성 자체가 실패한 콜백. 저장할 결과가 없으므로 SSE ERROR 로만
+    // 알린다 — 콜백 없이 DLQ 로만 가던 시절의 "피드백 생성 중 무기한 대기"를 끊는 게 목적.
+    // errorMessage 는 str(exc) 원문(LLM 게이트웨이 주소·쿼터 상세 등)이라 서버 로그에만 남기고,
+    // 클라이언트에는 화이트리스트 코드로 만든 안내 문구만 보낸다(QuestionsCallbackService 와 동일 원칙).
+    private void applyFeedbackFailed(InterviewSession session, FeedbackCallbackPayload payload) {
+        log.warn("callback.feedback generation failed. sessionId={}, errorCode={}, retriable={}, message={}",
+            session.getId(), payload.errorCode(), payload.retriable(), payload.errorMessage());
+        QuestionsCallbackService.SessionErrorNotice notice = new QuestionsCallbackService.SessionErrorNotice(
+            session.getId(), "FEEDBACK", FEEDBACK_FAILED_CODE, FEEDBACK_FAILED_MESSAGE, payload.retriable());
+        events.publishEvent(RealtimeNotifyEvent.session(session.getId(), SseEventType.ERROR, notice));
+        events.publishEvent(RealtimeNotifyEvent.user(session.getUser().getId(), SseEventType.ERROR, notice));
+    }
+
+    private static final String FEEDBACK_FAILED_CODE = "FEEDBACK_GENERATION_FAILED";
+    private static final String FEEDBACK_FAILED_MESSAGE = "피드백 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.";
 
     private String keywordsToJson(java.util.List<String> keywords) {
         if (keywords == null) {

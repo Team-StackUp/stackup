@@ -124,127 +124,188 @@ class FeedbackConsumer:
                 )
                 return
 
-            req = envelope.payload
-            log.info(
-                "feedback.generate.start",
-                message_id=envelope.message_id,
-                session_id=req.session_id,
-                msg_count=len(req.messages),
-                ctx_count=len(req.context_document_ids),
-                trace_id=envelope.trace_id,
-            )
+            try:
+                payload = await self._process(envelope)
+            except Exception as exc:  # noqa: BLE001
+                await self._publish_failed(envelope, exc)
+                return
 
-            await self._emit_progress(
-                session_id=req.session_id,
-                phase="PREPARING",
-                message="면접 기록을 정리하고 있어요.",
-                trace_id=envelope.trace_id,
-            )
-            transcript = _build_transcript(req.messages)
-            score_basis = _build_score_basis(req.messages)
-            rag_context = await self._build_rag_context(req)
-            voice_analysis_summary = _build_voice_analysis_summary(
-                req.voice_analysis_summary
-            )
-
-            # 세부 평가 5개가 병렬(gather)이라 순차 phase 로는 진행을 표현할 수 없다 —
-            # 각 태스크 완료 시점에 completed/total 카운터로 emit 한다.
-            scoring_total = 5
-            scoring_done = 0
-
-            async def _tracked(coro: Awaitable[T]) -> T:
-                nonlocal scoring_done
-                task_result = await coro
-                scoring_done += 1
-                await self._emit_progress(
-                    session_id=req.session_id,
-                    phase="SCORING",
-                    message=f"세부 평가를 진행하고 있어요. ({scoring_done}/{scoring_total})",
-                    trace_id=envelope.trace_id,
-                    completed=scoring_done,
-                    total=scoring_total,
-                )
-                return task_result
-
-            await self._emit_progress(
-                session_id=req.session_id,
-                phase="SCORING",
-                message="평가위원들이 답변을 검토하고 있어요.",
-                trace_id=envelope.trace_id,
-                completed=0,
-                total=scoring_total,
-            )
-
-            # 종합 피드백 + 자기소개 첫인상 + 직무 적합도(직무 맞춤 모드)를 병렬 실행.
-            # 첫인상·직무 적합도는 종합 점수(overall)에 미포함 — generator 가 모른 채 계산한 뒤 표시용으로 덧붙인다.
-            (
-                result,
-                self_intro_item,
-                job_fit_items,
-                personality_item,
-                answer_coaching,
-            ) = await asyncio.gather(
-                _tracked(
-                    self._generate_panel(
-                        job_category=req.job_category,
-                        mode=req.mode,
-                        total_question_count=req.total_question_count,
-                        end_reason=req.end_reason,
-                        transcript=transcript,
-                        score_basis=score_basis,
-                        rag_context=rag_context,
-                        voice_analysis_summary=voice_analysis_summary,
-                        domain_question_counts=req.domain_question_counts,
-                        session_id=req.session_id,
-                    )
-                ),
-                _tracked(self._evaluate_self_intro(req, voice_analysis_summary)),
-                _tracked(self._evaluate_job_fit(req, transcript, rag_context)),
-                _tracked(self._evaluate_personality(req)),
-                _tracked(self._coach_answers(req)),
-            )
-            # 빈 평가위원 항목(점수·내용 모두 없음)은 표시하지 않는다 — LLM 부분 응답이 빈 패널로 새는 것 방지.
-            extras = [self_intro_item, *job_fit_items, personality_item]
-            result.panel_breakdown.extend(
-                e for e in extras if e is not None and _panel_has_content(e)
-            )
-
-            await self._emit_progress(
-                session_id=req.session_id,
-                phase="FINALIZING",
-                message="피드백 리포트를 정리하고 있어요.",
-                trace_id=envelope.trace_id,
-            )
-            payload = FeedbackCallbackPayload(
-                session_id=req.session_id,
-                overall_score=result.overall_score,
-                technical_accuracy=result.technical_accuracy,
-                logic_score=result.logic_score,
-                communication_score=result.communication_score,
-                strengths_summary=result.strengths_summary,
-                weaknesses_summary=result.weaknesses_summary,
-                improvement_keywords=result.improvement_keywords,
-                study_plan=result.study_plan,
-                highlights=result.highlights,
-                panel_breakdown=result.panel_breakdown,
-                answer_coaching=answer_coaching,
-                report_s3_key=None,
-            )
-
-            await self._publisher.publish(
-                routing_key=self._callback_routing_key,
-                message_type="callback.feedback",
-                payload=payload,
-                trace_id=envelope.trace_id,
-                correlation_id=envelope.message_id,
-                context=envelope.context,
-            )
+            # 성공 payload 의 발행 실패는 생성 실패가 아니다 — FAILED 콜백으로 오인 발행하지
+            # 않고 원 예외로 DLQ 에 보내 재처리 가능하게 남긴다(실패 신호 도입 전과 동일 동작).
+            try:
+                await self._publish_callback(envelope, payload)
+            except Exception:
+                self._idempotency.unmark(envelope.message_id)
+                raise
             log.info(
                 "feedback.generate.done",
                 message_id=envelope.message_id,
+                session_id=envelope.payload.session_id,
+                trace_id=envelope.trace_id,
+            )
+
+    async def _process(
+        self, envelope: Envelope[GenerateFeedbackRequest]
+    ) -> FeedbackCallbackPayload:
+        req = envelope.payload
+        log.info(
+            "feedback.generate.start",
+            message_id=envelope.message_id,
+            session_id=req.session_id,
+            msg_count=len(req.messages),
+            ctx_count=len(req.context_document_ids),
+            trace_id=envelope.trace_id,
+        )
+
+        await self._emit_progress(
+            session_id=req.session_id,
+            phase="PREPARING",
+            message="면접 기록을 정리하고 있어요.",
+            trace_id=envelope.trace_id,
+        )
+        transcript = _build_transcript(req.messages)
+        score_basis = _build_score_basis(req.messages)
+        rag_context = await self._build_rag_context(req)
+        voice_analysis_summary = _build_voice_analysis_summary(
+            req.voice_analysis_summary
+        )
+
+        # 세부 평가 5개가 병렬(gather)이라 순차 phase 로는 진행을 표현할 수 없다 —
+        # 각 태스크 완료 시점에 completed/total 카운터로 emit 한다.
+        scoring_total = 5
+        scoring_done = 0
+
+        async def _tracked(coro: Awaitable[T]) -> T:
+            nonlocal scoring_done
+            task_result = await coro
+            scoring_done += 1
+            await self._emit_progress(
+                session_id=req.session_id,
+                phase="SCORING",
+                message=f"세부 평가를 진행하고 있어요. ({scoring_done}/{scoring_total})",
+                trace_id=envelope.trace_id,
+                completed=scoring_done,
+                total=scoring_total,
+            )
+            return task_result
+
+        await self._emit_progress(
+            session_id=req.session_id,
+            phase="SCORING",
+            message="평가위원들이 답변을 검토하고 있어요.",
+            trace_id=envelope.trace_id,
+            completed=0,
+            total=scoring_total,
+        )
+
+        # 종합 피드백 + 자기소개 첫인상 + 직무 적합도(직무 맞춤 모드)를 병렬 실행.
+        # 첫인상·직무 적합도는 종합 점수(overall)에 미포함 — generator 가 모른 채 계산한 뒤 표시용으로 덧붙인다.
+        (
+            result,
+            self_intro_item,
+            job_fit_items,
+            personality_item,
+            answer_coaching,
+        ) = await asyncio.gather(
+            _tracked(
+                self._generate_panel(
+                    job_category=req.job_category,
+                    mode=req.mode,
+                    total_question_count=req.total_question_count,
+                    end_reason=req.end_reason,
+                    transcript=transcript,
+                    score_basis=score_basis,
+                    rag_context=rag_context,
+                    voice_analysis_summary=voice_analysis_summary,
+                    domain_question_counts=req.domain_question_counts,
+                    session_id=req.session_id,
+                )
+            ),
+            _tracked(self._evaluate_self_intro(req, voice_analysis_summary)),
+            _tracked(self._evaluate_job_fit(req, transcript, rag_context)),
+            _tracked(self._evaluate_personality(req)),
+            _tracked(self._coach_answers(req)),
+        )
+        # 빈 평가위원 항목(점수·내용 모두 없음)은 표시하지 않는다 — LLM 부분 응답이 빈 패널로 새는 것 방지.
+        extras = [self_intro_item, *job_fit_items, personality_item]
+        result.panel_breakdown.extend(
+            e for e in extras if e is not None and _panel_has_content(e)
+        )
+
+        await self._emit_progress(
+            session_id=req.session_id,
+            phase="FINALIZING",
+            message="피드백 리포트를 정리하고 있어요.",
+            trace_id=envelope.trace_id,
+        )
+        payload = FeedbackCallbackPayload(
+            session_id=req.session_id,
+            overall_score=result.overall_score,
+            technical_accuracy=result.technical_accuracy,
+            logic_score=result.logic_score,
+            communication_score=result.communication_score,
+            strengths_summary=result.strengths_summary,
+            weaknesses_summary=result.weaknesses_summary,
+            improvement_keywords=result.improvement_keywords,
+            study_plan=result.study_plan,
+            highlights=result.highlights,
+            panel_breakdown=result.panel_breakdown,
+            answer_coaching=answer_coaching,
+            report_s3_key=None,
+        )
+
+        return payload
+
+    async def _publish_callback(
+        self,
+        envelope: Envelope[GenerateFeedbackRequest],
+        payload: FeedbackCallbackPayload,
+    ) -> None:
+        await self._publisher.publish(
+            routing_key=self._callback_routing_key,
+            message_type="callback.feedback",
+            payload=payload,
+            trace_id=envelope.trace_id,
+            correlation_id=envelope.message_id,
+            context=envelope.context,
+        )
+
+    async def _publish_failed(
+        self, envelope: Envelope[GenerateFeedbackRequest], exc: Exception
+    ) -> None:
+        """생성 중 예상 못 한 예외의 실패 신호. 콜백 없이 DLQ 로만 격리되면 Core 가 실패를
+        모른 채 세션이 '피드백 생성 중'에 무기한 멈춘다 — 항상 FAILED 콜백을 발행하고
+        ack 한다. 폴백 발행마저 실패하면 멱등 마킹을 되돌리고 원 예외를 다시 던져
+        DLQ 로 보낸다(최후 안전망 — 재주입 시 duplicate skip 으로 삼켜지지 않게)."""
+        req = envelope.payload
+        log.exception(
+            "feedback.generate.unexpected",
+            message_id=envelope.message_id,
+            session_id=req.session_id,
+            trace_id=envelope.trace_id,
+        )
+        # questions/followup consumer 와 동일 분류 — TypeError(LLM 출력 스키마 불일치)는
+        # 같은 입력으로 재시도해도 똑같이 죽는다 → retriable=false.
+        is_schema = isinstance(exc, TypeError)
+        payload = FeedbackCallbackPayload(
+            session_id=req.session_id,
+            status="FAILED",
+            error_code="GENERATION_SCHEMA_INVALID" if is_schema else "UNEXPECTED",
+            # str(exc) 는 LLM 응답 본문·입력 repr 까지 담길 수 있다 — 로그·와이어 크기 상한.
+            error_message=f"{type(exc).__name__}: {exc}"[:500],
+            retriable=not is_schema,
+        )
+        try:
+            await self._publish_callback(envelope, payload)
+        except Exception:  # noqa: BLE001
+            log.exception(
+                "feedback.failed_callback.publish_failed",
+                message_id=envelope.message_id,
                 session_id=req.session_id,
                 trace_id=envelope.trace_id,
             )
+            self._idempotency.unmark(envelope.message_id)
+            raise exc
 
     async def _emit_progress(
         self,

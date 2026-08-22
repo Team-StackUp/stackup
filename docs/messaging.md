@@ -504,6 +504,30 @@
 }
 ```
 
+**실패 시** (§5.5/§5.7 과 동일 규약 — `status` 미명시(구버전)는 OK 로 취급):
+
+```json
+{
+  "messageType": "callback.feedback",
+  "payload": {
+    "sessionId": 99,
+    "status": "FAILED",
+    "errorCode": "UNEXPECTED",
+    "errorMessage": "...",
+    "retriable": true
+  }
+}
+```
+
+- 피드백 생성의 부분 실패(패널·부가 평가위원)는 AI 서버 내부에서 폴백(빈 결과/생략)으로 흡수되어
+  성공 콜백으로 나간다 — FAILED 는 그 방어망 밖의 **예상 못 한 예외** 전용이다. `errorCode` 는
+  questions/followup 과 동일 분류: `TypeError`(LLM 출력 스키마 불일치)면 `GENERATION_SCHEMA_INVALID`
+  + `retriable: false`, 그 외는 `UNEXPECTED` + `retriable: true`.
+- 생성이 성공했는데 **성공 콜백 발행만** 실패한 경우는 FAILED 로 오인 발행하지 않는다 — 원 예외로
+  DLQ 에 보내 재처리 가능하게 남긴다(멱등 마킹도 되돌림).
+- Core 는 FAILED 수신 시 피드백을 저장하지 않고 SSE `ERROR`(scope=FEEDBACK) 로 세션·유저 채널에
+  알린다. `errorMessage` 원문은 서버 로그에만 남긴다(클라이언트 미노출).
+
 ### 5.12 `realtime.session.notify`
 ```json
 {
@@ -602,6 +626,7 @@ placeholder 를 `FAILED` 로 확정해 클라이언트의 턴이 잠기지 않�
 | 멱등 충돌 (이미 처리된 messageId) | ACK + 처리 skip (`processed_messages`) |
 | 영구 분석 실패 (PDF 손상 등) | ACK + 실패 callback 발행 (`status: FAILED`, `retriable: false`) — DLQ 미사용 |
 | 질문 풀/꼬리질문 생성 실패 (LLM 게이트웨이 장애, 스키마 위반 등) | ACK + 실패 callback 발행 (`status: FAILED`) — 세션이 "생성 중"에 무기한 멈추지 않게 항상 콜백을 보낸다. DLQ 미사용 |
+| 피드백 생성 중 예상 못 한 예외 | ACK + 실패 callback 발행 (`status: FAILED`, `errorCode: UNEXPECTED`\|`GENERATION_SCHEMA_INVALID`) — 세션이 "피드백 생성 중"에 무기한 멈추지 않게 항상 콜백을 보낸다. 폴백 발행마저 실패하면 멱등 마킹 해제 후 원 예외로 DLQ (최후 안전망). 성공 콜백 발행 실패는 FAILED 오인 없이 DLQ (재처리 가능) |
 
 ### Core (Spring AMQP)
 - `RabbitMqConfig#rabbitListenerContainerFactory` 가 stateless retry interceptor (`RetryInterceptorBuilder.stateless()`) 를 attach.
@@ -612,6 +637,9 @@ placeholder 를 `FAILED` 로 확정해 클라이언트의 턴이 잠기지 않�
 - `questions_consumer`/`followup_consumer` 도 동일 패턴 — 생성 호출을 catch 해 항상 콜백을 발행한다
   (`QuestionPoolCallbackPayload`/`FollowupCallbackPayload` 의 `status: FAILED`). Core 가 이미 선INSERT 한
   꼬리질문 placeholder 가 영원히 "생성 중"으로 남는 것을 방지.
+- `feedback_consumer` 는 envelope 파싱·멱등 체크 이후 전 구간을 catch 해 예상 못 한 예외 시
+  `FeedbackCallbackPayload` 의 `status: FAILED` 콜백을 발행하고 ACK 한다. 폴백 발행마저 실패하면
+  원 예외를 re-raise → DLQ (최후 안전망).
 - 그 외 예외는 re-raise → nack(requeue=false) → DLX 로 routing.
 - 일시 장애의 in-process 재시도는 미구현 (Phase 2 — 아래 Quorum Queue 도입과 함께).
 
