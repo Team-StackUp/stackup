@@ -205,6 +205,10 @@
 }
 ```
 
+- **포맷 계약 (A5)**: `documentPath` 가 가리키는 분석 산출물은 **GFM 마크다운**(프롬프트가 `##`
+  헤딩 구조를 지시 — 프론트는 상세 모달 "분석 원문 보기"에서 `shared/ui/Markdown` 으로 렌더).
+  `summary` 는 마크다운 서식 없는 일반 텍스트(2~4문장).
+
 ### 5.5 `callback.analysis` (실패)
 ```json
 {
@@ -524,6 +528,11 @@
 }
 ```
 
+- **텍스트 필드 포맷 계약 (A5)**: `strengthsSummary`·`weaknessesSummary`·`studyPlan[]`·`highlights[]`·
+  `panelBreakdown[].detail`·`answerCoaching[].coachingComment` 는 **마크다운 서식 기호 없는 일반
+  텍스트**다(프롬프트로 강제 — highlights 는 원문 부분 문자열 매칭에 쓰이므로 특히). 예외:
+  `answerCoaching[].modelAnswer`/`answerRewrite` 는 **GFM 마크다운 허용** — 프론트가
+  `shared/ui/Markdown`(sanitize 포함)으로 렌더한다.
 - 피드백 생성의 부분 실패(패널·부가 평가위원)는 AI 서버 내부에서 폴백(빈 결과/생략)으로 흡수되어
   성공 콜백으로 나간다 — FAILED 는 그 방어망 밖의 **예상 못 한 예외** 전용이다. `errorCode` 는
   questions/followup 과 동일 분류: `TypeError`(LLM 출력 스키마 불일치)면 `GENERATION_SCHEMA_INVALID`
