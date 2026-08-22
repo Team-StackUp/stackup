@@ -526,7 +526,9 @@
 - 생성이 성공했는데 **성공 콜백 발행만** 실패한 경우는 FAILED 로 오인 발행하지 않는다 — 원 예외로
   DLQ 에 보내 재처리 가능하게 남긴다(멱등 마킹도 되돌림).
 - Core 는 FAILED 수신 시 피드백을 저장하지 않고 SSE `ERROR`(scope=FEEDBACK) 로 세션·유저 채널에
-  알린다. `errorMessage` 원문은 서버 로그에만 남긴다(클라이언트 미노출).
+  알리며, **실패 마커를 영속화**한다(`interview_sessions.feedback_failed_at`/`feedback_fail_retriable`,
+  V29) — SSE 를 놓친 클라이언트도 GET 피드백의 404 `FEEDBACK_GENERATION_FAILED` 로 실패를 구분한다.
+  마커는 성공 콜백 도착·재생성 요청 시 클리어. `errorMessage` 원문은 서버 로그에만 남긴다(클라이언트 미노출).
 
 ### 5.12 `realtime.session.notify`
 ```json

@@ -460,7 +460,14 @@ docker compose up -d
   (`OK`|`FAILED`)·`errorCode`·`errorMessage`·`retriable` 추가(구버전 13-arg 생성자는 `status=OK`
   위임 오버로드로 하위호환). `FeedbackCallbackService.apply` 가 저장 전에 `isFailed()` 를 확인:
   실패면 저장 없이 `SseEventType.ERROR`(`SessionErrorNotice`, scope=`FEEDBACK`,
-  code=`FEEDBACK_GENERATION_FAILED`)를 세션/유저 채널에 발행하고 멱등 마킹만 한다. AI 의
+  code=`FEEDBACK_GENERATION_FAILED`)를 세션/유저 채널에 발행하고, **실패 마커를 영속화**한다
+  (`InterviewSession.markFeedbackFailed` — `feedback_failed_at`/`feedback_fail_retriable`, V29).
+  SSE 는 휘발성이라 그 순간 미접속 클라이언트를 위해 `SessionFeedbackQueryService.get` 이
+  피드백 없음 + 마커 존재 시 404 `FEEDBACK_GENERATION_FAILED`(details.retriable)를 반환해
+  "생성 중"(FEEDBACK_NOT_READY)과 구분한다(`ownedFeedback` 공유 경로도 동일 분기). 마커는
+  성공 콜백·재생성 요청에서 클리어하며, 재생성의 `generate.feedback` 발행은
+  `FeedbackRegenerateRequestedEvent` → AFTER_COMMIT 리스너로 — 마커 clear 커밋 전에 발행되는
+  역전(§"메시지 발행은 commit 이후" 규칙)을 막는다. AI 의
   `errorMessage` 원문은 서버 로그에만 남기고 클라이언트에는 화이트리스트 문구만 보낸다
   (QuestionsCallbackService 와 동일 원칙). AI 쪽 발행은 [`ai/CLAUDE.md`](../ai/CLAUDE.md) 참고.
 - **문장 단위 TTS 세그먼트 프록시 본 구현 (Part B)**: `InterviewMessageService.streamAudioSegment` + `GET /api/sessions/{sid}/messages/{mid}/audio/segments/{seq}?ext=`. AI 가 휘발성으로 쓴 라이브 세그먼트를 규칙(`interview/tts/{sid}/{mid}/seg-{seq}.{ext}`)으로 재구성해 프록시(DB 미기록). 소유권+ext 화이트리스트+seq>=0 검증으로 임의 키 노출 차단.

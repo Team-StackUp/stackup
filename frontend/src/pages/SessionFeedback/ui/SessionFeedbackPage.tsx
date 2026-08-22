@@ -67,27 +67,20 @@ export default function SessionFeedbackPage() {
         {!data && failure && (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 py-16 text-center">
             <p className="text-body text-fg">{failure.message}</p>
-            {failure.retriable === false ? (
-              // 서버가 재시도 무의미(retriable=false)로 명시한 실패 — 재생성 대신 새 면접을 안내.
-              <p className="text-caption text-fg-muted">
-                같은 오류가 반복될 수 있어 재생성이 어렵습니다. 상단 버튼으로 다시 도전해 보세요.
-              </p>
-            ) : (
-              <>
-                <p className="text-caption text-fg-muted">
-                  피드백 생성이 실패해 대기를 중단했어요. 다시 생성을 요청해 보세요.
-                </p>
-                <Button
-                  onClick={() => {
-                    resetFailure()
-                    regenerate.mutate()
-                  }}
-                  disabled={regenerate.isPending}
-                >
-                  {regenerate.isPending ? '요청 중…' : '피드백 다시 생성'}
-                </Button>
-              </>
-            )}
+            {/* 마커가 영속이라 버튼을 숨기면 이 세션의 피드백은 UI 로 영원히 도달 불가가 된다 —
+                retriable=false 여도 LLM 생성은 비결정적이고 서버도 재생성을 수락하므로 버튼은 유지,
+                문구만 기대치를 낮춘다. 실패 해제는 재생성 성공(resetQueries)이 담당. */}
+            <p className="text-caption text-fg-muted">
+              {failure.retriable === false
+                ? '같은 오류가 반복될 수 있지만, 다시 생성을 시도해 볼 수 있어요.'
+                : '피드백 생성이 실패해 대기를 중단했어요. 다시 생성을 요청해 보세요.'}
+            </p>
+            <Button
+              onClick={() => regenerate.mutate(undefined, { onSuccess: () => resetFailure() })}
+              disabled={regenerate.isPending}
+            >
+              {regenerate.isPending ? '요청 중…' : '피드백 다시 생성'}
+            </Button>
           </div>
         )}
 
@@ -102,8 +95,10 @@ export default function SessionFeedbackPage() {
               <p className="text-caption text-fg-muted">
                 생성 요청이 유실됐을 수 있습니다. 다시 생성을 요청해 보세요.
               </p>
+              {/* 재생성 직후 뒤늦게 도착하는 SSE ERROR(이전 시도의 실패)가 남지 않도록
+                  여기서도 성공 시 failure 를 함께 걷는다. */}
               <Button
-                onClick={() => regenerate.mutate()}
+                onClick={() => regenerate.mutate(undefined, { onSuccess: () => resetFailure() })}
                 disabled={regenerate.isPending}
               >
                 {regenerate.isPending ? '요청 중…' : '피드백 다시 생성'}

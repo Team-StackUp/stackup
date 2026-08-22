@@ -238,7 +238,7 @@ SEED 팔레트 블록에는 `prefers-color-scheme` 미디어쿼리가 없어서,
 - **SSE + WebSocket 병행** — 작업 상태 푸시(분석·피드백)는 SSE, 라이브 면접 메시지는 WS(`features/interview/model/useInterviewSocket.ts`). (루트 CLAUDE.md §8 과 동일)
 - 구현: `shared/hooks/useEventStream.ts` — 자동 재연결(지수 백오프) + 연결 상태 반환. 워크스페이스는 단절(closed) 시 배너 표시 + 목록 쿼리 5s 폴백 폴링(`useAnalysisFallbackPolling`)
 - 생성 진행 문구(휘발성, B2): 질문 풀 대기 화면은 WS `QUESTION_POOL_PROGRESS`(`interviewEvent.ts` → `InterviewPreparing`), 피드백 대기 스켈레톤은 세션 SSE `FEEDBACK_PROGRESS`(`useFeedbackLive` → `FeedbackReportSkeleton`). 둘 다 로컬 state 로만 표시하고 이벤트 미수신 시 기본 안내 문구로 폴백 — 워크스페이스의 `useAnalysisProgress` TTL 스토어(90s, user 채널 전용)는 통과하지 않는다
-- 생성 실패 신호: 피드백 대기 화면은 세션 SSE `ERROR`(scope=`FEEDBACK`, `SessionErrorNotice`)도 소비(`useFeedbackLive.failure`) — 수신 즉시 폴링 예산(≈2분) 소진을 기다리지 않고 재생성 복구 UI 로 전환, `retriable=false` 면 재생성 대신 새 면접 안내. scope 가 다른 ERROR(꼬리질문 실패)는 무시
+- 생성 실패 신호: 피드백 대기 화면은 세션 SSE `ERROR`(scope=`FEEDBACK`, `SessionErrorNotice`)도 소비(`useFeedbackLive.failure`) — 수신 즉시 폴링 예산(≈2분) 소진을 기다리지 않고 재생성 복구 UI 로 전환. scope 가 다른 ERROR(꼬리질문 실패)는 무시. SSE 를 놓친 새로고침·재접속 클라이언트는 REST 로 수렴 — GET 피드백의 404 `FEEDBACK_GENERATION_FAILED`(영속 마커, `isFeedbackFailed`)를 같은 `failure` 로 파생해 폴링을 즉시 중단한다. 마커가 영속이라 `retriable=false` 여도 재생성 버튼은 유지하고 문구만 기대치를 낮춘다(숨기면 해당 세션 피드백이 UI 로 영원히 도달 불가). 실패 해제는 재생성 성공의 `resetQueries` 하나로 일원화(쿼리 재로딩 시 SSE 실패 상태도 함께 걷힘), 실패 settle 후에도 `refetchOnWindowFocus` 로 타 기기 재생성을 흡수. `SESSION_NOT_FOUND`(404)는 pending 오분류에서 제외
 - 미디어 스트림(음성/영상)만 WebRTC: `features/interview/lib/media/`
 - 이벤트 스펙: [`/docs/event-stream.md`](../docs/event-stream.md)
 

@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEventStream } from '@/shared/hooks'
 import type { StreamConnectionStatus } from '@/shared/hooks'
 import { getFeedback } from '../api/feedbackApi'
-import { feedbackKeys, isFeedbackPending } from './useFeedback'
+import { feedbackKeys, isFeedbackFailed, isFeedbackPending } from './useFeedback'
 
 // AI 피드백 생성 진행 문구(FEEDBACK_PROGRESS, 휘발성) — 스켈레톤 캡션에 표시.
 export type FeedbackProgress = {
@@ -41,6 +41,9 @@ export function useFeedbackLive(sessionId: number, getToken: () => Promise<strin
     retry: (count, err) =>
       isFeedbackPending(err) && count < (statusRef.current === 'open' ? 8 : 40),
     retryDelay: () => (statusRef.current === 'open' ? 15_000 : 3_000),
+    // 실패로 settle 된 뒤에도 창 포커스 시 재조회 — 다른 탭/기기에서 재생성돼 마커가 걷혔는데
+    // 이 탭만 stale 실패 화면에 고정되는 것을 완화 (SSE 단절 창에서 READY 를 놓친 경우 포함).
+    refetchOnWindowFocus: true,
   })
 
   const onReady = useCallback(() => {
@@ -63,21 +66,36 @@ export function useFeedbackLive(sessionId: number, getToken: () => Promise<strin
     })
   }, [])
 
-  // 생성 실패 신호. 세션 채널 ERROR 는 꼬리질문(FOLLOWUP) 실패도 흐르므로 scope 로 거른다.
+  // 생성 실패 신호(SSE 경로). 세션 채널 ERROR 는 꼬리질문(FOLLOWUP) 실패도 흐르므로 scope 로 거른다.
   // 데이터가 이미 도착했으면 늦은 실패 이벤트는 소비부(!data 가드)에서 무시된다.
-  const [failure, setFailure] = useState<FeedbackFailure | null>(null)
+  const [sseFailure, setSseFailure] = useState<FeedbackFailure | null>(null)
   const onError = useCallback((raw: unknown) => {
     const data = (
       raw as StreamData<{ scope?: string; message?: string; retriable?: boolean }> | null
     )?.data
     if (!data || data.scope !== 'FEEDBACK' || typeof data.message !== 'string') return
-    setFailure({
+    setSseFailure({
       message: data.message,
       retriable: typeof data.retriable === 'boolean' ? data.retriable : null,
     })
   }, [])
-  // 재생성 요청 시 페이지가 호출 — 대기(스켈레톤) 상태로 되돌린다.
-  const resetFailure = useCallback(() => setFailure(null), [])
+  // 재생성 POST "성공" 시점에 페이지가 호출(mutate 의 per-call onSuccess) — 성공 전에 미리
+  // 지우지 않으므로 POST 가 실패하면 실패 화면이 그대로 남는다(정확한 상태). REST 경로의
+  // restFailure 는 재생성 성공의 resetQueries 가 query.error 를 지워 함께 해소된다.
+  const resetFailure = useCallback(() => setSseFailure(null), [])
+
+  // 생성 실패 신호(REST 경로, F3 영속 마커). SSE ERROR 를 놓친 새로고침·재접속 클라이언트도
+  // GET 피드백의 FEEDBACK_GENERATION_FAILED 로 같은 복구 UI 에 수렴한다.
+  const restFailure: FeedbackFailure | null = isFeedbackFailed(query.error)
+    ? {
+        message: query.error.message,
+        retriable:
+          typeof query.error.details?.retriable === 'boolean'
+            ? query.error.details.retriable
+            : null,
+      }
+    : null
+  const failure = sseFailure ?? restFailure
 
   // 피드백이 도착하면 스트림을 닫는다 (path: null).
   const streamStatus = useEventStream({

@@ -171,6 +171,10 @@ CREATE TABLE interview_sessions (
     target_job_description TEXT,
     resumed_at             TIMESTAMPTZ,               -- 이어하기로 재개한 시각. 시간 한도를 이 값 기준으로 다시 잰다(V27)
     focus_areas            JSONB,                     -- 약점 집중 재도전의 겨냥 축 배열(TECHNICAL|LOGIC|COMMUNICATION). 일반 면접은 NULL
+    -- 피드백 생성 실패 마커(V29). callback.feedback FAILED 수신 시 기록, 성공 콜백·재생성 요청 시 클리어.
+    -- 새로고침한 클라이언트가 GET 피드백에서 "생성 중"(FEEDBACK_NOT_READY)과 "실패"(FEEDBACK_GENERATION_FAILED)를 구분하는 근거.
+    feedback_failed_at     TIMESTAMPTZ,
+    feedback_fail_retriable BOOLEAN,
     status                VARCHAR(20)  NOT NULL DEFAULT 'READY'
                           CHECK (status IN ('READY','IN_PROGRESS','INTERRUPTED','COMPLETED','CANCELLED')),
     total_question_count  INT          DEFAULT 0,

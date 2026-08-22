@@ -2,14 +2,17 @@ package com.stackup.stackup.session.application;
 
 import com.stackup.stackup.common.exception.ApiErrorCode;
 import com.stackup.stackup.common.exception.DomainException;
+import com.stackup.stackup.session.application.event.FeedbackRegenerateRequestedEvent;
 import com.stackup.stackup.session.application.dto.FeedbackResult;
 import com.stackup.stackup.session.domain.InterviewSession;
 import com.stackup.stackup.session.domain.InterviewSessionRepository;
 import com.stackup.stackup.session.domain.SessionFeedback;
 import com.stackup.stackup.session.domain.SessionFeedbackRepository;
 import com.stackup.stackup.session.domain.SessionStatus;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,14 +23,26 @@ public class SessionFeedbackQueryService {
 
     private final InterviewSessionRepository sessionRepository;
     private final SessionFeedbackRepository feedbackRepository;
-    private final SessionFeedbackRequester feedbackRequester;
+    private final ApplicationEventPublisher events;
 
     public FeedbackResult get(Long userId, Long sessionId) {
-        sessionRepository.findByIdAndUser_IdAndDeletedFalse(sessionId, userId)
+        InterviewSession session = sessionRepository.findByIdAndUser_IdAndDeletedFalse(sessionId, userId)
             .orElseThrow(() -> new DomainException(ApiErrorCode.SESSION_NOT_FOUND));
         SessionFeedback feedback = feedbackRepository.findBySession_Id(sessionId)
-            .orElseThrow(() -> new DomainException(ApiErrorCode.FEEDBACK_NOT_READY));
+            .orElseThrow(() -> notReadyOrFailed(session));
         return FeedbackResult.of(feedback);
+    }
+
+    // 피드백 없음의 두 얼굴 구분: 실패 마커(V29)가 있으면 "생성 중"이 아니라 "실패"다 —
+    // SSE ERROR 를 놓친(새로고침·재접속) 클라이언트도 폴링 즉시 복구 UI 로 전환할 수 있게.
+    private DomainException notReadyOrFailed(InterviewSession session) {
+        if (session.hasFeedbackFailure()) {
+            Map<String, Object> details = session.getFeedbackFailRetriable() != null
+                ? Map.of("retriable", session.getFeedbackFailRetriable())
+                : Map.of();
+            return new DomainException(ApiErrorCode.FEEDBACK_GENERATION_FAILED, details);
+        }
+        return new DomainException(ApiErrorCode.FEEDBACK_NOT_READY);
     }
 
     // 공유 활성화: 소유자 검증 후 토큰 보장(없으면 발급). 멱등 — 현재 토큰 반환.
@@ -63,13 +78,18 @@ public class SessionFeedbackQueryService {
         if (feedbackRepository.existsBySession_Id(sessionId)) {
             throw new DomainException(ApiErrorCode.FEEDBACK_ALREADY_EXISTS);
         }
-        feedbackRequester.publishGenerateFeedback(userId, sessionId, "REGENERATE");
+        // 재생성 요청 = 새 시도 시작 — 실패 마커를 지워 다른 탭/폴링도 "생성 중"으로 복귀시킨다.
+        session.clearFeedbackFailure();
+        // 발행은 commit 이후(AFTER_COMMIT 리스너) — 마커 clear 가 커밋되기 전에 새 시도의
+        // 콜백이 도착하거나, 발행만 되고 커밋이 실패하는 역전을 막는다 (onSessionEnded 와 동일 규칙).
+        events.publishEvent(new FeedbackRegenerateRequestedEvent(userId, sessionId));
     }
 
     private SessionFeedback ownedFeedback(Long userId, Long sessionId) {
-        sessionRepository.findByIdAndUser_IdAndDeletedFalse(sessionId, userId)
+        InterviewSession session = sessionRepository.findByIdAndUser_IdAndDeletedFalse(sessionId, userId)
             .orElseThrow(() -> new DomainException(ApiErrorCode.SESSION_NOT_FOUND));
+        // 실패 마커가 있으면 여기서도 "생성 중"이 아니라 "실패"로 응답 — GET 과 같은 계약.
         return feedbackRepository.findBySession_Id(sessionId)
-            .orElseThrow(() -> new DomainException(ApiErrorCode.FEEDBACK_NOT_READY));
+            .orElseThrow(() -> notReadyOrFailed(session));
     }
 }

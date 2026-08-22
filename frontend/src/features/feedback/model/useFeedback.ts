@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { isApiError } from '@/shared/api'
+import type { ApiError } from '@/shared/api'
 import { toast } from '@/shared/ui'
 import {
   disableShare,
@@ -14,10 +15,22 @@ export const feedbackKeys = {
   detail: (sessionId: number) => [...feedbackKeys.all, sessionId] as const,
 }
 
+// 생성 실패 마커(interview_sessions.feedback_failed_at) — 서버가 "생성 중"이 아니라
+// "실패"라고 알린 것. 폴링을 즉시 중단하고 재생성 복구 UI 로 전환한다.
+export function isFeedbackFailed(err: unknown): err is ApiError {
+  return isApiError(err) && err.code === 'FEEDBACK_GENERATION_FAILED'
+}
+
 // 세션 종료 직후엔 피드백이 비동기 생성 중이라 아직 없음(FEEDBACK_NOT_READY/404).
 // 이 경우는 에러가 아니라 "생성 중"이므로 일정 횟수까지 polling 한다.
+// 404 캐치올은 code 없는 게이트웨이 404 방어용 — 의미가 확정된 404 코드는 앞에서 걸러낸다:
+// 실패 마커(FEEDBACK_GENERATION_FAILED)와 세션 부재(SESSION_NOT_FOUND — 삭제된/없는 세션에
+// 2분 폴링하는 오분류 방지)는 pending 이 아니다.
 export function isFeedbackPending(err: unknown): boolean {
-  return isApiError(err) && (err.code === 'FEEDBACK_NOT_READY' || err.status === 404)
+  if (!isApiError(err)) return false
+  // isFeedbackFailed 를 부르지 않고 code 비교 — 타입가드의 부정 분기가 err 를 never 로 좁힌다.
+  if (err.code === 'FEEDBACK_GENERATION_FAILED' || err.code === 'SESSION_NOT_FOUND') return false
+  return err.code === 'FEEDBACK_NOT_READY' || err.status === 404
 }
 
 export function useFeedback(sessionId: number) {

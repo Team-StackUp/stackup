@@ -171,6 +171,28 @@ class FeedbackCallbackServiceTest {
             assertThat(notice.retriable()).isTrue();
         });
         verify(processedMessageRepository).save(any());
+        // 영속 마커(V29) — SSE 를 놓친 클라이언트가 GET 피드백으로 실패를 구분하는 근거.
+        assertThat(session.hasFeedbackFailure()).isTrue();
+        assertThat(session.getFeedbackFailRetriable()).isTrue();
+    }
+
+    @Test
+    void apply_successClearsFailureMarker() {
+        // 이전 시도가 실패로 마킹된 뒤 재생성이 성공하면 마커를 걷는다.
+        InterviewSession session = sessionFixture(50L);
+        session.markFeedbackFailed(true);
+        FeedbackCallbackEnvelope env = envelope(50L, "fb-retry-ok",
+            new FeedbackCallbackPayload(50L, 80.0, null, null, null, null, null,
+                List.of(), List.of(), List.of(), List.of(), List.of(), null));
+        when(processedMessageRepository.existsById("fb-retry-ok")).thenReturn(false);
+        when(sessionRepository.findById(50L)).thenReturn(Optional.of(session));
+        when(feedbackRepository.existsBySession_Id(50L)).thenReturn(false);
+        when(feedbackRepository.save(any(SessionFeedback.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.apply(env);
+
+        assertThat(session.hasFeedbackFailure()).isFalse();
+        verify(feedbackRepository).save(any(SessionFeedback.class));
     }
 
     @Test
