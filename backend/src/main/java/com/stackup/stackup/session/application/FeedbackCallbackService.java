@@ -3,6 +3,8 @@ package com.stackup.stackup.session.application;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.stackup.stackup.common.exception.ApiErrorCode;
+import com.stackup.stackup.common.sse.SessionErrorNotice;
+import com.stackup.stackup.common.sse.SessionErrorNotifier;
 import com.stackup.stackup.common.messaging.domain.ProcessedMessage;
 import com.stackup.stackup.common.messaging.domain.ProcessedMessageRepository;
 import com.stackup.stackup.common.messaging.RealtimeNotifyEvent;
@@ -41,6 +43,7 @@ public class FeedbackCallbackService {
     private final InterviewMessageRepository messageRepository;
     private final ProcessedMessageRepository processedMessageRepository;
     private final ApplicationEventPublisher events;
+    private final SessionErrorNotifier errorNotifier;
 
     @Transactional
     public void apply(FeedbackCallbackEnvelope envelope) {
@@ -145,10 +148,8 @@ public class FeedbackCallbackService {
         // 영속 마커(V29) — SSE ERROR 는 휘발성이라, 그 순간 미접속 클라이언트도 GET 피드백에서
         // 실패를 구분할 수 있게 남긴다 (dirty checking 으로 UPDATE).
         session.markFeedbackFailed(payload.retriable());
-        QuestionsCallbackService.SessionErrorNotice notice = new QuestionsCallbackService.SessionErrorNotice(
-            session.getId(), "FEEDBACK", FEEDBACK_FAILED_CODE, FEEDBACK_FAILED_MESSAGE, payload.retriable());
-        events.publishEvent(RealtimeNotifyEvent.session(session.getId(), SseEventType.ERROR, notice));
-        events.publishEvent(RealtimeNotifyEvent.user(session.getUser().getId(), SseEventType.ERROR, notice));
+        errorNotifier.notify(session.getId(), session.getUser().getId(), new SessionErrorNotice(
+            session.getId(), "FEEDBACK", FEEDBACK_FAILED_CODE, FEEDBACK_FAILED_MESSAGE, payload.retriable()));
     }
 
     // REST(GET 피드백)와 같은 코드·문구 — 채널에 따라 다른 안내가 나가지 않게 단일 출처로 묶는다.

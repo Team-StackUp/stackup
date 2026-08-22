@@ -2,6 +2,7 @@ package com.stackup.stackup.session.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -9,6 +10,8 @@ import static org.mockito.Mockito.when;
 
 import com.stackup.stackup.common.messaging.RealtimeNotifyEvent;
 import com.stackup.stackup.common.messaging.domain.ProcessedMessageRepository;
+import com.stackup.stackup.common.sse.SessionErrorNotice;
+import com.stackup.stackup.common.sse.SessionErrorNotifier;
 import com.stackup.stackup.common.sse.SseEventType;
 import com.stackup.stackup.session.application.dto.AnswerCoachingItem;
 import com.stackup.stackup.session.application.dto.FeedbackCallbackEnvelope;
@@ -42,6 +45,7 @@ class FeedbackCallbackServiceTest {
     @Mock InterviewMessageRepository messageRepository;
     @Mock ProcessedMessageRepository processedMessageRepository;
     @Mock ApplicationEventPublisher events;
+    @Mock SessionErrorNotifier errorNotifier;
     @InjectMocks FeedbackCallbackService service;
 
     @Test
@@ -151,25 +155,15 @@ class FeedbackCallbackServiceTest {
         service.apply(env);
 
         verify(feedbackRepository, never()).save(any(SessionFeedback.class));
-        ArgumentCaptor<Object> evCap = ArgumentCaptor.forClass(Object.class);
-        verify(events, atLeastOnce()).publishEvent(evCap.capture());
-        List<RealtimeNotifyEvent> errors = evCap.getAllValues().stream()
-            .filter(RealtimeNotifyEvent.class::isInstance)
-            .map(RealtimeNotifyEvent.class::cast)
-            .filter(e -> e.type() == SseEventType.ERROR)
-            .toList();
-        assertThat(errors).hasSize(2); // session + user 채널
-        assertThat(errors).extracting(RealtimeNotifyEvent::channel)
-            .containsExactlyInAnyOrder(RealtimeNotifyEvent.Channel.SESSION, RealtimeNotifyEvent.Channel.USER);
-        assertThat(errors).allSatisfy(e -> {
-            QuestionsCallbackService.SessionErrorNotice notice =
-                (QuestionsCallbackService.SessionErrorNotice) e.payload();
-            assertThat(notice.scope()).isEqualTo("FEEDBACK");
-            assertThat(notice.errorCode()).isEqualTo("FEEDBACK_GENERATION_FAILED");
-            // AI errorMessage 원문(내부 상세)은 클라이언트로 새지 않는다.
-            assertThat(notice.message()).doesNotContain("internal detail");
-            assertThat(notice.retriable()).isTrue();
-        });
+        // 이중 채널 발행 자체는 SessionErrorNotifier(공용) 책임 — 여기서는 notice 내용만 검증.
+        ArgumentCaptor<SessionErrorNotice> noticeCap = ArgumentCaptor.forClass(SessionErrorNotice.class);
+        verify(errorNotifier).notify(eq(50L), eq(1L), noticeCap.capture());
+        SessionErrorNotice notice = noticeCap.getValue();
+        assertThat(notice.scope()).isEqualTo("FEEDBACK");
+        assertThat(notice.errorCode()).isEqualTo("FEEDBACK_GENERATION_FAILED");
+        // AI errorMessage 원문(내부 상세)은 클라이언트로 새지 않는다.
+        assertThat(notice.message()).doesNotContain("internal detail");
+        assertThat(notice.retriable()).isTrue();
         verify(processedMessageRepository).save(any());
         // 영속 마커(V29) — SSE 를 놓친 클라이언트가 GET 피드백으로 실패를 구분하는 근거.
         assertThat(session.hasFeedbackFailure()).isTrue();

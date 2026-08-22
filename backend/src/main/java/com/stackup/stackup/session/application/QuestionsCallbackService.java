@@ -3,6 +3,8 @@ package com.stackup.stackup.session.application;
 import com.stackup.stackup.common.messaging.domain.ProcessedMessage;
 import com.stackup.stackup.common.messaging.domain.ProcessedMessageRepository;
 import com.stackup.stackup.common.messaging.RealtimeNotifyEvent;
+import com.stackup.stackup.common.sse.SessionErrorNotice;
+import com.stackup.stackup.common.sse.SessionErrorNotifier;
 import com.stackup.stackup.common.sse.SseEventType;
 import com.stackup.stackup.session.application.dto.QuestionsCallbackEnvelope;
 import com.stackup.stackup.session.application.dto.QuestionsCallbackPayload;
@@ -46,6 +48,7 @@ public class QuestionsCallbackService {
     private final SessionQuestionPoolRepository poolRepository;
     private final ProcessedMessageRepository processedMessageRepository;
     private final ApplicationEventPublisher events;
+    private final SessionErrorNotifier errorNotifier;
 
     @Transactional
     public void apply(QuestionsCallbackEnvelope envelope) {
@@ -326,16 +329,15 @@ public class QuestionsCallbackService {
         advanceToNextGeneral(session.getId());
     }
 
-    // AI 가 보내는 errorMessage 는 `str(exc)` 그대로다 — LLM 게이트웨이 주소·조직 식별자·쿼터
-    // 상세, 파싱 실패 시엔 모델 원문까지 들어올 수 있다. 이걸 SSE 로 흘리면 브라우저까지 그대로
-    // 나간다(프론트는 쓰지도 않는다). 원문은 위 log.warn 이 서버에 남기고, 클라이언트에는
-    // 우리가 정의한 코드로만 만든 안내 문구를 보낸다.
+    // AI 의 errorMessage 는 예외 원문 파생(`ExcType: msg`, AI 측 500자 상한 컨벤션)이라 LLM
+    // 게이트웨이 주소·조직 식별자·쿼터 상세가 들어올 수 있다 — 상한은 크기 제한일 뿐 새니타이즈가
+    // 아니고 Core 가 강제하는 보장도 아니다. 이걸 SSE 로 흘리면 브라우저까지 그대로 나간다.
+    // 원문은 위 log.warn 이 서버에 남기고, 클라이언트에는 화이트리스트 코드로 만든 안내 문구만
+    // 보낸다. 발행 자체는 공용 SessionErrorNotifier.
     private void publishErrorEvent(InterviewSession session, String scope, QuestionsCallbackPayload payload) {
-        SessionErrorNotice notice = new SessionErrorNotice(
+        errorNotifier.notify(session.getId(), session.getUser().getId(), new SessionErrorNotice(
             session.getId(), scope, safeErrorCode(payload.errorCode()),
-            userFacingMessage(payload.errorCode()), payload.retriable());
-        events.publishEvent(RealtimeNotifyEvent.session(session.getId(), SseEventType.ERROR, notice));
-        events.publishEvent(RealtimeNotifyEvent.user(session.getUser().getId(), SseEventType.ERROR, notice));
+            userFacingMessage(payload.errorCode()), payload.retriable()));
     }
 
     public record SessionStateNotice(Long sessionId, String status, String reason) {
@@ -385,17 +387,15 @@ public class QuestionsCallbackService {
     );
     private static final String UNKNOWN_ERROR_CODE = "GENERATION_FAILED";
 
+    // code == null 가드 필수 — Map.of 는 containsKey(null)/getOrDefault(null,…) 에서 NPE 를
+    // 던진다. errorCode 없는 FAILED 콜백(변형 producer·수동 DLQ 재주입)이 NPE → 롤백 → 재시도
+    // 루프에 빠지면, 이 실패 신호가 없애려던 "생성 중" 무기한 대기가 그대로 재현된다.
     private static String safeErrorCode(String code) {
-        return ERROR_MESSAGES.containsKey(code) ? code : UNKNOWN_ERROR_CODE;
+        return code != null && ERROR_MESSAGES.containsKey(code) ? code : UNKNOWN_ERROR_CODE;
     }
 
     private static String userFacingMessage(String code) {
-        return ERROR_MESSAGES.getOrDefault(code, ERROR_MESSAGES.get(UNKNOWN_ERROR_CODE));
+        return ERROR_MESSAGES.get(safeErrorCode(code));
     }
 
-    // errorMessage 가 아니라 message — 내부 원문이 아니라 사용자에게 보여줄 문구다.
-    public record SessionErrorNotice(
-        Long sessionId, String scope, String errorCode, String message, Boolean retriable
-    ) {
-    }
 }
