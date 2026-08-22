@@ -134,4 +134,62 @@ describe('useFeedbackLive', () => {
     act(() => FakeES.last?.emit('FEEDBACK_PROGRESS', {}))
     expect(result.current.progress).toBeNull()
   })
+
+  it('ERROR(scope=FEEDBACK) 수신 시 failure 를 설정한다 — 폴링 예산 소진을 기다리지 않는 복구 신호', async () => {
+    vi.mocked(getFeedback).mockRejectedValue(notReady())
+
+    const { result } = setup()
+    await waitFor(() => expect(FakeES.last).not.toBeNull())
+    expect(result.current.failure).toBeNull()
+
+    act(() =>
+      FakeES.last?.emit('ERROR', {
+        data: {
+          sessionId: 99,
+          scope: 'FEEDBACK',
+          errorCode: 'FEEDBACK_GENERATION_FAILED',
+          message: '피드백 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.',
+          retriable: true,
+        },
+      }),
+    )
+
+    expect(result.current.failure).toEqual({
+      message: '피드백 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.',
+      retriable: true,
+    })
+  })
+
+  it('scope 가 FEEDBACK 이 아닌 ERROR(꼬리질문 실패 등)는 무시한다', async () => {
+    vi.mocked(getFeedback).mockRejectedValue(notReady())
+
+    const { result } = setup()
+    await waitFor(() => expect(FakeES.last).not.toBeNull())
+
+    act(() =>
+      FakeES.last?.emit('ERROR', {
+        data: { sessionId: 99, scope: 'FOLLOWUP', message: '질문 생성에 실패했습니다.' },
+      }),
+    )
+    act(() => FakeES.last?.emit('ERROR', { data: { sessionId: 99 } }))
+    act(() => FakeES.last?.emit('ERROR', {}))
+    expect(result.current.failure).toBeNull()
+  })
+
+  it('resetFailure 는 대기 상태로 되돌린다 — 재생성 요청 직전에 페이지가 호출', async () => {
+    vi.mocked(getFeedback).mockRejectedValue(notReady())
+
+    const { result } = setup()
+    await waitFor(() => expect(FakeES.last).not.toBeNull())
+
+    act(() =>
+      FakeES.last?.emit('ERROR', {
+        data: { sessionId: 99, scope: 'FEEDBACK', message: '피드백 생성에 실패했습니다.' },
+      }),
+    )
+    expect(result.current.failure).not.toBeNull()
+
+    act(() => result.current.resetFailure())
+    expect(result.current.failure).toBeNull()
+  })
 })

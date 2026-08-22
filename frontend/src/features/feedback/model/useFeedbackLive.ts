@@ -12,6 +12,13 @@ export type FeedbackProgress = {
   total: number | null
 }
 
+// AI 피드백 생성 실패 알림(ERROR, scope=FEEDBACK — event-stream.md §3.6 SessionErrorNotice).
+// 수신 즉시 폴링 예산(≈2분) 소진을 기다리지 않고 재생성 복구 UI 로 전환하기 위한 상태.
+export type FeedbackFailure = {
+  message: string
+  retriable: boolean | null
+}
+
 // RealTime SSE data 봉투: { data: <payload>, traceId } (useWorkspaceAnalysisStream 과 동일).
 type StreamData<T> = { data?: T; traceId?: string | null }
 
@@ -56,16 +63,32 @@ export function useFeedbackLive(sessionId: number, getToken: () => Promise<strin
     })
   }, [])
 
+  // 생성 실패 신호. 세션 채널 ERROR 는 꼬리질문(FOLLOWUP) 실패도 흐르므로 scope 로 거른다.
+  // 데이터가 이미 도착했으면 늦은 실패 이벤트는 소비부(!data 가드)에서 무시된다.
+  const [failure, setFailure] = useState<FeedbackFailure | null>(null)
+  const onError = useCallback((raw: unknown) => {
+    const data = (
+      raw as StreamData<{ scope?: string; message?: string; retriable?: boolean }> | null
+    )?.data
+    if (!data || data.scope !== 'FEEDBACK' || typeof data.message !== 'string') return
+    setFailure({
+      message: data.message,
+      retriable: typeof data.retriable === 'boolean' ? data.retriable : null,
+    })
+  }, [])
+  // 재생성 요청 시 페이지가 호출 — 대기(스켈레톤) 상태로 되돌린다.
+  const resetFailure = useCallback(() => setFailure(null), [])
+
   // 피드백이 도착하면 스트림을 닫는다 (path: null).
   const streamStatus = useEventStream({
     path: query.data ? null : `/realtime/stream/sessions/${sessionId}`,
     getToken,
-    handlers: { FEEDBACK_READY: onReady, FEEDBACK_PROGRESS: onProgress },
+    handlers: { FEEDBACK_READY: onReady, FEEDBACK_PROGRESS: onProgress, ERROR: onError },
   })
 
   useEffect(() => {
     statusRef.current = streamStatus
   }, [streamStatus])
 
-  return { ...query, streamStatus, progress }
+  return { ...query, streamStatus, progress, failure, resetFailure }
 }

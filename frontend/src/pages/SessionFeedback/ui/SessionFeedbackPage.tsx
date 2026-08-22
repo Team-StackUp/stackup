@@ -24,10 +24,8 @@ export default function SessionFeedbackPage() {
   // 피드백 조회 + FEEDBACK_READY SSE — 준비 완료 즉시 표시(폴링은 백스톱).
   // 세션 stream token 은 interview 슬라이스 소유라 페이지가 주입한다.
   const getToken = useCallback(() => fetchSessionStreamToken(sessionId), [sessionId])
-  const { data, isLoading, isError, error, refetch, progress } = useFeedbackLive(
-    sessionId,
-    getToken,
-  )
+  const { data, isLoading, isError, error, refetch, progress, failure, resetFailure } =
+    useFeedbackLive(sessionId, getToken)
   const regenerate = useRegenerateFeedback(sessionId)
   // 재도전은 원본 세션의 자료 수를 알아야 "몇 개가 빠졌는지" 안내할 수 있다.
   const { data: session } = useSession(sessionId)
@@ -64,9 +62,38 @@ export default function SessionFeedbackPage() {
           }
         />
 
-        {isLoading && <FeedbackReportSkeleton progress={progress} />}
+        {/* 생성 실패 SSE(ERROR, scope=FEEDBACK) — 폴링 예산 소진(≈2분)을 기다리지 않고
+            즉시 복구 경로를 연다. 그 사이 데이터가 도착했으면 리포트가 우선. */}
+        {!data && failure && (
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 py-16 text-center">
+            <p className="text-body text-fg">{failure.message}</p>
+            {failure.retriable === false ? (
+              // 서버가 재시도 무의미(retriable=false)로 명시한 실패 — 재생성 대신 새 면접을 안내.
+              <p className="text-caption text-fg-muted">
+                같은 오류가 반복될 수 있어 재생성이 어렵습니다. 상단 버튼으로 다시 도전해 보세요.
+              </p>
+            ) : (
+              <>
+                <p className="text-caption text-fg-muted">
+                  피드백 생성이 실패해 대기를 중단했어요. 다시 생성을 요청해 보세요.
+                </p>
+                <Button
+                  onClick={() => {
+                    resetFailure()
+                    regenerate.mutate()
+                  }}
+                  disabled={regenerate.isPending}
+                >
+                  {regenerate.isPending ? '요청 중…' : '피드백 다시 생성'}
+                </Button>
+              </>
+            )}
+          </div>
+        )}
 
-        {isError &&
+        {!failure && isLoading && <FeedbackReportSkeleton progress={progress} />}
+
+        {!failure && isError &&
           (isFeedbackPending(error) ? (
             // 백스톱 재시도 예산(모드 무관 ≈2분, useFeedbackLive)을 다 써도 피드백이 없으면
             // 생성 요청이 유실됐을 가능성이 높다(브로커 다운·AI 실패). 무한 대기 대신 복구 경로를 연다.
