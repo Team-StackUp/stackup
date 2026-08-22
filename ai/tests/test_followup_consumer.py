@@ -183,6 +183,85 @@ async def test_consumer_publishes_failed_followup_when_generate_raises():
 
 
 @pytest.mark.asyncio
+async def test_consumer_publishes_failed_followup_when_rag_build_raises():
+    """생성 호출 밖(RAG 컨텍스트 빌드 등) 예외도 FAILED 콜백으로 신호 —
+    예전엔 DLQ 로만 가서 placeholder 가 영원히 '생성 중'으로 남았다 (전 구간 가드, F4).
+    상관 필드 3종은 envelope 출처라 어느 단계 실패든 채워져야 한다."""
+    generator = MagicMock()
+    generator.generate = AsyncMock()
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+
+    consumer = FollowupConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.questions",
+    )
+    consumer._build_rag_context = AsyncMock(side_effect=RuntimeError("core down"))
+
+    await consumer.handle(_StubMessage(_envelope()))  # raise 없이 ack 경로
+
+    generator.generate.assert_not_awaited()
+    payload: FollowupCallbackPayload = publisher.publish.await_args.kwargs["payload"]
+    assert payload.status == "FAILED"
+    assert payload.error_code == "GENERATION_FAILED"
+    assert payload.error_message == "RuntimeError: core down"
+    assert payload.parent_message_id == 501
+    assert payload.answer_message_id == 502
+    assert payload.followup_message_id == 503
+
+
+@pytest.mark.asyncio
+async def test_consumer_unmarks_and_reraises_when_failed_publish_also_fails():
+    """폴백(FAILED 콜백) 발행마저 실패하면 멱등 unmark 후 원 예외로 DLQ."""
+    generator = MagicMock()
+    generator.generate = AsyncMock(side_effect=RuntimeError("gateway 500"))
+    publisher = MagicMock()
+    publisher.publish = AsyncMock(side_effect=ConnectionError("mq down"))
+    store = LruIdempotencyStore(max_size=10)
+
+    consumer = FollowupConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=store,
+        callback_routing_key="callback.questions",
+    )
+
+    with pytest.raises(RuntimeError, match="gateway 500"):
+        await consumer.handle(_StubMessage(_envelope()))
+
+    assert store.is_seen_then_mark("m-1") is False
+
+
+@pytest.mark.asyncio
+async def test_consumer_does_not_send_failed_when_success_publish_fails():
+    """생성 성공 후 콜백 발행만 실패 — FAILED 오인 없이 원 예외로 DLQ(unmark 포함)."""
+    generator = MagicMock()
+    generator.generate = AsyncMock(
+        return_value=FollowupResult(followup_question="추가 질문?")
+    )
+    publisher = MagicMock()
+    publisher.publish = AsyncMock(side_effect=ConnectionError("mq down"))
+    store = LruIdempotencyStore(max_size=10)
+
+    consumer = FollowupConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=store,
+        callback_routing_key="callback.questions",
+    )
+
+    with pytest.raises(ConnectionError, match="mq down"):
+        await consumer.handle(_StubMessage(_envelope()))
+
+    publisher.publish.assert_awaited_once()  # FAILED 재발행 시도 없음
+    payload: FollowupCallbackPayload = publisher.publish.await_args.kwargs["payload"]
+    assert payload.status == "OK"
+    assert store.is_seen_then_mark("m-1") is False
+
+
+@pytest.mark.asyncio
 async def test_consumer_injects_followup_rag_context_when_available():
     followup_result = FollowupResult(
         followup_question="outbox 저장과 발행의 원자성은 어떻게 보장했나요?",

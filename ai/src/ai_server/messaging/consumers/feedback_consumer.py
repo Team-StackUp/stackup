@@ -26,6 +26,11 @@ from ai_server.chain.feedback_generation_chain import (
     SelfIntroEvaluator,
 )
 from ai_server.core.client import CoreClient
+from ai_server.messaging.consumers.failure_signal import (
+    classify_failure,
+    consume_with_failure_signal,
+    format_error_message,
+)
 from ai_server.messaging.idempotency import LruIdempotencyStore
 from ai_server.messaging.publisher import CallbackPublisher
 from ai_server.messaging.session_notify import (
@@ -103,46 +108,17 @@ class FeedbackConsumer:
         self._session_notifier = session_notifier
 
     async def handle(self, message: AbstractIncomingMessage) -> None:
-        async with message.process(requeue=False):
-            try:
-                envelope = Envelope[GenerateFeedbackRequest].model_validate_json(
-                    message.body
-                )
-            except Exception as exc:
-                log.error(
-                    "feedback.parse.failed",
-                    error=str(exc),
-                    delivery_tag=message.delivery_tag,
-                )
-                raise
-
-            if self._idempotency.is_seen_then_mark(envelope.message_id):
-                log.info(
-                    "feedback.idempotent.skip",
-                    message_id=envelope.message_id,
-                    trace_id=envelope.trace_id,
-                )
-                return
-
-            try:
-                payload = await self._process(envelope)
-            except Exception as exc:  # noqa: BLE001
-                await self._publish_failed(envelope, exc)
-                return
-
-            # 성공 payload 의 발행 실패는 생성 실패가 아니다 — FAILED 콜백으로 오인 발행하지
-            # 않고 원 예외로 DLQ 에 보내 재처리 가능하게 남긴다(실패 신호 도입 전과 동일 동작).
-            try:
-                await self._publish_callback(envelope, payload)
-            except Exception:
-                self._idempotency.unmark(envelope.message_id)
-                raise
-            log.info(
-                "feedback.generate.done",
-                message_id=envelope.message_id,
-                session_id=envelope.payload.session_id,
-                trace_id=envelope.trace_id,
-            )
+        await consume_with_failure_signal(
+            message,
+            domain="feedback",
+            envelope_type=Envelope[GenerateFeedbackRequest],
+            idempotency=self._idempotency,
+            publisher=self._publisher,
+            routing_key=self._callback_routing_key,
+            message_type="callback.feedback",
+            process=self._process,
+            failed_payload=self._failed_payload,
+        )
 
     async def _process(
         self, envelope: Envelope[GenerateFeedbackRequest]
@@ -256,56 +232,20 @@ class FeedbackConsumer:
 
         return payload
 
-    async def _publish_callback(
-        self,
-        envelope: Envelope[GenerateFeedbackRequest],
-        payload: FeedbackCallbackPayload,
-    ) -> None:
-        await self._publisher.publish(
-            routing_key=self._callback_routing_key,
-            message_type="callback.feedback",
-            payload=payload,
-            trace_id=envelope.trace_id,
-            correlation_id=envelope.message_id,
-            context=envelope.context,
-        )
-
-    async def _publish_failed(
-        self, envelope: Envelope[GenerateFeedbackRequest], exc: Exception
-    ) -> None:
-        """생성 중 예상 못 한 예외의 실패 신호. 콜백 없이 DLQ 로만 격리되면 Core 가 실패를
-        모른 채 세션이 '피드백 생성 중'에 무기한 멈춘다 — 항상 FAILED 콜백을 발행하고
-        ack 한다. 폴백 발행마저 실패하면 멱등 마킹을 되돌리고 원 예외를 다시 던져
-        DLQ 로 보낸다(최후 안전망 — 재주입 시 duplicate skip 으로 삼켜지지 않게)."""
-        req = envelope.payload
-        log.exception(
-            "feedback.generate.unexpected",
-            message_id=envelope.message_id,
-            session_id=req.session_id,
-            trace_id=envelope.trace_id,
-        )
-        # questions/followup consumer 와 동일 분류 — TypeError(LLM 출력 스키마 불일치)는
-        # 같은 입력으로 재시도해도 똑같이 죽는다 → retriable=false.
-        is_schema = isinstance(exc, TypeError)
-        payload = FeedbackCallbackPayload(
+    def _failed_payload(
+        self, req: GenerateFeedbackRequest, exc: Exception
+    ) -> FeedbackCallbackPayload:
+        """questions/followup consumer 와 동일 분류 — TypeError(LLM 출력 스키마 불일치)는
+        같은 입력으로 재시도해도 똑같이 죽는다 → retriable=false. 그 외는 UNEXPECTED
+        (패널·부가 평가 실패는 내부 폴백으로 흡수되므로 여기 걸리는 건 진짜 예상 밖 예외)."""
+        error_code, retriable = classify_failure(exc, unexpected_code="UNEXPECTED")
+        return FeedbackCallbackPayload(
             session_id=req.session_id,
             status="FAILED",
-            error_code="GENERATION_SCHEMA_INVALID" if is_schema else "UNEXPECTED",
-            # str(exc) 는 LLM 응답 본문·입력 repr 까지 담길 수 있다 — 로그·와이어 크기 상한.
-            error_message=f"{type(exc).__name__}: {exc}"[:500],
-            retriable=not is_schema,
+            error_code=error_code,
+            error_message=format_error_message(exc),
+            retriable=retriable,
         )
-        try:
-            await self._publish_callback(envelope, payload)
-        except Exception:  # noqa: BLE001
-            log.exception(
-                "feedback.failed_callback.publish_failed",
-                message_id=envelope.message_id,
-                session_id=req.session_id,
-                trace_id=envelope.trace_id,
-            )
-            self._idempotency.unmark(envelope.message_id)
-            raise exc
 
     async def _emit_progress(
         self,

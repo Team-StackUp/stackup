@@ -12,6 +12,11 @@ from ai_server.chain.followup_generation_chain import (
 )
 from ai_server.chain.sentence_split import next_sentences
 from ai_server.core.client import CoreClient
+from ai_server.messaging.consumers.failure_signal import (
+    classify_failure,
+    consume_with_failure_signal,
+    format_error_message,
+)
 from ai_server.messaging.idempotency import LruIdempotencyStore
 from ai_server.messaging.publisher import CallbackPublisher
 from ai_server.messaging.session_notify import SessionRealtimeNotifier
@@ -65,101 +70,44 @@ class FollowupConsumer:
         self._rag_timeout_sec = rag_timeout_sec
 
     async def handle(self, message: AbstractIncomingMessage) -> None:
-        async with message.process(requeue=False):
-            try:
-                envelope = Envelope[GenerateFollowupRequest].model_validate_json(
-                    message.body
-                )
-            except Exception as exc:
-                log.error(
-                    "followup.parse.failed",
-                    error=str(exc),
-                    delivery_tag=message.delivery_tag,
-                )
-                raise
+        await consume_with_failure_signal(
+            message,
+            domain="followup",
+            envelope_type=Envelope[GenerateFollowupRequest],
+            idempotency=self._idempotency,
+            publisher=self._publisher,
+            routing_key=self._callback_routing_key,
+            message_type="callback.questions",
+            process=self._process,
+            failed_payload=self._failed_payload,
+            done_fields=lambda p: {"status": p.status},
+        )
 
-            if self._idempotency.is_seen_then_mark(envelope.message_id):
-                log.info(
-                    "followup.idempotent.skip",
-                    message_id=envelope.message_id,
-                    trace_id=envelope.trace_id,
-                )
-                return
-
-            req = envelope.payload
-            log.info(
-                "followup.generate.start",
-                message_id=envelope.message_id,
-                session_id=req.session_id,
-                parent=req.parent_message_id,
-                trace_id=envelope.trace_id,
-            )
-
-            rag_context = await self._build_rag_context(req)
-            payload = await self._generate_followup_payload(
-                req, rag_context, trace_id=envelope.trace_id
-            )
-
-            await self._publisher.publish(
-                routing_key=self._callback_routing_key,
-                message_type="callback.questions",
-                payload=payload,
-                trace_id=envelope.trace_id,
-                correlation_id=envelope.message_id,
-                context=envelope.context,
-            )
-            log.info(
-                "followup.generate.done",
-                message_id=envelope.message_id,
-                session_id=req.session_id,
-                status=payload.status,
-                trace_id=envelope.trace_id,
-            )
-
-    async def _generate_followup_payload(
-        self,
-        req: GenerateFollowupRequest,
-        rag_context: str,
-        *,
-        trace_id: str,
+    async def _process(
+        self, envelope: Envelope[GenerateFollowupRequest]
     ) -> FollowupCallbackPayload:
-        """꼬리질문 생성. Core 가 이미 선INSERT 한 placeholder 가 있으므로, 실패해도
-        콜백은 항상 나가야 placeholder 가 영원히 '생성 중'으로 남지 않는다."""
-        try:
-            if self._streaming is not None and self._notifier is not None:
-                result = await self._stream_followup(req, rag_context, trace_id)
-            else:
-                result = await self._generator.generate(
-                    job_category=req.job_category,
-                    mode=req.mode,
-                    previous_question=req.previous_question,
-                    answer_text=req.answer_text,
-                    context=rag_context,
-                    parent_category=req.parent_category or "UNKNOWN",
-                    expected_signal=req.parent_expected_signal or "(none)",
-                    history=_format_history(req.history),
-                )
-        except Exception as exc:  # noqa: BLE001
-            log.exception(
-                "followup.generate.failed",
-                session_id=req.session_id,
-                followup_message_id=req.followup_message_id,
-                trace_id=trace_id,
-            )
-            return FollowupCallbackPayload(
-                session_id=req.session_id,
-                kind="FOLLOWUP",
-                parent_message_id=req.parent_message_id,
-                answer_message_id=req.answer_message_id,
-                followup_message_id=req.followup_message_id,
-                status="FAILED",
-                error_code=(
-                    "GENERATION_SCHEMA_INVALID"
-                    if isinstance(exc, TypeError)
-                    else "GENERATION_FAILED"
-                ),
-                error_message=str(exc),
-                retriable=not isinstance(exc, TypeError),
+        req = envelope.payload
+        log.info(
+            "followup.generate.start",
+            message_id=envelope.message_id,
+            session_id=req.session_id,
+            parent=req.parent_message_id,
+            trace_id=envelope.trace_id,
+        )
+
+        rag_context = await self._build_rag_context(req)
+        if self._streaming is not None and self._notifier is not None:
+            result = await self._stream_followup(req, rag_context, envelope.trace_id)
+        else:
+            result = await self._generator.generate(
+                job_category=req.job_category,
+                mode=req.mode,
+                previous_question=req.previous_question,
+                answer_text=req.answer_text,
+                context=rag_context,
+                parent_category=req.parent_category or "UNKNOWN",
+                expected_signal=req.parent_expected_signal or "(none)",
+                history=_format_history(req.history),
             )
         return FollowupCallbackPayload(
             session_id=req.session_id,
@@ -170,6 +118,27 @@ class FollowupConsumer:
             answer_evaluation=result.answer_evaluation,
             answer_intent=result.answer_intent,
             followup_message_id=req.followup_message_id,
+        )
+
+    def _failed_payload(
+        self, req: GenerateFollowupRequest, exc: Exception
+    ) -> FollowupCallbackPayload:
+        """Core 가 이미 선INSERT 한 placeholder 가 있으므로, 실패해도 콜백은 항상 나가야
+        placeholder 가 영원히 '생성 중'으로 남지 않는다. 상관 필드 3종은 전부 req
+        (envelope payload) 출처라 어느 단계에서 실패해도 조립 가능하다."""
+        error_code, retriable = classify_failure(
+            exc, unexpected_code="GENERATION_FAILED"
+        )
+        return FollowupCallbackPayload(
+            session_id=req.session_id,
+            kind="FOLLOWUP",
+            parent_message_id=req.parent_message_id,
+            answer_message_id=req.answer_message_id,
+            followup_message_id=req.followup_message_id,
+            status="FAILED",
+            error_code=error_code,
+            error_message=format_error_message(exc),
+            retriable=retriable,
         )
 
     async def _stream_followup(
