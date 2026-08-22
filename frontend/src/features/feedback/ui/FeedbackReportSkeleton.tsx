@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
+import type { FeedbackProgress } from '../model/useFeedbackLive'
 
 function Pulse({ className }: { className: string }) {
   return <div aria-hidden className={`animate-pulse rounded-lg bg-surface ${className}`} />
 }
 
 // 피드백 생성 대기 화면 — 리포트가 올 자리의 형태를 미리 보여주고 경과 시간을 알린다.
-// 정적 텍스트만 있으면 "멈췄나?" 로 읽힌다 (A4). 완료는 FEEDBACK_READY SSE 로 즉시 반영된다.
-export function FeedbackReportSkeleton() {
+// 정적 텍스트만 있으면 "멈췄나?" 로 읽힌다 (A4). 완료는 FEEDBACK_READY SSE 로 즉시 반영되고,
+// 생성 단계는 FEEDBACK_PROGRESS SSE 진행 문구로 알린다 (B2). 이벤트 미수신이면 기본 문구.
+export function FeedbackReportSkeleton({ progress }: { progress?: FeedbackProgress | null }) {
   const [elapsedSec, setElapsedSec] = useState(0)
   useEffect(() => {
     const id = setInterval(() => setElapsedSec((s) => s + 1), 1_000)
@@ -18,7 +20,7 @@ export function FeedbackReportSkeleton() {
       <div className="flex flex-col items-center gap-2 py-4 text-center">
         <p className="text-body font-medium text-fg">피드백을 생성하는 중입니다…</p>
         <p className="text-caption text-fg-muted">
-          답변을 종합 분석하고 있어요. 보통 1분 내외, 길면 2분 이상 걸릴 수 있습니다.
+          {progress?.message ?? '답변을 종합 분석하고 있어요. 보통 1분 내외, 길면 2분 이상 걸릴 수 있습니다.'}{' '}
           완성되면 자동으로 표시됩니다. <span className="font-mono">({elapsedSec}s 경과)</span>
         </p>
       </div>

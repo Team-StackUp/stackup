@@ -24,7 +24,10 @@ export default function SessionFeedbackPage() {
   // 피드백 조회 + FEEDBACK_READY SSE — 준비 완료 즉시 표시(폴링은 백스톱).
   // 세션 stream token 은 interview 슬라이스 소유라 페이지가 주입한다.
   const getToken = useCallback(() => fetchSessionStreamToken(sessionId), [sessionId])
-  const { data, isLoading, isError, error, refetch } = useFeedbackLive(sessionId, getToken)
+  const { data, isLoading, isError, error, refetch, progress } = useFeedbackLive(
+    sessionId,
+    getToken,
+  )
   const regenerate = useRegenerateFeedback(sessionId)
   // 재도전은 원본 세션의 자료 수를 알아야 "몇 개가 빠졌는지" 안내할 수 있다.
   const { data: session } = useSession(sessionId)
@@ -61,7 +64,7 @@ export default function SessionFeedbackPage() {
           }
         />
 
-        {isLoading && <FeedbackReportSkeleton />}
+        {isLoading && <FeedbackReportSkeleton progress={progress} />}
 
         {isError &&
           (isFeedbackPending(error) ? (

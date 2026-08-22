@@ -4,7 +4,14 @@ import { Heading } from '@/shared/ui'
 
 // 면접 시작 직후, 첫 질문이 준비될 때까지 스테이지 진입 전에 머무는 대기 화면.
 // 첫 질문이 도착하면 LiveInterview 가 InterviewStage 로 전환하며 화면이 "켜진다".
-export function InterviewPreparing({ session }: { session: Session }) {
+export function InterviewPreparing({
+  session,
+  progressMessage,
+}: {
+  session: Session
+  /** AI 질문 풀 생성 진행 문구(QUESTION_POOL_PROGRESS). 없으면 기본 안내 문구. */
+  progressMessage?: string | null
+}) {
   const progress = sessionProgress(session)
   return (
     <div className="mx-auto flex h-full max-w-readable flex-col items-center justify-center gap-6 px-4 text-center">
@@ -21,7 +28,7 @@ export function InterviewPreparing({ session }: { session: Session }) {
         {session.title ?? '모의 면접'}
       </Heading>
       <p className="text-body font-normal text-fg-muted" role="status" style={{ wordBreak: 'keep-all' }}>
-        첫 질문을 만들고 있어요. 준비가 끝나면 바로 면접이 시작됩니다.
+        {progressMessage ?? '첫 질문을 만들고 있어요. 준비가 끝나면 바로 면접이 시작됩니다.'}
       </p>
       <p className="text-caption text-fg-subtle">총 {progress.max}개의 질문이 준비됩니다.</p>
     </div>

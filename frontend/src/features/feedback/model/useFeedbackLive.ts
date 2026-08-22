@@ -1,11 +1,21 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEventStream } from '@/shared/hooks'
 import type { StreamConnectionStatus } from '@/shared/hooks'
 import { getFeedback } from '../api/feedbackApi'
 import { feedbackKeys, isFeedbackPending } from './useFeedback'
 
-// 피드백 조회 + 세션 채널 SSE(FEEDBACK_READY) 구독.
+// AI 피드백 생성 진행 문구(FEEDBACK_PROGRESS, 휘발성) — 스켈레톤 캡션에 표시.
+export type FeedbackProgress = {
+  message: string
+  completed: number | null
+  total: number | null
+}
+
+// RealTime SSE data 봉투: { data: <payload>, traceId } (useWorkspaceAnalysisStream 과 동일).
+type StreamData<T> = { data?: T; traceId?: string | null }
+
+// 피드백 조회 + 세션 채널 SSE(FEEDBACK_READY·FEEDBACK_PROGRESS) 구독.
 // - 준비 완료 이벤트 수신 즉시 재조회 — 3s 폴링 간격을 기다리지 않는다.
 // - 기존 3s×40 재시도는 백스톱으로 축소: 스트림이 살아 있으면 15s 간격(이벤트가 주 신호),
 //   죽어 있으면 기존대로 3s (api-conventions §9 — SSE 우선, 끊기면 폴링).
@@ -34,16 +44,28 @@ export function useFeedbackLive(sessionId: number, getToken: () => Promise<strin
     void queryClient.resetQueries({ queryKey: feedbackKeys.detail(sessionId) })
   }, [queryClient, sessionId])
 
+  const [progress, setProgress] = useState<FeedbackProgress | null>(null)
+  const onProgress = useCallback((raw: unknown) => {
+    const data = (raw as StreamData<{ message?: string; completed?: number; total?: number }> | null)
+      ?.data
+    if (!data || typeof data.message !== 'string') return
+    setProgress({
+      message: data.message,
+      completed: typeof data.completed === 'number' ? data.completed : null,
+      total: typeof data.total === 'number' ? data.total : null,
+    })
+  }, [])
+
   // 피드백이 도착하면 스트림을 닫는다 (path: null).
   const streamStatus = useEventStream({
     path: query.data ? null : `/realtime/stream/sessions/${sessionId}`,
     getToken,
-    handlers: { FEEDBACK_READY: onReady },
+    handlers: { FEEDBACK_READY: onReady, FEEDBACK_PROGRESS: onProgress },
   })
 
   useEffect(() => {
     statusRef.current = streamStatus
   }, [streamStatus])
 
-  return { ...query, streamStatus }
+  return { ...query, streamStatus, progress }
 }

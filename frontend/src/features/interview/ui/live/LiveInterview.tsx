@@ -28,6 +28,7 @@ export function LiveInterview({ sessionId }: { sessionId: number }) {
     wasSegmented,
     isSpeaking,
     firstQuestionReady,
+    poolProgress,
   } = useLiveInterview(sessionId, deliveryMode)
 
   // 에러 분기가 스피너 분기보다 먼저 와야 한다 — 쿼리 실패 시 isLoading 은 false 이고
@@ -70,7 +71,7 @@ export function LiveInterview({ sessionId }: { sessionId: number }) {
   }
   // 면접은 시작됐지만 첫 질문이 아직 안 왔으면 스테이지 진입 전 대기 화면을 보여준다.
   if (!firstQuestionReady) {
-    return <InterviewPreparing session={session} />
+    return <InterviewPreparing session={session} progressMessage={poolProgress} />
   }
 
   const awaitingQuestion = turn === 'WAITING_FOR_QUESTION'
