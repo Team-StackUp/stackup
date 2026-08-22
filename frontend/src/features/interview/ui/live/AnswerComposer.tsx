@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { TextArea } from '@/shared/ui/TextArea'
 import { Button } from '@/shared/ui/Button'
@@ -30,7 +30,7 @@ function MicIcon() {
   )
 }
 
-export function AnswerComposer({
+export const AnswerComposer = memo(function AnswerComposer({
   disabled = false,
   disabledReason = 'awaiting-question',
   submitLocked = false,
@@ -187,4 +187,4 @@ export function AnswerComposer({
       )}
     </div>
   )
-}
+})

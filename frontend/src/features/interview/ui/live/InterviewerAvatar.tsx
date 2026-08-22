@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { memo, useState } from 'react'
 
 export type InterviewerState = 'idle' | 'thinking' | 'asking' | 'speaking'
 
@@ -17,7 +17,7 @@ function FallbackFace() {
 
 // 라이브 면접 스테이지 상단에서 "사람이 묻는" 존재감을 주는 면접관 아바타.
 // 캡션(면접관/카테고리)은 아래 질문 카드가 이미 보여주므로 여기서는 시각 요소만 담당한다.
-export function InterviewerAvatar({ state }: { state: InterviewerState }) {
+export const InterviewerAvatar = memo(function InterviewerAvatar({ state }: { state: InterviewerState }) {
   const [imgFailed, setImgFailed] = useState(false)
 
   const ringColor =
@@ -61,4 +61,4 @@ export function InterviewerAvatar({ state }: { state: InterviewerState }) {
       </div>
     </div>
   )
-}
+})

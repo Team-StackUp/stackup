@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { currentTurn } from '@/domain/session'
@@ -76,24 +76,43 @@ export function useLiveInterview(sessionId: number, deliveryMode: DeliveryMode =
   }
 
   // 서버가 sequenceNumber asc 로 주지만, 순서를 코드에서 명시적으로 보장한다.
-  const serverMessages = [...(messagesQuery.data ?? [])].sort(
-    (a, b) => (a.sequenceNumber ?? 0) - (b.sequenceNumber ?? 0),
+  const serverMessages = useMemo(
+    () =>
+      [...(messagesQuery.data ?? [])].sort(
+        (a, b) => (a.sequenceNumber ?? 0) - (b.sequenceNumber ?? 0),
+      ),
+    [messagesQuery.data],
   )
-  const pending = pendingAnswers(optimistic, serverMessages)
+  const pending = useMemo(
+    () => pendingAnswers(optimistic, serverMessages),
+    [optimistic, serverMessages],
+  )
+
+  // 델타(deltaBuffer)와 무관한 기반 목록을 분리해, 델타 1토큰마다 스트리밍 중인
+  // 메시지 하나만 새 객체가 되게 한다 — 나머지 item 은 참조가 유지되어
+  // memo 된 버블·형제 컴포넌트가 리렌더를 건너뛸 수 있다.
+  const baseItems: ThreadItem[] = useMemo(
+    () => [
+      ...serverMessages.map((m) => ({ ...m, key: `m-${m.id}` })),
+      ...pending.map((o) => ({ ...toOptimisticMessage(o), key: `opt-${o.tempId}` })),
+    ],
+    [serverMessages, pending],
+  )
 
   // 스트리밍 중인 메시지는 deltaBuffer의 seq 재조립 텍스트로 content를 오버라이드한다.
-  const mergedMessages = serverMessages.map((m) => {
-    const buffered = bufferedText(deltaBuffer, m.id)
-    if (buffered !== undefined && isStreamingMessage(m, buffered)) {
-      return { ...m, content: buffered, streaming: true as const }
-    }
-    return m
-  })
-
-  const items: ThreadItem[] = [
-    ...mergedMessages.map((m) => ({ ...m, key: `m-${m.id}` })),
-    ...pending.map((o) => ({ ...toOptimisticMessage(o), key: `opt-${o.tempId}` })),
-  ]
+  // 낙관적(optimistic) 항목은 `id` 가 없어 bufferedText 가 항상 undefined — 델타가
+  // 붙지 않는다. toOptimisticMessage 가 id 를 채우게 되면 이 전제가 깨진다.
+  const items: ThreadItem[] = useMemo(
+    () =>
+      baseItems.map((m) => {
+        const buffered = bufferedText(deltaBuffer, m.id)
+        if (buffered !== undefined && isStreamingMessage(m, buffered)) {
+          return { ...m, content: buffered, streaming: true as const }
+        }
+        return m
+      }),
+    [baseItems, deltaBuffer],
+  )
 
   // 세그먼트 오디오 엘리먼트 재생 리스너 — 마운트 1회.
   // play/pause/ended 로 '말하는 중' 상태를 갱신해 아바타·질문 카드가 동기화되게 한다.
@@ -266,14 +285,15 @@ export function useLiveInterview(sessionId: number, deliveryMode: DeliveryMode =
       toast.error('음성 답변 업로드에 실패했어요. 다시 시도해 주세요.'),
   })
 
-  const submitVoice = useCallback(
-    (audio: Blob) => voiceMutation.mutate(audio),
-    [voiceMutation],
-  )
+  // mutate 는 참조가 안정적이다 — mutation 객체 전체를 deps 로 두면 매 렌더 새 함수가 된다.
+  const { mutate: voiceMutate } = voiceMutation
+  const submitVoice = useCallback((audio: Blob) => voiceMutate(audio), [voiceMutate])
 
   // 서버 메시지 기준으로 가장 최근 면접관 메시지가 여전히 sentinel이면 스트리밍 진행 중.
-  const latestServerQuestion = [...serverMessages].reverse().find((m) => m.role === 'INTERVIEWER')
-  const questionStreaming = latestServerQuestion?.content === FOLLOWUP_GENERATING_TEXT
+  const questionStreaming = useMemo(() => {
+    const latest = [...serverMessages].reverse().find((m) => m.role === 'INTERVIEWER')
+    return latest?.content === FOLLOWUP_GENERATING_TEXT
+  }, [serverMessages])
 
   const wasSegmented = useCallback((id: number) => segmentedIds.current.has(id), [])
 
@@ -285,33 +305,46 @@ export function useLiveInterview(sessionId: number, deliveryMode: DeliveryMode =
 
   // 첫 질문이 실제 content 를 갖고 도착했는지. 면접 스테이지 진입 전에 이걸 기다려
   // 사용자가 스테이지에 들어서면 바로 질문을 볼 수 있게 한다(빈 대기 화면 회피).
-  const firstQuestionReady = items.some((m) => {
-    if (m.role !== 'INTERVIEWER') return false
-    const c = (m.content ?? '').trim()
-    return c.length > 0 && c !== FOLLOWUP_GENERATING_TEXT
-  })
+  const firstQuestionReady = useMemo(
+    () =>
+      items.some((m) => {
+        if (m.role !== 'INTERVIEWER') return false
+        const c = (m.content ?? '').trim()
+        return c.length > 0 && c !== FOLLOWUP_GENERATING_TEXT
+      }),
+    [items],
+  )
+
+  const turn = useMemo(() => currentTurn(items), [items])
+
+  const { mutate: endMutate } = end
+  const { mutate: interruptMutate } = interrupt
+  const { refetch: refetchSessionQuery } = sessionQuery
+  const endSession = useCallback(() => endMutate(), [endMutate])
+  // 잠시 중단 — 대화를 남긴 채 INTERRUPTED 로. 나중에 '이어서 진행하기' 로 돌아온다.
+  const interruptSession = useCallback(() => interruptMutate(), [interruptMutate])
+  const refetchSession = useCallback(() => {
+    void refetchSessionQuery()
+  }, [refetchSessionQuery])
 
   return {
     session: sessionQuery.data,
     status,
     items,
-    turn: currentTurn(items),
+    turn,
     connection,
     submitAnswer,
     restoreDraft,
     submitVoice,
     voiceUploading: voiceMutation.isPending,
     voiceError: voiceMutation.isError,
-    endSession: () => end.mutate(),
-    // 잠시 중단 — 대화를 남긴 채 INTERRUPTED 로. 나중에 '이어서 진행하기' 로 돌아온다.
-    interruptSession: () => interrupt.mutate(),
+    endSession,
+    interruptSession,
     isLoading: sessionQuery.isLoading,
     // 세션 조회 실패를 화면에 알리기 위한 것 — 없으면 LiveInterview 의
     // `isLoading || !session` 분기가 에러 시에도 스피너를 영원히 돌린다.
     isError: sessionQuery.isError,
-    refetchSession: () => {
-      void sessionQuery.refetch()
-    },
+    refetchSession,
     questionStreaming,
     wasSegmented,
     isSpeaking,

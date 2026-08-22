@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import type { Message } from '@/domain/session'
 import { categoryLabel } from '../../lib/categoryLabel'
 import { useTtsPlayback } from '../../lib/media/useTtsPlayback'
@@ -29,7 +29,7 @@ function VoiceWave({ playing }: { playing: boolean }) {
 }
 
 // 면접관이 지금 막 던진 한 질문에만 집중시키는 카드.
-export function StageQuestion({
+export const StageQuestion = memo(function StageQuestion({
   question,
   segmented = false,
   speaking = false,
@@ -181,4 +181,4 @@ export function StageQuestion({
       )}
     </div>
   )
-}
+})

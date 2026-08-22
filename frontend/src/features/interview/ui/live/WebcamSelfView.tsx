@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { useWebcamPreview } from '../../lib/media/useWebcamPreview'
 
 function CameraOffIcon() {
@@ -16,7 +17,7 @@ const PLACEHOLDER: Record<string, string> = {
 }
 
 // 면접 스테이지에 떠 있는 본인 카메라 미리보기 카드. 위치는 호출부(InterviewStage)가 결정.
-export function WebcamSelfView() {
+export const WebcamSelfView = memo(function WebcamSelfView() {
   const { videoRef, state, start, stop } = useWebcamPreview()
   const live = state === 'live'
 
@@ -48,4 +49,4 @@ export function WebcamSelfView() {
       </button>
     </div>
   )
-}
+})

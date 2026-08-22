@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { isQuestion } from '@/domain/session'
 import { QueryError } from '@/shared/ui'
 import { Spinner } from '@/shared/ui/Spinner'
@@ -10,6 +11,13 @@ import { AnswerCoachingAccordion } from './live/AnswerCoachingAccordion'
 // 음성 질문 재생(TTS)·음성 답변 재생도 그대로 노출한다.
 export function InterviewTranscript({ sessionId }: { sessionId: number }) {
   const { data, isLoading, isError, refetch } = useSessionMessages(sessionId)
+
+  // memo 된 버블이 리렌더를 건너뛰려면 item 참조가 유지되어야 한다 (early return 위라 훅 순서 안전).
+  const items = useMemo(
+    () =>
+      [...(data ?? [])].sort((a, b) => (a.sequenceNumber ?? 0) - (b.sequenceNumber ?? 0)),
+    [data],
+  )
 
   if (isLoading) {
     return (
@@ -29,9 +37,6 @@ export function InterviewTranscript({ sessionId }: { sessionId: number }) {
     )
   }
 
-  const items = [...(data ?? [])].sort(
-    (a, b) => (a.sequenceNumber ?? 0) - (b.sequenceNumber ?? 0),
-  )
   if (items.length === 0) return null
 
   return (

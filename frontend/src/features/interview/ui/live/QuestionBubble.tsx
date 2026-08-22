@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import type { Message } from '@/domain/session'
 import { StatusBadge } from '@/shared/ui/StatusBadge'
 import { categoryLabel } from '../../lib/categoryLabel'
@@ -30,7 +31,7 @@ function PlayIcon({ playing }: { playing: boolean }) {
   )
 }
 
-export function QuestionBubble({
+export const QuestionBubble = memo(function QuestionBubble({
   message,
   autoPlay = false,
   bookmarkable = false,
@@ -126,4 +127,4 @@ export function QuestionBubble({
       </div>
     </div>
   )
-}
+})

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { memo, useEffect, useRef } from 'react'
 import { isQuestion } from '@/domain/session'
 import type { ThreadItem } from '../../model/useLiveInterview'
 import type { DeliveryMode } from '../../model/useDeliveryMode'
@@ -6,7 +6,7 @@ import { QuestionBubble } from './QuestionBubble'
 import { AnswerBubble } from './AnswerBubble'
 import { TypingIndicator } from './TypingIndicator'
 
-export function ConversationThread({
+export const ConversationThread = memo(function ConversationThread({
   items,
   awaitingQuestion,
   mode = 'text',
@@ -38,4 +38,4 @@ export function ConversationThread({
       {awaitingQuestion ? <TypingIndicator /> : null}
     </div>
   )
-}
+})
