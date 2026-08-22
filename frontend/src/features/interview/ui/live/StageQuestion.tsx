@@ -2,7 +2,6 @@ import { useState } from 'react'
 import type { Message } from '@/domain/session'
 import { categoryLabel } from '../../lib/categoryLabel'
 import { useTtsPlayback } from '../../lib/media/useTtsPlayback'
-import { useTypewriter } from '../../lib/useTypewriter'
 import type { DeliveryMode } from '../../model/useDeliveryMode'
 
 function PlayIcon({ playing }: { playing: boolean }) {
@@ -49,7 +48,8 @@ export function StageQuestion({
   const ttsPending = ttsStatus === 'PENDING'
   const ttsFailed = ttsStatus === 'FAILED'
   const voiceMode = mode === 'voice'
-  const shownText = useTypewriter(question.content ?? '', !!streaming)
+  // 델타가 이미 토큰 단위로 도착하므로 재애니메이션 없이 그대로 표시한다(실스트림 = 애니메이션).
+  const shownText = question.content ?? ''
 
   // 음성 모드여도 TTS 가 실패했으면 텍스트로 폴백한다.
   const listenOnly = voiceMode && !ttsFailed
@@ -67,7 +67,7 @@ export function StageQuestion({
   return (
     // 질문은 WebSocket 으로 비동기 도착한다. live region 이 없으면 스크린리더 사용자는
     // 새 질문이 왔다는 사실 자체를 모른 채 기다리게 된다 — 면접의 핵심 흐름이라
-    // 알림이 필수다. 타이핑 효과로 글자가 이어 붙는 동안 계속 읽지 않도록,
+    // 알림이 필수다. 델타 스트리밍으로 글자가 이어 붙는 동안 계속 읽지 않도록,
     // 스트리밍이 끝난 뒤에만 한 번 알리게 aria-busy 로 묶는다.
     <div
       role="region"

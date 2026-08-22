@@ -30,7 +30,7 @@ export function ConversationThread({
     <div ref={containerRef} className="flex h-full flex-col gap-3 overflow-y-auto px-4 py-6">
       {items.map((item) =>
         isQuestion(item) ? (
-          <QuestionBubble key={item.key} message={item} autoPlay={mode === 'voice' && item.key === lastQuestionKey} streaming={item.streaming} />
+          <QuestionBubble key={item.key} message={item} autoPlay={mode === 'voice' && item.key === lastQuestionKey} />
         ) : (
           <AnswerBubble key={item.key} message={item} />
         ),
