@@ -7,6 +7,11 @@ from aio_pika.abc import AbstractIncomingMessage
 
 from ai_server.chain.question_generation_chain import QuestionGenerator
 from ai_server.core.client import CoreClient
+from ai_server.messaging.consumers.failure_signal import (
+    classify_failure,
+    consume_with_failure_signal,
+    format_error_message,
+)
 from ai_server.messaging.idempotency import LruIdempotencyStore
 from ai_server.messaging.publisher import CallbackPublisher
 from ai_server.messaging.session_notify import (
@@ -53,83 +58,94 @@ class QuestionsConsumer:
         self._session_notifier = session_notifier
 
     async def handle(self, message: AbstractIncomingMessage) -> None:
-        async with message.process(requeue=False):
-            try:
-                envelope = Envelope[GenerateQuestionsRequest].model_validate_json(
-                    message.body
-                )
-            except Exception as exc:
-                log.error(
-                    "questions.parse.failed",
-                    error=str(exc),
-                    delivery_tag=message.delivery_tag,
-                )
-                raise
+        await consume_with_failure_signal(
+            message,
+            domain="questions",
+            envelope_type=Envelope[GenerateQuestionsRequest],
+            idempotency=self._idempotency,
+            publisher=self._publisher,
+            routing_key=self._callback_routing_key,
+            message_type="callback.questions",
+            process=self._process,
+            failed_payload=self._failed_payload,
+            done_fields=lambda p: {
+                "status": p.status,
+                "question_count": len(p.questions),
+            },
+        )
 
-            if self._idempotency.is_seen_then_mark(envelope.message_id):
-                log.info(
-                    "questions.idempotent.skip",
-                    message_id=envelope.message_id,
-                    trace_id=envelope.trace_id,
-                )
-                return
+    async def _process(
+        self, envelope: Envelope[GenerateQuestionsRequest]
+    ) -> QuestionPoolCallbackPayload:
+        req = envelope.payload
+        effective_pool_size = max(
+            1,
+            req.initial_question_count,
+        )
+        log.info(
+            "questions.generate.start",
+            message_id=envelope.message_id,
+            session_id=req.session_id,
+            doc_count=len(req.documents),
+            max_questions=req.max_questions,
+            pool_size=effective_pool_size,
+            trace_id=envelope.trace_id,
+        )
 
-            req = envelope.payload
-            effective_pool_size = max(
-                1,
-                req.initial_question_count,
-            )
-            log.info(
-                "questions.generate.start",
-                message_id=envelope.message_id,
-                session_id=req.session_id,
-                doc_count=len(req.documents),
-                max_questions=req.max_questions,
-                pool_size=effective_pool_size,
-                trace_id=envelope.trace_id,
-            )
+        await self._emit_progress(
+            session_id=req.session_id,
+            phase="CONTEXT_BUILDING",
+            message="면접 자료를 정리하고 있어요.",
+            trace_id=envelope.trace_id,
+        )
+        context_text = await self._build_context(req)
+        await self._emit_progress(
+            session_id=req.session_id,
+            phase="GENERATING",
+            message="자료를 바탕으로 첫 질문을 만들고 있어요.",
+            trace_id=envelope.trace_id,
+        )
+        pool = await self._generator.generate(
+            job_categories=req.job_categories,
+            mode=req.mode,
+            max_questions=effective_pool_size,
+            context=context_text,
+            recent_questions=req.recent_questions,
+            self_introduction=req.self_intro_answer,
+            target_company_name=req.target_company_name,
+            target_job_description=req.target_job_description,
+            focus_areas=req.focus_areas,
+        )
+        # 실패는 예외로 위 가드에 넘어가므로 여기 도달 = 성공 —
+        # FAILED 콜백 직전에 "마무리하고 있어요" 가 스치는 오해가 구조적으로 없다.
+        await self._emit_progress(
+            session_id=req.session_id,
+            phase="FINALIZING",
+            message="질문 준비를 마무리하고 있어요.",
+            trace_id=envelope.trace_id,
+        )
+        return QuestionPoolCallbackPayload(
+            session_id=req.session_id,
+            kind="POOL",
+            questions=pool.questions,
+        )
 
-            await self._emit_progress(
-                session_id=req.session_id,
-                phase="CONTEXT_BUILDING",
-                message="면접 자료를 정리하고 있어요.",
-                trace_id=envelope.trace_id,
-            )
-            context_text = await self._build_context(req)
-            await self._emit_progress(
-                session_id=req.session_id,
-                phase="GENERATING",
-                message="자료를 바탕으로 첫 질문을 만들고 있어요.",
-                trace_id=envelope.trace_id,
-            )
-            payload = await self._generate_pool_payload(
-                req, context_text, effective_pool_size, trace_id=envelope.trace_id
-            )
-            # 생성 실패(FAILED 콜백) 직전에 "마무리하고 있어요" 가 스치면 오해를 부른다 — 성공시에만.
-            if payload.status != "FAILED":
-                await self._emit_progress(
-                    session_id=req.session_id,
-                    phase="FINALIZING",
-                    message="질문 준비를 마무리하고 있어요.",
-                    trace_id=envelope.trace_id,
-                )
-
-            await self._publisher.publish(
-                routing_key=self._callback_routing_key,
-                message_type="callback.questions",
-                payload=payload,
-                trace_id=envelope.trace_id,
-                correlation_id=envelope.message_id,
-                context=envelope.context,
-            )
-            log.info(
-                "questions.generate.done",
-                message_id=envelope.message_id,
-                session_id=req.session_id,
-                status=payload.status,
-                question_count=len(payload.questions),
-                trace_id=envelope.trace_id,
-            )
+    def _failed_payload(
+        self, req: GenerateQuestionsRequest, exc: Exception
+    ) -> QuestionPoolCallbackPayload:
+        """실패해도 콜백은 항상 나가야 세션 시작이 무기한 멈추지 않는다."""
+        error_code, retriable = classify_failure(
+            exc, unexpected_code="GENERATION_FAILED"
+        )
+        return QuestionPoolCallbackPayload(
+            session_id=req.session_id,
+            kind="POOL",
+            questions=[],
+            status="FAILED",
+            error_code=error_code,
+            error_message=format_error_message(exc),
+            retriable=retriable,
+        )
 
     async def _emit_progress(
         self, *, session_id: int, phase: str, message: str, trace_id: str
@@ -142,52 +158,6 @@ class QuestionsConsumer:
             phase=phase,
             message=message,
             trace_id=trace_id,
-        )
-
-    async def _generate_pool_payload(
-        self,
-        req: GenerateQuestionsRequest,
-        context_text: str,
-        effective_pool_size: int,
-        *,
-        trace_id: str,
-    ) -> QuestionPoolCallbackPayload:
-        """질문 풀 생성. 실패해도 콜백은 항상 나가야 세션 시작이 무기한 멈추지 않는다."""
-        try:
-            pool = await self._generator.generate(
-                job_categories=req.job_categories,
-                mode=req.mode,
-                max_questions=effective_pool_size,
-                context=context_text,
-                recent_questions=req.recent_questions,
-                self_introduction=req.self_intro_answer,
-                target_company_name=req.target_company_name,
-                target_job_description=req.target_job_description,
-                focus_areas=req.focus_areas,
-            )
-        except Exception as exc:  # noqa: BLE001
-            log.exception(
-                "questions.generate.failed",
-                session_id=req.session_id,
-                trace_id=trace_id,
-            )
-            return QuestionPoolCallbackPayload(
-                session_id=req.session_id,
-                kind="POOL",
-                questions=[],
-                status="FAILED",
-                error_code=(
-                    "GENERATION_SCHEMA_INVALID"
-                    if isinstance(exc, TypeError)
-                    else "GENERATION_FAILED"
-                ),
-                error_message=str(exc),
-                retriable=not isinstance(exc, TypeError),
-            )
-        return QuestionPoolCallbackPayload(
-            session_id=req.session_id,
-            kind="POOL",
-            questions=pool.questions,
         )
 
     async def _build_context(self, req: GenerateQuestionsRequest) -> str:

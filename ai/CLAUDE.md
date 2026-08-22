@@ -267,7 +267,9 @@ uv run pytest -k "embedding"        # 키워드
 - 함수/변수: `snake_case`
 - 상수: `UPPER_SNAKE_CASE`
 - 클래스: `PascalCase`
-- 타입 힌트 필수 (`from __future__ import annotations` 없이 PEP 604 union `int | None`)
+- 타입 힌트 필수 — PEP 604 union(`int | None`) 사용. 파일 첫 줄의
+  `from __future__ import annotations` 는 코드베이스 전반의 실제 컨벤션이므로 유지
+  (과거 "없이" 라는 서술은 코드와 불일치했던 stale 규정 — 2026-08-23 정정)
 - async first — sync IO 사용 시 명시적 이유
 
 상세 공통 규약: [`/docs/coding-conventions.md`](../docs/coding-conventions.md).
@@ -385,31 +387,20 @@ docker run --env-file .env -p 8000:8000 stackup-ai
   예상 못 한 예외로 죽어도(다른 4개 부가 평가는 각자 예외를 삼키는데 이것만 그러지 않으면
   top-level `asyncio.gather` 가 통째로 취소된다) 빈 `FeedbackResult`로 대체해 피드백 발행
   자체는 항상 이어지게 한다.
-- **질문 풀/꼬리질문 생성 실패 신호 본 구현**: `questions_consumer`/`followup_consumer`가 메인 생성
-  호출(`generate()`/`stream()`)을 무방비로 두던 문제를 고쳤다 — 실패하면 예외가 그대로 새서
-  DLQ로 격리되고 Core 는 아무 신호도 못 받아 세션이 "생성 중"에 무기한 멈췄다(꼬리질문은 Core 가
-  이미 선INSERT 한 placeholder 가 영원히 안 채워짐). 이제 두 consumer 모두 생성 호출을 try/except
-  로 감싸 실패해도 항상 `QuestionPoolCallbackPayload`/`FollowupCallbackPayload`(`status=FAILED`,
-  `errorCode`, `errorMessage`, `retriable`)를 발행한다. `errorCode`는 `TypeError`(LLM 출력 스키마
-  불일치, 재시도 무의미 → `retriable=false`)와 그 외(`GENERATION_FAILED`, `retriable=true`)를 구분.
-  Core 쪽 처리는 [`backend/CLAUDE.md`](../backend/CLAUDE.md) 참고. 같은 김에 `questions_consumer`의
-  다문서 RAG 경로에도 `followup_rag_timeout_sec`와 대칭인 `questions_rag_timeout_sec`(기본 1.5s)
-  하드 타임아웃을 추가하고, 모든 `ChatOpenAI` 호출에 `llm_pro_timeout_sec`(30s)/`llm_flash_timeout_sec`
-  (10s) 요청 타임아웃을 명시했다(이전엔 미설정 — SDK 기본값까지 무기한 대기 가능).
-
-- **피드백 생성 실패 신호 본 구현**: `feedback_consumer` 만 위 리팩터에서 빠져 있던 gap 을 닫았다 —
-  패널·부가 평가는 내부 폴백(빈 결과/생략)으로 흡수되지만, 그 방어망 밖(트랜스크립트/RAG 컨텍스트 빌드,
-  payload 조립, 발행 등)의 예상 못 한 예외는 그대로 새서 DLQ 로만 격리되고 Core 는 아무 신호도 못 받아
-  세션이 "피드백 생성 중"에 무기한 멈췄다. `handle()` 본문을 payload 를 **반환**하는 `_process()` 로
-  추출하고 envelope 파싱·멱등 체크 이후의 생성 전 구간을 try/except 로 감싸, 실패 시
-  `FeedbackCallbackPayload`(`status=FAILED`, `errorCode`, `errorMessage`(상한 500자), `retriable`)를
-  발행하고 ack 한다(`_publish_failed`). 분류는 questions/followup 과 동일 — `TypeError` 는
-  `GENERATION_SCHEMA_INVALID`/`retriable=false`, 그 외 `UNEXPECTED`/`retriable=true`. **성공 콜백
-  발행 실패는 생성 실패가 아니다** — FAILED 오인 발행 없이 원 예외로 DLQ(변경 전과 동일, 재처리
-  가능). 콜백을 하나도 못 낸 채 DLQ 로 가는 경로(폴백 발행 실패 포함)는 `LruIdempotencyStore.unmark`
-  로 마킹을 되돌려 재주입 시 duplicate skip 으로 삼켜지지 않게 한다. `status` 는 `GenerationStatus`
-  Literal 재사용, 기본값 `OK` 라 성공 콜백·구버전 소비자와 하위호환.
-  Core 쪽 처리는 [`backend/CLAUDE.md`](../backend/CLAUDE.md) 참고.
+- **생성 실패 신호 공용 가드 본 구현 (F4 일원화)**: 질문 풀·꼬리질문·피드백 3개 consumer 의 실패
+  신호 메커니즘을 `messaging/consumers/failure_signal.py: consume_with_failure_signal` 하나로
+  통합했다. 이전엔 questions/followup 이 생성 호출만 try 로 감싸 컨텍스트 빌드·진행 이벤트·발행
+  구간이 무방비였고(같은 무기한 대기 버그를 세 번, 세 깊이로 수리), feedback 만 전 구간 가드였다.
+  이제 3개 모두: envelope 파싱 실패는 raise→DLQ, 파싱·멱등 이후 **전 구간** 예외는 항상
+  `status=FAILED` 콜백(+ack), 성공 콜백 발행 실패는 FAILED 오인 없이 원 예외로 DLQ(재처리 가능),
+  콜백 0건 DLQ 경로는 `LruIdempotencyStore.unmark`. 각 consumer 는 `_process(envelope)`(성공
+  payload 반환)와 `_failed_payload(req, exc)` 팩토리만 구현한다. `errorCode` 분류는 consumer 별
+  계약 유지 — questions/followup: `GENERATION_SCHEMA_INVALID`(TypeError, retriable=false) |
+  `GENERATION_FAILED`, feedback: 동일 스키마 코드 | `UNEXPECTED`. `errorMessage` 는 공용
+  `format_error_message`(`ExcType: msg`, 500자 상한). Core 쪽 처리는
+  [`backend/CLAUDE.md`](../backend/CLAUDE.md) 참고. (질문 풀 RAG `questions_rag_timeout_sec`
+  1.5s 하드 타임아웃과 `llm_pro_timeout_sec` 30s/`llm_flash_timeout_sec` 10s 요청 타임아웃은
+  이전 리팩터에서 도입되어 유지된다.)
 
 - **질문 풀·피드백 생성 진행 이벤트 본 구현 (B2)**: 스트리밍이 없는 두 블로킹 생성 경로(질문 풀 Pro ≤30s,
   피드백 병렬 gather ≈2분 예산)가 진행 중 무통보였던 것을 고쳤다. `SessionRealtimeNotifier.emit_progress`

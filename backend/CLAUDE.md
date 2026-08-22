@@ -469,7 +469,9 @@ docker compose up -d
   `FeedbackRegenerateRequestedEvent` → AFTER_COMMIT 리스너로 — 마커 clear 커밋 전에 발행되는
   역전(§"메시지 발행은 commit 이후" 규칙)을 막는다. AI 의
   `errorMessage` 원문은 서버 로그에만 남기고 클라이언트에는 화이트리스트 문구만 보낸다
-  (QuestionsCallbackService 와 동일 원칙). AI 쪽 발행은 [`ai/CLAUDE.md`](../ai/CLAUDE.md) 참고.
+  (QuestionsCallbackService 와 동일 원칙 — 이중 채널 발행 자체는 공용
+  `common/sse/SessionErrorNotifier` + `SessionErrorNotice` 로 통합, F4). AI 쪽 발행은
+  [`ai/CLAUDE.md`](../ai/CLAUDE.md) 참고.
 - **문장 단위 TTS 세그먼트 프록시 본 구현 (Part B)**: `InterviewMessageService.streamAudioSegment` + `GET /api/sessions/{sid}/messages/{mid}/audio/segments/{seq}?ext=`. AI 가 휘발성으로 쓴 라이브 세그먼트를 규칙(`interview/tts/{sid}/{mid}/seg-{seq}.{ext}`)으로 재구성해 프록시(DB 미기록). 소유권+ext 화이트리스트+seq>=0 검증으로 임의 키 노출 차단.
 - AI 호출 로깅 (US-30) 본 구현: `/api/internal/ai-logs` + `ai_request_logs` INSERT
 - **웹 이력서(URL) 본 구현 (US-09)**: `POST /api/resumes/web { url }`. AI 서버에 웹 분석이 이미

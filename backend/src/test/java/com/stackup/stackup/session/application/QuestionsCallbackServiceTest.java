@@ -2,6 +2,7 @@ package com.stackup.stackup.session.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -9,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.stackup.stackup.common.messaging.RealtimeNotifyEvent;
+import com.stackup.stackup.common.sse.SessionErrorNotice;
 import com.stackup.stackup.common.messaging.domain.ProcessedMessage;
 import com.stackup.stackup.common.messaging.domain.ProcessedMessageRepository;
 import com.stackup.stackup.common.sse.SseEventType;
@@ -41,6 +43,7 @@ class QuestionsCallbackServiceTest {
     @Mock com.stackup.stackup.session.domain.SessionQuestionPoolRepository poolRepository;
     @Mock ProcessedMessageRepository processedMessageRepository;
     @Mock org.springframework.context.ApplicationEventPublisher events;
+    @Mock com.stackup.stackup.common.sse.SessionErrorNotifier errorNotifier;
     @InjectMocks QuestionsCallbackService service;
 
     @Test
@@ -171,15 +174,40 @@ class QuestionsCallbackServiceTest {
 
         service.apply(env);
 
-        ArgumentCaptor<Object> ev = ArgumentCaptor.forClass(Object.class);
-        verify(events, atLeastOnce()).publishEvent(ev.capture());
-        assertThat(ev.getAllValues())
-            .filteredOn(e -> e instanceof RealtimeNotifyEvent)
-            .isNotEmpty()
-            .allSatisfy(e -> assertThat(e.toString())
-                .doesNotContain("mindlogic")
-                .doesNotContain("org-abc123")
-                .doesNotContain("Errno"));
+        // 발행 메커니즘은 공용 SessionErrorNotifier 로 위임 — notice 내용으로 검증.
+        ArgumentCaptor<SessionErrorNotice> cap = ArgumentCaptor.forClass(SessionErrorNotice.class);
+        verify(errorNotifier).notify(eq(21L), eq(1L), cap.capture());
+        SessionErrorNotice notice = cap.getValue();
+        assertThat(notice.scope()).isEqualTo("FOLLOWUP");
+        assertThat(notice.errorCode()).isEqualTo("GENERATION_FAILED");
+        assertThat(notice.retriable()).isTrue();
+        assertThat(notice.toString())
+            .doesNotContain("mindlogic")
+            .doesNotContain("org-abc123")
+            .doesNotContain("Errno");
+    }
+
+    // errorCode 가 아예 없어도(변형 producer·수동 DLQ 재주입) NPE 없이 폴백 코드로 처리한다 —
+    // NPE → 롤백 → 재시도 루프는 실패 신호가 없애려던 무기한 대기의 재현이다.
+    @Test
+    void apply_followupFailedWithNullErrorCode_fallsBackWithoutNpe() {
+        InterviewSession session = sessionFixture(24L, SessionStatus.IN_PROGRESS);
+        QuestionsCallbackPayload payload = new QuestionsCallbackPayload(
+            24L, "FOLLOWUP", List.of(), null, null, null, null, null, null,
+            "FAILED", null, null, null
+        );
+        QuestionsCallbackEnvelope env = new QuestionsCallbackEnvelope(
+            "m-fu-nullcode", "callback.questions", "1", "t", null, "ai", payload, null);
+
+        when(processedMessageRepository.existsById("m-fu-nullcode")).thenReturn(false);
+        when(sessionRepository.findById(24L)).thenReturn(Optional.of(session));
+
+        service.apply(env);
+
+        ArgumentCaptor<SessionErrorNotice> cap = ArgumentCaptor.forClass(SessionErrorNotice.class);
+        verify(errorNotifier).notify(eq(24L), eq(1L), cap.capture());
+        assertThat(cap.getValue().errorCode()).isEqualTo("GENERATION_FAILED");
+        assertThat(cap.getValue().message()).isNotBlank();
     }
 
     // 모르는 코드가 와도 그대로 실어 보내지 않는다 — errorCode 역시 AI 가 채우는 문자열이다.
@@ -198,11 +226,11 @@ class QuestionsCallbackServiceTest {
 
         service.apply(env);
 
-        ArgumentCaptor<Object> ev = ArgumentCaptor.forClass(Object.class);
-        verify(events, atLeastOnce()).publishEvent(ev.capture());
-        assertThat(ev.getAllValues())
-            .filteredOn(e -> e instanceof RealtimeNotifyEvent)
-            .allSatisfy(e -> assertThat(e.toString()).doesNotContain("org-secret"));
+        ArgumentCaptor<SessionErrorNotice> cap = ArgumentCaptor.forClass(SessionErrorNotice.class);
+        verify(errorNotifier).notify(eq(22L), eq(1L), cap.capture());
+        // 모르는 코드는 화이트리스트 폴백 코드로 대체된다.
+        assertThat(cap.getValue().errorCode()).isEqualTo("GENERATION_FAILED");
+        assertThat(cap.getValue().toString()).doesNotContain("org-secret");
     }
 
     @Test
@@ -454,7 +482,8 @@ class QuestionsCallbackServiceTest {
         QuestionsCallbackPayload payload = new QuestionsCallbackPayload(
             23L, "FOLLOWUP", null, 200L, null, null,
             null, "NORMAL", 304L,
-            "FAILED", "GENERATION_FAILED", "gateway timeout", true
+            "FAILED", "GENERATION_FAILED",
+            "RuntimeError: cannot connect to https://llm-gateway.internal (org-abc123)", true
         );
         QuestionsCallbackEnvelope env = new QuestionsCallbackEnvelope(
             "m-ph-failed", "callback.questions", "1", "t", null, "ai", payload, null);
@@ -478,6 +507,14 @@ class QuestionsCallbackServiceTest {
             .isEqualTo(com.stackup.stackup.session.domain.MessageStatus.FAILED);
         // DONT_KNOW 와 동일하게 다음 일반질문으로 진행 — 풀이 비어 세션 종료(POOL_EXHAUSTED).
         assertThat(session.getStatus()).isEqualTo(SessionStatus.COMPLETED);
+        // 이 실패 경로에서 발행되는 어떤 이벤트에도 AI 내부 원문이 실리지 않는다 —
+        // notice 단건 검증(레거시 폴백 테스트)보다 넓은 전수 스캔을 유지한다.
+        ArgumentCaptor<Object> ev = ArgumentCaptor.forClass(Object.class);
+        verify(events, atLeastOnce()).publishEvent(ev.capture());
+        assertThat(ev.getAllValues())
+            .allSatisfy(e -> assertThat(e.toString())
+                .doesNotContain("llm-gateway")
+                .doesNotContain("org-abc123"));
     }
 
     @Test

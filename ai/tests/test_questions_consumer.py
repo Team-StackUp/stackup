@@ -151,6 +151,125 @@ async def test_consumer_publishes_failed_pool_when_generate_raises():
     assert payload.questions == []
 
 
+def _basic_body() -> bytes:
+    return _envelope(
+        {
+            "sessionId": 99,
+            "mode": "TECHNICAL",
+            "jobCategories": ["BACKEND"],
+            "documents": [],
+            "maxQuestions": 5,
+            "initialQuestionCount": 2,
+        }
+    )
+
+
+@pytest.mark.asyncio
+async def test_consumer_publishes_failed_pool_when_context_build_raises():
+    """생성 호출 밖(컨텍스트 빌드 등) 예외도 이제 FAILED 콜백으로 신호한다 —
+    예전엔 reject→DLQ 로만 가서 세션 시작이 무기한 멈췄다 (전 구간 가드, F4)."""
+    generator = MagicMock()
+    generator.generate = AsyncMock()
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+
+    consumer = QuestionsConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.questions",
+    )
+    consumer._build_context = AsyncMock(side_effect=RuntimeError("core down"))
+
+    await consumer.handle(_StubMessage(_basic_body()))  # raise 없이 ack 경로
+
+    generator.generate.assert_not_awaited()
+    publisher.publish.assert_awaited_once()
+    payload: QuestionPoolCallbackPayload = publisher.publish.await_args.kwargs[
+        "payload"
+    ]
+    assert payload.status == "FAILED"
+    assert payload.error_code == "GENERATION_FAILED"
+    assert payload.error_message == "RuntimeError: core down"
+    assert payload.retriable is True
+
+
+@pytest.mark.asyncio
+async def test_consumer_unmarks_and_reraises_when_failed_publish_also_fails():
+    """폴백(FAILED 콜백) 발행마저 실패하면 멱등 unmark 후 원 예외로 DLQ —
+    재주입 시 duplicate skip 으로 삼켜지지 않는다."""
+    generator = MagicMock()
+    generator.generate = AsyncMock(side_effect=RuntimeError("gateway 500"))
+    publisher = MagicMock()
+    publisher.publish = AsyncMock(side_effect=ConnectionError("mq down"))
+    store = LruIdempotencyStore(max_size=10)
+
+    consumer = QuestionsConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=store,
+        callback_routing_key="callback.questions",
+    )
+
+    with pytest.raises(RuntimeError, match="gateway 500"):
+        await consumer.handle(_StubMessage(_basic_body()))
+
+    assert store.is_seen_then_mark("m-1") is False
+
+
+@pytest.mark.asyncio
+async def test_consumer_unmarks_when_failed_payload_factory_raises():
+    """FAILED payload 팩토리 자체가 죽어도 같은 안전망 — unmark 후 원 예외로 DLQ.
+    (팩토리 호출이 가드 try 밖이면 마킹이 남아 재주입이 duplicate skip 으로 삼켜진다.)"""
+    generator = MagicMock()
+    generator.generate = AsyncMock(side_effect=RuntimeError("gateway 500"))
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+    store = LruIdempotencyStore(max_size=10)
+
+    consumer = QuestionsConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=store,
+        callback_routing_key="callback.questions",
+    )
+    consumer._failed_payload = MagicMock(side_effect=ValueError("factory broken"))
+
+    with pytest.raises(RuntimeError, match="gateway 500"):
+        await consumer.handle(_StubMessage(_basic_body()))
+
+    publisher.publish.assert_not_awaited()
+    assert store.is_seen_then_mark("m-1") is False
+
+
+@pytest.mark.asyncio
+async def test_consumer_does_not_send_failed_when_success_publish_fails():
+    """생성이 성공했는데 콜백 발행만 실패한 경우 — FAILED 로 오인 발행하지 않고
+    원 예외로 DLQ(멱등 unmark 포함, 재처리 가능)."""
+    generator = MagicMock()
+    generator.generate = AsyncMock(return_value=GeneratedQuestionPool(questions=[]))
+    publisher = MagicMock()
+    publisher.publish = AsyncMock(side_effect=ConnectionError("mq down"))
+    store = LruIdempotencyStore(max_size=10)
+
+    consumer = QuestionsConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=store,
+        callback_routing_key="callback.questions",
+    )
+
+    with pytest.raises(ConnectionError, match="mq down"):
+        await consumer.handle(_StubMessage(_basic_body()))
+
+    publisher.publish.assert_awaited_once()  # FAILED 재발행 시도 없음
+    payload: QuestionPoolCallbackPayload = publisher.publish.await_args.kwargs[
+        "payload"
+    ]
+    assert payload.status == "OK"
+    assert store.is_seen_then_mark("m-1") is False
+
+
 @pytest.mark.asyncio
 async def test_consumer_marks_failure_non_retriable_on_schema_type_error():
     """LLM 출력이 스키마와 안 맞아 TypeError 가 나면 재시도해도 같은 이유로 또 실패할
