@@ -238,6 +238,7 @@ SEED 팔레트 블록에는 `prefers-color-scheme` 미디어쿼리가 없어서,
 - **SSE + WebSocket 병행** — 작업 상태 푸시(분석·피드백)는 SSE, 라이브 면접 메시지는 WS(`features/interview/model/useInterviewSocket.ts`). (루트 CLAUDE.md §8 과 동일)
 - 구현: `shared/hooks/useEventStream.ts` — 자동 재연결(지수 백오프) + 연결 상태 반환. 워크스페이스는 단절(closed) 시 배너 표시 + 목록 쿼리 5s 폴백 폴링(`useAnalysisFallbackPolling`)
 - 생성 진행 문구(휘발성, B2): 질문 풀 대기 화면은 WS `QUESTION_POOL_PROGRESS`(`interviewEvent.ts` → `InterviewPreparing`), 피드백 대기 스켈레톤은 세션 SSE `FEEDBACK_PROGRESS`(`useFeedbackLive` → `FeedbackReportSkeleton`). 둘 다 로컬 state 로만 표시하고 이벤트 미수신 시 기본 안내 문구로 폴백 — 워크스페이스의 `useAnalysisProgress` TTL 스토어(90s, user 채널 전용)는 통과하지 않는다
+- 생성 실패 신호: 피드백 대기 화면은 세션 SSE `ERROR`(scope=`FEEDBACK`, `SessionErrorNotice`)도 소비(`useFeedbackLive.failure`) — 수신 즉시 폴링 예산(≈2분) 소진을 기다리지 않고 재생성 복구 UI 로 전환, `retriable=false` 면 재생성 대신 새 면접 안내. scope 가 다른 ERROR(꼬리질문 실패)는 무시
 - 미디어 스트림(음성/영상)만 WebRTC: `features/interview/lib/media/`
 - 이벤트 스펙: [`/docs/event-stream.md`](../docs/event-stream.md)
 
