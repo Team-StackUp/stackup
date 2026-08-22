@@ -450,11 +450,19 @@ docker compose up -d
   "생성 중"에 무기한 멈추던 문제를 고쳤다. `QuestionsCallbackPayload`에 `status`(`OK`|`FAILED`)·
   `errorCode`·`errorMessage`·`retriable` 필드 추가(구버전 9-arg 생성자는 `status=OK` 로 위임하는
   오버로드로 하위호환). `QuestionsCallbackService.apply` 가 kind 분기 전에 `isFailed()` 를 먼저 확인:
-  POOL 실패는 저장할 게 없어 `SseEventType.ERROR`(`SessionErrorNotice`)로 세션/유저 채널에만 알리고
-  세션 상태는 그대로 둔다(재시도 트리거는 후속 과제). FOLLOWUP 실패는 placeholder 를 삭제하지 않고
+  POOL 실패는 저장할 게 없고 재시도를 트리거하는 곳도 없어 세션을 바로 정상 종료시켜 피드백 흐름을
+  태운다(`endSessionOnPoolFailure` — "질문 준비 중" 무기한 대기 방지). FOLLOWUP 실패는 placeholder 를 삭제하지 않고
   `InterviewMessage.failFollowup()`(content=`FOLLOWUP_GENERATION_FAILED_TEXT`, status=`FAILED`)로
   확정한 뒤 `SESSION_MESSAGE`(`FOLLOWUP_FAILED`) 발행 + DONT_KNOW 와 동일하게 `advanceToNextGeneral`
   로 다음 일반질문으로 진행 — 턴이 사라진 것처럼 보이지 않으면서 면접은 멈추지 않는다.
+- **피드백 생성 실패 신호 본 구현**: AI `feedback_consumer` 의 예상 못 한 예외가 DLQ 로만 격리돼
+  세션이 "피드백 생성 중"에 무기한 멈추던 gap 을 닫았다. `FeedbackCallbackPayload` 에 `status`
+  (`OK`|`FAILED`)·`errorCode`·`errorMessage`·`retriable` 추가(구버전 13-arg 생성자는 `status=OK`
+  위임 오버로드로 하위호환). `FeedbackCallbackService.apply` 가 저장 전에 `isFailed()` 를 확인:
+  실패면 저장 없이 `SseEventType.ERROR`(`SessionErrorNotice`, scope=`FEEDBACK`,
+  code=`FEEDBACK_GENERATION_FAILED`)를 세션/유저 채널에 발행하고 멱등 마킹만 한다. AI 의
+  `errorMessage` 원문은 서버 로그에만 남기고 클라이언트에는 화이트리스트 문구만 보낸다
+  (QuestionsCallbackService 와 동일 원칙). AI 쪽 발행은 [`ai/CLAUDE.md`](../ai/CLAUDE.md) 참고.
 - **문장 단위 TTS 세그먼트 프록시 본 구현 (Part B)**: `InterviewMessageService.streamAudioSegment` + `GET /api/sessions/{sid}/messages/{mid}/audio/segments/{seq}?ext=`. AI 가 휘발성으로 쓴 라이브 세그먼트를 규칙(`interview/tts/{sid}/{mid}/seg-{seq}.{ext}`)으로 재구성해 프록시(DB 미기록). 소유권+ext 화이트리스트+seq>=0 검증으로 임의 키 노출 차단.
 - AI 호출 로깅 (US-30) 본 구현: `/api/internal/ai-logs` + `ai_request_logs` INSERT
 - **웹 이력서(URL) 본 구현 (US-09)**: `POST /api/resumes/web { url }`. AI 서버에 웹 분석이 이미
