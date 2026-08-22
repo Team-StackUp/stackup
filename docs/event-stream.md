@@ -191,6 +191,23 @@ WS(RT1)는 같은 내용을 JSON 한 줄 프레임으로: `{ "id": <eventId>, "e
 }
 ```
 
+세션 도메인 실패(꼬리질문·피드백 생성)는 `SessionErrorNotice` 형태로 세션·유저 채널에
+발행된다 — `scope` 로 실패 지점을 구분한다 (`FOLLOWUP` | `FEEDBACK`; 질문 풀 실패는 SSE ERROR
+없이 세션을 정상 종료시킨다):
+```json
+{
+  "type": "ERROR",
+  "payload": {
+    "sessionId": 99,
+    "scope": "FEEDBACK",
+    "errorCode": "FEEDBACK_GENERATION_FAILED",
+    "message": "피드백 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+    "retriable": true
+  }
+}
+```
+`message` 는 서버가 정의한 사용자 문구다 — AI 의 `errorMessage` 원문(내부 상세)은 SSE 로 나가지 않는다.
+
 ---
 
 ## 4. 재연결 정책
