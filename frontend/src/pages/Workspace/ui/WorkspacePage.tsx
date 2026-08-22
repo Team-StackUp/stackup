@@ -1,6 +1,6 @@
 import { useLocation } from 'react-router-dom'
 import { useAuth } from '@/features/auth'
-import { PageHeader } from '@/shared/ui'
+import { ConnectionBanner, PageHeader } from '@/shared/ui'
 import { WorkspaceSidebar } from '@/widgets/workspace-sidebar'
 import { useWorkspaceAnalysisStream } from '../model/useWorkspaceAnalysisStream'
 import { HomeView } from './HomeView'
@@ -25,7 +25,7 @@ function resolveView(pathname: string): View {
 
 export default function WorkspacePage() {
   // 분석 상태 실시간 구독 (SSE) — 어떤 뷰에 있든 완료 시 목록이 자동 갱신된다.
-  useWorkspaceAnalysisStream()
+  const streamStatus = useWorkspaceAnalysisStream()
 
   const { user } = useAuth()
   const { pathname } = useLocation()
@@ -73,6 +73,14 @@ export default function WorkspacePage() {
     <div className="flex min-h-svh flex-col bg-surface text-fg lg:flex-row">
       <WorkspaceSidebar />
       <main className="min-w-0 flex-1">
+        {/* 최초 연결(connecting)은 정상 부팅 구간이라 조용히 두고, 끊김(closed)만 알린다.
+            이 동안 목록은 5s 폴백 폴링으로 갱신된다 (useAnalysisFallbackPolling). */}
+        {streamStatus === 'closed' && (
+          <ConnectionBanner
+            connection={streamStatus}
+            reconnectingText="실시간 연결이 끊겨 재연결 중입니다. 분석 상태 표시가 몇 초 지연될 수 있어요."
+          />
+        )}
         <div className="mx-auto w-full max-w-content px-6 py-10 lg:px-12 lg:py-14">
           <PageHeader
             eyebrow={meta.eyebrow}

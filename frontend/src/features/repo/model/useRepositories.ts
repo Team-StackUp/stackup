@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useAnalysisFallbackPolling } from '@/shared/hooks'
 import { isApiError } from '@/shared/api'
 import { toast } from '@/shared/ui'
 import {
@@ -20,9 +21,12 @@ export const repoKeys = {
 }
 
 export function useRegisteredRepositories() {
+  // 분석 SSE 가 죽은 동안만 5s 폴링 (useResumes 와 동일한 이유).
+  const fallbackPolling = useAnalysisFallbackPolling()
   return useQuery<RegisteredRepository[]>({
     queryKey: repoKeys.registered,
     queryFn: fetchRegisteredRepositories,
+    refetchInterval: fallbackPolling,
   })
 }
 
