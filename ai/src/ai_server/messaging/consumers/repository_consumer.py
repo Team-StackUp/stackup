@@ -7,6 +7,11 @@ from ai_server.analyzer.repository_analyzer import (
     RepositoryAnalyzeError,
     RepositoryAnalyzer,
 )
+from ai_server.messaging.consumers.failure_signal import (
+    analysis_done_fields,
+    analysis_failed_payload,
+    consume_with_failure_signal,
+)
 from ai_server.messaging.idempotency import LruIdempotencyStore
 from ai_server.messaging.progress import AnalysisProgressNotifier
 from ai_server.messaging.publisher import CallbackPublisher
@@ -36,115 +41,52 @@ class RepositoryConsumer:
         self._progress = progress_notifier
 
     async def handle(self, message: AbstractIncomingMessage) -> None:
-        async with message.process(requeue=False):
-            try:
-                envelope = Envelope[RepositoryAnalyzeRequest].model_validate_json(
-                    message.body
-                )
-            except Exception as exc:
-                log.error(
-                    "repository.parse.failed",
-                    error=str(exc),
-                    delivery_tag=message.delivery_tag,
-                )
-                raise
+        await consume_with_failure_signal(
+            message,
+            domain="repository",
+            action="analyze",
+            envelope_type=Envelope[RepositoryAnalyzeRequest],
+            idempotency=self._idempotency,
+            publisher=self._publisher,
+            routing_key=self._callback_routing_key,
+            message_type="callback.analysis",
+            process=self._process,
+            failed_payload=self._failed_payload,
+            done_fields=analysis_done_fields,
+            expected_errors=(RepositoryAnalyzeError,),
+        )
 
-            if self._idempotency.is_seen_then_mark(envelope.message_id):
-                log.info(
-                    "repository.idempotent.skip",
-                    message_id=envelope.message_id,
-                    trace_id=envelope.trace_id,
-                )
-                return
-
-            req = envelope.payload
-            user_id = envelope.context.user_id
-            log.info(
-                "repository.analyze.start",
-                message_id=envelope.message_id,
-                repository_id=req.repository_id,
-                repo_full_name=req.repo_full_name,
-                user_id=user_id,
-                trace_id=envelope.trace_id,
-            )
-
-            payload = await self._run_and_build_payload(
-                req, user_id=user_id, trace_id=envelope.trace_id
-            )
-
-            await self._publisher.publish(
-                routing_key=self._callback_routing_key,
-                message_type="callback.analysis",
-                payload=payload,
-                trace_id=envelope.trace_id,
-                correlation_id=envelope.message_id,
-                context=envelope.context,
-            )
-            log.info(
-                "repository.analyze.done",
-                message_id=envelope.message_id,
-                repository_id=req.repository_id,
-                status=payload.status,
-                trace_id=envelope.trace_id,
-            )
-
-    async def _run_and_build_payload(
-        self,
-        req: RepositoryAnalyzeRequest,
-        *,
-        user_id: int | None,
-        trace_id: str,
+    async def _process(
+        self, envelope: Envelope[RepositoryAnalyzeRequest]
     ) -> AnalysisCallbackPayload:
+        req = envelope.payload
+        user_id = envelope.context.user_id
+        log.info(
+            "repository.analyze.start",
+            message_id=envelope.message_id,
+            repository_id=req.repository_id,
+            repo_full_name=req.repo_full_name,
+            user_id=user_id,
+            trace_id=envelope.trace_id,
+        )
         progress = (
             self._progress.emitter_for(
                 user_id=user_id,
                 target_type="REPOSITORY",
                 target_id=req.repository_id,
-                trace_id=trace_id,
+                trace_id=envelope.trace_id,
             )
             if self._progress is not None
             else None
         )
-        try:
-            result = await self._analyzer.analyze(
-                repository_id=req.repository_id,
-                repo_full_name=req.repo_full_name,
-                default_branch=req.default_branch,
-                user_id=user_id,
-                analyzed_document_id=req.analyzed_document_id,
-                progress=progress,
-            )
-        except RepositoryAnalyzeError as err:
-            log.warning(
-                "repository.analyze.domain_failed",
-                repository_id=req.repository_id,
-                code=err.code,
-                retriable=err.retriable,
-                trace_id=trace_id,
-            )
-            return AnalysisCallbackPayload(
-                target_type="REPOSITORY",
-                target_id=req.repository_id,
-                status="FAILED",
-                error_code=err.code,
-                error_message=err.message,
-                retriable=err.retriable,
-            )
-        except Exception as exc:
-            log.exception(
-                "repository.analyze.unexpected_failed",
-                repository_id=req.repository_id,
-                trace_id=trace_id,
-            )
-            return AnalysisCallbackPayload(
-                target_type="REPOSITORY",
-                target_id=req.repository_id,
-                status="FAILED",
-                error_code="UNEXPECTED",
-                error_message=str(exc),
-                retriable=True,
-            )
-
+        result = await self._analyzer.analyze(
+            repository_id=req.repository_id,
+            repo_full_name=req.repo_full_name,
+            default_branch=req.default_branch,
+            user_id=user_id,
+            analyzed_document_id=req.analyzed_document_id,
+            progress=progress,
+        )
         return AnalysisCallbackPayload(
             target_type="REPOSITORY",
             target_id=req.repository_id,
@@ -153,4 +95,14 @@ class RepositoryConsumer:
             tech_stack=result.tech_stack,
             document_path=result.document_path,
             embedding_chunk_count=result.embedding_chunk_count,
+        )
+
+    def _failed_payload(
+        self, req: RepositoryAnalyzeRequest, exc: Exception
+    ) -> AnalysisCallbackPayload:
+        return analysis_failed_payload(
+            target_type="REPOSITORY",
+            target_id=req.repository_id,
+            exc=exc,
+            domain_error=RepositoryAnalyzeError,
         )

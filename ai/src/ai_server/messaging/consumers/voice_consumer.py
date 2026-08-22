@@ -7,6 +7,7 @@ import structlog
 from aio_pika.abc import AbstractIncomingMessage
 
 from ai_server.core.client import CoreClient
+from ai_server.messaging.consumers.failure_signal import unmark_on_error
 from ai_server.messaging.idempotency import LruIdempotencyStore
 from ai_server.messaging.publisher import CallbackPublisher
 from ai_server.model.envelope import Envelope
@@ -69,96 +70,107 @@ class VoiceConsumer:
                 log.info("voice.idempotent.skip", message_id=envelope.message_id)
                 return
 
-            req = envelope.payload
-            log.info(
-                "voice.analyze.start",
-                message_id=envelope.message_id,
-                session_id=req.session_id,
-                interview_message_id=req.message_id,
-                key=req.audio_s3_key,
-                trace_id=envelope.trace_id,
-            )
-
-            try:
-                audio_bytes = await self._storage.get_bytes(req.audio_s3_key)
-            except Exception as exc:
-                log.error("voice.storage.failed", error=str(exc), key=req.audio_s3_key)
-                await self._publish_failed(envelope, req, code="AUDIO_FETCH_FAILED")
-                return
-
-            started = None
-            try:
-                started = time.perf_counter()
-                result = await self._stt.transcribe(
-                    audio_bytes=audio_bytes,
-                    content_type=req.content_type,
-                    hint=req.previous_question_text,
-                )
-                self._record_stt_log(
-                    req,
-                    envelope,
-                    latency_ms=_elapsed_ms(started),
-                    status="SUCCESS",
-                    error_message=None,
-                )
-            except SttError as exc:
-                self._record_stt_log(
-                    req,
-                    envelope,
-                    latency_ms=_elapsed_ms(started),
-                    status="FAILED",
-                    error_message=exc.message,
-                )
-                log.error(
-                    "voice.stt.failed",
-                    error=str(exc),
-                    code=exc.code,
+            # 마킹 이후 어떤 예외든 unmark — 콜백 0건 DLQ 재주입 삼킴 방지 (F6).
+            async with unmark_on_error(self._idempotency, envelope.message_id):
+                req = envelope.payload
+                log.info(
+                    "voice.analyze.start",
+                    message_id=envelope.message_id,
                     session_id=req.session_id,
+                    interview_message_id=req.message_id,
+                    key=req.audio_s3_key,
+                    trace_id=envelope.trace_id,
                 )
-                await self._publish_failed(envelope, req, code=exc.code)
-                return
-            except Exception as exc:
-                self._record_stt_log(
-                    req,
-                    envelope,
-                    latency_ms=_elapsed_ms(started),
-                    status="FAILED",
-                    error_message=str(exc),
-                )
-                log.error(
-                    "voice.stt.unexpected", error=str(exc), session_id=req.session_id
-                )
-                await self._publish_failed(envelope, req, code="TRANSCRIPTION_FAILED")
-                return
 
-            metrics = analyze(result, filler_pattern=self._filler_pattern)
+                try:
+                    audio_bytes = await self._storage.get_bytes(req.audio_s3_key)
+                except Exception as exc:
+                    log.error(
+                        "voice.storage.failed", error=str(exc), key=req.audio_s3_key
+                    )
+                    await self._publish_failed(envelope, req, code="AUDIO_FETCH_FAILED")
+                    return
 
-            payload = VoiceCallbackPayload(
-                session_id=req.session_id,
-                interview_message_id=req.message_id,
-                transcript=result.text,
-                speaking_rate_wpm=metrics.speaking_rate_wpm,
-                silence_duration_sec=metrics.silence_duration_sec,
-                filler_word_counts=metrics.filler_word_counts,
-                pronunciation_accuracy=metrics.pronunciation_accuracy,
-                error_code=None,
-            )
-            await self._publisher.publish(
-                routing_key=self._callback_routing_key,
-                message_type="callback.voice",
-                payload=payload,
-                trace_id=envelope.trace_id,
-                correlation_id=envelope.message_id,
-                context=envelope.context,
-            )
-            log.info(
-                "voice.analyze.done",
-                message_id=envelope.message_id,
-                session_id=req.session_id,
-                interview_message_id=req.message_id,
-                wpm=metrics.speaking_rate_wpm,
-                trace_id=envelope.trace_id,
-            )
+                started = None
+                try:
+                    started = time.perf_counter()
+                    result = await self._stt.transcribe(
+                        audio_bytes=audio_bytes,
+                        content_type=req.content_type,
+                        hint=req.previous_question_text,
+                    )
+                    self._record_stt_log(
+                        req,
+                        envelope,
+                        latency_ms=_elapsed_ms(started),
+                        status="SUCCESS",
+                        error_message=None,
+                    )
+                except SttError as exc:
+                    self._record_stt_log(
+                        req,
+                        envelope,
+                        latency_ms=_elapsed_ms(started),
+                        status="FAILED",
+                        error_message=exc.message,
+                    )
+                    log.error(
+                        "voice.stt.failed",
+                        error=str(exc),
+                        code=exc.code,
+                        session_id=req.session_id,
+                    )
+                    await self._publish_failed(envelope, req, code=exc.code)
+                    return
+                except Exception as exc:
+                    self._record_stt_log(
+                        req,
+                        envelope,
+                        latency_ms=_elapsed_ms(started),
+                        status="FAILED",
+                        error_message=str(exc),
+                    )
+                    log.error(
+                        "voice.stt.unexpected",
+                        error=str(exc),
+                        session_id=req.session_id,
+                    )
+                    await self._publish_failed(
+                        envelope, req, code="TRANSCRIPTION_FAILED"
+                    )
+                    return
+
+                metrics = analyze(result, filler_pattern=self._filler_pattern)
+
+                payload = VoiceCallbackPayload(
+                    session_id=req.session_id,
+                    interview_message_id=req.message_id,
+                    transcript=result.text,
+                    speaking_rate_wpm=metrics.speaking_rate_wpm,
+                    silence_duration_sec=metrics.silence_duration_sec,
+                    filler_word_counts=metrics.filler_word_counts,
+                    pronunciation_accuracy=metrics.pronunciation_accuracy,
+                    error_code=None,
+                )
+                await self._publish_callback(envelope, payload)
+                log.info(
+                    "voice.analyze.done",
+                    message_id=envelope.message_id,
+                    session_id=req.session_id,
+                    interview_message_id=req.message_id,
+                    wpm=metrics.speaking_rate_wpm,
+                    trace_id=envelope.trace_id,
+                )
+
+    async def _publish_callback(self, envelope, payload: VoiceCallbackPayload) -> None:
+        await self._publisher.publish(
+            routing_key=self._callback_routing_key,
+            message_type="callback.voice",
+            payload=payload,
+            trace_id=envelope.trace_id,
+            correlation_id=envelope.message_id,
+            context=envelope.context,
+        )
 
     async def _publish_failed(
         self, envelope, req: AnalyzeVoiceRequest, *, code: str
@@ -173,14 +185,7 @@ class VoiceConsumer:
             pronunciation_accuracy=None,
             error_code=code,
         )
-        await self._publisher.publish(
-            routing_key=self._callback_routing_key,
-            message_type="callback.voice",
-            payload=payload,
-            trace_id=envelope.trace_id,
-            correlation_id=envelope.message_id,
-            context=envelope.context,
-        )
+        await self._publish_callback(envelope, payload)
 
     def _record_stt_log(
         self,

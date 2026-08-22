@@ -76,10 +76,12 @@ class QuestionPoolCallbackPayload(BaseModel):
   콜백 발행은 `publisher.py`, 멱등은 `idempotency.py`(`LruIdempotencyStore`),
   RealTime 직접 발행은 `progress.py`(분석 진행, user 채널)·`session_notify.py`(델타/오디오/질문 풀·피드백 생성 진행, 세션 채널)
 - 모든 consumer는 envelope parsing → trace_context → 비즈니스 핸들러 호출 패턴
-- 생성 계열 3개(questions/followup/feedback)는 공용 가드 `consumers/failure_signal.py:
-  consume_with_failure_signal` 경유 — consumer 는 `_process(envelope)`(성공 payload 반환)와
-  `_failed_payload(req, exc)` 팩토리만 구현하고, 파싱→멱등→전 구간 가드→FAILED 콜백/성공 발행→
-  unmark 는 가드가 책임진다 ([`/docs/messaging.md §6`](../../../docs/messaging.md) AI Server 절)
+- 생성 3개(questions/followup/feedback) + 분석 4개(resume/web/repository/cover_letter)는 공용 가드
+  `consumers/failure_signal.py: consume_with_failure_signal` 경유 — consumer 는
+  `_process(envelope)`(성공 payload 반환)와 `_failed_payload(req, exc)` 팩토리만 구현하고,
+  파싱→멱등→전 구간 가드→FAILED 콜백/성공 발행→unmark 는 가드가 책임진다. voice/tts 는
+  직접-발행 모델 유지 + 마킹 이후 전 구간을 `unmark_on_error` 로 래핑
+  ([`/docs/messaging.md §6`](../../../docs/messaging.md) AI Server 절)
 
 ```python
 # messaging/consumers/resume_consumer.py (패턴)

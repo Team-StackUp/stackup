@@ -228,6 +228,7 @@ class FeedbackConsumer:
             panel_breakdown=result.panel_breakdown,
             answer_coaching=answer_coaching,
             report_s3_key=None,
+            attempt_id=req.attempt_id,
         )
 
         return payload
@@ -245,6 +246,7 @@ class FeedbackConsumer:
             error_code=error_code,
             error_message=format_error_message(exc),
             retriable=retriable,
+            attempt_id=req.attempt_id,
         )
 
     async def _emit_progress(

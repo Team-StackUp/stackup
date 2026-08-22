@@ -7,6 +7,11 @@ from ai_server.analyzer.web_resume_analyzer import (
     WebResumeAnalyzeError,
     WebResumeAnalyzer,
 )
+from ai_server.messaging.consumers.failure_signal import (
+    analysis_done_fields,
+    analysis_failed_payload,
+    consume_with_failure_signal,
+)
 from ai_server.messaging.idempotency import LruIdempotencyStore
 from ai_server.messaging.publisher import CallbackPublisher
 from ai_server.model.envelope import Envelope
@@ -33,96 +38,37 @@ class WebResumeConsumer:
         self._callback_routing_key = callback_routing_key
 
     async def handle(self, message: AbstractIncomingMessage) -> None:
-        async with message.process(requeue=False):
-            try:
-                envelope = Envelope[WebResumeAnalyzeRequest].model_validate_json(
-                    message.body
-                )
-            except Exception as exc:
-                log.error(
-                    "web_resume.parse.failed",
-                    error=str(exc),
-                    delivery_tag=message.delivery_tag,
-                )
-                raise
+        await consume_with_failure_signal(
+            message,
+            domain="web_resume",
+            action="analyze",
+            envelope_type=Envelope[WebResumeAnalyzeRequest],
+            idempotency=self._idempotency,
+            publisher=self._publisher,
+            routing_key=self._callback_routing_key,
+            message_type="callback.analysis",
+            process=self._process,
+            failed_payload=self._failed_payload,
+            done_fields=analysis_done_fields,
+            expected_errors=(WebResumeAnalyzeError,),
+        )
 
-            if self._idempotency.is_seen_then_mark(envelope.message_id):
-                log.info(
-                    "web_resume.idempotent.skip",
-                    message_id=envelope.message_id,
-                    trace_id=envelope.trace_id,
-                )
-                return
-
-            req = envelope.payload
-            log.info(
-                "web_resume.analyze.start",
-                message_id=envelope.message_id,
-                resume_id=req.resume_id,
-                url=req.url,
-                trace_id=envelope.trace_id,
-            )
-
-            payload = await self._run_and_build_payload(req, envelope.trace_id)
-
-            await self._publisher.publish(
-                routing_key=self._callback_routing_key,
-                message_type="callback.analysis",
-                payload=payload,
-                trace_id=envelope.trace_id,
-                correlation_id=envelope.message_id,
-                context=envelope.context,
-            )
-            log.info(
-                "web_resume.analyze.done",
-                message_id=envelope.message_id,
-                resume_id=req.resume_id,
-                status=payload.status,
-                trace_id=envelope.trace_id,
-            )
-
-    async def _run_and_build_payload(
-        self,
-        req: WebResumeAnalyzeRequest,
-        trace_id: str,
+    async def _process(
+        self, envelope: Envelope[WebResumeAnalyzeRequest]
     ) -> AnalysisCallbackPayload:
-        try:
-            result = await self._analyzer.analyze(
-                resume_id=req.resume_id,
-                url=req.url,
-                analyzed_document_id=req.analyzed_document_id,
-            )
-        except WebResumeAnalyzeError as err:
-            log.warning(
-                "web_resume.analyze.domain_failed",
-                resume_id=req.resume_id,
-                code=err.code,
-                retriable=err.retriable,
-                trace_id=trace_id,
-            )
-            return AnalysisCallbackPayload(
-                target_type="WEB",
-                target_id=req.resume_id,
-                status="FAILED",
-                error_code=err.code,
-                error_message=err.message,
-                retriable=err.retriable,
-            )
-        except Exception as exc:
-            log.exception(
-                "web_resume.analyze.unexpected_failed",
-                resume_id=req.resume_id,
-                trace_id=trace_id,
-            )
-            return AnalysisCallbackPayload(
-                target_type="WEB",
-                target_id=req.resume_id,
-                status="FAILED",
-                error_code="UNEXPECTED",
-                error_message=str(exc),
-                retriable=True,
-            )
-
+        req = envelope.payload
+        log.info(
+            "web_resume.analyze.start",
+            message_id=envelope.message_id,
+            resume_id=req.resume_id,
+            url=req.url,
+            trace_id=envelope.trace_id,
+        )
+        result = await self._analyzer.analyze(
+            resume_id=req.resume_id,
+            url=req.url,
+            analyzed_document_id=req.analyzed_document_id,
+        )
         return AnalysisCallbackPayload(
             target_type="WEB",
             target_id=req.resume_id,
@@ -131,4 +77,14 @@ class WebResumeConsumer:
             tech_stack=result.tech_stack,
             document_path=result.document_path,
             embedding_chunk_count=result.embedding_chunk_count,
+        )
+
+    def _failed_payload(
+        self, req: WebResumeAnalyzeRequest, exc: Exception
+    ) -> AnalysisCallbackPayload:
+        return analysis_failed_payload(
+            target_type="WEB",
+            target_id=req.resume_id,
+            exc=exc,
+            domain_error=WebResumeAnalyzeError,
         )

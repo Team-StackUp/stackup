@@ -174,3 +174,27 @@ async def test_parse_failure_raises_for_dlq() -> None:
 
     analyzer.analyze.assert_not_called()
     publisher.publish.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_consumer_unmarks_when_success_publish_fails():
+    """콜백 발행만 실패한 경우 — FAILED 오인 없이 원 예외로 DLQ + 멱등 unmark(F6).
+    unmark 가 없으면 재주입이 duplicate skip 으로 삼켜져 콜백이 영영 안 나간다."""
+    analyzer = AsyncMock()
+    analyzer.analyze = AsyncMock(
+        return_value=MagicMock(
+            summary="s",
+            tech_stack=["Java"],
+            document_path="analyzed/resume/42/summary.md",
+            embedding_chunk_count=3,
+        )
+    )
+    store = LruIdempotencyStore(max_size=16)
+    consumer, publisher = _make_consumer(analyzer, idempotency=store)
+    publisher.publish = AsyncMock(side_effect=ConnectionError("mq down"))
+
+    with pytest.raises(ConnectionError, match="mq down"):
+        await consumer.handle(_incoming_message(_request_envelope()))
+
+    publisher.publish.assert_awaited_once()  # FAILED 재발행 시도 없음
+    assert store.is_seen_then_mark("req-1") is False

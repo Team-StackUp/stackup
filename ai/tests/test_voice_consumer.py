@@ -227,3 +227,26 @@ async def test_consumer_idempotent_skip():
     )
     await consumer.handle(_StubMessage(_envelope()))
     publisher.publish.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_consumer_unmarks_when_publish_fails():
+    """콜백 발행 실패 시 멱등 unmark 후 원 예외로 DLQ(F6) —
+    재주입이 duplicate skip 으로 삼켜져 콜백이 영영 안 나가는 것을 방지."""
+    publisher = MagicMock()
+    publisher.publish = AsyncMock(side_effect=ConnectionError("mq down"))
+    store = LruIdempotencyStore(max_size=10)
+
+    consumer = VoiceConsumer(
+        stt=_stt_ok(),
+        storage=_storage_ok(),
+        publisher=publisher,
+        idempotency=store,
+        callback_routing_key="callback.voice",
+        filler_pattern=r"(?:음+|어+|그+|아+)",
+    )
+
+    with pytest.raises(ConnectionError, match="mq down"):
+        await consumer.handle(_StubMessage(_envelope()))
+
+    assert store.is_seen_then_mark("voice-1") is False

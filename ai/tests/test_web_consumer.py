@@ -106,3 +106,21 @@ async def test_domain_error_publishes_failed_callback() -> None:
     assert payload.error_code == "WEB_HTTP_STATUS"
     assert payload.retriable is False
     assert payload.target_type == "WEB"
+
+
+@pytest.mark.asyncio
+async def test_unexpected_error_publishes_failed_callback() -> None:
+    """도메인 에러 밖의 예상 못 한 예외도 FAILED 콜백으로 신호(UNEXPECTED, retriable=true) —
+    공용 가드(F6) 전환으로 처리되는 경로의 회귀 고정."""
+    analyzer = AsyncMock()
+    analyzer.analyze = AsyncMock(side_effect=RuntimeError("fetch blew up"))
+    consumer, publisher = _make_consumer(analyzer)
+
+    await consumer.handle(_incoming_message(_request_envelope()))
+
+    payload = _captured_payload(publisher)
+    assert payload.status == "FAILED"
+    assert payload.error_code == "UNEXPECTED"
+    assert payload.error_message == "RuntimeError: fetch blew up"
+    assert payload.retriable is True
+    assert payload.target_id == 11
