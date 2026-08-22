@@ -125,7 +125,7 @@ WS(RT1)는 같은 내용을 JSON 한 줄 프레임으로: `{ "id": <eventId>, "e
 ```
 
 - `messageId`: Core 가 답변 직후 선INSERT 한 INTERVIEWER **placeholder** 메시지 id(content=`"(생성 중)"`, status=`CREATED`). 생성 시 Core 가 `SESSION_MESSAGE(placeholderId)` 를 1회 발행하므로 프론트 목록에 placeholder 버블이 먼저 뜬다.
-- `seq`: 0부터 단조 증가. `text`: 이번 델타에서 **추가된 조각**(누적 아님). 프론트는 placeholder 버블에 append.
+- `seq`: 0부터 단조 증가. `text`: 이번 델타에서 **추가된 조각**(누적 아님). 발행은 순서대로지만 브로커→WS fan-out 경로가 프레임 순서·전달을 보장하지는 않으므로, 프론트는 도착 순서가 아닌 `seq` 로 재조립한다(연속 prefix 만 표시, 중복은 멱등 — `streamingBuffer.ts`). 유실분은 종료 reconcile 이 정본으로 덮는다.
 - 흐름: 답변 → (Core) placeholder INSERT + `SESSION_MESSAGE` → (AI) `astream` 으로 `SESSION_MESSAGE_DELTA` 연속 발행 → (AI) `callback.questions(FOLLOWUP, followupMessageId)` → (Core) placeholder UPDATE(content/COMPLETED) + `SESSION_MESSAGE`(종료) → 프론트 `GET …/messages` 재조회로 정본 reconcile.
 - `answer_intent=DONT_KNOW` 면 AI 가 델타를 **발행하지 않고**, Core 가 placeholder 삭제 후 다음 일반질문으로 진행한다. 이때 프론트는 placeholder 를 "생각 중"으로만 표시하다 일반질문으로 교체.
 
