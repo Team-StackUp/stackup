@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import com.stackup.stackup.common.exception.ApiErrorCode;
 import com.stackup.stackup.common.exception.DomainException;
+import com.stackup.stackup.session.application.event.FeedbackRegenerateRequestedEvent;
 import com.stackup.stackup.session.domain.InterviewSession;
 import com.stackup.stackup.session.domain.InterviewSessionRepository;
 import com.stackup.stackup.session.domain.JobCategory;
@@ -22,6 +23,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -29,7 +31,7 @@ class SessionFeedbackQueryServiceTest {
 
     @Mock InterviewSessionRepository sessionRepository;
     @Mock SessionFeedbackRepository feedbackRepository;
-    @Mock SessionFeedbackRequester feedbackRequester;
+    @Mock ApplicationEventPublisher events;
     @InjectMocks SessionFeedbackQueryService service;
 
     @Test
@@ -62,6 +64,52 @@ class SessionFeedbackQueryServiceTest {
     }
 
     @Test
+    void get_distinguishesFailureFromPending() {
+        // 실패 마커(V29)가 있으면 "생성 중"(NOT_READY)이 아니라 실패 — SSE ERROR 를 놓친
+        // 새로고침 클라이언트가 폴링 예산을 헛태우지 않고 즉시 복구 UI 로 전환하는 근거.
+        InterviewSession session = sessionFixture(50L);
+        session.markFeedbackFailed(true);
+        when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(50L, 1L))
+            .thenReturn(Optional.of(session));
+        when(feedbackRepository.findBySession_Id(50L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.get(1L, 50L))
+            .isInstanceOfSatisfying(DomainException.class, e -> {
+                assertThat(e.getErrorCode()).isEqualTo(ApiErrorCode.FEEDBACK_GENERATION_FAILED);
+                assertThat(e.getDetails()).containsEntry("retriable", true);
+            });
+    }
+
+    @Test
+    void get_returnsNotReadyWithoutFailureMarker() {
+        InterviewSession session = sessionFixture(50L);
+        when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(50L, 1L))
+            .thenReturn(Optional.of(session));
+        when(feedbackRepository.findBySession_Id(50L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.get(1L, 50L))
+            .isInstanceOfSatisfying(DomainException.class,
+                e -> assertThat(e.getErrorCode()).isEqualTo(ApiErrorCode.FEEDBACK_NOT_READY));
+    }
+
+    @Test
+    void regenerate_clearsFailureMarker() {
+        // 재생성 요청 = 새 시도 시작 — 마커를 지워 다른 탭/폴링이 "생성 중"으로 복귀한다.
+        InterviewSession session = sessionFixture(50L);
+        session.start();
+        session.end();
+        session.markFeedbackFailed(true);
+        when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(50L, 1L))
+            .thenReturn(Optional.of(session));
+        when(feedbackRepository.existsBySession_Id(50L)).thenReturn(false);
+
+        service.regenerate(1L, 50L);
+
+        assertThat(session.hasFeedbackFailure()).isFalse();
+        verify(events).publishEvent(new FeedbackRegenerateRequestedEvent(1L, 50L));
+    }
+
+    @Test
     void regenerate_publishesForCompletedSessionWithoutFeedback() {
         InterviewSession session = sessionFixture(50L);
         session.start();
@@ -72,7 +120,8 @@ class SessionFeedbackQueryServiceTest {
 
         service.regenerate(1L, 50L);
 
-        verify(feedbackRequester).publishGenerateFeedback(1L, 50L, "REGENERATE");
+        // 발행은 직접 하지 않고 이벤트만 — 실제 generate.feedback 은 AFTER_COMMIT 리스너가 발행.
+        verify(events).publishEvent(new FeedbackRegenerateRequestedEvent(1L, 50L));
     }
 
     @Test
@@ -87,7 +136,7 @@ class SessionFeedbackQueryServiceTest {
         assertThatThrownBy(() -> service.regenerate(1L, 50L))
             .isInstanceOfSatisfying(DomainException.class,
                 e -> assertThat(e.getErrorCode()).isEqualTo(ApiErrorCode.FEEDBACK_ALREADY_EXISTS));
-        verify(feedbackRequester, never()).publishGenerateFeedback(1L, 50L, "REGENERATE");
+        verify(events, never()).publishEvent(new FeedbackRegenerateRequestedEvent(1L, 50L));
     }
 
     @Test

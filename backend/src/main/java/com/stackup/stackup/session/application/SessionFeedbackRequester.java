@@ -9,6 +9,7 @@ import com.stackup.stackup.session.application.dto.GenerateFeedbackPayload;
 import com.stackup.stackup.session.application.dto.GenerateFeedbackPayload.MessageEvaluation;
 import com.stackup.stackup.session.application.dto.GenerateFeedbackPayload.MessageItem;
 import com.stackup.stackup.session.application.dto.GenerateFeedbackPayload.VoiceAnalysisSummary;
+import com.stackup.stackup.session.application.event.FeedbackRegenerateRequestedEvent;
 import com.stackup.stackup.session.application.event.SessionEndedEvent;
 import com.stackup.stackup.session.domain.InterviewMessage;
 import com.stackup.stackup.session.domain.InterviewMessageRepository;
@@ -52,6 +53,13 @@ public class SessionFeedbackRequester {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onSessionEnded(SessionEndedEvent event) {
         publishGenerateFeedback(event.userId(), event.sessionId(), event.reason());
+    }
+
+    // 재생성도 같은 규칙 — regenerate 트랜잭션(실패 마커 clear 포함) commit 후에만 발행.
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onFeedbackRegenerateRequested(FeedbackRegenerateRequestedEvent event) {
+        publishGenerateFeedback(event.userId(), event.sessionId(), "REGENERATE");
     }
 
     // 재생성(regenerate) 경로에서도 재사용하는 발행 본체. 멱등 가드는 여기서 —

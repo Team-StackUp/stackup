@@ -44,6 +44,8 @@ public enum ApiErrorCode {
     SESSION_QUESTION_COUNT_CONFLICT(HttpStatus.BAD_REQUEST,
         "총 질문 상한은 일반질문 수보다 작을 수 없습니다."),
     FEEDBACK_NOT_READY(HttpStatus.NOT_FOUND, "피드백이 아직 생성되지 않았습니다."),
+    // 생성 실패 마커(interview_sessions.feedback_failed_at) 존재 — 대기 중단, 재생성 유도.
+    FEEDBACK_GENERATION_FAILED(HttpStatus.NOT_FOUND, "피드백 생성에 실패했습니다. 다시 생성을 요청해 주세요."),
     FEEDBACK_NOT_FOUND(HttpStatus.NOT_FOUND, "공유된 피드백을 찾을 수 없습니다."),
     FEEDBACK_ALREADY_EXISTS(HttpStatus.CONFLICT, "피드백이 이미 생성되어 있습니다."),
     VOICE_EMPTY_FILE(HttpStatus.BAD_REQUEST, "음성 파일을 업로드할 수 없습니다."),

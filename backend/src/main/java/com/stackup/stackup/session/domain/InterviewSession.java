@@ -115,6 +115,15 @@ public class InterviewSession extends BaseSoftDeleteEntity {
     @Column(name = "resumed_at")
     private Instant resumedAt;
 
+    // 피드백 생성 실패 마커(V29). SSE ERROR 는 휘발성이라 그 순간 미접속 클라이언트가
+    // "생성 중"과 "실패"를 구분할 수 없다 — FAILED 콜백 수신 시 기록하고
+    // 성공 콜백·재생성 요청 시 클리어해 GET 피드백이 실패를 즉시 알리게 한다.
+    @Column(name = "feedback_failed_at")
+    private Instant feedbackFailedAt;
+
+    @Column(name = "feedback_fail_retriable")
+    private Boolean feedbackFailRetriable;
+
     private InterviewSession(User user, String title, String memo, SessionMode mode,
                              List<JobCategory> jobCategories,
                              Integer maxQuestions, Integer maxDurationMinutes,
@@ -223,6 +232,20 @@ public class InterviewSession extends BaseSoftDeleteEntity {
             throw new IllegalStateException("only READY session can be cancelled (current=" + status + ")");
         }
         this.status = SessionStatus.CANCELLED;
+    }
+
+    public void markFeedbackFailed(Boolean retriable) {
+        this.feedbackFailedAt = Instant.now();
+        this.feedbackFailRetriable = retriable;
+    }
+
+    public void clearFeedbackFailure() {
+        this.feedbackFailedAt = null;
+        this.feedbackFailRetriable = null;
+    }
+
+    public boolean hasFeedbackFailure() {
+        return feedbackFailedAt != null;
     }
 
     // 메인(일반) 질문만 센다. 꼬리질문은 maxQuestions 한도에 포함하지 않는다

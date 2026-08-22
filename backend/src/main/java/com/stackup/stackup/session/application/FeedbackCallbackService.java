@@ -2,6 +2,7 @@ package com.stackup.stackup.session.application;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.stackup.stackup.common.exception.ApiErrorCode;
 import com.stackup.stackup.common.messaging.domain.ProcessedMessage;
 import com.stackup.stackup.common.messaging.domain.ProcessedMessageRepository;
 import com.stackup.stackup.common.messaging.RealtimeNotifyEvent;
@@ -90,15 +91,16 @@ public class FeedbackCallbackService {
             keywordsToJson(payload.highlights()),
             payload.reportS3Key()
         );
-        try {
-            feedback = feedbackRepository.save(feedback);
-        } catch (DataIntegrityViolationException race) {
-            log.info("callback.feedback unique race — feedback inserted concurrently. sessionId={}", sessionId);
-            markProcessed(envelope.messageId());
-            return;
-        }
+        // 동시 콜백 경합의 unique 위반은 잡지 않는다 — IDENTITY 전략이라 save 가 즉시 INSERT 하고
+        // 실패 시 트랜잭션이 이미 rollback-only 라, catch 후 markProcessed 는 어차피 폐기되고
+        // 커밋에서 UnexpectedRollbackException 이 난다. 예외를 그대로 전파시키면 리스너 재시도가
+        // 위의 existsBySession_Id 체크에서 멱등 skip 으로 수렴한다.
+        feedback = feedbackRepository.save(feedback);
 
         applyAnswerCoaching(sessionId, payload.answerCoaching());
+
+        // 이전 시도가 실패로 마킹돼 있었다면(재생성 성공·지연 도착 성공) 마커를 걷는다.
+        session.clearFeedbackFailure();
 
         events.publishEvent(RealtimeNotifyEvent.session(sessionId, SseEventType.FEEDBACK_READY,
             new SessionFeedbackNotice(sessionId, feedback.getId())));
@@ -140,14 +142,19 @@ public class FeedbackCallbackService {
     private void applyFeedbackFailed(InterviewSession session, FeedbackCallbackPayload payload) {
         log.warn("callback.feedback generation failed. sessionId={}, errorCode={}, retriable={}, message={}",
             session.getId(), payload.errorCode(), payload.retriable(), payload.errorMessage());
+        // 영속 마커(V29) — SSE ERROR 는 휘발성이라, 그 순간 미접속 클라이언트도 GET 피드백에서
+        // 실패를 구분할 수 있게 남긴다 (dirty checking 으로 UPDATE).
+        session.markFeedbackFailed(payload.retriable());
         QuestionsCallbackService.SessionErrorNotice notice = new QuestionsCallbackService.SessionErrorNotice(
             session.getId(), "FEEDBACK", FEEDBACK_FAILED_CODE, FEEDBACK_FAILED_MESSAGE, payload.retriable());
         events.publishEvent(RealtimeNotifyEvent.session(session.getId(), SseEventType.ERROR, notice));
         events.publishEvent(RealtimeNotifyEvent.user(session.getUser().getId(), SseEventType.ERROR, notice));
     }
 
-    private static final String FEEDBACK_FAILED_CODE = "FEEDBACK_GENERATION_FAILED";
-    private static final String FEEDBACK_FAILED_MESSAGE = "피드백 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.";
+    // REST(GET 피드백)와 같은 코드·문구 — 채널에 따라 다른 안내가 나가지 않게 단일 출처로 묶는다.
+    private static final String FEEDBACK_FAILED_CODE = ApiErrorCode.FEEDBACK_GENERATION_FAILED.name();
+    private static final String FEEDBACK_FAILED_MESSAGE =
+        ApiErrorCode.FEEDBACK_GENERATION_FAILED.getDefaultMessage();
 
     private String keywordsToJson(java.util.List<String> keywords) {
         if (keywords == null) {
