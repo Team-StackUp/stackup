@@ -397,6 +397,20 @@ docker run --env-file .env -p 8000:8000 stackup-ai
   하드 타임아웃을 추가하고, 모든 `ChatOpenAI` 호출에 `llm_pro_timeout_sec`(30s)/`llm_flash_timeout_sec`
   (10s) 요청 타임아웃을 명시했다(이전엔 미설정 — SDK 기본값까지 무기한 대기 가능).
 
+- **피드백 생성 실패 신호 본 구현**: `feedback_consumer` 만 위 리팩터에서 빠져 있던 gap 을 닫았다 —
+  패널·부가 평가는 내부 폴백(빈 결과/생략)으로 흡수되지만, 그 방어망 밖(트랜스크립트/RAG 컨텍스트 빌드,
+  payload 조립, 발행 등)의 예상 못 한 예외는 그대로 새서 DLQ 로만 격리되고 Core 는 아무 신호도 못 받아
+  세션이 "피드백 생성 중"에 무기한 멈췄다. `handle()` 본문을 payload 를 **반환**하는 `_process()` 로
+  추출하고 envelope 파싱·멱등 체크 이후의 생성 전 구간을 try/except 로 감싸, 실패 시
+  `FeedbackCallbackPayload`(`status=FAILED`, `errorCode`, `errorMessage`(상한 500자), `retriable`)를
+  발행하고 ack 한다(`_publish_failed`). 분류는 questions/followup 과 동일 — `TypeError` 는
+  `GENERATION_SCHEMA_INVALID`/`retriable=false`, 그 외 `UNEXPECTED`/`retriable=true`. **성공 콜백
+  발행 실패는 생성 실패가 아니다** — FAILED 오인 발행 없이 원 예외로 DLQ(변경 전과 동일, 재처리
+  가능). 콜백을 하나도 못 낸 채 DLQ 로 가는 경로(폴백 발행 실패 포함)는 `LruIdempotencyStore.unmark`
+  로 마킹을 되돌려 재주입 시 duplicate skip 으로 삼켜지지 않게 한다. `status` 는 `GenerationStatus`
+  Literal 재사용, 기본값 `OK` 라 성공 콜백·구버전 소비자와 하위호환.
+  Core 쪽 처리는 [`backend/CLAUDE.md`](../backend/CLAUDE.md) 참고.
+
 - **질문 풀·피드백 생성 진행 이벤트 본 구현 (B2)**: 스트리밍이 없는 두 블로킹 생성 경로(질문 풀 Pro ≤30s,
   피드백 병렬 gather ≈2분 예산)가 진행 중 무통보였던 것을 고쳤다. `SessionRealtimeNotifier.emit_progress`
   (`messaging/session_notify.py`)가 `realtime.session.notify` 로 `QUESTION_POOL_PROGRESS`/`FEEDBACK_PROGRESS`
