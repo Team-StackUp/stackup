@@ -20,7 +20,9 @@ public record GenerateFeedbackPayload(
     String targetCompanyName,
     String targetJobDescription,
     // 자기소개 답변 단독의 음성 메트릭. 첫인상 평가에서 세션 평균 대신 사용. 없으면 null.
-    VoiceAnalysisSummary selfIntroVoiceAnalysis
+    VoiceAnalysisSummary selfIntroVoiceAnalysis,
+    // 시도 상관관계(F5). 발행마다 새 UUID — AI 가 콜백에 에코, Core 가 stale FAILED 를 걸러낸다.
+    String attemptId
 ) {
 
     public record MessageItem(

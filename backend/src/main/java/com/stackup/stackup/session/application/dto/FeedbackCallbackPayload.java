@@ -24,7 +24,9 @@ public record FeedbackCallbackPayload(
     String status,                     // OK(기본) | FAILED. null 이면 구버전 취급(OK).
     String errorCode,
     String errorMessage,
-    Boolean retriable
+    Boolean retriable,
+    // 요청 attemptId 에코(F5, V30). null(구버전 AI)이면 stale 검사를 건너뛴다.
+    String attemptId
 ) {
     // 구버전(실패 신호 없던 시절) 호출부·테스트 호환용 — status=OK 로 위임.
     public FeedbackCallbackPayload(
@@ -36,7 +38,7 @@ public record FeedbackCallbackPayload(
     ) {
         this(sessionId, overallScore, technicalAccuracy, logicScore, communicationScore,
             strengthsSummary, weaknessesSummary, improvementKeywords, studyPlan, highlights,
-            panelBreakdown, answerCoaching, reportS3Key, "OK", null, null, null);
+            panelBreakdown, answerCoaching, reportS3Key, "OK", null, null, null, null);
     }
 
     public boolean isFailed() {

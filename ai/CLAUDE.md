@@ -397,7 +397,13 @@ docker run --env-file .env -p 8000:8000 stackup-ai
   payload 반환)와 `_failed_payload(req, exc)` 팩토리만 구현한다. `errorCode` 분류는 consumer 별
   계약 유지 — questions/followup: `GENERATION_SCHEMA_INVALID`(TypeError, retriable=false) |
   `GENERATION_FAILED`, feedback: 동일 스키마 코드 | `UNEXPECTED`. `errorMessage` 는 공용
-  `format_error_message`(`ExcType: msg`, 500자 상한). Core 쪽 처리는
+  `format_error_message`(`ExcType: msg`, 500자 상한). **F5/F6 확장**: 분석 4개
+  (resume/web/repository/cover_letter)도 같은 가드로 전환(도메인 에러의 코드·retriable 분류는
+  각 `_failed_payload` 팩토리가 보존, `action="analyze"` 로 기존 로그 키 유지), voice/tts 는
+  직접-발행 모델을 유지하되 마킹 이후 전 구간을 `unmark_on_error` 로 감쌌다(재주입은
+  합성 재과금·세그먼트 재전송을 동반 — 수동 복구 전용). feedback 은 요청의
+  `attemptId` 를 성공/FAILED 콜백에 에코 — Core 가 대체된 이전 시도의 지연 FAILED 를 드롭하는
+  근거(messaging.md §5.10/§5.11). Core 쪽 처리는
   [`backend/CLAUDE.md`](../backend/CLAUDE.md) 참고. (질문 풀 RAG `questions_rag_timeout_sec`
   1.5s 하드 타임아웃과 `llm_pro_timeout_sec` 30s/`llm_flash_timeout_sec` 10s 요청 타임아웃은
   이전 리팩터에서 도입되어 유지된다.)

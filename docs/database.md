@@ -175,6 +175,9 @@ CREATE TABLE interview_sessions (
     -- 새로고침한 클라이언트가 GET 피드백에서 "생성 중"(FEEDBACK_NOT_READY)과 "실패"(FEEDBACK_GENERATION_FAILED)를 구분하는 근거.
     feedback_failed_at     TIMESTAMPTZ,
     feedback_fail_retriable BOOLEAN,
+    -- 피드백 생성 시도 ID(V30). 발행마다 새 UUID — 대체된 이전 시도의 지연 FAILED 콜백이
+    -- 마커를 되씌우지 않게 콜백의 attemptId 에코와 대조한다 (messaging.md §5.10/§5.11).
+    feedback_attempt_id    VARCHAR(36),
     status                VARCHAR(20)  NOT NULL DEFAULT 'READY'
                           CHECK (status IN ('READY','IN_PROGRESS','INTERRUPTED','COMPLETED','CANCELLED')),
     total_question_count  INT          DEFAULT 0,

@@ -457,6 +457,7 @@
     "sessionId": 99,
     "mode": "JOB_TAILORED",
     "jobCategory": "BACKEND",
+    "attemptId": "8b1f…-uuid",
     "messages": [
       { "id": 1, "sequenceNumber": 1, "role": "INTERVIEWER", "content": "자기소개…", "category": "SELF_INTRODUCTION" },
       { "id": 2, "sequenceNumber": 2, "role": "INTERVIEWEE", "content": "…", "parentMessageId": 1 }
@@ -466,6 +467,9 @@
   }
 }
 ```
+
+- `attemptId`: 시도 상관관계(V30). Core 가 발행마다 새 UUID 를 발급해
+  `interview_sessions.feedback_attempt_id` 에 기록하고 동봉 — AI 는 콜백에 그대로 에코한다.
 
 ### 5.11 `callback.feedback`
 
@@ -514,7 +518,8 @@
     "status": "FAILED",
     "errorCode": "UNEXPECTED",
     "errorMessage": "...",
-    "retriable": true
+    "retriable": true,
+    "attemptId": "8b1f…-uuid"
   }
 }
 ```
@@ -529,6 +534,9 @@
   알리며, **실패 마커를 영속화**한다(`interview_sessions.feedback_failed_at`/`feedback_fail_retriable`,
   V29) — SSE 를 놓친 클라이언트도 GET 피드백의 404 `FEEDBACK_GENERATION_FAILED` 로 실패를 구분한다.
   마커는 성공 콜백 도착·재생성 요청 시 클리어. `errorMessage` 원문은 서버 로그에만 남긴다(클라이언트 미노출).
+- **시도 상관관계**: 콜백의 `attemptId`(요청 에코)가 세션의 현재 값과 다르면 **FAILED 콜백은 드롭**
+  된다 — 재생성으로 대체된 이전 시도의 지연 실패가 새 시도의 마커를 되씌우지 않게. 어느 쪽이든
+  null(구버전)이면 검사 없이 통과, 성공 콜백은 검사하지 않는다(중복은 `session_feedbacks` UNIQUE 가 처리).
 
 ### 5.12 `realtime.session.notify`
 ```json
@@ -636,13 +644,19 @@ placeholder 를 `FAILED` 로 확정해 클라이언트의 턴이 잠기지 않�
 ### AI Server (aio-pika)
 - 컨슈머는 `async with message.process(requeue=False)` 패턴.
 - 도메인 예외 (`ResumeAnalyzeError` 등) 는 catch 하여 실패 callback 발행 (재시도 무의미).
-- 생성 계열 3개(`questions`/`followup`/`feedback` consumer)는 공용 가드
+- 생성 3개(`questions`/`followup`/`feedback`) + 분석 4개(`resume`/`web`/`repository`/`cover_letter`)
+  consumer 는 공용 가드
   (`messaging/consumers/failure_signal.py: consume_with_failure_signal`)를 쓴다 —
   envelope 파싱·멱등 체크 이후 **전 구간**(컨텍스트 빌드·진행 이벤트·생성·payload 조립)의 예외를
   catch 해 항상 `status: FAILED` 콜백을 발행하고 ACK (세션·placeholder 가 "생성 중"에 무기한
   멈추지 않게). 성공 콜백 발행 실패는 FAILED 오인 없이 원 예외로 DLQ(재처리 가능), 콜백을
   하나도 못 낸 채 DLQ 로 가는 경로는 멱등 마킹을 해제(unmark)해 재주입이 삼켜지지 않게 한다.
-  errorMessage 는 `ExcType: msg` 형식 500자 상한.
+  errorMessage 는 `ExcType: msg` 형식 500자 상한. 분석 컨슈머의 도메인 에러
+  (`ResumeAnalyzeError` 등)는 각 컨슈머의 FAILED payload 팩토리가 코드·retriable 분류를 보존한다.
+- `voice`/`tts` consumer 는 실패 시나리오별 직접-발행 모델을 유지하되, 멱등 마킹 이후 전 구간을
+  `unmark_on_error` 로 감싸 어떤 예외로든 콜백 없이 DLQ 로 가면 마킹을 해제한다(재주입 삼킴 방지).
+  **주의**: 재주입은 pre-publish 부수효과(TTS 합성·STT 재과금, 라이브 세그먼트 재전송, ai-log
+  중복 행)를 재실행한다 — 운영자 수동 복구 수단으로만 쓴다.
 - 그 외 예외는 re-raise → nack(requeue=false) → DLX 로 routing.
 - 일시 장애의 in-process 재시도는 미구현 (Phase 2 — 아래 Quorum Queue 도입과 함께).
 

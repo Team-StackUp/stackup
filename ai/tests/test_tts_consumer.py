@@ -251,3 +251,57 @@ async def test_tts_consumer_segment_seq_stays_contiguous_when_one_fails():
     # 3문장 중 2번째 실패 → 성공 2개에 seq 0,1 연속 부여
     assert [a["seq"] for a in notifier.audio] == [0, 1]
     assert publisher.published[0][2].status == "SUCCEEDED"
+
+
+@pytest.mark.asyncio
+async def test_tts_consumer_unmarks_when_publish_fails():
+    """콜백 발행 실패 시 멱등 unmark 후 원 예외로 DLQ(F6) — 재주입 삼킴 방지."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    from ai_server.messaging.idempotency import LruIdempotencyStore
+
+    publisher = MagicMock()
+    publisher.publish = AsyncMock(side_effect=ConnectionError("mq down"))
+    store = LruIdempotencyStore(max_size=10)
+    consumer = TtsConsumer(
+        tts=MockTtsProvider(),
+        storage=_FakeStorage(),
+        publisher=publisher,
+        idempotency=store,
+        callback_routing_key="callback.tts",
+        voice="alloy",
+        key_template="interview/tts/{session_id}/{message_id}.mp3",
+    )
+
+    with pytest.raises(ConnectionError, match="mq down"):
+        await consumer.handle(_FakeMsg(_envelope_body()))
+
+    assert store.is_seen_then_mark("m-1") is False
+
+
+@pytest.mark.asyncio
+async def test_tts_consumer_unmarks_when_prepublish_step_fails():
+    """발행 이전 단계(키 조립 등)에서 죽어도 unmark 후 DLQ(F6) —
+    마킹만 남긴 채 격리되면 재주입이 duplicate skip 으로 삼켜진다."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    from ai_server.messaging.idempotency import LruIdempotencyStore
+
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+    store = LruIdempotencyStore(max_size=10)
+    consumer = TtsConsumer(
+        tts=MockTtsProvider(),
+        storage=_FakeStorage(),
+        publisher=publisher,
+        idempotency=store,
+        callback_routing_key="callback.tts",
+        voice="alloy",
+        key_template="interview/tts/{nope}.mp3",  # 잘못된 템플릿 → KeyError
+    )
+
+    with pytest.raises(KeyError):
+        await consumer.handle(_FakeMsg(_envelope_body()))
+
+    publisher.publish.assert_not_awaited()
+    assert store.is_seen_then_mark("m-1") is False

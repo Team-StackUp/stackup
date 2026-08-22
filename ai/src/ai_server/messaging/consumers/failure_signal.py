@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+import contextlib
+from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any, TypeVar
 
 import structlog
@@ -10,6 +11,7 @@ from pydantic import BaseModel
 from ai_server.messaging.idempotency import LruIdempotencyStore
 from ai_server.messaging.publisher import CallbackPublisher
 from ai_server.model.envelope import Envelope
+from ai_server.model.messages.analyze import AnalysisCallbackPayload
 
 log = structlog.get_logger(__name__)
 
@@ -30,6 +32,54 @@ def classify_failure(exc: Exception, *, unexpected_code: str) -> tuple[str, bool
     return unexpected_code, True
 
 
+@contextlib.asynccontextmanager
+async def unmark_on_error(
+    idempotency: LruIdempotencyStore, message_id: str
+) -> AsyncIterator[None]:
+    """멱등 마킹 이후 구간의 어떤 예외든 unmark 후 전파 — 발행 실패뿐 아니라 그 앞의
+    합성·계산 단계에서 죽어도, 콜백 0건으로 DLQ 에 간 메시지의 재주입이 duplicate skip 으로
+    삼켜지지 않게 한다. 전면 가드 전환이 부담스러운 직접-발행 모델 컨슈머(voice/tts)용.
+    주의: 재주입은 pre-publish 부수효과(합성·STT 재과금, 라이브 세그먼트 재전송)를 재실행한다 —
+    운영자 수동 복구 수단으로만 쓴다 (docs/messaging.md §6)."""
+    try:
+        yield
+    except Exception:
+        idempotency.unmark(message_id)
+        raise
+
+
+def analysis_failed_payload(
+    *,
+    target_type: str,
+    target_id: int,
+    exc: Exception,
+    domain_error: type[Exception],
+) -> AnalysisCallbackPayload:
+    """분석 4종(resume/web/repository/cover_letter) 공용 FAILED payload —
+    도메인 에러는 코드·retriable 분류를 보존하고, 그 외는 UNEXPECTED/retriable=true."""
+    if isinstance(exc, domain_error):
+        return AnalysisCallbackPayload(
+            target_type=target_type,
+            target_id=target_id,
+            status="FAILED",
+            error_code=exc.code,  # type: ignore[attr-defined]
+            error_message=exc.message,  # type: ignore[attr-defined]
+            retriable=exc.retriable,  # type: ignore[attr-defined]
+        )
+    return AnalysisCallbackPayload(
+        target_type=target_type,
+        target_id=target_id,
+        status="FAILED",
+        error_code="UNEXPECTED",
+        error_message=format_error_message(exc),
+        retriable=True,
+    )
+
+
+def analysis_done_fields(payload: Any) -> dict[str, Any]:
+    return {"target_id": payload.target_id, "status": payload.status}
+
+
 async def consume_with_failure_signal(
     message: AbstractIncomingMessage,
     *,
@@ -42,6 +92,8 @@ async def consume_with_failure_signal(
     process: Callable[[Envelope[ReqT]], Awaitable[BaseModel]],
     failed_payload: Callable[[ReqT, Exception], BaseModel],
     done_fields: Callable[[Any], dict[str, Any]] | None = None,
+    action: str = "generate",
+    expected_errors: tuple[type[Exception], ...] = (),
 ) -> None:
     """생성 컨슈머(질문 풀·꼬리질문·피드백) 공용 실패 신호 가드.
 
@@ -84,17 +136,29 @@ async def consume_with_failure_signal(
                 context=envelope.context,
             )
 
+        log_ids: dict[str, Any] = {
+            "message_id": envelope.message_id,
+            "trace_id": envelope.trace_id,
+        }
         session_id = getattr(envelope.payload, "session_id", None)
+        if session_id is not None:
+            log_ids["session_id"] = session_id
 
         try:
             payload = await process(envelope)
         except Exception as exc:  # noqa: BLE001
-            log.exception(
-                f"{domain}.generate.failed",
-                message_id=envelope.message_id,
-                session_id=session_id,
-                trace_id=envelope.trace_id,
-            )
+            if expected_errors and isinstance(exc, expected_errors):
+                # 예상된 도메인 실패(빈 PDF·404 URL 등 일상 입력)는 traceback 없는 warning —
+                # ERROR 레벨 스택트레이스로 일상 실패가 알람을 울리지 않게 한다.
+                log.warning(
+                    f"{domain}.{action}.failed",
+                    error_code=getattr(exc, "code", None),
+                    retriable=getattr(exc, "retriable", None),
+                    error=str(exc),
+                    **log_ids,
+                )
+            else:
+                log.exception(f"{domain}.{action}.failed", **log_ids)
             try:
                 # 팩토리 자체가 죽어도(검증 오류 등) 같은 안전망을 태운다 —
                 # try 밖이면 unmark 없이 DLQ 로 가서 재주입이 duplicate skip 으로 삼켜진다.
@@ -103,9 +167,7 @@ async def consume_with_failure_signal(
             except Exception:  # noqa: BLE001
                 log.exception(
                     f"{domain}.failed_callback.publish_failed",
-                    message_id=envelope.message_id,
-                    session_id=session_id,
-                    trace_id=envelope.trace_id,
+                    **log_ids,
                 )
                 idempotency.unmark(envelope.message_id)
                 raise exc
@@ -117,9 +179,7 @@ async def consume_with_failure_signal(
             idempotency.unmark(envelope.message_id)
             raise
         log.info(
-            f"{domain}.generate.done",
-            message_id=envelope.message_id,
-            session_id=session_id,
-            trace_id=envelope.trace_id,
+            f"{domain}.{action}.done",
+            **log_ids,
             **(done_fields(payload) if done_fields is not None else {}),
         )

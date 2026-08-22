@@ -7,6 +7,7 @@ import structlog
 from aio_pika.abc import AbstractIncomingMessage
 
 from ai_server.chain.sentence_split import next_sentences
+from ai_server.messaging.consumers.failure_signal import unmark_on_error
 from ai_server.messaging.idempotency import LruIdempotencyStore
 from ai_server.messaging.publisher import CallbackPublisher
 from ai_server.messaging.session_notify import SessionRealtimeNotifier
@@ -84,57 +85,61 @@ class TtsConsumer:
                 log.info("tts.idempotent.skip", message_id=envelope.message_id)
                 return
 
-            req = envelope.payload
-            log.info(
-                "tts.synthesize.start",
-                message_id=envelope.message_id,
-                session_id=req.session_id,
-                interview_message_id=req.message_id,
-                streaming=self._notifier is not None,
-                trace_id=envelope.trace_id,
-            )
-
-            if self._notifier is not None:
-                result = await self._synthesize_segmented(envelope, req)
-            else:
-                result = await self._synthesize_once(envelope, req)
-            if result is None:
-                return  # 실패 — 콜백은 내부에서 이미 발행
-
-            key = self._build_key(req.session_id, req.message_id, result.content_type)
-            try:
-                await self._storage.put_bytes(
-                    key, result.audio_bytes, content_type=result.content_type
+            # 마킹 이후 어떤 예외든 unmark — 콜백 0건 DLQ 재주입 삼킴 방지 (F6).
+            async with unmark_on_error(self._idempotency, envelope.message_id):
+                req = envelope.payload
+                log.info(
+                    "tts.synthesize.start",
+                    message_id=envelope.message_id,
+                    session_id=req.session_id,
+                    interview_message_id=req.message_id,
+                    streaming=self._notifier is not None,
+                    trace_id=envelope.trace_id,
                 )
-            except Exception as exc:
-                log.error("tts.storage.failed", error=str(exc), key=key)
+
+                if self._notifier is not None:
+                    result = await self._synthesize_segmented(envelope, req)
+                else:
+                    result = await self._synthesize_once(envelope, req)
+                if result is None:
+                    return  # 실패 — 콜백은 내부에서 이미 발행
+
+                key = self._build_key(
+                    req.session_id, req.message_id, result.content_type
+                )
+                try:
+                    await self._storage.put_bytes(
+                        key, result.audio_bytes, content_type=result.content_type
+                    )
+                except Exception as exc:
+                    log.error("tts.storage.failed", error=str(exc), key=key)
+                    await self._publish(
+                        envelope,
+                        TtsCallbackPayload(
+                            session_id=req.session_id,
+                            message_id=req.message_id,
+                            status="FAILED",
+                            error_code="TTS_STORAGE_FAILED",
+                        ),
+                    )
+                    return
+
                 await self._publish(
                     envelope,
                     TtsCallbackPayload(
                         session_id=req.session_id,
                         message_id=req.message_id,
-                        status="FAILED",
-                        error_code="TTS_STORAGE_FAILED",
+                        status="SUCCEEDED",
+                        audio_key=key,
+                        duration_sec=result.duration_sec,
                     ),
                 )
-                return
-
-            await self._publish(
-                envelope,
-                TtsCallbackPayload(
+                log.info(
+                    "tts.synthesize.done",
                     session_id=req.session_id,
-                    message_id=req.message_id,
-                    status="SUCCEEDED",
-                    audio_key=key,
-                    duration_sec=result.duration_sec,
-                ),
-            )
-            log.info(
-                "tts.synthesize.done",
-                session_id=req.session_id,
-                interview_message_id=req.message_id,
-                key=key,
-            )
+                    interview_message_id=req.message_id,
+                    key=key,
+                )
 
     async def _synthesize_once(
         self, envelope: Envelope[GenerateTtsRequest], req: GenerateTtsRequest

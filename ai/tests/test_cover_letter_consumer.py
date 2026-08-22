@@ -105,3 +105,21 @@ async def test_domain_error_publishes_failed_cover_letter_callback() -> None:
     assert payload.status == "FAILED"
     assert payload.target_type == "COVER_LETTER"
     assert payload.error_code == "EMPTY_PDF_TEXT"
+
+
+@pytest.mark.asyncio
+async def test_unexpected_error_publishes_failed_callback() -> None:
+    """예상 못 한 예외도 FAILED 콜백(UNEXPECTED, retriable=true) — 공용 가드(F6) 회귀 고정."""
+    analyzer = AsyncMock()
+    analyzer.analyze = AsyncMock(side_effect=RuntimeError("llm blew up"))
+    consumer, publisher = _make_consumer(analyzer)
+
+    await consumer.handle(_incoming_message(_request_envelope()))
+
+    publisher.publish.assert_awaited_once()
+    payload = publisher.publish.await_args.kwargs["payload"]
+    assert payload.status == "FAILED"
+    assert payload.error_code == "UNEXPECTED"
+    assert payload.error_message == "RuntimeError: llm blew up"
+    assert payload.retriable is True
+    assert payload.target_id == 9

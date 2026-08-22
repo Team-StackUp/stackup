@@ -75,6 +75,16 @@ public class FeedbackCallbackService {
             return;
         }
         if (payload.isFailed()) {
+            // 대체된 이전 시도의 지연 FAILED(F5): attemptId 가 현재 시도와 다르면 마커를
+            // 되씌우지 않고 드롭. null(구버전 AI/세션)은 검사 없이 통과 — 실패 알림 회귀 방지.
+            // 성공 콜백은 검사하지 않는다(늦은 성공 리포트도 유효, exists 가드가 중복 처리).
+            if (isStaleAttempt(session, payload)) {
+                log.info("callback.feedback stale FAILED from superseded attempt, drop. "
+                        + "sessionId={}, payloadAttempt={}, currentAttempt={}",
+                    sessionId, payload.attemptId(), session.getFeedbackAttemptId());
+                markProcessed(envelope.messageId());
+                return;
+            }
             applyFeedbackFailed(session, payload);
             markProcessed(envelope.messageId());
             return;
@@ -142,6 +152,12 @@ public class FeedbackCallbackService {
     // 알린다 — 콜백 없이 DLQ 로만 가던 시절의 "피드백 생성 중 무기한 대기"를 끊는 게 목적.
     // errorMessage 는 str(exc) 원문(LLM 게이트웨이 주소·쿼터 상세 등)이라 서버 로그에만 남기고,
     // 클라이언트에는 화이트리스트 코드로 만든 안내 문구만 보낸다(QuestionsCallbackService 와 동일 원칙).
+    private static boolean isStaleAttempt(InterviewSession session, FeedbackCallbackPayload payload) {
+        return payload.attemptId() != null
+            && session.getFeedbackAttemptId() != null
+            && !payload.attemptId().equals(session.getFeedbackAttemptId());
+    }
+
     private void applyFeedbackFailed(InterviewSession session, FeedbackCallbackPayload payload) {
         log.warn("callback.feedback generation failed. sessionId={}, errorCode={}, retriable={}, message={}",
             session.getId(), payload.errorCode(), payload.retriable(), payload.errorMessage());

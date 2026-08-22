@@ -89,6 +89,7 @@ def _envelope(
                 },
             ],
             "contextDocumentIds": context_documents or [],
+            "attemptId": "att-1",
         },
         "context": {"userId": 1, "sessionId": 50},
     }
@@ -136,6 +137,7 @@ async def test_consumer_generates_feedback_and_publishes_callback():
     assert payload.session_id == 50
     assert payload.overall_score == 85.0
     assert payload.status == "OK"  # 실패 신호 도입 후에도 성공 콜백은 OK(기본값)
+    assert payload.attempt_id == "att-1"  # 요청의 attemptId 에코(F5)
     assert publisher.publish.await_args.kwargs["message_type"] == "callback.feedback"
 
 
@@ -197,6 +199,7 @@ async def test_consumer_publishes_failed_callback_on_unexpected_error():
     assert payload.error_code == "UNEXPECTED"
     assert payload.error_message == "RuntimeError: rag down"
     assert payload.retriable is True
+    assert payload.attempt_id == "att-1"  # FAILED 도 에코 — Core 의 stale 판별 근거(F5)
     assert payload.overall_score is None
     assert publisher.publish.await_args.kwargs["message_type"] == "callback.feedback"
 

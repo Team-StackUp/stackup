@@ -70,6 +70,9 @@ class GenerateFeedbackRequest(BaseModel):
     # 직무 맞춤(JOB_TAILORED) 모드 전용. 회사명 + 채용공고(JD). '직무 적합도' 평가의 근거.
     target_company_name: str | None = None
     target_job_description: str | None = None
+    # 시도 상관관계(F5). Core 가 발행마다 발급 — 콜백에 그대로 에코해 Core 가 대체된
+    # 이전 시도의 지연 FAILED 를 구분할 수 있게 한다. 구버전 요청은 None.
+    attempt_id: str | None = None
 
 
 class PanelBreakdownItem(BaseModel):
@@ -126,3 +129,5 @@ class FeedbackCallbackPayload(BaseModel):
     error_code: str | None = None
     error_message: str | None = None
     retriable: bool | None = None
+    # 요청의 attemptId 에코(F5) — Core 가 stale FAILED(대체된 이전 시도)를 걸러내는 근거.
+    attempt_id: str | None = None

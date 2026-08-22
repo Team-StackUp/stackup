@@ -30,6 +30,8 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 // 세션 COMPLETED commit 후 발화 → generate.feedback 발행 (US-24).
 // 멱등: session_feedbacks UNIQUE (session_id). 이미 피드백이 있으면 skip.
@@ -92,6 +94,10 @@ public class SessionFeedbackRequester {
 
         List<MessageVoiceAnalysis> voiceAnalyses =
             voiceAnalysisRepository.findByMessage_Session_Id(sessionId);
+        // 시도 상관관계(V30): 발행마다 새 attemptId 를 발급해 세션에 기록(dirty checking)하고
+        // payload 에 동봉 — 재생성으로 대체된 이전 시도의 지연 FAILED 콜백을 걸러내는 근거.
+        String attemptId = java.util.UUID.randomUUID().toString();
+        session.beginFeedbackAttempt(attemptId);
         GenerateFeedbackPayload payload = new GenerateFeedbackPayload(
             session.getId(),
             session.getMode().name(),
@@ -104,16 +110,33 @@ public class SessionFeedbackRequester {
             domainQuestionCounts,
             session.getTargetCompanyName(),
             session.getTargetJobDescription(),
-            selfIntroVoiceAnalysis(msgEntities, voiceAnalyses)
+            selfIntroVoiceAnalysis(msgEntities, voiceAnalyses),
+            attemptId
         );
 
-        publisher.publishToAi(
-            properties.routingKeys().generateFeedback(),
-            payload,
-            new MessageContext(userId, session.getId(), null, null)
-        );
-        log.info("generate.feedback published. sessionId={}, msgCount={}, ctx={}, reason={}",
-            session.getId(), messages.size(), contextDocumentIds.size(), reason);
+        // 발행은 attemptId 기록이 커밋된 뒤에만("메시지 발행은 commit 이후" 규칙) — 발행이 먼저면
+        // AI 의 즉시 FAILED 콜백이 아직 이전 attemptId 가 커밋돼 있는 세션과 대조돼 stale 로
+        // 오판·드롭되고, 발행 후 커밋 실패 시엔 진행 중 시도의 모든 콜백이 영원히 불일치한다.
+        Runnable send = () -> {
+            publisher.publishToAi(
+                properties.routingKeys().generateFeedback(),
+                payload,
+                new MessageContext(userId, session.getId(), null, null)
+            );
+            log.info("generate.feedback published. sessionId={}, msgCount={}, ctx={}, reason={}, attemptId={}",
+                session.getId(), messages.size(), contextDocumentIds.size(), reason, attemptId);
+        };
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    send.run();
+                }
+            });
+        } else {
+            // 트랜잭션 밖(단위 테스트 등) 폴백 — 즉시 발행.
+            send.run();
+        }
     }
 
     private MessageItem toItem(InterviewMessage m) {
