@@ -23,4 +23,7 @@ describe('interviewEventAction', () => {
   it('SESSION_MESSAGE_AUDIO → 오디오 큐', () => {
     expect(interviewEventAction('SESSION_MESSAGE_AUDIO')).toEqual({ kind: 'queue-audio' })
   })
+  it('QUESTION_POOL_PROGRESS → 질문 풀 진행 문구 (B2)', () => {
+    expect(interviewEventAction('QUESTION_POOL_PROGRESS')).toEqual({ kind: 'pool-progress' })
+  })
 })

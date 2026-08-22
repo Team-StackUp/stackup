@@ -397,4 +397,13 @@ docker run --env-file .env -p 8000:8000 stackup-ai
   하드 타임아웃을 추가하고, 모든 `ChatOpenAI` 호출에 `llm_pro_timeout_sec`(30s)/`llm_flash_timeout_sec`
   (10s) 요청 타임아웃을 명시했다(이전엔 미설정 — SDK 기본값까지 무기한 대기 가능).
 
+- **질문 풀·피드백 생성 진행 이벤트 본 구현 (B2)**: 스트리밍이 없는 두 블로킹 생성 경로(질문 풀 Pro ≤30s,
+  피드백 병렬 gather ≈2분 예산)가 진행 중 무통보였던 것을 고쳤다. `SessionRealtimeNotifier.emit_progress`
+  (`messaging/session_notify.py`)가 `realtime.session.notify` 로 `QUESTION_POOL_PROGRESS`/`FEEDBACK_PROGRESS`
+  를 직접 발행(휘발성, 실패는 경고만). `questions_consumer` 는 CONTEXT_BUILDING→GENERATING→FINALIZING 순차
+  3단계, `feedback_consumer` 는 최상위가 `asyncio.gather` 병렬이라 순차 phase 대신 **태스크 완료 카운터**
+  (SCORING `completed/total`, 각 세부 평가 완료 시 emit)로 표현한다. 기존 `AnalysisProgressNotifier`
+  (user 채널)는 무변경 — user 채널 경로 불변은 회귀 테스트(`tests/test_progress.py`)로 고정.
+  와이어링은 `runner.py` 에서 followup 과 동일 notifier 인스턴스 재사용. 스펙: `docs/messaging.md §5.12-3`.
+
 각 도입 시 본 문서 갱신.

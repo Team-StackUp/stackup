@@ -40,7 +40,7 @@ WS  /realtime/sessions/{sessionId}/audio  # RT3 실시간 음성 답변 스트�
 
 ## 2. 이벤트 포맷
 
-> - `event` 이름은 **`SseEventType` enum 이름(대문자)**: `DOC_STATE`·`REPO_STATE`·`SESSION_MESSAGE`·`SESSION_STATE`·`FEEDBACK_READY`·`ERROR`·`KEEP_ALIVE` (+ AI 가 직접 발행하는 `ANALYSIS_PROGRESS`·`SESSION_MESSAGE_DELTA`·`SESSION_MESSAGE_AUDIO`). **`session.message` 같은 소문자 점표기가 아니다.** (RealTime `bridge/dispatcher.go` `Type: env.Payload.EventType` → `sse.go`/`ws.go` 가 그대로 전달.) RealTime 디스패처는 이벤트 타입을 화이트리스트 없이 투명 전달하므로, AI 가 새 이벤트 타입(`SESSION_MESSAGE_DELTA` 등)을 발행해도 RealTime 코드 변경이 필요 없다.
+> - `event` 이름은 **`SseEventType` enum 이름(대문자)**: `DOC_STATE`·`REPO_STATE`·`SESSION_MESSAGE`·`SESSION_STATE`·`FEEDBACK_READY`·`ERROR`·`KEEP_ALIVE` (+ AI 가 직접 발행하는 `ANALYSIS_PROGRESS`·`SESSION_MESSAGE_DELTA`·`SESSION_MESSAGE_AUDIO`·`QUESTION_POOL_PROGRESS`·`FEEDBACK_PROGRESS`). **`session.message` 같은 소문자 점표기가 아니다.** (RealTime `bridge/dispatcher.go` `Type: env.Payload.EventType` → `sse.go`/`ws.go` 가 그대로 전달.) RealTime 디스패처는 이벤트 타입을 화이트리스트 없이 투명 전달하므로, AI 가 새 이벤트 타입(`SESSION_MESSAGE_DELTA` 등)을 발행해도 RealTime 코드 변경이 필요 없다.
 > - `data` 봉투는 `{"data": <payload>, "traceId": "..."}` 다 (`realtime/CLAUDE.md §8`). payload 필드는 camelCase.
 > - 클라는 SSE `addEventListener(<ENUM_NAME>, …)` / WS `frame.event === '<ENUM_NAME>'` 로 매칭한다.
 
@@ -140,6 +140,19 @@ WS(RT1)는 같은 내용을 JSON 한 줄 프레임으로: `{ "id": <eventId>, "e
 - `messageId` = `SESSION_MESSAGE_DELTA` 와 동일 placeholder id. `seq` = 오디오 세그먼트 순번(0부터, **델타 seq 와 독립**). `ext` ∈ `wav|mp3|ogg|m4a`.
 - 세그먼트는 S3 `interview/tts/{sessionId}/{messageId}/seg-{seq}.{ext}` 에 저장(DB 미기록, 휘발성). 프론트는 Core 프록시 `GET /api/sessions/{sid}/messages/{mid}/audio/segments/{seq}?ext=` 로 받아 **seq 순서대로 순차 재생**.
 - `DONT_KNOW` 면 발행 안 함. 라이브 세그먼트를 재생한 메시지는 완료 후 whole-message TTS **autoPlay 억제**(중복 재생 방지) — 수동 "다시 듣기"만 동작.
+
+### 3.3-3 질문 풀·피드백 생성 진행 (`event: QUESTION_POOL_PROGRESS` / `FEEDBACK_PROGRESS`)
+
+**휘발성** 이벤트. 질문 풀 생성(Pro, 최대 30s)·피드백 생성(≈2분 예산) 대기 화면에 진행 문구를 흘린다. **AI 서버가 `stackup.realtime`(`realtime.session.notify`)으로 직접 발행**(Core·DB 미경유) → 세션 채널(SSE·WS 공통)로 fan-out. 발행 스펙: [`messaging.md §5.12-3`](./messaging.md).
+
+```json
+{ "data": { "sessionId": 99, "phase": "GENERATING", "message": "자료를 바탕으로 첫 질문을 만들고 있어요." }, "traceId": "..." }
+{ "data": { "sessionId": 99, "phase": "SCORING", "message": "세부 평가를 진행하고 있어요. (2/5)", "completed": 2, "total": 5 }, "traceId": "..." }
+```
+
+- `QUESTION_POOL_PROGRESS` phase: `CONTEXT_BUILDING → GENERATING → FINALIZING` (순차). 소비: 라이브 면접 WS(`interviewEvent.ts` → `InterviewPreparing` 대기 화면 문구).
+- `FEEDBACK_PROGRESS` phase: `PREPARING → SCORING(완료 카운터 completed/total, 병렬 평가라 순차 아님) → FINALIZING`. 소비: 피드백 페이지 세션 SSE(`useFeedbackLive` → `FeedbackReportSkeleton` 캡션).
+- 프론트 처리: 쿼리 무효화 없이 로컬 state 만 갱신(`message` 그대로 표시). 이벤트가 하나도 안 와도 기본 안내 문구가 유지되므로 유실은 UX 저하 없이 흡수된다. 종료 신호는 기존 `SESSION_MESSAGE`/`FEEDBACK_READY` 가 정본.
 
 ### 3.4 세션 상태 (`event: SESSION_STATE`)
 ```json

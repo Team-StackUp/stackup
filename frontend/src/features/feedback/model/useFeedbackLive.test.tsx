@@ -93,4 +93,45 @@ describe('useFeedbackLive', () => {
     expect(result.current.data?.overallScore).toBe(80)
     expect(vi.mocked(getFeedback).mock.calls.length).toBe(callsAfterLoad)
   })
+  it('FEEDBACK_PROGRESS 수신 시 진행 문구·카운터를 노출한다 (B2)', async () => {
+    vi.mocked(getFeedback).mockRejectedValue(notReady())
+
+    const { result } = setup()
+    await waitFor(() => expect(FakeES.last).not.toBeNull())
+    expect(result.current.progress).toBeNull()
+
+    act(() =>
+      FakeES.last?.emit('FEEDBACK_PROGRESS', {
+        data: { sessionId: 99, phase: 'SCORING', message: '세부 평가를 진행하고 있어요. (2/5)', completed: 2, total: 5 },
+      }),
+    )
+    expect(result.current.progress).toEqual({
+      message: '세부 평가를 진행하고 있어요. (2/5)',
+      completed: 2,
+      total: 5,
+    })
+
+    // 카운터 없는 진행 이벤트(PREPARING/FINALIZING)는 message 만 채워진다.
+    act(() =>
+      FakeES.last?.emit('FEEDBACK_PROGRESS', {
+        data: { sessionId: 99, phase: 'FINALIZING', message: '피드백 리포트를 정리하고 있어요.' },
+      }),
+    )
+    expect(result.current.progress).toEqual({
+      message: '피드백 리포트를 정리하고 있어요.',
+      completed: null,
+      total: null,
+    })
+  })
+
+  it('message 없는 비정상 FEEDBACK_PROGRESS 페이로드는 무시한다', async () => {
+    vi.mocked(getFeedback).mockRejectedValue(notReady())
+
+    const { result } = setup()
+    await waitFor(() => expect(FakeES.last).not.toBeNull())
+
+    act(() => FakeES.last?.emit('FEEDBACK_PROGRESS', { data: { completed: 1 } }))
+    act(() => FakeES.last?.emit('FEEDBACK_PROGRESS', {}))
+    expect(result.current.progress).toBeNull()
+  })
 })

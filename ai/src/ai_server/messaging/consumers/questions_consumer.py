@@ -9,6 +9,10 @@ from ai_server.chain.question_generation_chain import QuestionGenerator
 from ai_server.core.client import CoreClient
 from ai_server.messaging.idempotency import LruIdempotencyStore
 from ai_server.messaging.publisher import CallbackPublisher
+from ai_server.messaging.session_notify import (
+    QUESTION_POOL_PROGRESS_EVENT,
+    SessionRealtimeNotifier,
+)
 from ai_server.model.envelope import Envelope
 from ai_server.model.messages.questions import (
     DocumentContext,
@@ -33,6 +37,7 @@ class QuestionsConsumer:
         embedder: EmbeddingProvider | None = None,
         rag_top_k: int = 5,
         rag_timeout_sec: float = 1.5,
+        session_notifier: SessionRealtimeNotifier | None = None,
     ) -> None:
         self._generator = generator
         self._publisher = publisher
@@ -45,6 +50,7 @@ class QuestionsConsumer:
         self._embedder = embedder
         self._rag_top_k = rag_top_k
         self._rag_timeout_sec = rag_timeout_sec
+        self._session_notifier = session_notifier
 
     async def handle(self, message: AbstractIncomingMessage) -> None:
         async with message.process(requeue=False):
@@ -83,10 +89,30 @@ class QuestionsConsumer:
                 trace_id=envelope.trace_id,
             )
 
+            await self._emit_progress(
+                session_id=req.session_id,
+                phase="CONTEXT_BUILDING",
+                message="면접 자료를 정리하고 있어요.",
+                trace_id=envelope.trace_id,
+            )
             context_text = await self._build_context(req)
+            await self._emit_progress(
+                session_id=req.session_id,
+                phase="GENERATING",
+                message="자료를 바탕으로 첫 질문을 만들고 있어요.",
+                trace_id=envelope.trace_id,
+            )
             payload = await self._generate_pool_payload(
                 req, context_text, effective_pool_size, trace_id=envelope.trace_id
             )
+            # 생성 실패(FAILED 콜백) 직전에 "마무리하고 있어요" 가 스치면 오해를 부른다 — 성공시에만.
+            if payload.status != "FAILED":
+                await self._emit_progress(
+                    session_id=req.session_id,
+                    phase="FINALIZING",
+                    message="질문 준비를 마무리하고 있어요.",
+                    trace_id=envelope.trace_id,
+                )
 
             await self._publisher.publish(
                 routing_key=self._callback_routing_key,
@@ -104,6 +130,19 @@ class QuestionsConsumer:
                 question_count=len(payload.questions),
                 trace_id=envelope.trace_id,
             )
+
+    async def _emit_progress(
+        self, *, session_id: int, phase: str, message: str, trace_id: str
+    ) -> None:
+        if self._session_notifier is None:
+            return
+        await self._session_notifier.emit_progress(
+            event_type=QUESTION_POOL_PROGRESS_EVENT,
+            session_id=session_id,
+            phase=phase,
+            message=message,
+            trace_id=trace_id,
+        )
 
     async def _generate_pool_payload(
         self,

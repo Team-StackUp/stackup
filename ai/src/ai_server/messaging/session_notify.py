@@ -9,12 +9,16 @@ from ai_server.model.messages.realtime import (
     SessionMessageAudioData,
     SessionMessageDeltaData,
     SessionNotifyPayload,
+    SessionProgressData,
+    SessionProgressNotifyPayload,
 )
 
 log = structlog.get_logger(__name__)
 
 SESSION_MESSAGE_DELTA_EVENT = "SESSION_MESSAGE_DELTA"
 SESSION_MESSAGE_AUDIO_EVENT = "SESSION_MESSAGE_AUDIO"
+QUESTION_POOL_PROGRESS_EVENT = "QUESTION_POOL_PROGRESS"
+FEEDBACK_PROGRESS_EVENT = "FEEDBACK_PROGRESS"
 
 
 class SessionRealtimeNotifier:
@@ -89,5 +93,44 @@ class SessionRealtimeNotifier:
                 session_id=session_id,
                 message_id=message_id,
                 seq=seq,
+                trace_id=trace_id,
+            )
+
+    async def emit_progress(
+        self,
+        *,
+        event_type: str,
+        session_id: int,
+        phase: str,
+        message: str,
+        trace_id: str,
+        completed: int | None = None,
+        total: int | None = None,
+    ) -> None:
+        payload = SessionProgressNotifyPayload(
+            event_type=event_type,
+            data=SessionProgressData(
+                session_id=session_id,
+                phase=phase,
+                message=message,
+                completed=completed,
+                total=total,
+            ),
+        )
+        try:
+            await self._publisher.publish(
+                routing_key=self._routing_key,
+                message_type=self._routing_key,
+                payload=payload,
+                trace_id=trace_id,
+                correlation_id=f"progress-{session_id}-{phase}-{completed or 0}",
+                context=MessageContext(session_id=session_id),
+            )
+        except Exception:
+            log.warning(
+                "session.progress.publish_failed",
+                session_id=session_id,
+                event_type=event_type,
+                phase=phase,
                 trace_id=trace_id,
             )

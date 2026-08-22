@@ -59,3 +59,67 @@ async def test_emit_audio_swallows_publish_errors():
     await n.emit_audio(
         session_id=1, message_id=2, seq=0, ext="mp3", duration_sec=None, trace_id="t"
     )
+
+
+@pytest.mark.asyncio
+async def test_emit_progress_publishes_session_progress_event():
+    pub = _FakePublisher()
+    n = SessionRealtimeNotifier(publisher=pub, routing_key="realtime.session.notify")
+    await n.emit_progress(
+        event_type="FEEDBACK_PROGRESS",
+        session_id=7,
+        phase="SCORING",
+        message="세부 평가를 진행하고 있어요. (2/5)",
+        trace_id="t1",
+        completed=2,
+        total=5,
+    )
+    assert len(pub.calls) == 1
+    call = pub.calls[0]
+    assert call["routing_key"] == "realtime.session.notify"
+    assert call["message_type"] == "realtime.session.notify"
+    assert call["context"].session_id == 7
+    assert call["payload"].event_type == "FEEDBACK_PROGRESS"
+    data = call["payload"].data
+    assert (data.session_id, data.phase, data.completed, data.total) == (
+        7,
+        "SCORING",
+        2,
+        5,
+    )
+    # RealTime Envelope.payload 직렬화(camelCase) 확인.
+    dumped = call["payload"].model_dump(by_alias=True)
+    assert dumped["data"]["sessionId"] == 7
+    assert dumped["eventType"] == "FEEDBACK_PROGRESS"
+
+
+@pytest.mark.asyncio
+async def test_emit_progress_without_counter_omits_completed_total():
+    pub = _FakePublisher()
+    n = SessionRealtimeNotifier(publisher=pub, routing_key="realtime.session.notify")
+    await n.emit_progress(
+        event_type="QUESTION_POOL_PROGRESS",
+        session_id=9,
+        phase="GENERATING",
+        message="첫 질문을 만들고 있어요.",
+        trace_id="t1",
+    )
+    data = pub.calls[0]["payload"].data
+    assert data.completed is None
+    assert data.total is None
+
+
+@pytest.mark.asyncio
+async def test_emit_progress_swallows_publish_errors():
+    class Boom:
+        async def publish(self, **kwargs):
+            raise RuntimeError("down")
+
+    n = SessionRealtimeNotifier(publisher=Boom(), routing_key="realtime.session.notify")
+    await n.emit_progress(
+        event_type="QUESTION_POOL_PROGRESS",
+        session_id=1,
+        phase="GENERATING",
+        message="x",
+        trace_id="t",
+    )

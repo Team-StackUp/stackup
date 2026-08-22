@@ -996,3 +996,61 @@ async def test_consumer_skips_personality_in_technical_mode():
     evaluator.evaluate.assert_not_awaited()
     payload: FeedbackCallbackPayload = publisher.publish.await_args.kwargs["payload"]
     assert all(b.evaluator != "인성·자소서" for b in payload.panel_breakdown)
+
+
+@pytest.mark.asyncio
+async def test_consumer_emits_feedback_progress_with_scoring_counter():
+    """B2: 피드백 생성 중 세션 채널 진행 이벤트 — PREPARING → SCORING(0/5) →
+    세부 평가 완료마다 카운터 증가(1..5) → FINALIZING 순서·개수를 고정한다."""
+    generator = _generator()
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+    session_notifier = MagicMock()
+    session_notifier.emit_progress = AsyncMock()
+
+    consumer = FeedbackConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.feedback",
+        core_client=MagicMock(),
+        embedder=None,
+        session_notifier=session_notifier,
+    )
+    await consumer.handle(_StubMessage(_envelope()))
+
+    calls = session_notifier.emit_progress.await_args_list
+    assert len(calls) == 8  # 1 PREPARING + 1 SCORING(0/5) + 5 완료 + 1 FINALIZING
+    phases = [c.kwargs["phase"] for c in calls]
+    assert phases[0] == "PREPARING"
+    assert phases[1] == "SCORING"
+    assert (calls[1].kwargs["completed"], calls[1].kwargs["total"]) == (0, 5)
+    assert phases[-1] == "FINALIZING"
+    completions = [
+        c.kwargs["completed"]
+        for c in calls
+        if c.kwargs["phase"] == "SCORING" and c.kwargs["completed"]
+    ]
+    assert sorted(completions) == [1, 2, 3, 4, 5]
+    assert all(c.kwargs["event_type"] == "FEEDBACK_PROGRESS" for c in calls)
+    assert all(c.kwargs["session_id"] == 50 for c in calls)
+    publisher.publish.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_consumer_without_session_notifier_still_publishes_callback():
+    """B2 회귀 고정: notifier 미주입(None) 이면 진행 이벤트 없이 기존 흐름 그대로."""
+    generator = _generator()
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+
+    consumer = FeedbackConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.feedback",
+        core_client=MagicMock(),
+        embedder=None,
+    )
+    await consumer.handle(_StubMessage(_envelope()))
+    publisher.publish.assert_awaited_once()

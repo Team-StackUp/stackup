@@ -39,6 +39,8 @@ export function useLiveInterview(sessionId: number, deliveryMode: DeliveryMode =
   // 전송 실패로 롤백된 답변 본문 — 컴포저가 입력창을 복원하는 데 사용(nonce 로 매 실패마다 트리거).
   const [restoreDraft, setRestoreDraft] = useState<{ content: string; nonce: number } | null>(null)
   const [deltaBuffer, setDeltaBuffer] = useState<DeltaBuffer>({})
+  // 질문 풀 생성 진행 문구(QUESTION_POOL_PROGRESS, 휘발성) — 대기 화면(InterviewPreparing)에서만 사용.
+  const [poolProgress, setPoolProgress] = useState<string | null>(null)
   // 라이브 세그먼트 오디오가 지금 재생 중인 메시지(아바타·질문 카드의 '말하는 중' 표시용).
   const [speakingAudio, setSpeakingAudio] = useState<{ msgId: number | null; playing: boolean }>({
     msgId: null,
@@ -217,6 +219,9 @@ export function useLiveInterview(sessionId: number, deliveryMode: DeliveryMode =
         if (payload && typeof payload.messageId === 'number' && typeof payload.seq === 'number') {
           setDeltaBuffer((b) => applyDelta(b, payload))
         }
+      } else if (action.kind === 'pool-progress') {
+        const p = (frame.data as { data?: { message?: string } } | undefined)?.data
+        if (p && typeof p.message === 'string') setPoolProgress(p.message)
       } else if (action.kind === 'queue-audio') {
         // 텍스트 모드에서는 음성을 자동재생하지 않는다(읽는 도중 끼어들기 방지).
         // 수동 재생은 StageQuestion 의 전체 파일(callback.tts) 경로로 제공된다.
@@ -349,5 +354,6 @@ export function useLiveInterview(sessionId: number, deliveryMode: DeliveryMode =
     wasSegmented,
     isSpeaking,
     firstQuestionReady,
+    poolProgress,
   }
 }

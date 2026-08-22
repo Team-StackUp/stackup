@@ -588,3 +588,86 @@ def test_generated_question_parses_evidence_and_signal():
     q2 = GeneratedQuestion.model_validate({"category": "BEHAVIORAL", "question": "Q?"})
     assert q2.target_evidence == ""
     assert q2.expected_signal == ""
+
+
+@pytest.mark.asyncio
+async def test_consumer_emits_pool_progress_phases_in_order():
+    """B2: 질문 풀 생성 중 세션 채널 진행 이벤트가 3단계 순서대로 발행돼야 한다."""
+    generator = MagicMock()
+    generator.generate = AsyncMock(
+        return_value=GeneratedQuestionPool(
+            questions=[GeneratedQuestion(category="CS_FUNDAMENTAL", question="q?")]
+        )
+    )
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+    session_notifier = MagicMock()
+    session_notifier.emit_progress = AsyncMock()
+
+    consumer = QuestionsConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.questions",
+        session_notifier=session_notifier,
+    )
+    body = _envelope(
+        {
+            "sessionId": 99,
+            "mode": "TECHNICAL",
+            "jobCategories": ["BACKEND"],
+            "documents": [],
+            "maxQuestions": 5,
+            "initialQuestionCount": 1,
+        }
+    )
+    await consumer.handle(_StubMessage(body))
+
+    calls = session_notifier.emit_progress.await_args_list
+    assert [c.kwargs["phase"] for c in calls] == [
+        "CONTEXT_BUILDING",
+        "GENERATING",
+        "FINALIZING",
+    ]
+    assert all(c.kwargs["event_type"] == "QUESTION_POOL_PROGRESS" for c in calls)
+    assert all(c.kwargs["session_id"] == 99 for c in calls)
+    assert all(c.kwargs["trace_id"] == "t-1" for c in calls)
+    publisher.publish.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_consumer_skips_finalizing_when_generate_fails():
+    """생성 실패 시 FAILED 콜백은 나가되, 실패 직전에 "마무리" 진행 문구가 스치면
+    오해를 부르므로 FINALIZING 은 발행하지 않는다."""
+    generator = MagicMock()
+    generator.generate = AsyncMock(side_effect=RuntimeError("llm down"))
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+    session_notifier = MagicMock()
+    session_notifier.emit_progress = AsyncMock()
+
+    consumer = QuestionsConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.questions",
+        session_notifier=session_notifier,
+    )
+    body = _envelope(
+        {
+            "sessionId": 99,
+            "mode": "TECHNICAL",
+            "jobCategories": ["BACKEND"],
+            "documents": [],
+            "maxQuestions": 5,
+            "initialQuestionCount": 1,
+        }
+    )
+    await consumer.handle(_StubMessage(body))
+
+    phases = [c.kwargs["phase"] for c in session_notifier.emit_progress.await_args_list]
+    assert phases == ["CONTEXT_BUILDING", "GENERATING"]
+    payload: QuestionPoolCallbackPayload = publisher.publish.await_args.kwargs[
+        "payload"
+    ]
+    assert payload.status == "FAILED"
