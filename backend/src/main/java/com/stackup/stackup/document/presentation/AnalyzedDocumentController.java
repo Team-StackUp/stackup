@@ -7,8 +7,14 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.time.Duration;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.CacheControl;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -60,5 +66,28 @@ public class AnalyzedDocumentController {
         @PathVariable Long documentId
     ) {
         return AnalyzedDocumentResponse.from(queryService.getForUser(principal.userId(), documentId));
+    }
+
+    @Operation(
+        operationId = "getAnalyzedDocumentContent",
+        summary = "분석 원문(마크다운) 프록시",
+        description = "presigned URL 은 내부(MinIO) 호스트라 브라우저가 직접 접근할 수 없어 "
+            + "Core 가 원문 바이트를 중계한다 (TTS 오디오 프록시와 동일 패턴)."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "분석 원문 (text/markdown)"),
+        @ApiResponse(responseCode = "401", description = "인증 실패"),
+        @ApiResponse(responseCode = "404", description = "분석 문서 없음"),
+        @ApiResponse(responseCode = "422", description = "아직 분석 산출물이 없음")
+    })
+    @GetMapping("/{documentId}/content")
+    public ResponseEntity<Resource> content(
+        @AuthenticationPrincipal UserPrincipal principal,
+        @PathVariable Long documentId
+    ) {
+        return ResponseEntity.ok()
+            .contentType(MediaType.parseMediaType("text/markdown; charset=utf-8"))
+            .cacheControl(CacheControl.maxAge(Duration.ofMinutes(10)).cachePrivate())
+            .body(new InputStreamResource(queryService.getContentForUser(principal.userId(), documentId)));
     }
 }
