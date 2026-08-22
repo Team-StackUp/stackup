@@ -222,6 +222,8 @@ SSE 미지원 환경 또는 영구 단절 시:
 ```
 GET /api/documents/{id}     # 5초 간격 폴링
 GET /api/sessions/{id}      # 메시지 변경 감지
+GET /api/sessions/{id}/feedback  # 피드백 대기 폴링. 실패는 SSE ERROR(§3.6) 미수신이어도
+                                 # 404 FEEDBACK_GENERATION_FAILED(영속 마커)로 구분된다
 ```
 
 프론트엔드 구현은 `frontend/src/shared/hooks/useEventStream.ts` 단일 책임 훅으로 추상화. SSE 우선 → 실패 시 폴링.

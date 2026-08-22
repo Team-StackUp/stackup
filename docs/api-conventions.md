@@ -245,6 +245,12 @@ SESSION_MAX_REACHED         422  최대 질문/시간 도달
 SESSION_NOT_FOUND           404
 SESSION_FORBIDDEN           403  타인 세션 접근
 
+# 피드백 (FEEDBACK_*)
+FEEDBACK_NOT_READY          404  아직 생성 중 (폴링/SSE 대기 지속)
+FEEDBACK_GENERATION_FAILED  404  생성 실패 마커 존재 — 대기 중단, 재생성 유도. details.retriable(boolean) 동봉
+FEEDBACK_NOT_FOUND          404  공유 토큰 무효
+FEEDBACK_ALREADY_EXISTS     409  재생성 요청 시 이미 존재 (재조회 신호)
+
 # 시스템 (SYS_*)
 SYS_RATE_LIMITED            429
 SYS_DEPENDENCY_DOWN         503  RabbitMQ/AI/LLM 다운
