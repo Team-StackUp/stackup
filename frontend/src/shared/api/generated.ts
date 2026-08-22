@@ -881,6 +881,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/documents/{documentId}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 분석 원문(마크다운) 프록시
+         * @description presigned URL 은 내부(MinIO) 호스트라 브라우저가 직접 접근할 수 없어 Core 가 원문 바이트를 중계한다 (TTS 오디오 프록시와 동일 패턴).
+         */
+        get: operations["getAnalyzedDocumentContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/google/callback": {
         parameters: {
             query?: never;
@@ -3899,6 +3919,55 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["AnalyzedDocumentResponse"];
+                };
+            };
+        };
+    };
+    getAnalyzedDocumentContent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 분석 원문 (text/markdown) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+            /** @description 인증 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+            /** @description 분석 문서 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+            /** @description 아직 분석 산출물이 없음 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
                 };
             };
         };

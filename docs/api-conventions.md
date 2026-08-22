@@ -67,6 +67,7 @@ POST   /api/resumes/{id}/reanalyze 재분석
 
 GET    /api/documents              분석 문서 목록
 GET    /api/documents/{id}         분석 문서 상세 (S3 URL 포함)
+GET    /api/documents/{id}/content 분석 원문(마크다운) 프록시 — presigned 는 내부 호스트라 Core 중계
 ```
 
 ### 2.4 면접 세션

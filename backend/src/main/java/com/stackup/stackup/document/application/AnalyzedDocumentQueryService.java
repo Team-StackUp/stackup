@@ -53,6 +53,17 @@ public class AnalyzedDocumentQueryService {
         return AnalyzedDocumentResult.of(doc, parseTechStack(doc.getTechStack()), downloadUrl);
     }
 
+    // 분석 원문(마크다운) 프록시 — presigned URL 은 내부(MinIO) 호스트라 브라우저가 직접 접근할
+    // 수 없다(TTS 오디오 프록시와 동일 이유). 소유권 검증 후 Core 가 바이트를 중계한다.
+    public java.io.InputStream getContentForUser(Long userId, Long documentId) {
+        AnalyzedDocument doc = documentRepository.findActiveByIdAndOwner(documentId, userId)
+            .orElseThrow(() -> new DomainException(ApiErrorCode.DOC_NOT_FOUND));
+        if (doc.getDocumentPath() == null || doc.getDocumentPath().isBlank()) {
+            throw new DomainException(ApiErrorCode.DOC_NOT_ANALYZED);
+        }
+        return storage.get(doc.getDocumentPath());
+    }
+
     private List<String> parseTechStack(String json) {
         if (json == null || json.isBlank()) {
             return List.of();

@@ -2842,6 +2842,69 @@
         }
       }
     },
+    "/api/documents/{documentId}/content" : {
+      "get" : {
+        "tags" : [ "Documents" ],
+        "summary" : "분석 원문(마크다운) 프록시",
+        "description" : "presigned URL 은 내부(MinIO) 호스트라 브라우저가 직접 접근할 수 없어 Core 가 원문 바이트를 중계한다 (TTS 오디오 프록시와 동일 패턴).",
+        "operationId" : "getAnalyzedDocumentContent",
+        "parameters" : [ {
+          "name" : "documentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "분석 원문 (text/markdown)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "binary"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "binary"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "분석 문서 없음",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "binary"
+                }
+              }
+            }
+          },
+          "422" : {
+            "description" : "아직 분석 산출물이 없음",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "binary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/auth/google/callback" : {
       "get" : {
         "tags" : [ "Auth" ],

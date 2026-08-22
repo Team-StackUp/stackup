@@ -113,6 +113,17 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> { 
 
 ---
 
+## 6.5 AI 텍스트 필드 포맷 계약 (A5)
+
+서버가 주는 AI 생성 텍스트는 필드별로 포맷이 계약돼 있다 (정본: [`messaging.md §5.4·§5.11`](./messaging.md)):
+
+| 포맷 | 필드 | 렌더 |
+|---|---|---|
+| **GFM 마크다운** | 분석 산출물(`documentPath` 문서), `answerCoaching[].modelAnswer`/`answerRewrite` | `shared/ui/Markdown` (lazy + sanitize) |
+| **일반 텍스트** | 피드백 요약·`highlights[]`·`studyPlan[]`·패널 `detail`·질문 텍스트·`coachingComment` 등 나머지 전부 | plain (`whitespace-pre-wrap`) — `HighlightedText` 부분 문자열 매칭·델타 스트리밍과의 충돌을 막기 위한 계약 |
+
+사용자 입력(내 답변 등)은 어떤 경우에도 마크다운으로 렌더하지 않는다.
+
 ## 7. 안티패턴
 
 - ❌ `XxxResponse` 를 함수 반환 타입으로 사용 — `XxxResult` 로.

@@ -230,7 +230,20 @@ Tailwind v4 기본 `--spacing: 0.25rem` (= 4px) 사용. `p-4` = `16px`.
 **Breakpoints** — Tailwind v4 default 사용:
 - `sm: 640px`, `md: 768px`, `lg: 1024px`, `xl: 1280px`, `2xl: 1536px`.
 
-### 2.14 아이콘
+### 2.14 프로즈(마크다운) 렌더링 (A5)
+
+GFM 마크다운 계약 필드([`frontend-types.md §6.5`](./frontend-types.md))는 `shared/ui/Markdown` 으로만
+렌더한다 — react-markdown + remark-gfm + rehype-sanitize ([`security.md §4.4`](./security.md)),
+렌더러 본체는 lazy 청크(메인 번들 미가산).
+
+- 본문: `text-body` + `leading-relaxed` (기존 AI 텍스트 표면 관례 승계), 수직 리듬 `space-y-2`
+  (global.css 가 p/heading margin 을 0 으로 리셋하므로 컴포넌트가 자체 정의)
+- 헤딩: 디스플레이 스케일이 아니라 카드 관례 — h1/h2 → 18px bold, h3 이하 → `text-body` bold
+- 코드: `--font-mono`, 인라인은 `bg-surface-raised`, 블록은 `bg-surface` + `overflow-x-auto`
+- 링크: `text-primary-fg` underline, `target=_blank rel=noreferrer`. 표는 가로 스크롤 컨테이너
+- 컨테이너 폭은 사용처가 `max-w-readable`(65ch) 로 제한
+
+### 2.15 아이콘
 
 - 라이브러리 — **Lucide Icons** (`lucide-react` 도입 예정, 트리쉐이킹 지원).
 - 크기 — `16 / 20 / 24 px` (line-height 와 정렬).
@@ -289,6 +302,7 @@ Tailwind v4 기본 `--spacing: 0.25rem` (= 4px) 사용. `p-4` = `16px`.
 - `Skeleton` — 로딩 placeholder (4-state §5).
 - `EmptyState` — 빈 목록 안내, 아이콘 + 설명 + CTA (4-state §5).
 - `Card` — `header / body / footer` slot.
+- `Markdown` — GFM 마크다운 계약 필드 전용 프로즈 렌더러 (스타일 §2.14, sanitize 포함, lazy 청크).
 
 ### Feedback
 - `Toast` — 4종 (success / info / warning / error), 우상단 stack, 4초 자동 dismiss, `z-toast`.

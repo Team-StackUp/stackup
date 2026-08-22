@@ -10,6 +10,7 @@ SYSTEM_PROMPT = (
     "  - logic_score: 논리·인과관계 명확성\n"
     "  - communication_score: 답변의 명료성·구조화\n"
     "- 요약:\n"
+    "  - 모든 텍스트 필드는 마크다운 서식 기호 없이 일반 텍스트로 작성 (화면이 plain text 렌더).\n"
     "  - strengths_summary: 가장 잘한 점 3가지 이내 (각 1~2문장).\n"
     "  - weaknesses_summary: 가장 부족한 점 3가지 이내 (각 1~2문장).\n"
     "  - improvement_keywords: 다음 면접에서 채울 키워드 5~10개 (짧은 명사구).\n"

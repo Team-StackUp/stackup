@@ -20,6 +20,7 @@
 | Styling | Tailwind CSS v4 (`@theme` 토큰) | 4.x (도입) |
 | API 타입 | openapi-typescript → `shared/api/generated.ts` | (도입, §7.1) |
 | 테스트 | Vitest + Testing Library (jsdom) | (도입) |
+| 마크다운 렌더 | react-markdown + remark-gfm + rehype-sanitize (`shared/ui/Markdown`, lazy) | (도입, A5 — 계약: docs/frontend-types.md §6.5) |
 
 ### 미정 (도입 시점에 결정)
 - Form: React Hook Form + Zod (현재 controlled `useState` 검증으로 충분 — 폼 복잡도 증가 시 도입)
