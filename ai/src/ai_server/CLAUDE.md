@@ -15,10 +15,11 @@ messaging                  │
       └──→ voice    ──→    │
               │            │
               └──→ rag ────┴──→ storage (S3)
-                            └──→ httpx (Core API)
+                            └──→ core (httpx, Core internal API)
 
 config: 모두가 의존
 model: 모두가 의존 (Pydantic 스키마)
+observability: chain 에 붙는 LangChain 콜백 — core 경유로 호출 로그 POST
 ```
 
 원칙:
@@ -45,22 +46,21 @@ settings = Settings()  # singleton
 ```
 
 ### `model/`
-- RabbitMQ envelope 모델
-- 도메인 객체 (`AnalyzedResume`, `QuestionPool`, `FollowUpResult`)
-- LLM 응답 schema (Pydantic) — `OutputParser`에 사용
+- RabbitMQ envelope 모델 (`envelope.py`)
+- 메시지 페이로드 — `model/messages/` 하위에 도메인별 파일
+  (`analyze.py`, `questions.py`, `followup.py`, `feedback.py`, `voice.py`, `tts.py`, `realtime.py`)
+- LLM 응답 schema (Pydantic) — 체인의 구조화 출력 검증에 사용
+- 모든 페이로드 모델은 `_config.camel_config()` 로 wire 필드명을 camelCase 로 직렬화
 
 ```python
-# model/messages.py
-class ResumeAnalyzeRequest(BaseModel):
-    resume_id: int
-    s3_key: str
+# model/messages/questions.py (발췌)
+class QuestionPoolCallbackPayload(BaseModel):
+    model_config = camel_config()
 
-class ResumeAnalyzed(BaseModel):
-    resume_id: int
-    summary: str
-    tech_stack: list[str]
-    document_s3_key: str
-    embedding_chunk_count: int
+    session_id: int
+    kind: CallbackKind = "POOL"
+    questions: list[GeneratedQuestion] = []
+    status: GenerationStatus = "OK"
 ```
 
 ### `api/`
@@ -70,11 +70,15 @@ class ResumeAnalyzed(BaseModel):
 
 ### `messaging/`
 - aio-pika consumer / publisher
-- 큐별 consumer 함수 분리
+- 큐별 consumer 는 `messaging/consumers/{name}_consumer.py` 로 분리
+  (resume/repository/web/cover_letter/questions/followup/feedback/voice/tts)
+- 조립·기동은 `runner.py` 의 `MessagingRuntime` (§3), 연결은 `connection.py`,
+  콜백 발행은 `publisher.py`, 멱등은 `idempotency.py`(`LruIdempotencyStore`),
+  RealTime 직접 발행은 `progress.py`(분석 진행)·`session_notify.py`(델타/오디오)
 - 모든 consumer는 envelope parsing → trace_context → 비즈니스 핸들러 호출 패턴
 
 ```python
-# messaging/resume_consumer.py
+# messaging/consumers/resume_consumer.py (패턴)
 async def consume(message: AbstractIncomingMessage) -> None:
     async with message.process(requeue=False):
         envelope = parse_envelope(message)
@@ -86,28 +90,40 @@ async def consume(message: AbstractIncomingMessage) -> None:
 ```
 
 ### `analyzer/`
-- use case 단위 (`resume_analyzer.py`, `repo_analyzer.py`, `feedback_generator.py`)
-- 외부 입력 → 내부 모듈 조합 → 결과 publish
+- 분석 use case 단위 (`resume_analyzer.py`, `repository_analyzer.py`, `web_resume_analyzer.py`)
+- 소스 추출 추상화는 `analyzer/sources/` (PDF/GitHub/웹/텍스트), 임베딩 인제스트는 `_embedding_step.py`
+- 외부 입력 → 내부 모듈 조합 → 결과 publish. 피드백 생성은 analyzer 가 아니라
+  `messaging/consumers/feedback_consumer.py` + `chain/feedback_generation_chain.py` 에 있다
 - LLM 호출 자체는 `chain/`으로 위임
 
 ### `chain/`
-- LangChain 체인 정의
+- LangChain 체인 정의 (`document_analysis_chain.py`, `question_generation_chain.py`,
+  `followup_generation_chain.py`, `feedback_generation_chain.py`, `pdf_vision.py`, `sentence_split.py`)
 - `chain/prompts/` 하위에 prompt 템플릿 (모든 프롬프트가 한 곳에)
-- `chain/parsers/` 출력 파서
+- 출력 파싱은 별도 모듈 없이 각 체인 안에서 Pydantic 구조화 출력으로 검증
 
 ### `rag/`
-- 청킹 (`splitter.py`)
-- 임베딩 생성 (`embedder.py`)
-- 검색 어댑터 (Core API client `pgvector_client.py`)
+- 청킹 (`chunker.py` — `MarkdownChunker`)
+- 임베딩 생성 (`embedder.py` — provider 추상화 + Gemini/Mock 구현)
+- 검색은 rag 모듈이 아니라 `core/client.py: search_embeddings` (Core `POST /api/internal/embeddings/search`)
 
-### `voice/` (Phase 2)
-- `voice/stt/` — interface + provider impls
-- `voice/tts/`
-- `voice/analysis/` — WPM, filler, silence
+### `core/`
+- Core 내부 API httpx 클라이언트 (`client.py`) — `X-Internal-API-Key` 인증
+- GitHub token 위임 · 임베딩 upsert/검색 · AI 호출 로그 기록 (엔드포인트 목록:
+  [`/docs/messaging.md §10`](../../../docs/messaging.md))
+
+### `voice/`
+- `voice/stt/` — interface + provider impls (배치 Whisper/Deepgram + 라이브 Deepgram Live)
+- `voice/tts/` — provider 추상화 (Gateway/Gemini/OpenAI/Mock)
+- `voice/analysis/` — WPM, filler, silence (`metrics.py`)
 
 ### `storage/`
-- S3 client wrapper (`s3.py`)
-- key 생성 헬퍼 (`keys.py`) — [`/docs/storage.md §2`](../../../docs/storage.md) 컨벤션 준수
+- `ObjectStorage` 추상화 (`base.py`) + `s3.py` / `local_fs.py` 구현, `factory.py` 로 토글
+- 객체 key 는 각 사용처에서 [`/docs/storage.md §2`](../../../docs/storage.md) 컨벤션대로 조립 (전용 헬퍼 모듈 없음)
+
+### `observability/`
+- `llm_logging_callback.py` — LangChain `AsyncCallbackHandler`. 토큰/latency 측정 후
+  `core/client.py: record_ai_log` 로 Core `POST /api/internal/ai-logs` (fire-and-forget)
 
 ---
 
@@ -115,23 +131,24 @@ async def consume(message: AbstractIncomingMessage) -> None:
 
 ### REST (FastAPI)
 - `api/health.py` — 헬스체크
-- `api/internal/*` — Core가 호출할 수 있는 동기 endpoint (필요 시)
+- `api/voice_stream.py` — `/internal/voice/stream` WS (RealTime 이 프록시한 실시간 음성 답변, RT3)
 
 ### MQ Consumer
-- `messaging/runner.py` (도입 예정) — 모든 consumer를 시작하는 entry
-- `main.py` lifespan에서 자동 시작 (또는 별도 프로세스로 분리 검토)
+- `messaging/runner.py` — `MessagingRuntime` 이 의존성(체인·스토리지·Core 클라이언트·notifier)을
+  조립하고 모든 consumer 를 시작/종료하는 단일 entry
+- `main.py` lifespan 에서 `runtime.start()` / `runtime.stop()` 호출
 
 ```python
-# main.py 의 lifespan
+# main.py 의 lifespan (실제 패턴)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    connection = await connect_robust(settings.rabbitmq_url)
-    channel = await connection.channel()
-    await start_resume_consumer(channel)
-    await start_repo_consumer(channel)
-    await start_session_consumer(channel)
-    yield
-    await connection.close()
+    runtime = MessagingRuntime(settings)
+    app.state.messaging = runtime
+    try:
+        await runtime.start()
+        yield
+    finally:
+        await runtime.stop()
 ```
 
 ---
@@ -165,25 +182,25 @@ class AnalysisError(Exception):
 
 이력서 분석 (US-09)을 예로 들면:
 
-1. `model/messages.py`에 `ResumeAnalyzeRequest`, `ResumeAnalyzed`, `ResumeFailed` 정의
-2. `messaging/resume_consumer.py` 구현 (envelope parse → handler 호출)
+1. `model/messages/{name}.py`에 `ResumeAnalyzeRequest`, `ResumeAnalyzed`, `ResumeFailed` 정의
+2. `messaging/consumers/resume_consumer.py` 구현 (envelope parse → handler 호출)
 3. `analyzer/resume_analyzer.py` 구현
    ```python
    async def handle(req: ResumeAnalyzeRequest) -> None:
-       pdf_bytes = await s3.get(req.s3_key)
+       pdf_bytes = await storage.get(req.s3_key)
        text = extract_text(pdf_bytes)
        result = await resume_chain.ainvoke({"text": text})
        md_key = f"analyzed/resume/{req.resume_id}/summary.md"
-       await s3.put(md_key, result.markdown)
-       chunks = split(result.markdown)
+       await storage.put(md_key, result.markdown)
+       chunks = chunker.split(result.markdown)
        embeddings = await embedder.embed(chunks)
-       await pgvector_client.upsert(req.resume_id, chunks, embeddings)
+       await core_client.upsert_embeddings(document_id=req.analyzed_document_id, ...)
        await publisher.publish_callback(ResumeAnalyzed(...))
    ```
-4. `chain/resume_analyzer_chain.py` (prompt + LLM + parser)
+4. `chain/{name}_chain.py` (prompt + LLM + Pydantic 구조화 출력)
 5. 단위 테스트 (mock LLM)
 6. 통합 테스트 (Testcontainer RabbitMQ + MinIO)
-7. main.py lifespan에 consumer 등록
+7. `messaging/runner.py` 의 `MessagingRuntime` 에 consumer 등록
 
 ---
 
