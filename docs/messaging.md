@@ -636,12 +636,13 @@ placeholder 를 `FAILED` 로 확정해 클라이언트의 턴이 잠기지 않�
 ### AI Server (aio-pika)
 - 컨슈머는 `async with message.process(requeue=False)` 패턴.
 - 도메인 예외 (`ResumeAnalyzeError` 등) 는 catch 하여 실패 callback 발행 (재시도 무의미).
-- `questions_consumer`/`followup_consumer` 도 동일 패턴 — 생성 호출을 catch 해 항상 콜백을 발행한다
-  (`QuestionPoolCallbackPayload`/`FollowupCallbackPayload` 의 `status: FAILED`). Core 가 이미 선INSERT 한
-  꼬리질문 placeholder 가 영원히 "생성 중"으로 남는 것을 방지.
-- `feedback_consumer` 는 envelope 파싱·멱등 체크 이후 전 구간을 catch 해 예상 못 한 예외 시
-  `FeedbackCallbackPayload` 의 `status: FAILED` 콜백을 발행하고 ACK 한다. 폴백 발행마저 실패하면
-  원 예외를 re-raise → DLQ (최후 안전망).
+- 생성 계열 3개(`questions`/`followup`/`feedback` consumer)는 공용 가드
+  (`messaging/consumers/failure_signal.py: consume_with_failure_signal`)를 쓴다 —
+  envelope 파싱·멱등 체크 이후 **전 구간**(컨텍스트 빌드·진행 이벤트·생성·payload 조립)의 예외를
+  catch 해 항상 `status: FAILED` 콜백을 발행하고 ACK (세션·placeholder 가 "생성 중"에 무기한
+  멈추지 않게). 성공 콜백 발행 실패는 FAILED 오인 없이 원 예외로 DLQ(재처리 가능), 콜백을
+  하나도 못 낸 채 DLQ 로 가는 경로는 멱등 마킹을 해제(unmark)해 재주입이 삼켜지지 않게 한다.
+  errorMessage 는 `ExcType: msg` 형식 500자 상한.
 - 그 외 예외는 re-raise → nack(requeue=false) → DLX 로 routing.
 - 일시 장애의 in-process 재시도는 미구현 (Phase 2 — 아래 Quorum Queue 도입과 함께).
 
