@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { StatusBadge } from '@/shared/ui/StatusBadge'
 import { ScoreBar } from '@/shared/ui/ScoreBar'
 import { Button } from '@/shared/ui/Button'
@@ -54,10 +54,11 @@ export function FeedbackReport({
 
   const overall = feedback.overallScore
   // 강조 대상: AI 가 고른 핵심 구절 ∪ 다음에 채울 키워드. 본문 문단에서 <mark> 처리.
-  const highlightTerms = [
-    ...(feedback.highlights ?? []),
-    ...(feedback.improvementKeywords ?? []),
-  ]
+  // 참조를 고정하지 않으면 HighlightedText 8곳의 useMemo([terms])가 매 렌더 미스한다.
+  const highlightTerms = useMemo(
+    () => [...(feedback.highlights ?? []), ...(feedback.improvementKeywords ?? [])],
+    [feedback.highlights, feedback.improvementKeywords],
+  )
   // '첫인상'·'직무 적합도'는 종합 점수에 포함되지 않는 별도 정성 평가 → 패널과 분리해 전용 섹션으로.
   const panel = feedback.panelBreakdown ?? []
   const selfIntro = panel.find((b) => b.evaluator === SELF_INTRO_LABEL)
