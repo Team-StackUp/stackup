@@ -98,6 +98,8 @@ GET    /api/system/version         버전 정보
 ```
 GET  /api/internal/users/{userId}/github-token         AI → Core
 PUT  /api/internal/documents/{documentId}/embeddings   AI → Core
+POST /api/internal/embeddings/search                   AI → Core
+POST /api/internal/ai-logs                             AI → Core
 ```
 
 자세한 요청·응답 스키마와 인증 규약은 §10 내부 API 부록 참조.
@@ -385,3 +387,68 @@ HTTP/1.1 202 Accepted
 **Idempotency**
 - 같은 `(documentId, chunkIndex)` 조합 재호출 시 row를 덮어씀 (INSERT ... ON CONFLICT UPDATE)
 - 부분 재시도 시 누락 청크가 발생하지 않도록 AI는 전체 청크를 한 번에 보내는 것을 권장
+
+### 10.4 `POST /api/internal/embeddings/search`
+
+RAG 검색. AI가 질문 풀·꼬리질문·피드백 생성 시 컨텍스트 청크를 가져온다. `document_embeddings`에서 pgvector cosine topK — `queryText`가 주어지면 벡터 + full-text(BM25) RRF 하이브리드로 검색한다.
+
+**Request body**
+```json
+{
+  "queryEmbedding": [0.012, -0.003, ...],
+  "queryText": "낙관적 락 동시성 제어",
+  "documentIds": [12, 13],
+  "topK": 5
+}
+```
+
+| 필드 | 타입 | 비고 |
+|------|------|------|
+| `queryEmbedding` | float[] | 필수. 쿼리 임베딩 벡터 |
+| `queryText` | string | 선택. 주어지면 하이브리드(RRF) 검색 |
+| `documentIds` | long[] | 검색 범위 제한. 비어 있으면 전체 |
+| `topK` | int | 양수. 미지정 시 5 |
+
+**Response 200**
+```json
+{
+  "hits": [
+    { "documentId": 12, "chunkIndex": 3, "chunkText": "...", "distance": 0.18 }
+  ]
+}
+```
+
+**Response 400** — `queryEmbedding` 누락
+**Response 401/403** — `INTERNAL_AUTH_FAILED`
+
+> RAG 보강용이라 fatal 이 아니다 — AI(`core/client.py: search_embeddings`)는 호출 실패·non-2xx 를 빈 결과로 폴백하고 검색 없이 생성을 계속한다.
+
+### 10.5 `POST /api/internal/ai-logs`
+
+AI의 LLM 호출별 토큰·지연시간을 `ai_request_logs`에 기록 (US-30 관측성). LangChain 콜백(`observability/llm_logging_callback.py`)이 호출 완료·실패 시마다 발사한다.
+
+**Request body**
+```json
+{
+  "userId": 123,
+  "sessionId": 99,
+  "requestType": "generate.followup",
+  "modelName": "gemini-3.1-flash",
+  "inputTokens": 1820,
+  "outputTokens": 210,
+  "latencyMs": 1830,
+  "status": "SUCCEEDED",
+  "errorMessage": null
+}
+```
+
+| 필드 | 타입 | 비고 |
+|------|------|------|
+| `requestType` | string | 필수 (NotBlank) |
+| `status` | string | 필수 |
+| 나머지 | — | 전부 nullable |
+
+**Response 202** — 기록 큐잉 (본문 없음)
+**Response 401/403** — `INTERNAL_AUTH_FAILED`
+
+> Fire-and-forget — AI는 실패해도 raise 하지 않고 경고 로그만 남긴다(관측 실패가 본 작업을 막지 않게).

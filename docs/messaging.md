@@ -25,9 +25,14 @@
 | `ai.analyze.web` | `stackup.core-to-ai` | `analyze.web` | AI Server |
 | `ai.generate.questions` | `stackup.core-to-ai` | `generate.questions` | AI Server |
 | `ai.generate.followup` | `stackup.core-to-ai` | `generate.followup` | AI Server |
+| `ai.generate.feedback` | `stackup.core-to-ai` | `generate.feedback` | AI Server |
+| `ai.analyze.voice` | `stackup.core-to-ai` | `analyze.voice` | AI Server |
 | `ai.generate.tts` | `stackup.core-to-ai` | `generate.tts` | AI Server |
 | `core.callback.analysis` | `stackup.ai-to-core` | `callback.analysis` | Core Server |
 | `core.callback.questions` | `stackup.ai-to-core` | `callback.questions` | Core Server |
+| `core.callback.feedback` | `stackup.ai-to-core` | `callback.feedback` | Core Server |
+| `core.callback.voice` | `stackup.ai-to-core` | `callback.voice` | Core Server |
+| `core.callback.tts` | `stackup.ai-to-core` | `callback.tts` | Core Server |
 | `q.realtime.session.notify` | `stackup.realtime` | `realtime.session.*` · `realtime.user.*` · `realtime.document.*` | RealTime Server |
 
 ### Dead Letter Queues (durable)
@@ -43,17 +48,15 @@
 | `dlq.ai.analyze.web` | `stackup.dlx` | `dlq.ai.analyze.web` | `ai.analyze.web` 처리 실패 |
 | `dlq.ai.generate.questions` | `stackup.dlx` | `dlq.ai.generate.questions` | `ai.generate.questions` 처리 실패 |
 | `dlq.ai.generate.followup` | `stackup.dlx` | `dlq.ai.generate.followup` | `ai.generate.followup` 처리 실패 |
+| `dlq.ai.generate.feedback` | `stackup.dlx` | `dlq.ai.generate.feedback` | `ai.generate.feedback` 처리 실패 |
+| `dlq.ai.analyze.voice` | `stackup.dlx` | `dlq.ai.analyze.voice` | `ai.analyze.voice` 처리 실패 |
 | `dlq.ai.generate.tts` | `stackup.dlx` | `dlq.ai.generate.tts` | `ai.generate.tts` 처리 실패 |
 | `dlq.core.callback.analysis` | `stackup.dlx` | `dlq.core.callback.analysis` | `core.callback.analysis` 처리 실패 |
 | `dlq.core.callback.questions` | `stackup.dlx` | `dlq.core.callback.questions` | `core.callback.questions` 처리 실패 |
+| `dlq.core.callback.feedback` | `stackup.dlx` | `dlq.core.callback.feedback` | `core.callback.feedback` 처리 실패 |
+| `dlq.core.callback.voice` | `stackup.dlx` | `dlq.core.callback.voice` | `core.callback.voice` 처리 실패 |
+| `dlq.core.callback.tts` | `stackup.dlx` | `dlq.core.callback.tts` | `core.callback.tts` 처리 실패 |
 | `dlq.q.realtime.session.notify` | `stackup.dlx` | `dlq.q.realtime.session.notify` | `q.realtime.session.notify` 처리 실패 |
-
-### 추가 예정 (정의 시점에 본 표 갱신)
-
-| 후보 Queue | 용도 |
-|------------|------|
-| `ai.generate.feedback` | 세션 종료 후 종합 피드백 생성 |
-| `core.callback.feedback` | 피드백 콜백 |
 
 ---
 
@@ -64,7 +67,7 @@
 ```
 
 `action` ∈ `analyze | generate | callback | realtime`
-`aggregate` ∈ `resume | repository | web | questions | followup | tts | analysis | feedback | session`
+`aggregate` ∈ `resume | repository | cover_letter | web | questions | followup | tts | voice | analysis | feedback | session`
 
 새 routing key 추가 시 본 패턴 유지.
 
@@ -126,7 +129,8 @@
 | 질문 풀 생성 (US-18) | `generate.questions` | `callback.questions` | `core.callback.questions` |
 | 꼬리질문 생성 (US-19) | `generate.followup` | `callback.questions` | `core.callback.questions` |
 | 질문 TTS 합성 | `generate.tts` | `callback.tts` | `core.callback.tts` |
-| 피드백 생성 (US-24) | `generate.feedback` *(예정)* | `callback.feedback` *(예정)* | `core.callback.feedback` *(예정)* |
+| 음성 답변 분석 (STT + 지표) | `analyze.voice` | `callback.voice` | `core.callback.voice` |
+| 피드백 생성 (US-24) | `generate.feedback` | `callback.feedback` | `core.callback.feedback` |
 | 세션 알림 (RT2 SSE) | `realtime.session.notify` | (없음 — 단방향 push) | `q.realtime.session.notify` |
 
 > `callback.analysis` 큐는 resume/web/repo 세 use case가 공유. consumer는 `payload.targetType` 으로 분기한다.
@@ -254,13 +258,25 @@
     "sessionId": 99,
     "kind": "POOL",
     "questions": [
-      { "category": "PROJECT_DEEP_DIVE", "question": "..." },
-      { "category": "CS_FUNDAMENTAL", "question": "..." }
+      {
+        "category": "PROJECT_DEEP_DIVE",
+        "question": "...",
+        "jobCategory": "BACKEND",
+        "targetEvidence": "이력서: 결제 시스템에서 재고 차감 동시성 문제를 낙관적 락으로 해결",
+        "expectedSignal": "락 전략 선택의 트레이드오프를 DB 레벨까지 설명하는지"
+      },
+      { "category": "CS_FUNDAMENTAL", "question": "...", "jobCategory": null, "targetEvidence": "", "expectedSignal": "" }
     ],
     "status": "OK"
   }
 }
 ```
+
+| `questions[]` 필드 | 설명 |
+|------|------|
+| `jobCategory` | 이 질문이 겨냥한 직군(세션 `jobCategories` 중 하나). 다직군 패널 가중에 사용. LLM 이 비우면(null) Core 가 대표 직군으로 폴백 |
+| `targetEvidence` | 질문이 근거한 자료 인용 (PROJECT/TECH 는 필수, 그 외 빈 문자열 허용). 라이브 화면에 힌트로 노출 |
+| `expectedSignal` | 좋은 답이 드러내야 할 것 — 내부 평가용. 꼬리질문 채점의 `parentExpectedSignal` 로 전달(§5.8). **라이브 비노출** (정답 유출 방지) |
 
 **실패 시** (`generate()` 예외 — LLM 게이트웨이 장애, 파싱 실패 등):
 ```json
@@ -317,17 +333,15 @@
     "answerEvaluation": {
       "specificity": 3.5,
       "logic": 4.0,
-      "structure": "PARTIAL_STAR"
-    },
-    "voiceAnalysis": {
-      "speakingRateWpm": 142.0,
-      "fillerWordCounts": { "음": 5, "어": 3 },
-      "silenceDurationSec": 8.2
+      "structure": "PARTIAL_STAR",
+      "correctness": null
     },
     "status": "OK"
   }
 }
 ```
+
+> 음성 지표는 이 콜백에 포함되지 않는다 — 별도 파이프라인 `analyze.voice` → `callback.voice` (§5.9d) 로 전달된다.
 
 **실패 시** (생성 실패 — 스트리밍/비스트리밍 공통):
 ```json
@@ -391,6 +405,45 @@
 
 > 실패 시 `status: "FAILED"` + `errorCode`(`TTS_API_ERROR`/`TTS_STORAGE_FAILED` 등), `audioKey`/`durationSec` 는 null. OpenAI TTS 는 duration 을 주지 않으므로 `durationSec` 는 null 일 수 있다.
 
+### 5.9c `analyze.voice`
+```json
+{
+  "messageType": "analyze.voice",
+  "payload": {
+    "sessionId": 99,
+    "messageId": 502,
+    "parentQuestionMessageId": 501,
+    "audioS3Key": "interview/answers/99/502.webm",
+    "contentType": "audio/webm",
+    "previousQuestionText": "...",
+    "mode": "TECHNICAL",
+    "jobCategory": "BACKEND"
+  },
+  "context": { "userId": 123, "sessionId": 99 }
+}
+```
+
+> Core 가 음성 답변 업로드 commit 후 발행(§5.14). `messageId` 는 `interview_messages.id` — STT 후 content 를 채울 placeholder. AI 가 S3 오디오를 받아 STT + 음성 지표(WPM/간투어/침묵) 계산 후 `callback.voice` 회신.
+
+### 5.9d `callback.voice`
+```json
+{
+  "messageType": "callback.voice",
+  "payload": {
+    "sessionId": 99,
+    "interviewMessageId": 502,
+    "transcript": "네, 저는 결제 시스템에서...",
+    "speakingRateWpm": 142.0,
+    "silenceDurationSec": 8.2,
+    "fillerWordCounts": { "음": 5, "어": 3 },
+    "pronunciationAccuracy": 0.93,
+    "errorCode": null
+  }
+}
+```
+
+> STT 결과 + 음성 지표. 지표 필드는 전부 nullable — 계산 불가 시 null. 실패 시 `errorCode` 가 채워지고 Core 는 해당 메시지를 FAILED 로 마킹한다. 세션 종합 피드백에는 이 지표를 Core 가 집계해 `generate.feedback` 의 `voiceAnalysisSummary` 로 동봉한다(개별 콜백을 AI 가 재수집하지 않음).
+
 ### 5.10 `generate.feedback`
 
 > `messages[]` 의 각 항목은 `category` 를 포함한다(질문 유형). AI 는 `category=SELF_INTRODUCTION`
@@ -422,6 +475,8 @@
 > 직무 맞춤 모드는 **`evaluator="직무 적합도"`(역량 매칭)** + **`evaluator="직무 이해도"`(직무 이해·동기)**
 > 항목이 추가로 포함된다 — 모두 **종합 점수(overallScore) 집계에서 제외**된 별도 정성 평가다(메인
 > generator 가 모른 채 overall 계산 후 표시용으로 append).
+> `highlights[]` 는 강점·개선 본문에서 발췌한 핵심 구절 — 프론트가 부분 문자열 매칭으로 리포트에
+> 하이라이트 표시한다(`HighlightedText`). 빈 리스트 허용.
 
 ```json
 {
@@ -436,6 +491,7 @@
     "weaknessesSummary": "...",
     "improvementKeywords": ["JPA 영속성 컨텍스트", "TCP 3-way handshake"],
     "studyPlan": ["..."],
+    "highlights": ["결론부터 말하는 답변 구조", "동시성 제어 경험"],
     "answerCoaching": [
       { "messageId": 203, "modelAnswer": "이 질문에 강한 답변 예시…", "answerRewrite": "내 답변을 이렇게 고치면…", "coachingComment": "결론을 먼저 말하세요." }
     ],
@@ -621,6 +677,8 @@ docker exec stackup-rabbitmq rabbitmqadmin \
 |--------|------|--------|------|
 | `GET`  | `/api/internal/users/{userId}/github-token` | AI | 사용자별 GitHub access token을 분석 시점에 짧게 위임 (envelope에 비밀 미동봉) |
 | `PUT`  | `/api/internal/documents/{documentId}/embeddings` | AI | 청크 + 임베딩을 `document_embeddings`에 idempotent upsert |
+| `POST` | `/api/internal/embeddings/search` | AI | RAG 검색 — pgvector cosine topK (queryText 동봉 시 벡터+BM25 RRF 하이브리드). 실패 시 AI 는 빈 결과로 폴백 (non-fatal) |
+| `POST` | `/api/internal/ai-logs` | AI | LLM 호출별 토큰·지연시간을 `ai_request_logs` 에 기록 (fire-and-forget, 실패 무시) |
 
 요청·응답 스키마 및 인증 규약은 [`/docs/api-conventions.md §10`](./api-conventions.md) 참조.
 
