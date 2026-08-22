@@ -13,8 +13,8 @@ import { useInterviewSocket } from './useInterviewSocket'
 import { interviewEventAction } from './interviewEvent'
 import { pendingAnswers, toOptimisticMessage } from './optimistic'
 import type { OptimisticAnswer } from './optimistic'
-import { applyDelta, isStreamingMessage, FOLLOWUP_GENERATING_TEXT } from './streamingBuffer'
-import type { DeltaPayload } from './streamingBuffer'
+import { applyDelta, bufferedText, isStreamingMessage, FOLLOWUP_GENERATING_TEXT } from './streamingBuffer'
+import type { DeltaBuffer, DeltaPayload } from './streamingBuffer'
 import type { DeliveryMode } from './useDeliveryMode'
 
 export type ThreadItem = Message & { key: string; streaming?: boolean }
@@ -38,7 +38,7 @@ export function useLiveInterview(sessionId: number, deliveryMode: DeliveryMode =
   const [optimistic, setOptimistic] = useState<OptimisticAnswer[]>([])
   // 전송 실패로 롤백된 답변 본문 — 컴포저가 입력창을 복원하는 데 사용(nonce 로 매 실패마다 트리거).
   const [restoreDraft, setRestoreDraft] = useState<{ content: string; nonce: number } | null>(null)
-  const [deltaBuffer, setDeltaBuffer] = useState<Record<number, string>>({})
+  const [deltaBuffer, setDeltaBuffer] = useState<DeltaBuffer>({})
   // 라이브 세그먼트 오디오가 지금 재생 중인 메시지(아바타·질문 카드의 '말하는 중' 표시용).
   const [speakingAudio, setSpeakingAudio] = useState<{ msgId: number | null; playing: boolean }>({
     msgId: null,
@@ -81,9 +81,9 @@ export function useLiveInterview(sessionId: number, deliveryMode: DeliveryMode =
   )
   const pending = pendingAnswers(optimistic, serverMessages)
 
-  // 스트리밍 중인 메시지는 deltaBuffer의 누적 텍스트로 content를 오버라이드한다.
+  // 스트리밍 중인 메시지는 deltaBuffer의 seq 재조립 텍스트로 content를 오버라이드한다.
   const mergedMessages = serverMessages.map((m) => {
-    const buffered = deltaBuffer[m.id ?? -1]
+    const buffered = bufferedText(deltaBuffer, m.id)
     if (buffered !== undefined && isStreamingMessage(m, buffered)) {
       return { ...m, content: buffered, streaming: true as const }
     }
@@ -194,7 +194,8 @@ export function useLiveInterview(sessionId: number, deliveryMode: DeliveryMode =
         navigate(`/sessions/${sessionId}/feedback`)
       } else if (action.kind === 'append-delta') {
         const payload = (frame.data as { data?: DeltaPayload } | undefined)?.data
-        if (payload && typeof payload.messageId === 'number') {
+        // seq 재조립은 비정상 seq 조각을 조용히 영구 드롭하므로 seq 타입까지 방어 검증한다.
+        if (payload && typeof payload.messageId === 'number' && typeof payload.seq === 'number') {
           setDeltaBuffer((b) => applyDelta(b, payload))
         }
       } else if (action.kind === 'queue-audio') {

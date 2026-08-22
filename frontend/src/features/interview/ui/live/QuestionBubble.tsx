@@ -3,7 +3,6 @@ import { StatusBadge } from '@/shared/ui/StatusBadge'
 import { categoryLabel } from '../../lib/categoryLabel'
 import { useTtsPlayback } from '../../lib/media/useTtsPlayback'
 import { FOLLOWUP_GENERATING_TEXT } from '../../model/streamingBuffer'
-import { useTypewriter } from '../../lib/useTypewriter'
 import { useSetQuestionBookmark } from '../../model/useBookmarks'
 
 function StarIcon({ filled }: { filled: boolean }) {
@@ -34,12 +33,10 @@ function PlayIcon({ playing }: { playing: boolean }) {
 export function QuestionBubble({
   message,
   autoPlay = false,
-  streaming = false,
   bookmarkable = false,
 }: {
   message: Message
   autoPlay?: boolean
-  streaming?: boolean
   /** 오답노트 표시 버튼 노출. 라이브 중엔 끄고(집중 방해) 종료 세션 기록에서만 켠다. */
   bookmarkable?: boolean
 }) {
@@ -48,7 +45,8 @@ export function QuestionBubble({
   const hasMeta = Boolean(label || message.targetEvidence)
   const ttsReady = message.ttsStatus === 'SUCCEEDED'
   const isSentinel = message.content === FOLLOWUP_GENERATING_TEXT
-  const shownText = useTypewriter(message.content ?? '', !!streaming && !isSentinel)
+  // 델타가 이미 토큰 단위로 도착하므로 재애니메이션 없이 그대로 표시한다(실스트림 = 애니메이션).
+  const shownText = message.content ?? ''
 
   const { playing, toggle, audioNode } = useTtsPlayback({
     sessionId: message.sessionId,
