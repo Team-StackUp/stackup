@@ -143,3 +143,26 @@ async def test_repository_analyzer_emits_phases_in_order() -> None:
     )
 
     assert phases == ["EXTRACTING", "SUMMARIZING", "EMBEDDING"]
+
+
+@pytest.mark.asyncio
+async def test_user_channel_emit_unchanged_by_session_progress_addition() -> None:
+    """B2 회귀 고정: 세션 채널 진행 이벤트(emit_progress) 도입 후에도 분석 진행은
+    user 채널(realtime.user.notify) + user_id 컨텍스트 경로 그대로여야 한다."""
+    notifier, publisher = _notifier()
+
+    await notifier.emit(
+        user_id=5,
+        target_type="RESUME",
+        target_id=1,
+        phase="EXTRACTING",
+        message="추출 중",
+        trace_id="t-1",
+    )
+
+    kwargs = publisher.publish.await_args.kwargs
+    assert kwargs["routing_key"] == "realtime.user.notify"
+    assert kwargs["message_type"] == "realtime.user.notify"
+    assert kwargs["context"].user_id == 5
+    assert kwargs["context"].session_id is None  # 세션 채널로 새지 않는다
+    assert kwargs["payload"].event_type == ANALYSIS_PROGRESS_EVENT

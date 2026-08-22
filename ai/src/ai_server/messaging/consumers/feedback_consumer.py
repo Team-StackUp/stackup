@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import re
+from collections.abc import Awaitable
+from typing import TypeVar
 
 import structlog
 from aio_pika.abc import AbstractIncomingMessage
@@ -26,6 +28,10 @@ from ai_server.chain.feedback_generation_chain import (
 from ai_server.core.client import CoreClient
 from ai_server.messaging.idempotency import LruIdempotencyStore
 from ai_server.messaging.publisher import CallbackPublisher
+from ai_server.messaging.session_notify import (
+    FEEDBACK_PROGRESS_EVENT,
+    SessionRealtimeNotifier,
+)
 from ai_server.model.envelope import Envelope
 from ai_server.model.messages.feedback import (
     AnswerCoachingItem,
@@ -38,6 +44,8 @@ from ai_server.model.messages.feedback import (
 from ai_server.rag.embedder import EmbeddingProvider
 
 log = structlog.get_logger(__name__)
+
+T = TypeVar("T")
 
 _SELF_INTRO_CATEGORY = "SELF_INTRODUCTION"
 _JOB_TAILORED_MODE = "JOB_TAILORED"
@@ -77,6 +85,7 @@ class FeedbackConsumer:
         answer_coach: AnswerCoach | None = None,
         coaching_max_answers: int = 30,
         coaching_concurrency: int = 5,
+        session_notifier: SessionRealtimeNotifier | None = None,
     ) -> None:
         self._generator = generator
         self._publisher = publisher
@@ -91,6 +100,7 @@ class FeedbackConsumer:
         self._answer_coach = answer_coach
         self._coaching_max_answers = coaching_max_answers
         self._coaching_concurrency = max(1, coaching_concurrency)
+        self._session_notifier = session_notifier
 
     async def handle(self, message: AbstractIncomingMessage) -> None:
         async with message.process(requeue=False):
@@ -124,11 +134,45 @@ class FeedbackConsumer:
                 trace_id=envelope.trace_id,
             )
 
+            await self._emit_progress(
+                session_id=req.session_id,
+                phase="PREPARING",
+                message="면접 기록을 정리하고 있어요.",
+                trace_id=envelope.trace_id,
+            )
             transcript = _build_transcript(req.messages)
             score_basis = _build_score_basis(req.messages)
             rag_context = await self._build_rag_context(req)
             voice_analysis_summary = _build_voice_analysis_summary(
                 req.voice_analysis_summary
+            )
+
+            # 세부 평가 5개가 병렬(gather)이라 순차 phase 로는 진행을 표현할 수 없다 —
+            # 각 태스크 완료 시점에 completed/total 카운터로 emit 한다.
+            scoring_total = 5
+            scoring_done = 0
+
+            async def _tracked(coro: Awaitable[T]) -> T:
+                nonlocal scoring_done
+                task_result = await coro
+                scoring_done += 1
+                await self._emit_progress(
+                    session_id=req.session_id,
+                    phase="SCORING",
+                    message=f"세부 평가를 진행하고 있어요. ({scoring_done}/{scoring_total})",
+                    trace_id=envelope.trace_id,
+                    completed=scoring_done,
+                    total=scoring_total,
+                )
+                return task_result
+
+            await self._emit_progress(
+                session_id=req.session_id,
+                phase="SCORING",
+                message="평가위원들이 답변을 검토하고 있어요.",
+                trace_id=envelope.trace_id,
+                completed=0,
+                total=scoring_total,
             )
 
             # 종합 피드백 + 자기소개 첫인상 + 직무 적합도(직무 맞춤 모드)를 병렬 실행.
@@ -140,22 +184,24 @@ class FeedbackConsumer:
                 personality_item,
                 answer_coaching,
             ) = await asyncio.gather(
-                self._generate_panel(
-                    job_category=req.job_category,
-                    mode=req.mode,
-                    total_question_count=req.total_question_count,
-                    end_reason=req.end_reason,
-                    transcript=transcript,
-                    score_basis=score_basis,
-                    rag_context=rag_context,
-                    voice_analysis_summary=voice_analysis_summary,
-                    domain_question_counts=req.domain_question_counts,
-                    session_id=req.session_id,
+                _tracked(
+                    self._generate_panel(
+                        job_category=req.job_category,
+                        mode=req.mode,
+                        total_question_count=req.total_question_count,
+                        end_reason=req.end_reason,
+                        transcript=transcript,
+                        score_basis=score_basis,
+                        rag_context=rag_context,
+                        voice_analysis_summary=voice_analysis_summary,
+                        domain_question_counts=req.domain_question_counts,
+                        session_id=req.session_id,
+                    )
                 ),
-                self._evaluate_self_intro(req, voice_analysis_summary),
-                self._evaluate_job_fit(req, transcript, rag_context),
-                self._evaluate_personality(req),
-                self._coach_answers(req),
+                _tracked(self._evaluate_self_intro(req, voice_analysis_summary)),
+                _tracked(self._evaluate_job_fit(req, transcript, rag_context)),
+                _tracked(self._evaluate_personality(req)),
+                _tracked(self._coach_answers(req)),
             )
             # 빈 평가위원 항목(점수·내용 모두 없음)은 표시하지 않는다 — LLM 부분 응답이 빈 패널로 새는 것 방지.
             extras = [self_intro_item, *job_fit_items, personality_item]
@@ -163,6 +209,12 @@ class FeedbackConsumer:
                 e for e in extras if e is not None and _panel_has_content(e)
             )
 
+            await self._emit_progress(
+                session_id=req.session_id,
+                phase="FINALIZING",
+                message="피드백 리포트를 정리하고 있어요.",
+                trace_id=envelope.trace_id,
+            )
             payload = FeedbackCallbackPayload(
                 session_id=req.session_id,
                 overall_score=result.overall_score,
@@ -193,6 +245,28 @@ class FeedbackConsumer:
                 session_id=req.session_id,
                 trace_id=envelope.trace_id,
             )
+
+    async def _emit_progress(
+        self,
+        *,
+        session_id: int,
+        phase: str,
+        message: str,
+        trace_id: str,
+        completed: int | None = None,
+        total: int | None = None,
+    ) -> None:
+        if self._session_notifier is None:
+            return
+        await self._session_notifier.emit_progress(
+            event_type=FEEDBACK_PROGRESS_EVENT,
+            session_id=session_id,
+            phase=phase,
+            message=message,
+            trace_id=trace_id,
+            completed=completed,
+            total=total,
+        )
 
     async def _generate_panel(
         self,

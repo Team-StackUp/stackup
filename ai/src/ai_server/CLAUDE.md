@@ -74,7 +74,7 @@ class QuestionPoolCallbackPayload(BaseModel):
   (resume/repository/web/cover_letter/questions/followup/feedback/voice/tts)
 - 조립·기동은 `runner.py` 의 `MessagingRuntime` (§3), 연결은 `connection.py`,
   콜백 발행은 `publisher.py`, 멱등은 `idempotency.py`(`LruIdempotencyStore`),
-  RealTime 직접 발행은 `progress.py`(분석 진행)·`session_notify.py`(델타/오디오)
+  RealTime 직접 발행은 `progress.py`(분석 진행, user 채널)·`session_notify.py`(델타/오디오/질문 풀·피드백 생성 진행, 세션 채널)
 - 모든 consumer는 envelope parsing → trace_context → 비즈니스 핸들러 호출 패턴
 
 ```python

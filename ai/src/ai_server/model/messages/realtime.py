@@ -39,6 +39,27 @@ class SessionNotifyPayload(BaseModel):
     data: SessionMessageDeltaData
 
 
+# AI -> RealTime 세션 채널 직접 발행. 질문 풀/피드백 생성 진행 상황(휘발성).
+# eventType: QUESTION_POOL_PROGRESS | FEEDBACK_PROGRESS
+class SessionProgressData(BaseModel):
+    model_config = camel_config()
+
+    session_id: int
+    # 질문 풀: CONTEXT_BUILDING | GENERATING | FINALIZING
+    # 피드백: PREPARING | SCORING | FINALIZING
+    phase: str
+    message: str
+    completed: int | None = None  # 피드백 SCORING 에서만: 완료된 세부 평가 수
+    total: int | None = None
+
+
+class SessionProgressNotifyPayload(BaseModel):
+    model_config = camel_config()
+
+    event_type: str
+    data: SessionProgressData
+
+
 # AI -> RealTime 세션 채널 직접 발행. 꼬리질문 문장 단위 TTS 세그먼트(휘발성).
 class SessionMessageAudioData(BaseModel):
     model_config = camel_config()

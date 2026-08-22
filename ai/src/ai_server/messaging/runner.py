@@ -197,6 +197,12 @@ class MessagingRuntime:
             progress_notifier=self._progress_notifier,
         )
 
+        # 세션 채널 휘발성 이벤트 발행기 — 꼬리질문 델타/TTS 와 질문 풀·피드백 진행 이벤트가 공유.
+        session_notifier = SessionRealtimeNotifier(
+            publisher=self._realtime_publisher,
+            routing_key="realtime.session.notify",
+        )
+
         # 질문 풀 생성 (US-18)
         question_generator = LlmQuestionGenerator(
             build_question_generation_chain(settings, core_client=core_client)
@@ -210,6 +216,7 @@ class MessagingRuntime:
             core_client=core_client,
             embedder=embedder,
             rag_timeout_sec=settings.questions_rag_timeout_sec,
+            session_notifier=session_notifier,
         )
 
         # 꼬리질문 생성 (US-19)
@@ -218,10 +225,6 @@ class MessagingRuntime:
         )
         streaming_followup_generator = build_streaming_followup_generator(
             settings, core_client=core_client
-        )
-        session_notifier = SessionRealtimeNotifier(
-            publisher=self._realtime_publisher,
-            routing_key="realtime.session.notify",
         )
         # TTS provider 는 꼬리질문 인라인 세그먼트 합성과 질문 TTS 양쪽에서 재사용한다.
         tts = build_tts_provider(settings)
@@ -272,6 +275,7 @@ class MessagingRuntime:
             answer_coach=LlmAnswerCoach(
                 build_answer_coaching_chain(settings, core_client=core_client)
             ),
+            session_notifier=session_notifier,
         )
 
         # 음성 답변 STT + 분석 (Phase 2)
