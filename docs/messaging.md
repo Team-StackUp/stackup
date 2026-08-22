@@ -551,6 +551,14 @@ AI followup consumer 가 토큰 스트림 중 문장 경계마다 그 문장만 
 - 세그먼트 S3 키 규칙(AI·Core 공유): `interview/tts/{sessionId}/{messageId}/seg-{seq}.{ext}`. Core 는 DB 미기록, `GET …/messages/{mid}/audio/segments/{seq}?ext=` 프록시에서 소유권 검증 후 규칙으로 키 재구성(ext 화이트리스트 wav|mp3|ogg|m4a).
 - 상세 SSE 스펙: [`event-stream.md §3.2-1`](./event-stream.md).
 
+### 5.12-3 `realtime.session.notify` — 질문 풀·피드백 생성 진행 (AI 직접 발행)
+질문 풀 생성(Pro, 최대 30s)과 피드백 생성(패널 병렬, ≈2분 예산)은 진행 중 무통보 블로킹이었다. `ANALYSIS_PROGRESS` 와 동일 패턴으로 AI 서버가 생성 단계를 `realtime.session.notify` 로 **직접** 발행(Core·DB 미경유, 휘발성 — 발행 실패는 경고만)해 세션 채널로 흘린다.
+- 발행: AI `SessionRealtimeNotifier.emit_progress` (`questions_consumer`/`feedback_consumer` 에서 호출). `context.sessionId` 로 세션 채널 라우팅.
+- `payload.eventType` = `QUESTION_POOL_PROGRESS`, `payload.data` = `{ sessionId, phase, message }`. phase ∈ `CONTEXT_BUILDING | GENERATING | FINALIZING` (순차).
+- `payload.eventType` = `FEEDBACK_PROGRESS`, `payload.data` = `{ sessionId, phase, message, completed?, total? }`. phase ∈ `PREPARING | SCORING | FINALIZING`. 세부 평가 5개가 `asyncio.gather` 병렬이라 SCORING 은 순차 단계가 아닌 **완료 카운터**(`completed`/`total`, 시작 시 0) 로 표현한다.
+- 종료 정본은 기존대로 Core 콜백(`callback.questions`/`callback.feedback`) → `SESSION_MESSAGE`/`FEEDBACK_READY`. 진행 이벤트 유실은 UI 기본 문구 폴백으로 흡수(프론트 `InterviewPreparing`/`FeedbackReportSkeleton`).
+- 상세 SSE 스펙: [`event-stream.md §3.3-3`](./event-stream.md).
+
 ### 5.14 발행 시점 규약 — 반드시 커밋 후에 발행한다
 
 **Core 의 모든 작업 요청 발행(`stackup.core-to-ai`)은 DB 커밋 이후에 일어나야 한다.**
