@@ -7,7 +7,7 @@ import { isQuestion, isTranscribing, sessionProgress } from '@/domain/session'
 import type { Session } from '@/domain/session'
 import type { ConnectionStatus, ThreadItem } from '../../model/useLiveInterview'
 import type { DeliveryMode } from '../../model/useDeliveryMode'
-import { ConnectionBanner } from './ConnectionBanner'
+import { ConnectionBanner } from '@/shared/ui'
 import { SmallScreenNotice } from './SmallScreenNotice'
 import { AnswerComposer } from './AnswerComposer'
 import { StageQuestion } from './StageQuestion'
@@ -150,7 +150,11 @@ export function InterviewStage({
       </header>
 
       <SmallScreenNotice />
-      <ConnectionBanner connection={connection} />
+      <ConnectionBanner
+        connection={connection}
+        connectingText="면접 서버에 연결 중입니다…"
+        reconnectingText="연결이 끊겨 재연결 중입니다…"
+      />
 
       <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-6 overflow-y-auto px-5 py-8">
         <InterviewerAvatar

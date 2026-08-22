@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useAnalysisFallbackPolling } from '@/shared/hooks'
 import { isApiError } from '@/shared/api'
 import { toast } from '@/shared/ui'
 import {
@@ -17,9 +18,13 @@ export const resumeKeys = {
 }
 
 export function useResumes() {
+  // 분석 SSE 가 죽은 동안만 5s 폴링 — 상태 변화(ANALYZING→ANALYZED)가 SSE 로만 오기 때문에
+  // 폴백이 없으면 카드가 "분석 중"으로 영구 고착된다.
+  const fallbackPolling = useAnalysisFallbackPolling()
   return useQuery<Resume[]>({
     queryKey: resumeKeys.all,
     queryFn: fetchResumes,
+    refetchInterval: fallbackPolling,
   })
 }
 

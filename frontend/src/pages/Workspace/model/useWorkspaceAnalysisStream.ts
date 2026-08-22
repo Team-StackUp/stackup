@@ -1,10 +1,11 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { createStreamToken } from '@/features/auth'
 import { resumeKeys } from '@/features/resume'
 import { repoKeys } from '@/features/repo'
 import { documentKeys } from '@/features/analysis'
-import { analysisProgress, useEventStream } from '@/shared/hooks'
+import { analysisProgress, useEventStream, workspaceStreamHealth } from '@/shared/hooks'
+import type { StreamConnectionStatus } from '@/shared/hooks'
 
 // RealTime SSE data 봉투: { data: <payload>, traceId }.
 type StreamData<T> = { data?: T; traceId?: string | null }
@@ -23,7 +24,8 @@ function unwrap<T>(raw: unknown): T | undefined {
 
 // 이력서·레포·문서 쿼리를 무효화 → 화면이 자동으로 최신 상태로 갱신된다.
 // 추가로 ANALYSIS_PROGRESS(단계별 진행)는 쿼리 무효화 없이 진행 store 만 갱신한다.
-export function useWorkspaceAnalysisStream() {
+// 반환값: 연결 상태 — WorkspacePage 가 단절 배너를 그리는 데 사용.
+export function useWorkspaceAnalysisStream(): StreamConnectionStatus {
   const queryClient = useQueryClient()
 
   const getToken = useCallback(() => createStreamToken(), [])
@@ -52,7 +54,7 @@ export function useWorkspaceAnalysisStream() {
     })
   }, [])
 
-  useEventStream({
+  const status = useEventStream({
     path: '/realtime/stream/me',
     getToken,
     handlers: {
@@ -61,4 +63,14 @@ export function useWorkspaceAnalysisStream() {
       ANALYSIS_PROGRESS: onProgress,
     },
   })
+
+  // 목록 쿼리의 폴백 폴링 스위치. 'closed' 에서만 down — 최초 'connecting' 구간에
+  // 폴링을 켜면 정상 부팅마다 불필요한 요청이 나간다. 언마운트 시 idle 로 되돌려
+  // 워크스페이스 밖에서 폴링이 돌지 않게 한다.
+  useEffect(() => {
+    workspaceStreamHealth.set(status === 'closed' ? 'down' : 'up')
+  }, [status])
+  useEffect(() => () => workspaceStreamHealth.set('idle'), [])
+
+  return status
 }

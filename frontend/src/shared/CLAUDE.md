@@ -79,7 +79,8 @@ shared/api/
 ## 6. shared/hooks (도메인 비종속만)
 
 현재 구현:
-- `useEventStream(url, options)` — SSE 추상화 (재연결, 폴링 fallback)
+- `useEventStream({ path, getToken, handlers })` — SSE 추상화 (지수 백오프 재연결, `StreamConnectionStatus` 반환)
+- `workspaceStreamHealth` / `useAnalysisFallbackPolling` — 워크스페이스 분석 SSE 건강 상태 store + 단절 시 5s 폴백 폴링 스위치
 - `useAnalysisProgress`, `useCopyToClipboard`
 - `useQuestionRunner(questionIds, storageKey?)` — 질문을 한 개씩 넘기며 답을 적고 정답을 확인하는
   드릴 상태 기계. **연습 면접과 오답노트가 함께 쓰므로 여기 있다** — features 끼리는 서로

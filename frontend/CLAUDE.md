@@ -235,8 +235,8 @@ SEED 팔레트 블록에는 `prefers-color-scheme` 미디어쿼리가 없어서,
 
 ## 10. 실시간 이벤트
 
-- **SSE 단일화** — 양방향 WebSocket 미사용. 모든 서버 → 클라이언트 푸시는 SSE로 처리.
-- 구현: `shared/hooks/useEventStream.ts` (자동 재연결 + 폴링 fallback)
+- **SSE + WebSocket 병행** — 작업 상태 푸시(분석·피드백)는 SSE, 라이브 면접 메시지는 WS(`features/interview/model/useInterviewSocket.ts`). (루트 CLAUDE.md §8 과 동일)
+- 구현: `shared/hooks/useEventStream.ts` — 자동 재연결(지수 백오프) + 연결 상태 반환. 워크스페이스는 단절(closed) 시 배너 표시 + 목록 쿼리 5s 폴백 폴링(`useAnalysisFallbackPolling`)
 - 미디어 스트림(음성/영상)만 WebRTC: `features/interview/lib/media/`
 - 이벤트 스펙: [`/docs/event-stream.md`](../docs/event-stream.md)
 
