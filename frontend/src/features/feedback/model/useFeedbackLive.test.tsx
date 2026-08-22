@@ -44,7 +44,7 @@ function setup() {
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={qc}>{children}</QueryClientProvider>
   )
-  return renderHook(() => useFeedbackLive(99, async () => 'tok'), { wrapper })
+  return { ...renderHook(() => useFeedbackLive(99, async () => 'tok'), { wrapper }), qc }
 }
 
 beforeEach(() => {
@@ -176,7 +176,28 @@ describe('useFeedbackLive', () => {
     expect(result.current.failure).toBeNull()
   })
 
-  it('resetFailure 는 대기 상태로 되돌린다 — 재생성 요청 직전에 페이지가 호출', async () => {
+  it('REST 실패 마커(FEEDBACK_GENERATION_FAILED)도 failure 로 수렴하고 폴링을 중단한다', async () => {
+    // SSE ERROR 를 놓친 새로고침 클라이언트 시나리오 — GET 피드백이 영속 마커를 반환.
+    vi.mocked(getFeedback).mockRejectedValue(
+      new ApiError(404, {
+        code: 'FEEDBACK_GENERATION_FAILED',
+        message: '피드백 생성에 실패했습니다. 다시 생성을 요청해 주세요.',
+        details: { retriable: false },
+      }),
+    )
+
+    const { result } = setup()
+    await waitFor(() => expect(result.current.failure).not.toBeNull())
+
+    expect(result.current.failure).toEqual({
+      message: '피드백 생성에 실패했습니다. 다시 생성을 요청해 주세요.',
+      retriable: false,
+    })
+    // pending 이 아니므로 재시도(폴링) 없이 1회로 끝난다.
+    expect(getFeedback).toHaveBeenCalledTimes(1)
+  })
+
+  it('resetFailure 는 SSE 실패 상태를 걷어 대기 상태로 되돌린다 — 재생성 성공 시 페이지가 호출', async () => {
     vi.mocked(getFeedback).mockRejectedValue(notReady())
 
     const { result } = setup()
@@ -190,6 +211,19 @@ describe('useFeedbackLive', () => {
     expect(result.current.failure).not.toBeNull()
 
     act(() => result.current.resetFailure())
+    expect(result.current.failure).toBeNull()
+  })
+
+  it('SESSION_NOT_FOUND(404)는 생성 중으로 오분류하지 않는다 — 폴링 없이 즉시 에러', async () => {
+    // 다른 탭에서 세션 삭제·stale URL 방문 시나리오. 404 캐치올이 삼키면 없는 세션에 2분 폴링한다.
+    vi.mocked(getFeedback).mockRejectedValue(
+      new ApiError(404, { code: 'SESSION_NOT_FOUND', message: '세션을 찾을 수 없습니다.' }),
+    )
+
+    const { result } = setup()
+    await waitFor(() => expect(result.current.isError).toBe(true))
+
+    expect(getFeedback).toHaveBeenCalledTimes(1)
     expect(result.current.failure).toBeNull()
   })
 })
