@@ -187,6 +187,27 @@ class QuestionsCallbackServiceTest {
             .doesNotContain("Errno");
     }
 
+    @Test
+    void apply_poolFailedAfterPoolSeeded_isDropped() {
+        // 재발행으로 대체된 이전 시도의 지연 POOL FAILED — 새 시도가 이미 풀을 시딩했다면
+        // 건강한 세션을 종료시키지 않고 드롭한다 (F5 리뷰 이관 저비용 가드).
+        InterviewSession session = sessionFixture(25L, SessionStatus.IN_PROGRESS);
+        QuestionsCallbackPayload payload = new QuestionsCallbackPayload(
+            25L, "POOL", List.of(), null, null, null, null, null, null,
+            "FAILED", "GENERATION_FAILED", "late failure", true
+        );
+        QuestionsCallbackEnvelope env = new QuestionsCallbackEnvelope(
+            "m-pool-stale", "callback.questions", "1", "t", null, "ai", payload, null);
+        when(processedMessageRepository.existsById("m-pool-stale")).thenReturn(false);
+        when(sessionRepository.findById(25L)).thenReturn(Optional.of(session));
+        when(poolRepository.countBySessionId(25L)).thenReturn(3L);
+
+        service.apply(env);
+
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.IN_PROGRESS);
+        verify(sessionRepository, never()).finishIfInProgress(any(), any(), any());
+    }
+
     // errorCode 가 아예 없어도(변형 producer·수동 DLQ 재주입) NPE 없이 폴백 코드로 처리한다 —
     // NPE → 롤백 → 재시도 루프는 실패 신호가 없애려던 무기한 대기의 재현이다.
     @Test

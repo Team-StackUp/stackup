@@ -147,7 +147,7 @@ class FeedbackCallbackServiceTest {
         FeedbackCallbackEnvelope env = envelope(50L, "fb-fail",
             new FeedbackCallbackPayload(50L, null, null, null, null, null, null,
                 List.of(), List.of(), List.of(), List.of(), List.of(), null,
-                "FAILED", "UNEXPECTED", "boom: internal detail", true));
+                "FAILED", "UNEXPECTED", "boom: internal detail", true, null));
         when(processedMessageRepository.existsById("fb-fail")).thenReturn(false);
         when(sessionRepository.findById(50L)).thenReturn(Optional.of(session));
         when(feedbackRepository.existsBySession_Id(50L)).thenReturn(false);
@@ -190,13 +190,69 @@ class FeedbackCallbackServiceTest {
     }
 
     @Test
+    void apply_staleFailedFromSupersededAttempt_isDropped() {
+        // 재생성으로 대체된 이전 시도의 지연 FAILED(F5) — 새 시도가 진행 중인 세션에
+        // 실패 마커를 되씌우거나 실패 알림을 쏘면 안 된다. 멱등 마킹만 하고 드롭.
+        InterviewSession session = sessionFixture(50L);
+        session.beginFeedbackAttempt("att-2");
+        FeedbackCallbackEnvelope env = envelope(50L, "fb-stale",
+            new FeedbackCallbackPayload(50L, null, null, null, null, null, null,
+                List.of(), List.of(), List.of(), List.of(), List.of(), null,
+                "FAILED", "UNEXPECTED", "late failure of attempt 1", true, "att-1"));
+        when(processedMessageRepository.existsById("fb-stale")).thenReturn(false);
+        when(sessionRepository.findById(50L)).thenReturn(Optional.of(session));
+        when(feedbackRepository.existsBySession_Id(50L)).thenReturn(false);
+
+        service.apply(env);
+
+        assertThat(session.hasFeedbackFailure()).isFalse();
+        verify(errorNotifier, never()).notify(any(), any(), any());
+        verify(processedMessageRepository).save(any());
+    }
+
+    @Test
+    void apply_failedWithMatchingAttempt_marksFailure() {
+        InterviewSession session = sessionFixture(50L);
+        session.beginFeedbackAttempt("att-1");
+        FeedbackCallbackEnvelope env = envelope(50L, "fb-match",
+            new FeedbackCallbackPayload(50L, null, null, null, null, null, null,
+                List.of(), List.of(), List.of(), List.of(), List.of(), null,
+                "FAILED", "UNEXPECTED", "boom", true, "att-1"));
+        when(processedMessageRepository.existsById("fb-match")).thenReturn(false);
+        when(sessionRepository.findById(50L)).thenReturn(Optional.of(session));
+        when(feedbackRepository.existsBySession_Id(50L)).thenReturn(false);
+
+        service.apply(env);
+
+        assertThat(session.hasFeedbackFailure()).isTrue();
+    }
+
+    @Test
+    void apply_failedWithNullAttempt_stillMarks() {
+        // 구버전 AI(attemptId 미전송) 콜백은 검사 없이 통과 — 실패 알림 자체가 죽는 회귀 방지.
+        InterviewSession session = sessionFixture(50L);
+        session.beginFeedbackAttempt("att-1");
+        FeedbackCallbackEnvelope env = envelope(50L, "fb-legacy-fail",
+            new FeedbackCallbackPayload(50L, null, null, null, null, null, null,
+                List.of(), List.of(), List.of(), List.of(), List.of(), null,
+                "FAILED", "UNEXPECTED", "boom", true, null));
+        when(processedMessageRepository.existsById("fb-legacy-fail")).thenReturn(false);
+        when(sessionRepository.findById(50L)).thenReturn(Optional.of(session));
+        when(feedbackRepository.existsBySession_Id(50L)).thenReturn(false);
+
+        service.apply(env);
+
+        assertThat(session.hasFeedbackFailure()).isTrue();
+    }
+
+    @Test
     void apply_nullStatusTreatedAsOk() {
         // 구버전 콜백(status 미명시)은 OK 로 취급 — 기존 저장 경로 회귀 방지.
         InterviewSession session = sessionFixture(50L);
         FeedbackCallbackEnvelope env = envelope(50L, "fb-legacy",
             new FeedbackCallbackPayload(50L, 80.0, null, null, null, null, null,
                 List.of(), List.of(), List.of(), List.of(), List.of(), null,
-                null, null, null, null));
+                null, null, null, null, null));
         when(processedMessageRepository.existsById("fb-legacy")).thenReturn(false);
         when(sessionRepository.findById(50L)).thenReturn(Optional.of(session));
         when(feedbackRepository.existsBySession_Id(50L)).thenReturn(false);

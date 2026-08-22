@@ -75,6 +75,9 @@ class SessionFeedbackRequesterTest {
 
         GenerateFeedbackPayload payload = payloadCaptor.getValue();
         assertThat(payload.messages()).hasSize(2);
+        // 시도 상관관계(F5): 발행마다 새 attemptId 를 발급해 세션에 기록하고 payload 에 동봉.
+        assertThat(payload.attemptId()).isNotBlank();
+        assertThat(session.getFeedbackAttemptId()).isEqualTo(payload.attemptId());
         VoiceAnalysisSummary summary = payload.voiceAnalysisSummary();
         assertThat(summary.analyzedMessageCount()).isEqualTo(2);
         assertThat(summary.averageSpeakingRateWpm()).isEqualTo(150.0);

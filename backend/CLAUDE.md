@@ -465,7 +465,10 @@ docker compose up -d
   SSE 는 휘발성이라 그 순간 미접속 클라이언트를 위해 `SessionFeedbackQueryService.get` 이
   피드백 없음 + 마커 존재 시 404 `FEEDBACK_GENERATION_FAILED`(details.retriable)를 반환해
   "생성 중"(FEEDBACK_NOT_READY)과 구분한다(`ownedFeedback` 공유 경로도 동일 분기). 마커는
-  성공 콜백·재생성 요청에서 클리어하며, 재생성의 `generate.feedback` 발행은
+  성공 콜백·재생성 요청에서 클리어하며, **시도 상관관계(V30)** 로 지연 FAILED 를 걸러낸다 —
+  `publishGenerateFeedback` 이 발행마다 새 attemptId(UUID)를 `feedback_attempt_id` 에 기록·동봉,
+  AI 가 콜백에 에코, `apply` 는 FAILED 콜백의 attemptId 가 현재와 다르면(양쪽 non-null) 드롭
+  (null 은 구버전 호환으로 통과, 성공 콜백은 미검사). 재생성의 `generate.feedback` 발행은
   `FeedbackRegenerateRequestedEvent` → AFTER_COMMIT 리스너로 — 마커 clear 커밋 전에 발행되는
   역전(§"메시지 발행은 commit 이후" 규칙)을 막는다. AI 의
   `errorMessage` 원문은 서버 로그에만 남기고 클라이언트에는 화이트리스트 문구만 보낸다

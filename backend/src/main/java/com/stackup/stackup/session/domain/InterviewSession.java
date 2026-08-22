@@ -124,6 +124,11 @@ public class InterviewSession extends BaseSoftDeleteEntity {
     @Column(name = "feedback_fail_retriable")
     private Boolean feedbackFailRetriable;
 
+    // 현재 진행 중인 피드백 생성 시도 ID(V30). 발행마다 새로 발급 — FAILED 콜백의 attemptId 가
+    // 이 값과 다르면 대체된 이전 시도의 지연 신호로 보고 무시한다(실패 마커 재마킹 방지).
+    @Column(name = "feedback_attempt_id", length = 36)
+    private String feedbackAttemptId;
+
     private InterviewSession(User user, String title, String memo, SessionMode mode,
                              List<JobCategory> jobCategories,
                              Integer maxQuestions, Integer maxDurationMinutes,
@@ -232,6 +237,10 @@ public class InterviewSession extends BaseSoftDeleteEntity {
             throw new IllegalStateException("only READY session can be cancelled (current=" + status + ")");
         }
         this.status = SessionStatus.CANCELLED;
+    }
+
+    public void beginFeedbackAttempt(String attemptId) {
+        this.feedbackAttemptId = attemptId;
     }
 
     public void markFeedbackFailed(Boolean retriable) {

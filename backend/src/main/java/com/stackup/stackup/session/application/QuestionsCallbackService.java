@@ -170,6 +170,13 @@ public class QuestionsCallbackService {
     private void applyPoolFailed(InterviewSession session, QuestionsCallbackPayload payload) {
         log.warn("callback.questions POOL generation failed. sessionId={}, errorCode={}, retriable={}, message={}",
             session.getId(), payload.errorCode(), payload.retriable(), payload.errorMessage());
+        // 재발행(이어하기 복구 등)으로 대체된 이전 시도의 지연 FAILED 가, 새 시도가 이미 풀을
+        // 시딩한 건강한 세션을 종료시키지 않게 한다 (OK 분기의 중복 시딩 가드와 대칭).
+        if (poolRepository.countBySessionId(session.getId()) > 0) {
+            log.info("callback.questions POOL FAILED after pool already seeded — drop. sessionId={}",
+                session.getId());
+            return;
+        }
         endSessionOnPoolFailure(session, "POOL_GENERATION_FAILED");
     }
 
