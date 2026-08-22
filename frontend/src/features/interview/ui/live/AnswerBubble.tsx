@@ -1,8 +1,9 @@
+import { memo } from 'react'
 import { isTranscribing } from '@/domain/session'
 import type { Message } from '@/domain/session'
 import { useMessageAudio } from '../../lib/media/useMessageAudio'
 
-export function AnswerBubble({ message }: { message: Message }) {
+export const AnswerBubble = memo(function AnswerBubble({ message }: { message: Message }) {
   const transcribing = isTranscribing(message)
   const failed = transcribing && message.status === 'FAILED'
   const hasVoice = Boolean(message.audioFilePath)
@@ -41,4 +42,4 @@ export function AnswerBubble({ message }: { message: Message }) {
         ))}
     </div>
   )
-}
+})
