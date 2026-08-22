@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { SiteNav } from '@/widgets/site-nav'
 import { SiteFooter } from '@/widgets/site-footer'
@@ -5,16 +6,25 @@ import { Button } from '@/shared/ui/Button'
 import { PageHeader } from '@/shared/ui'
 import {
   FeedbackReport,
+  FeedbackReportSkeleton,
   isFeedbackPending,
-  useFeedback,
+  useFeedbackLive,
   useRegenerateFeedback,
 } from '@/features/feedback'
-import { InterviewTranscript, useRetrySession, useSession } from '@/features/interview'
+import {
+  InterviewTranscript,
+  fetchSessionStreamToken,
+  useRetrySession,
+  useSession,
+} from '@/features/interview'
 
 export default function SessionFeedbackPage() {
   const { id } = useParams<{ id: string }>()
   const sessionId = Number(id)
-  const { data, isLoading, isError, error, refetch } = useFeedback(sessionId)
+  // 피드백 조회 + FEEDBACK_READY SSE — 준비 완료 즉시 표시(폴링은 백스톱).
+  // 세션 stream token 은 interview 슬라이스 소유라 페이지가 주입한다.
+  const getToken = useCallback(() => fetchSessionStreamToken(sessionId), [sessionId])
+  const { data, isLoading, isError, error, refetch } = useFeedbackLive(sessionId, getToken)
   const regenerate = useRegenerateFeedback(sessionId)
   // 재도전은 원본 세션의 자료 수를 알아야 "몇 개가 빠졌는지" 안내할 수 있다.
   const { data: session } = useSession(sessionId)
@@ -51,19 +61,12 @@ export default function SessionFeedbackPage() {
           }
         />
 
-        {isLoading && (
-          <div className="flex flex-1 flex-col items-center justify-center gap-2 py-16 text-center">
-            <p className="text-body text-fg">피드백을 생성하는 중입니다…</p>
-            <p className="text-caption text-fg-muted">
-              답변을 종합 분석하고 있어요. 최대 1분가량 걸릴 수 있습니다.
-            </p>
-          </div>
-        )}
+        {isLoading && <FeedbackReportSkeleton />}
 
         {isError &&
           (isFeedbackPending(error) ? (
-            // polling 40회(약 2분)를 다 써도 피드백이 없으면 생성 요청이 유실됐을 가능성이
-            // 높다(브로커 다운·AI 실패). 무한 대기 대신 재생성 복구 경로를 연다.
+            // 백스톱 재시도 예산(모드 무관 ≈2분, useFeedbackLive)을 다 써도 피드백이 없으면
+            // 생성 요청이 유실됐을 가능성이 높다(브로커 다운·AI 실패). 무한 대기 대신 복구 경로를 연다.
             <div className="flex flex-1 flex-col items-center justify-center gap-3 py-16 text-center">
               <p className="text-body text-fg">피드백 생성이 예상보다 오래 걸리고 있어요.</p>
               <p className="text-caption text-fg-muted">

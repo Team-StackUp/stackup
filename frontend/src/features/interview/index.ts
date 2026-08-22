@@ -1,4 +1,5 @@
 export { LiveInterview } from './ui/live/LiveInterview'
+export { fetchSessionStreamToken } from './api/streamToken'
 export { InterviewTranscript } from './ui/InterviewTranscript'
 export { BookmarkList } from './ui/BookmarkList'
 export { InterviewSetupForm } from './ui/setup/InterviewSetupForm'
