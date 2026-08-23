@@ -28,6 +28,20 @@ public class JdbcDocumentEmbeddingRepository implements DocumentEmbeddingReposit
     private static final String COUNT_SQL =
             "SELECT count(*) FROM document_embeddings WHERE document_id = ?";
 
+    // 삭제된 문서의 청크는 검색에서 제외한다.
+    //
+    // 세션 생성 뒤 사용자가 워크스페이스에서 자료를 지워도 session_contexts 에는 그 문서 id 가
+    // 남아 있고, generate.followup·generate.feedback 페이로드로 계속 실려 나간다
+    // (SessionFollowupRequester/SessionFeedbackRequester 는 findBySession_Id 를 필터 없이 쓴다).
+    // 여기서 걸러주지 않으면 지운 이력서 본문이 꼬리질문·채점 근거로 되살아난다 —
+    // SessionQuestionsRequester.buildDocumentContexts 가 findActiveByIdAndOwner 로 막아둔 것과
+    // 같은 문제가 RAG 경로에만 남아 있었다.
+    //
+    // 호출부마다 필터를 거는 대신 쿼리에서 막는 이유: 호출자가 늘 때마다 같은 실수를 반복할 수
+    // 있고, 실제로 3개 호출부 중 어디도 삭제를 확인하지 않았다. 여기 한 곳이 마지막 관문이다.
+    private static final String ACTIVE_DOC_JOIN =
+        "JOIN analyzed_documents d ON d.id = e.document_id AND d.is_deleted = FALSE ";
+
     private final JdbcTemplate jdbc;
     private final NamedParameterJdbcTemplate namedJdbc;
 
@@ -82,15 +96,16 @@ public class JdbcDocumentEmbeddingRepository implements DocumentEmbeddingReposit
     private List<SearchHit> searchVectorOnly(
         float[] queryEmbedding, List<Long> documentIds, boolean filterByDoc, int limit) {
         StringBuilder sql = new StringBuilder(
-            "SELECT document_id, chunk_index, chunk_text, (embedding <=> CAST(:qvec AS vector)) AS distance "
-            + "FROM document_embeddings ");
+            "SELECT e.document_id, e.chunk_index, e.chunk_text, "
+            + "(e.embedding <=> CAST(:qvec AS vector)) AS distance "
+            + "FROM document_embeddings e " + ACTIVE_DOC_JOIN);
         Map<String, Object> params = new HashMap<>();
         params.put("qvec", toVectorLiteral(queryEmbedding));
         if (filterByDoc) {
-            sql.append("WHERE document_id IN (:documentIds) ");
+            sql.append("WHERE e.document_id IN (:documentIds) ");
             params.put("documentIds", documentIds);
         }
-        sql.append("ORDER BY embedding <=> CAST(:qvec AS vector) LIMIT :limit");
+        sql.append("ORDER BY e.embedding <=> CAST(:qvec AS vector) LIMIT :limit");
         params.put("limit", limit);
 
         return namedJdbc.query(sql.toString(), params, ROW_MAPPER);
@@ -105,28 +120,33 @@ public class JdbcDocumentEmbeddingRepository implements DocumentEmbeddingReposit
         List<Long> documentIds,
         boolean filterByDoc,
         int limit) {
-        String docFilterVec = filterByDoc ? "WHERE document_id IN (:documentIds) " : "";
-        String docFilterFts = filterByDoc ? "AND document_id IN (:documentIds) " : "";
+        String docFilterVec = filterByDoc ? "WHERE e.document_id IN (:documentIds) " : "";
+        String docFilterFts = filterByDoc ? "AND e.document_id IN (:documentIds) " : "";
 
+        // 주의: 이 SQL 은 **한 개의** 텍스트 블록이어야 한다. 중간에 문자열을 이어붙여 블록을
+        // 쪼개면 `.formatted` 가 마지막 조각에만 걸려 placeholder 가 밀린다(실제로 그렇게 깨졌다).
+        // 조각을 넣어야 하면 여기처럼 %%s 인자로 주입한다 — 순서는 등장 순.
         String sql = """
             WITH v AS (
-                SELECT document_id, chunk_index, chunk_text,
-                       (embedding <=> CAST(:qvec AS vector)) AS distance,
-                       ROW_NUMBER() OVER (ORDER BY embedding <=> CAST(:qvec AS vector)) AS rnk
-                FROM document_embeddings
+                SELECT e.document_id, e.chunk_index, e.chunk_text,
+                       (e.embedding <=> CAST(:qvec AS vector)) AS distance,
+                       ROW_NUMBER() OVER (ORDER BY e.embedding <=> CAST(:qvec AS vector)) AS rnk
+                FROM document_embeddings e
                 %s
-                ORDER BY embedding <=> CAST(:qvec AS vector)
+                %s
+                ORDER BY e.embedding <=> CAST(:qvec AS vector)
                 LIMIT :cand
             ),
             t AS (
-                SELECT document_id, chunk_index, chunk_text,
+                SELECT e.document_id, e.chunk_index, e.chunk_text,
                        ROW_NUMBER() OVER (
-                           ORDER BY ts_rank_cd(chunk_text_tsv, plainto_tsquery('simple', :qtext)) DESC
+                           ORDER BY ts_rank_cd(e.chunk_text_tsv, plainto_tsquery('simple', :qtext)) DESC
                        ) AS rnk
-                FROM document_embeddings
-                WHERE chunk_text_tsv @@ plainto_tsquery('simple', :qtext)
+                FROM document_embeddings e
                 %s
-                ORDER BY ts_rank_cd(chunk_text_tsv, plainto_tsquery('simple', :qtext)) DESC
+                WHERE e.chunk_text_tsv @@ plainto_tsquery('simple', :qtext)
+                %s
+                ORDER BY ts_rank_cd(e.chunk_text_tsv, plainto_tsquery('simple', :qtext)) DESC
                 LIMIT :cand
             )
             SELECT COALESCE(v.document_id, t.document_id) AS document_id,
@@ -139,7 +159,7 @@ public class JdbcDocumentEmbeddingRepository implements DocumentEmbeddingReposit
               ON v.document_id = t.document_id AND v.chunk_index = t.chunk_index
             ORDER BY rrf DESC
             LIMIT :limit
-            """.formatted(docFilterVec, docFilterFts);
+            """.formatted(ACTIVE_DOC_JOIN, docFilterVec, ACTIVE_DOC_JOIN, docFilterFts);
 
         Map<String, Object> params = new HashMap<>();
         params.put("qvec", toVectorLiteral(queryEmbedding));
