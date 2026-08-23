@@ -31,22 +31,23 @@ public record FeedbackResponse(
 ) {
 
     public static FeedbackResponse from(FeedbackResult r) {
-        return build(r, r.shareToken());
+        return build(r, r.reportFilePath(), r.shareToken());
     }
 
     // 공개(비인증) 응답: 호출자가 이미 토큰을 알고 있더라도 응답 본문에는 싣지 않는다 —
-    // 캐시·로그·스크린샷 경유 재유출 면을 줄인다.
+    // 캐시·로그·스크린샷 경유 재유출 면을 줄인다. reportFilePath(내부 S3 키)도 같은 이유로
+    // 제외 — 리포트 프록시는 소유자 전용이라 공개 화면에선 쓸 수도 없다.
     public static FeedbackResponse fromPublic(FeedbackResult r) {
-        return build(r, null);
+        return build(r, null, null);
     }
 
-    private static FeedbackResponse build(FeedbackResult r, String shareToken) {
+    private static FeedbackResponse build(FeedbackResult r, String reportFilePath, String shareToken) {
         return new FeedbackResponse(
             r.id(), r.sessionId(),
             r.overallScore(), r.technicalAccuracy(), r.logicScore(), r.communicationScore(),
             r.strengthsSummary(), r.weaknessesSummary(),
             r.improvementKeywords(), r.panelBreakdown(), r.studyPlan(), r.highlights(),
-            r.reportFilePath(), shareToken, r.createdAt()
+            reportFilePath, shareToken, r.createdAt()
         );
     }
 }

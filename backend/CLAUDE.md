@@ -455,6 +455,13 @@ docker compose up -d
   `InterviewMessage.failFollowup()`(content=`FOLLOWUP_GENERATION_FAILED_TEXT`, status=`FAILED`)로
   확정한 뒤 `SESSION_MESSAGE`(`FOLLOWUP_FAILED`) 발행 + DONT_KNOW 와 동일하게 `advanceToNextGeneral`
   로 다음 일반질문으로 진행 — 턴이 사라진 것처럼 보이지 않으면서 면접은 멈추지 않는다.
+- **AI 학습 리포트 프록시 본 구현 (reportS3Key)**: AI 가 피드백 생성 시 저장하는 마크다운 리포트
+  (`feedback/{sessionId}/report.md`)를 `SessionFeedbackQueryService.getReportContent` →
+  `GET /api/sessions/{id}/feedback/report`(text/markdown, private 캐시 10분)로 중계한다 — 분석 원문
+  `/documents/{id}/content` 프록시와 동일 패턴(presigned 는 내부 MinIO 호스트라 브라우저 접근 불가).
+  키 부재(AI 저장 실패 폴백·구버전 피드백)는 422 `FEEDBACK_REPORT_NOT_AVAILABLE` 로 "생성 중"과 구분.
+  **공개 공유 응답(`FeedbackResponse.fromPublic`)에서는 `reportFilePath` 를 제거** — 내부 스토리지 키
+  구조를 비인증 응답에 노출하지 않는다(shareToken 제거와 같은 원칙, 프록시도 소유자 전용).
 - **피드백 생성 실패 신호 본 구현**: AI `feedback_consumer` 의 예상 못 한 예외가 DLQ 로만 격리돼
   세션이 "피드백 생성 중"에 무기한 멈추던 gap 을 닫았다. `FeedbackCallbackPayload` 에 `status`
   (`OK`|`FAILED`)·`errorCode`·`errorMessage`·`retriable` 추가(구버전 13-arg 생성자는 `status=OK`

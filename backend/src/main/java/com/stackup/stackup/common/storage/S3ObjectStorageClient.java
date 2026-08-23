@@ -18,6 +18,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
@@ -95,6 +96,9 @@ public class S3ObjectStorageClient implements ObjectStorageClient {
                     .build()
             );
             return response;
+        } catch (NoSuchKeyException e) {
+            // 데이터 정합 문제(키는 DB에 있는데 객체가 없음)를 인프라 장애로 오인하지 않도록 분리.
+            throw new StorageException(StorageErrorType.OBJECT_NOT_FOUND, "Object not found in S3", e);
         } catch (SdkException e) {
             throw new StorageException(StorageErrorType.DOWNLOAD_FAILED, "Failed to download object from S3", e);
         }

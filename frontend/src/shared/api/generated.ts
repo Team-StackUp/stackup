@@ -748,6 +748,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sessions/{sessionId}/feedback/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * AI 학습 리포트(마크다운) 프록시
+         * @description AI 가 피드백 생성 시 저장한 마크다운 리포트를 중계한다. presigned URL 은 내부(MinIO) 호스트라 브라우저가 직접 접근할 수 없다 (분석 원문 /content 프록시와 동일 패턴). 소유자 전용 — 공유(비인증) 응답에는 키 자체를 싣지 않는다.
+         */
+        get: operations["getSessionFeedbackReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/resumes/{resumeId}": {
         parameters: {
             query?: never;
@@ -3587,6 +3607,55 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["FeedbackResponse"];
+                };
+            };
+        };
+    };
+    getSessionFeedbackReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 리포트 (text/markdown) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+            /** @description 인증 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+            /** @description 세션 또는 피드백 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+            /** @description 리포트 파일 없음 (저장 실패 폴백·구버전 피드백) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
                 };
             };
         };

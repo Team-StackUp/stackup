@@ -122,6 +122,8 @@ class Settings(BaseSettings):
     analyzed_cover_letter_md_key_template: str = (
         "analyzed/cover-letter/{resume_id}/summary.md"
     )
+    # 피드백 마크다운 리포트 키 (reportS3Key). 소비는 Core 프록시 → 프론트 Markdown 뷰어.
+    feedback_report_md_key_template: str = "feedback/{session_id}/report.md"
 
     # Core 서버 internal API (사용자별 GitHub access_token 조회 등)
     core_internal_base_url: str = "http://localhost:38010"

@@ -2440,6 +2440,69 @@
         }
       }
     },
+    "/api/sessions/{sessionId}/feedback/report" : {
+      "get" : {
+        "tags" : [ "Session Feedback" ],
+        "summary" : "AI 학습 리포트(마크다운) 프록시",
+        "description" : "AI 가 피드백 생성 시 저장한 마크다운 리포트를 중계한다. presigned URL 은 내부(MinIO) 호스트라 브라우저가 직접 접근할 수 없다 (분석 원문 /content 프록시와 동일 패턴). 소유자 전용 — 공유(비인증) 응답에는 키 자체를 싣지 않는다.",
+        "operationId" : "getSessionFeedbackReport",
+        "parameters" : [ {
+          "name" : "sessionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "리포트 (text/markdown)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "binary"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "binary"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "세션 또는 피드백 없음",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "binary"
+                }
+              }
+            }
+          },
+          "422" : {
+            "description" : "리포트 파일 없음 (저장 실패 폴백·구버전 피드백)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "binary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/resumes/{resumeId}" : {
       "get" : {
         "tags" : [ "Resumes" ],

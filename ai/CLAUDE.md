@@ -353,6 +353,15 @@ docker run --env-file .env -p 8000:8000 stackup-ai
   `LlmAnswerCoach`(Flash, `chain/prompts/answer_coaching.py`)로 **답변별 병렬** 코칭 — 모범 답안 + 내 답변
   리라이트 + 한 줄 코칭. `callback.feedback.answerCoaching[{messageId,…}]` 로 보내고 Core 가 각 답변 메시지에
   기록(종료 세션 조회에서만 노출). 종합 generate·첫인상·직무 적합도와 `asyncio.gather` 병렬.
+- **마크다운 학습 리포트 저장 본 구현 (reportS3Key)**: `FeedbackConsumer._save_report` 가 성공 payload
+  조립 직전에 `chain/feedback_report.py::render_feedback_report`(LLM 미호출 결정론 렌더 — 점수 표·패널·
+  요약·키워드·학습 플랜·하이라이트·답변별 코칭·음성 요약을 GFM 문서로 조립)를 호출해
+  `feedback/{session_id}/report.md`(`FEEDBACK_REPORT_MD_KEY_TEMPLATE`, storage.md §2)에 `put_text` 저장,
+  키를 `callback.feedback.reportS3Key` 로 동봉한다. **실패는 전부 삼키고 None 폴백** — `_process` 의 예외는
+  공용 가드가 FAILED 콜백으로 승격시키므로, 부가 산출물인 리포트가 피드백 전체를 죽이면 안 된다
+  (`feedback.report.save_failed` warning). 사용자 답변 원문은 리포트에 싣지 않는다(사용자 입력을
+  마크다운으로 렌더하지 않는 규칙 — 질문·코칭·GFM 계약 필드만). 소비는 Core 프록시
+  `GET /api/sessions/{id}/feedback/report`.
 - **직무 적합도 + 직무 이해도 평가 본 구현**: `mode=JOB_TAILORED` + JD 있을 때 `LlmJobFitEvaluator`(Pro,
   `chain/prompts/job_fit_evaluation.py`)가 면접 전사·자료를 채용공고(JD)와 대조해 **두 축**을 한 번의
   구조화 호출(`JobFitResult{fit, understanding}`)로 평가: `직무 적합도`(JD 요구 역량 매칭) + `직무 이해도`

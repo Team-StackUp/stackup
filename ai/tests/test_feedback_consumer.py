@@ -1171,3 +1171,96 @@ async def test_consumer_without_session_notifier_still_publishes_callback():
     )
     await consumer.handle(_StubMessage(_envelope()))
     publisher.publish.assert_awaited_once()
+
+
+# ---------------------------------------------------------------------------
+# 마크다운 리포트 저장 (reportS3Key)
+
+
+class _FakeStorage:
+    """put_text 호출을 (key, text, content_type) 로 축적. fail=True 면 저장 실패 재현."""
+
+    def __init__(self, fail: bool = False):
+        self.puts: list[tuple[str, str, str | None]] = []
+        self._fail = fail
+
+    async def put_text(
+        self, key, text, *, content_type: str | None = "text/markdown; charset=utf-8"
+    ):
+        if self._fail:
+            raise RuntimeError("minio down")
+        self.puts.append((key, text, content_type))
+
+
+@pytest.mark.asyncio
+async def test_consumer_saves_markdown_report_and_sets_key():
+    generator = _generator()
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+    storage = _FakeStorage()
+
+    consumer = FeedbackConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.feedback",
+        core_client=MagicMock(),
+        embedder=None,
+        storage=storage,
+        report_key_template="feedback/{session_id}/report.md",
+    )
+    await consumer.handle(_StubMessage(_envelope()))
+
+    payload: FeedbackCallbackPayload = publisher.publish.await_args.kwargs["payload"]
+    assert payload.status == "OK"
+    assert payload.report_s3_key == "feedback/50/report.md"
+    assert len(storage.puts) == 1
+    key, text, content_type = storage.puts[0]
+    assert key == "feedback/50/report.md"
+    assert text.startswith("# 면접 피드백 리포트")
+    assert "ACID 4요소를 명확히 답변." in text  # 결과 요약이 실제로 담긴다
+
+
+@pytest.mark.asyncio
+async def test_report_save_failure_falls_back_to_none_and_keeps_feedback_ok():
+    generator = _generator()
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+
+    consumer = FeedbackConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.feedback",
+        core_client=MagicMock(),
+        embedder=None,
+        storage=_FakeStorage(fail=True),
+        report_key_template="feedback/{session_id}/report.md",
+    )
+    await consumer.handle(_StubMessage(_envelope()))
+
+    # 리포트는 부가 산출물 — 저장 실패가 피드백을 FAILED 로 승격시키면 안 된다.
+    payload: FeedbackCallbackPayload = publisher.publish.await_args.kwargs["payload"]
+    assert payload.status == "OK"
+    assert payload.overall_score == 85.0
+    assert payload.report_s3_key is None
+
+
+@pytest.mark.asyncio
+async def test_no_storage_keeps_report_key_none():
+    generator = _generator()
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+
+    consumer = FeedbackConsumer(
+        generator=generator,
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.feedback",
+        core_client=MagicMock(),
+        embedder=None,
+    )
+    await consumer.handle(_StubMessage(_envelope()))
+
+    payload: FeedbackCallbackPayload = publisher.publish.await_args.kwargs["payload"]
+    assert payload.report_s3_key is None

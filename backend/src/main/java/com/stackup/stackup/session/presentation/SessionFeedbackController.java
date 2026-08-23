@@ -7,7 +7,13 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.time.Duration;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.CacheControl;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -38,6 +44,30 @@ public class SessionFeedbackController {
         @PathVariable Long sessionId
     ) {
         return FeedbackResponse.from(queryService.get(principal.userId(), sessionId));
+    }
+
+    @Operation(
+        operationId = "getSessionFeedbackReport",
+        summary = "AI 학습 리포트(마크다운) 프록시",
+        description = "AI 가 피드백 생성 시 저장한 마크다운 리포트를 중계한다. "
+            + "presigned URL 은 내부(MinIO) 호스트라 브라우저가 직접 접근할 수 없다 "
+            + "(분석 원문 /content 프록시와 동일 패턴). 소유자 전용 — 공유(비인증) 응답에는 키 자체를 싣지 않는다."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "리포트 (text/markdown)"),
+        @ApiResponse(responseCode = "401", description = "인증 실패"),
+        @ApiResponse(responseCode = "404", description = "세션 또는 피드백 없음"),
+        @ApiResponse(responseCode = "422", description = "리포트 파일 없음 (저장 실패 폴백·구버전 피드백)")
+    })
+    @GetMapping("/report")
+    public ResponseEntity<Resource> report(
+        @AuthenticationPrincipal UserPrincipal principal,
+        @PathVariable Long sessionId
+    ) {
+        return ResponseEntity.ok()
+            .contentType(MediaType.parseMediaType("text/markdown; charset=utf-8"))
+            .cacheControl(CacheControl.maxAge(Duration.ofMinutes(10)).cachePrivate())
+            .body(new InputStreamResource(queryService.getReportContent(principal.userId(), sessionId)));
     }
 
     @Operation(operationId = "shareSessionFeedback", summary = "피드백 공유 토큰 발급(멱등)")

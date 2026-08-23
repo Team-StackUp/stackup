@@ -119,7 +119,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> { 
 
 | 포맷 | 필드 | 렌더 |
 |---|---|---|
-| **GFM 마크다운** | 분석 산출물(`documentPath` 문서), `answerCoaching[].modelAnswer`/`answerRewrite` | `shared/ui/Markdown` (lazy + sanitize) |
+| **GFM 마크다운** | 분석 산출물(`documentPath` 문서), `answerCoaching[].modelAnswer`/`answerRewrite`, AI 학습 리포트(`reportFilePath` — `GET /feedback/report` 프록시 본문) | `shared/ui/Markdown` (lazy + sanitize) |
 | **일반 텍스트** | 피드백 요약·`highlights[]`·`studyPlan[]`·패널 `detail`·질문 텍스트·`coachingComment` 등 나머지 전부 | plain (`whitespace-pre-wrap`) — `HighlightedText` 부분 문자열 매칭·델타 스트리밍과의 충돌을 막기 위한 계약 |
 
 사용자 입력(내 답변 등)은 어떤 경우에도 마크다운으로 렌더하지 않는다.

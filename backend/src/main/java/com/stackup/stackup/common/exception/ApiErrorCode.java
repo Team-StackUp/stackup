@@ -48,6 +48,8 @@ public enum ApiErrorCode {
     FEEDBACK_GENERATION_FAILED(HttpStatus.NOT_FOUND, "피드백 생성에 실패했습니다. 다시 생성을 요청해 주세요."),
     FEEDBACK_NOT_FOUND(HttpStatus.NOT_FOUND, "공유된 피드백을 찾을 수 없습니다."),
     FEEDBACK_ALREADY_EXISTS(HttpStatus.CONFLICT, "피드백이 이미 생성되어 있습니다."),
+    // reportS3Key(=report_file_path) 미보유 — AI 리포트 저장 실패 폴백 또는 구버전 피드백.
+    FEEDBACK_REPORT_NOT_AVAILABLE(HttpStatus.UNPROCESSABLE_CONTENT, "생성된 피드백 리포트 파일이 없습니다."),
     VOICE_EMPTY_FILE(HttpStatus.BAD_REQUEST, "음성 파일을 업로드할 수 없습니다."),
     VOICE_FILE_TOO_LARGE(HttpStatus.BAD_REQUEST, "음성 파일 크기가 너무 큽니다."),
     VOICE_INVALID_CONTENT_TYPE(HttpStatus.BAD_REQUEST, "지원하지 않는 음성 형식입니다."),

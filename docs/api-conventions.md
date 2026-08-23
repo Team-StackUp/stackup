@@ -84,6 +84,7 @@ GET    /api/sessions/{id}/messages 메시지 목록
 POST   /api/sessions/{id}/messages 메시지 추가 (RealTime → Core 전용)
 
 GET    /api/sessions/{id}/feedback 피드백 조회
+GET    /api/sessions/{id}/feedback/report  AI 학습 리포트(마크다운) 프록시 — 소유자 전용, /documents/{id}/content 와 동일 패턴
 ```
 
 ### 2.5 시스템
@@ -251,6 +252,7 @@ FEEDBACK_NOT_READY          404  아직 생성 중 (폴링/SSE 대기 지속)
 FEEDBACK_GENERATION_FAILED  404  생성 실패 마커 존재 — 대기 중단, 재생성 유도. details.retriable(boolean) 동봉
 FEEDBACK_NOT_FOUND          404  공유 토큰 무효
 FEEDBACK_ALREADY_EXISTS     409  재생성 요청 시 이미 존재 (재조회 신호)
+FEEDBACK_REPORT_NOT_AVAILABLE 422  리포트 파일 없음 — AI 저장 실패 폴백(reportS3Key=null)·구버전 피드백
 
 # 시스템 (SYS_*)
 SYS_RATE_LIMITED            429

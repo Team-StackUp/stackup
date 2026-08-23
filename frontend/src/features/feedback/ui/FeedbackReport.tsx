@@ -7,6 +7,7 @@ import { useCopyToClipboard } from '@/shared/hooks'
 import type { Feedback } from '../api/feedbackApi'
 import { downloadElementAsPdf } from '../lib/downloadPdf'
 import { useShareFeedback, useUnshareFeedback } from '../model/useFeedback'
+import { FeedbackAiReport } from './FeedbackAiReport'
 import { HighlightedText } from './HighlightedText'
 
 // AI 가 별도 정성 평가를 패널 항목으로 실어 보낼 때 쓰는 라벨(모두 종합 점수엔 미포함).
@@ -277,6 +278,13 @@ export function FeedbackReport({
           </section>
         )}
       </div>
+
+      {typeof feedback.sessionId === 'number' && (
+        <FeedbackAiReport
+          sessionId={feedback.sessionId}
+          reportFilePath={feedback.reportFilePath}
+        />
+      )}
     </div>
   )
 }
