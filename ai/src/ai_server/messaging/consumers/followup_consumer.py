@@ -95,7 +95,7 @@ class FollowupConsumer:
             trace_id=envelope.trace_id,
         )
 
-        rag_context = await self._build_rag_context(req)
+        rag_context = await self._build_rag_context(req, envelope.context.user_id)
         if self._streaming is not None and self._notifier is not None:
             result = await self._stream_followup(req, rag_context, envelope.trace_id)
         else:
@@ -239,12 +239,18 @@ class FollowupConsumer:
                 error=str(exc),
             )
 
-    async def _build_rag_context(self, req: GenerateFollowupRequest) -> str:
+    async def _build_rag_context(
+        self, req: GenerateFollowupRequest, user_id: int | None
+    ) -> str:
+        # user_id 는 Core 가 검색 범위를 소유 문서로 제한하는 데 쓴다 — 없으면 검색하지 않는다.
         if not self._core or not self._embedder or not req.context_document_ids:
+            return "(none)"
+        if user_id is None:
+            log.warning("followup.rag.skipped_no_user", session_id=req.session_id)
             return "(none)"
         try:
             return await asyncio.wait_for(
-                self._do_build_rag_context(req), timeout=self._rag_timeout_sec
+                self._do_build_rag_context(req, user_id), timeout=self._rag_timeout_sec
             )
         except asyncio.TimeoutError:
             log.warning(
@@ -254,13 +260,16 @@ class FollowupConsumer:
             )
             return "(none)"
 
-    async def _do_build_rag_context(self, req: GenerateFollowupRequest) -> str:
+    async def _do_build_rag_context(
+        self, req: GenerateFollowupRequest, user_id: int
+    ) -> str:
         query = f"{req.previous_question}\n\n{req.answer_text}"
         try:
             query_vec = (
                 await self._embedder.embed([query], task_type="RETRIEVAL_QUERY")
             )[0]
             hits = await self._core.search_embeddings(
+                user_id=user_id,
                 query_embedding=query_vec,
                 query_text=query,
                 document_ids=req.context_document_ids,

@@ -56,6 +56,7 @@ class CoreClient(Protocol):
     async def search_embeddings(
         self,
         *,
+        user_id: int,
         query_embedding: list[float],
         query_text: str | None = None,
         document_ids: list[int] | None = None,
@@ -254,14 +255,19 @@ class HttpCoreClient:
     async def search_embeddings(
         self,
         *,
+        user_id: int,
         query_embedding: list[float],
         query_text: str | None = None,
         document_ids: list[int] | None = None,
         top_k: int = 5,
     ) -> list[EmbeddingSearchHit]:
         """임베딩 검색. query_text 가 주어지면 Core 가 벡터+BM25 RRF 하이브리드로,
-        없으면 pgvector cosine 단독으로 topK 반환. 실패 시 빈 리스트 (RAG 보강용이므로 fatal 아님)."""
+        없으면 pgvector cosine 단독으로 topK 반환. 실패 시 빈 리스트 (RAG 보강용이므로 fatal 아님).
+
+        user_id 는 필수 — Core 가 검색 범위를 이 사용자 소유 문서로 제한한다.
+        envelope.context.user_id 를 그대로 넘긴다."""
         body: dict = {
+            "userId": user_id,
             "queryEmbedding": query_embedding,
             "documentIds": list(document_ids or []),
             "topK": top_k,

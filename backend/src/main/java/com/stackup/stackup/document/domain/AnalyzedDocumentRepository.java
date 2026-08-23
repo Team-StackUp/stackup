@@ -46,6 +46,20 @@ public interface AnalyzedDocumentRepository extends JpaRepository<AnalyzedDocume
         """)
     Optional<AnalyzedDocument> findActiveByIdAndOwner(@Param("id") Long id, @Param("userId") Long userId);
 
+    // 임베딩 검색 스코프 확정용 — 엔티티가 아니라 id 만 필요하다.
+    @Query("""
+        SELECT d.id FROM AnalyzedDocument d
+        LEFT JOIN d.resume rs
+        LEFT JOIN rs.user ru
+        LEFT JOIN d.repository rp
+        LEFT JOIN rp.user pu
+        LEFT JOIN d.coverLetter cl
+        LEFT JOIN cl.user cu
+        WHERE d.deleted = false
+          AND (ru.id = :userId OR pu.id = :userId OR cu.id = :userId)
+        """)
+    List<Long> findActiveIdsByOwner(@Param("userId") Long userId);
+
     @Query("""
         SELECT d FROM AnalyzedDocument d
         WHERE d.coverLetter.id = :coverLetterId

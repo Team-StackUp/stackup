@@ -6,6 +6,7 @@ import com.stackup.stackup.document.domain.AnalyzedDocument;
 import com.stackup.stackup.document.domain.AnalyzedDocumentRepository;
 import com.stackup.stackup.document.domain.DocumentEmbeddingRepository;
 import com.stackup.stackup.document.domain.DocumentEmbeddingRepository.EmbeddingChunk;
+import com.stackup.stackup.document.application.DocumentEmbeddingService;
 import com.stackup.stackup.document.domain.DocumentEmbeddingRepository.SearchHit;
 import com.stackup.stackup.resume.domain.Resume;
 import com.stackup.stackup.resume.domain.ResumeFileType;
@@ -33,13 +34,14 @@ import org.springframework.context.annotation.Import;
  * 반복할 수 있고, 실제로 3개 호출부 중 어디도 삭제를 확인하지 않았다.
  */
 @PostgresRepositoryTest
-@Import(JdbcDocumentEmbeddingRepository.class)
+@Import({JdbcDocumentEmbeddingRepository.class, DocumentEmbeddingService.class})
 class DocumentEmbeddingSearchTest {
 
     @Autowired UserRepository userRepository;
     @Autowired ResumeRepository resumeRepository;
     @Autowired AnalyzedDocumentRepository documentRepository;
     @Autowired DocumentEmbeddingRepository embeddingRepository;
+    @Autowired DocumentEmbeddingService embeddingService;
     @Autowired EntityManager em;
 
     @Test
@@ -98,6 +100,45 @@ class DocumentEmbeddingSearchTest {
         assertThat(hits).isEmpty();
     }
 
+    // 검색 범위는 호출자가 뭘 보내든 요청자 소유 문서를 벗어나면 안 된다.
+    // 이전에는 documentIds 를 그대로 믿었고, 비면 전체 사용자 청크가 대상이었다.
+    @Test
+    void serviceScopesSearchToRequestingUsersDocuments() {
+        AnalyzedDocument mine = document(97005L, "mine");
+        AnalyzedDocument stranger = document(97006L, "stranger");
+        embeddingRepository.upsertAll(mine.getId(), "test-model",
+            List.of(new EmbeddingChunk(0, "내 이력서", vector(0.9f))));
+        embeddingRepository.upsertAll(stranger.getId(), "test-model",
+            List.of(new EmbeddingChunk(0, "남의 이력서", vector(0.9f))));
+        em.flush();
+
+        Long myUserId = ownerOf(mine);
+
+        // 남의 문서 id 를 명시해도 결과에 없어야 한다.
+        assertThat(embeddingService.search(myUserId, vector(0.9f), null,
+            List.of(mine.getId(), stranger.getId()), 10))
+            .extracting(SearchHit::documentId)
+            .containsExactly(mine.getId());
+
+        // documentIds 를 비워도 전체 검색이 되지 않는다 — 소유 문서로만 좁혀진다.
+        assertThat(embeddingService.search(myUserId, vector(0.9f), null, List.of(), 10))
+            .extracting(SearchHit::documentId)
+            .containsExactly(mine.getId());
+    }
+
+    // 소유 문서가 하나도 없으면 빈 목록을 그대로 넘기면 안 된다 — 넘기면 다시 전체 검색이다.
+    @Test
+    void serviceReturnsEmptyWhenUserOwnsNothing() {
+        AnalyzedDocument stranger = document(97007L, "stranger-only");
+        embeddingRepository.upsertAll(stranger.getId(), "test-model",
+            List.of(new EmbeddingChunk(0, "남의 문서뿐", vector(0.9f))));
+        User loner = userRepository.save(User.createGithubUser(97008L, "loner", null, null, "t"));
+        em.flush();
+
+        assertThat(embeddingService.search(loner.getId(), vector(0.9f), null, List.of(), 10))
+            .isEmpty();
+    }
+
     private List<SearchHit> search(List<Long> documentIds) {
         return embeddingRepository.search(vector(0.9f), null, documentIds, 10);
     }
@@ -106,6 +147,10 @@ class DocumentEmbeddingSearchTest {
         float[] v = new float[1536];
         v[0] = head;
         return v;
+    }
+
+    private Long ownerOf(AnalyzedDocument doc) {
+        return doc.getResume().getUser().getId();
     }
 
     private AnalyzedDocument document(Long githubId, String name) {

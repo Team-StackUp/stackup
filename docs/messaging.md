@@ -745,10 +745,24 @@ docker exec stackup-rabbitmq rabbitmqadmin \
 |--------|------|--------|------|
 | `GET`  | `/api/internal/users/{userId}/github-token` | AI | 사용자별 GitHub access token을 분석 시점에 짧게 위임 (envelope에 비밀 미동봉) |
 | `PUT`  | `/api/internal/documents/{documentId}/embeddings` | AI | 청크 + 임베딩을 `document_embeddings`에 idempotent upsert |
-| `POST` | `/api/internal/embeddings/search` | AI | RAG 검색 — pgvector cosine topK (queryText 동봉 시 벡터+BM25 RRF 하이브리드). 실패 시 AI 는 빈 결과로 폴백 (non-fatal) |
+| `POST` | `/api/internal/embeddings/search` | AI | RAG 검색 — pgvector cosine topK (queryText 동봉 시 벡터+BM25 RRF 하이브리드). **`userId` 필수** — 검색 범위가 항상 그 사용자 소유·미삭제 문서로 제한된다(§10.1). 실패 시 AI 는 빈 결과로 폴백 (non-fatal) |
 | `POST` | `/api/internal/ai-logs` | AI | LLM 호출별 토큰·지연시간을 `ai_request_logs` 에 기록 (fire-and-forget, 실패 무시) |
 
 요청·응답 스키마 및 인증 규약은 [`/docs/api-conventions.md §10`](./api-conventions.md) 참조.
+
+#### 10.1 임베딩 검색 스코프
+
+`POST /api/internal/embeddings/search` 는 **호출자가 무엇을 보내든 요청자 소유 문서를 벗어나지 않는다.**
+
+- `userId` 필수. AI 는 `envelope.context.user_id` 를 그대로 싣는다(별도 계약 추가 없이 이미 있는 값).
+- `documentIds` 를 주면 **소유 문서와의 교집합**만 대상 — 요청한 id 를 그대로 믿지 않는다.
+- `documentIds` 가 비면 그 사용자의 활성 문서 전체. (이전 규약인 "비면 전체 사용자 대상"은 폐기)
+- 교집합이 비면 검색하지 않고 빈 결과를 준다 — 빈 목록을 그대로 넘기면 다시 전체 검색이 된다.
+- soft delete 된 문서의 청크는 검색 쿼리에서 제외된다(`ACTIVE_DOC_JOIN`).
+
+이전에는 스코프 방어가 전적으로 호출자에게 있었다. AI 호출부 3곳이 모두 빈 목록을 사전에
+걸러줘서 실제 유출은 없었지만, 호출부가 하나 늘거나 가드를 빠뜨리면 남의 이력서 청크가
+프롬프트로 들어간다. `user_id` 를 못 얻는 경우 AI 는 검색을 건너뛰고 `(none)` 으로 폴백한다.
 
 큐 상태 확인:
 ```bash
