@@ -326,7 +326,7 @@ export interface paths {
         put?: never;
         /**
          * pgvector cosine topK 검색
-         * @description queryEmbedding 으로 가장 가까운 청크 topK 반환. documentIds 가 비어 있으면 전체.
+         * @description queryEmbedding 으로 가장 가까운 청크 topK 반환. **검색 범위는 항상 userId 소유 문서로 제한**된다 — documentIds 를 주면 그 중 소유한 것만, 비어 있으면 소유 문서 전체.
          */
         post: operations["internalSearchEmbeddings"];
         delete?: never;
@@ -1226,6 +1226,8 @@ export interface components {
             idempotencyKey?: string;
         };
         SearchRequest: {
+            /** Format: int64 */
+            userId: number;
             queryEmbedding: number[];
             queryText?: string;
             documentIds?: number[];
@@ -2645,7 +2647,7 @@ export interface operations {
                     "*/*": components["schemas"]["SearchResponse"];
                 };
             };
-            /** @description queryEmbedding 누락 */
+            /** @description userId 또는 queryEmbedding 누락 */
             400: {
                 headers: {
                     [name: string]: unknown;

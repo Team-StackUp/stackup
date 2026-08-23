@@ -287,6 +287,7 @@ async def test_search_embeddings_uses_latest_core_contract() -> None:
     core = HttpCoreClient(base_url="http://core:38010", api_key="k", client=client)
 
     hits = await core.search_embeddings(
+        user_id=7,
         query_embedding=[0.1, 0.2],
         document_ids=[7, 8],
         top_k=3,
@@ -303,6 +304,8 @@ async def test_search_embeddings_uses_latest_core_contract() -> None:
     client.post.assert_awaited_once_with(
         "/api/internal/embeddings/search",
         json={
+            # userId 는 Core 가 검색 범위를 소유 문서로 제한하는 데 쓴다 — 빠지면 400.
+            "userId": 7,
             "queryEmbedding": [0.1, 0.2],
             "documentIds": [7, 8],
             "topK": 3,
@@ -316,6 +319,7 @@ async def test_search_embeddings_includes_query_text_for_hybrid() -> None:
     core = HttpCoreClient(base_url="http://core:38010", api_key="k", client=client)
 
     await core.search_embeddings(
+        user_id=7,
         query_embedding=[0.1],
         query_text="gRPC 동시성 처리",
         document_ids=[7],
@@ -333,7 +337,7 @@ async def test_search_embeddings_non_2xx_returns_empty(status: int) -> None:
     client = _make_post_client(status=status, text="bad")
     core = HttpCoreClient(base_url="http://core:38010", api_key="k", client=client)
 
-    assert await core.search_embeddings(query_embedding=[0.1]) == []
+    assert await core.search_embeddings(user_id=7, query_embedding=[0.1]) == []
 
 
 @pytest.mark.asyncio
@@ -341,4 +345,4 @@ async def test_search_embeddings_http_error_returns_empty() -> None:
     client = _make_post_client(raise_exc=httpx.ConnectError("dns fail"))
     core = HttpCoreClient(base_url="http://core:38010", api_key="k", client=client)
 
-    assert await core.search_embeddings(query_embedding=[0.1]) == []
+    assert await core.search_embeddings(user_id=7, query_embedding=[0.1]) == []

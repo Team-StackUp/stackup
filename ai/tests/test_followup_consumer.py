@@ -687,7 +687,7 @@ async def test_rag_searches_top_k_directly():
     )
 
     req = _make_req()
-    result = await consumer._build_rag_context(req)
+    result = await consumer._build_rag_context(req, 7)
 
     # 청크 텍스트가 결과에 포함돼야 한다
     assert "이 청크가 반환돼야 한다" in result
@@ -731,6 +731,6 @@ async def test_rag_timeout_returns_none():
     )
 
     req = _make_req()
-    result = await consumer._build_rag_context(req)
+    result = await consumer._build_rag_context(req, 7)
 
     assert result == "(none)"

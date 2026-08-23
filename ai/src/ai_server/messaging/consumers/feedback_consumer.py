@@ -149,7 +149,8 @@ class FeedbackConsumer:
         )
         transcript = _build_transcript(req.messages)
         score_basis = _build_score_basis(req.messages)
-        rag_context = await self._build_rag_context(req)
+        user_id = envelope.context.user_id
+        rag_context = await self._build_rag_context(req, user_id)
         voice_analysis_summary = _build_voice_analysis_summary(
             req.voice_analysis_summary
         )
@@ -208,7 +209,7 @@ class FeedbackConsumer:
             _tracked(self._evaluate_self_intro(req, voice_analysis_summary)),
             _tracked(self._evaluate_job_fit(req, transcript, rag_context)),
             _tracked(self._evaluate_personality(req)),
-            _tracked(self._coach_answers(req)),
+            _tracked(self._coach_answers(req, user_id)),
         )
         # 빈 평가위원 항목(점수·내용 모두 없음)은 표시하지 않는다 — LLM 부분 응답이 빈 패널로 새는 것 방지.
         extras = [self_intro_item, *job_fit_items, personality_item]
@@ -475,7 +476,7 @@ class FeedbackConsumer:
         return _to_panel_item(PERSONALITY_EVALUATOR_LABEL, PERSONALITY_DIMENSION, ev)
 
     async def _coach_answers(
-        self, req: GenerateFeedbackRequest
+        self, req: GenerateFeedbackRequest, user_id: int | None
     ) -> list[AnswerCoachingItem]:
         """자기소개 제외 답변마다 모범 답안·리라이트·코칭을 병렬 생성 → 메시지별 복기 리스트.
 
@@ -510,6 +511,7 @@ class FeedbackConsumer:
                         req.context_document_ids,
                         _COACHING_RAG_TOP_K,
                         req.session_id,
+                        user_id,
                     )
                     res = await self._answer_coach.coach(
                         job_category=req.job_category,
@@ -538,25 +540,38 @@ class FeedbackConsumer:
         items = await asyncio.gather(*(_one(q, a) for q, a in pairs))
         return [it for it in items if it is not None]
 
-    async def _build_rag_context(self, req: GenerateFeedbackRequest) -> str:
+    async def _build_rag_context(
+        self, req: GenerateFeedbackRequest, user_id: int | None
+    ) -> str:
         # 세션 전체 채점(종합·패널·직무 적합도)용 컨텍스트. 마지막 답변 하나만 쓰면
         # 그 화제로 근거가 편향되므로, 세션의 모든 실질 답변(짧은 확인 제외)을 질의로 삼는다.
         query = _session_rag_query(req.messages)
         return await self._retrieve_context(
-            query, req.context_document_ids, self._rag_top_k, req.session_id
+            query, req.context_document_ids, self._rag_top_k, req.session_id, user_id
         )
 
     async def _retrieve_context(
-        self, query_text: str, document_ids: list[int], top_k: int, session_id: int
+        self,
+        query_text: str,
+        document_ids: list[int],
+        top_k: int,
+        session_id: int,
+        user_id: int | None,
     ) -> str:
-        """query_text 로 pgvector 검색 → 청크를 컨텍스트 문자열로. 실패/무결과는 '(none)'."""
+        """query_text 로 pgvector 검색 → 청크를 컨텍스트 문자열로. 실패/무결과는 '(none)'.
+
+        user_id 는 Core 가 검색 범위를 소유 문서로 제한하는 데 쓴다 — 없으면 검색하지 않는다."""
         if not self._embedder or not document_ids or not query_text.strip():
+            return "(none)"
+        if user_id is None:
+            log.warning("feedback.rag.skipped_no_user", session_id=session_id)
             return "(none)"
         try:
             query_vec = (
                 await self._embedder.embed([query_text], task_type="RETRIEVAL_QUERY")
             )[0]
             hits = await self._core.search_embeddings(
+                user_id=user_id,
                 query_embedding=query_vec,
                 query_text=query_text,
                 document_ids=document_ids,

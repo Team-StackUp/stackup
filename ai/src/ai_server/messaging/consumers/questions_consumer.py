@@ -98,7 +98,7 @@ class QuestionsConsumer:
             message="면접 자료를 정리하고 있어요.",
             trace_id=envelope.trace_id,
         )
-        context_text = await self._build_context(req)
+        context_text = await self._build_context(req, envelope.context.user_id)
         await self._emit_progress(
             session_id=req.session_id,
             phase="GENERATING",
@@ -160,9 +160,12 @@ class QuestionsConsumer:
             trace_id=trace_id,
         )
 
-    async def _build_context(self, req: GenerateQuestionsRequest) -> str:
+    async def _build_context(
+        self, req: GenerateQuestionsRequest, user_id: int | None
+    ) -> str:
         base_context = _build_context(req.documents)
-        if not self._core or not self._embedder:
+        # user_id 는 Core 가 검색 범위를 소유 문서로 제한하는 데 쓴다 — 없으면 검색하지 않는다.
+        if not self._core or not self._embedder or user_id is None:
             return base_context
 
         document_ids = [d.document_id for d in req.documents]
@@ -173,7 +176,7 @@ class QuestionsConsumer:
 
         try:
             return await asyncio.wait_for(
-                self._do_build_context_rag(req, document_ids, base_context),
+                self._do_build_context_rag(req, document_ids, base_context, user_id),
                 timeout=self._rag_timeout_sec,
             )
         except asyncio.TimeoutError:
@@ -189,6 +192,7 @@ class QuestionsConsumer:
         req: GenerateQuestionsRequest,
         document_ids: list[int],
         base_context: str,
+        user_id: int,
     ) -> str:
         query = _build_initial_rag_query(req)
         try:
@@ -196,6 +200,7 @@ class QuestionsConsumer:
                 await self._embedder.embed([query], task_type="RETRIEVAL_QUERY")
             )[0]
             hits = await self._core.search_embeddings(
+                user_id=user_id,
                 query_embedding=query_vec,
                 query_text=query,
                 document_ids=document_ids,
