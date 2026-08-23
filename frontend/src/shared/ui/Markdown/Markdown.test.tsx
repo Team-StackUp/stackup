@@ -36,6 +36,30 @@ describe('Markdown', () => {
     expect((window as unknown as { __pwned?: boolean }).__pwned).toBeUndefined()
   })
 
+  // 위 케이스는 react-markdown 이 raw HTML 을 escape 하므로 rehype-sanitize 가 없어도 통과한다.
+  // 반면 링크 protocol 필터링은 **오직 rehype-sanitize 만** 막아준다 — 즉 이 케이스가
+  // sanitize 플러그인이 실제로 붙어 동작하는지 검증하는 유일한 지점이다.
+  // 렌더 대상(분석 문서 마크다운·answerRewrite)은 사용자 이력서·답변에서 파생되므로,
+  // 스키마를 커스터마이즈하거나 플러그인을 빼는 변경이 조용히 통과하면 안 된다.
+  it.each([
+    ['javascript:', '[클릭](javascript:alert(1))'],
+    ['대소문자 우회', '[클릭](JaVaScRiPt:alert(1))'],
+    ['data: HTML', '[클릭](data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==)'],
+  ])('%s 링크는 href 가 제거된다', async (_label, markdown) => {
+    const { container } = render(<Markdown>{markdown}</Markdown>)
+
+    await screen.findByText('클릭')
+    // 링크 텍스트는 남기되 이동 가능한 href 는 남기지 않는다.
+    expect(container.querySelector('a')?.getAttribute('href') ?? null).toBeNull()
+  })
+
+  it('일반 http(s) 링크는 그대로 살린다 — 필터가 과하게 걷어내지 않는지', async () => {
+    const { container } = render(<Markdown>{'[문서](https://example.com/a)'}</Markdown>)
+
+    await screen.findByText('문서')
+    expect(container.querySelector('a')).toHaveAttribute('href', 'https://example.com/a')
+  })
+
   it('코드 블록은 pre 로 감싸 가로 스크롤 컨테이너에 렌더된다', async () => {
     const { container } = render(
       <Markdown>{'```java\n@Transactional\npublic void end() {}\n```'}</Markdown>,
