@@ -125,6 +125,9 @@ jobs:
         working-directory: ./realtime
         run: go vet ./...
 
+      # -race 로 돌린다. RealTime 은 본업이 동시 fan-out(AMQP 컨슈머가 Dispatch 하는 동안
+      # HTTP 핸들러들이 Subscribe/Unsubscribe)이라, 경합은 여기서 못 잡으면 운영에서
+      # 간헐적 패닉·유실로만 드러난다. realtime/CLAUDE.md §11 도 -race 를 규정한다.
       - name: Test
         working-directory: ./realtime
-        run: go test ./...
+        run: go test -race ./...

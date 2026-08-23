@@ -1,4 +1,4 @@
-.PHONY: build run test fmt lint tidy clean
+.PHONY: build run test test-race fmt lint tidy clean
 
 GO ?= go
 PKG ?= ./...
@@ -11,6 +11,10 @@ run:
 
 test:
 	$(GO) test $(PKG)
+
+# CI 가 도는 것과 같은 형태. 동시성 변경을 했다면 push 전에 이걸로 확인한다.
+test-race:
+	$(GO) test -race $(PKG)
 
 fmt:
 	$(GO) fmt $(PKG)
