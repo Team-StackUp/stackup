@@ -28,6 +28,9 @@ public class JdbcDocumentEmbeddingRepository implements DocumentEmbeddingReposit
     private static final String COUNT_SQL =
             "SELECT count(*) FROM document_embeddings WHERE document_id = ?";
 
+    private static final String DELETE_BY_DOCS_SQL =
+            "DELETE FROM document_embeddings WHERE document_id IN (:documentIds)";
+
     // 삭제된 문서의 청크는 검색에서 제외한다.
     //
     // 세션 생성 뒤 사용자가 워크스페이스에서 자료를 지워도 session_contexts 에는 그 문서 id 가
@@ -76,6 +79,14 @@ public class JdbcDocumentEmbeddingRepository implements DocumentEmbeddingReposit
     public int countByDocumentId(long documentId) {
         Integer n = jdbc.queryForObject(COUNT_SQL, Integer.class, documentId);
         return n == null ? 0 : n;
+    }
+
+    @Override
+    public int deleteByDocumentIds(List<Long> documentIds) {
+        if (documentIds == null || documentIds.isEmpty()) {
+            return 0;
+        }
+        return namedJdbc.update(DELETE_BY_DOCS_SQL, Map.of("documentIds", documentIds));
     }
 
     @Override
