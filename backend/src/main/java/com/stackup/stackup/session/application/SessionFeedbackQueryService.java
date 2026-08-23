@@ -2,6 +2,9 @@ package com.stackup.stackup.session.application;
 
 import com.stackup.stackup.common.exception.ApiErrorCode;
 import com.stackup.stackup.common.exception.DomainException;
+import com.stackup.stackup.common.storage.ObjectStorageClient;
+import com.stackup.stackup.common.storage.StorageErrorType;
+import com.stackup.stackup.common.storage.StorageException;
 import com.stackup.stackup.session.application.event.FeedbackRegenerateRequestedEvent;
 import com.stackup.stackup.session.application.dto.FeedbackResult;
 import com.stackup.stackup.session.domain.InterviewSession;
@@ -9,6 +12,7 @@ import com.stackup.stackup.session.domain.InterviewSessionRepository;
 import com.stackup.stackup.session.domain.SessionFeedback;
 import com.stackup.stackup.session.domain.SessionFeedbackRepository;
 import com.stackup.stackup.session.domain.SessionStatus;
+import java.io.InputStream;
 import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +28,7 @@ public class SessionFeedbackQueryService {
     private final InterviewSessionRepository sessionRepository;
     private final SessionFeedbackRepository feedbackRepository;
     private final ApplicationEventPublisher events;
+    private final ObjectStorageClient storage;
 
     public FeedbackResult get(Long userId, Long sessionId) {
         InterviewSession session = sessionRepository.findByIdAndUser_IdAndDeletedFalse(sessionId, userId)
@@ -43,6 +48,27 @@ public class SessionFeedbackQueryService {
             return new DomainException(ApiErrorCode.FEEDBACK_GENERATION_FAILED, details);
         }
         return new DomainException(ApiErrorCode.FEEDBACK_NOT_READY);
+    }
+
+    // AI 마크다운 리포트 프록시: presigned URL 은 내부(MinIO) 호스트라 브라우저가 직접
+    // 접근할 수 없어 Core 가 바이트를 중계한다 (분석 원문 /content 프록시와 동일 패턴).
+    public InputStream getReportContent(Long userId, Long sessionId) {
+        SessionFeedback feedback = ownedFeedback(userId, sessionId);
+        String path = feedback.getReportFilePath();
+        if (path == null || path.isBlank()) {
+            // 리포트는 부가 산출물 — AI 저장 실패 폴백(None)이나 구버전 피드백은 키가 없다.
+            throw new DomainException(ApiErrorCode.FEEDBACK_REPORT_NOT_AVAILABLE);
+        }
+        try {
+            return storage.get(path);
+        } catch (StorageException e) {
+            if (e.getType() == StorageErrorType.OBJECT_NOT_FOUND) {
+                // 키만 남고 객체가 없는 정합 붕괴(볼륨 리셋 등) — 재시도해도 안 되는 503 대신
+                // 키 부재와 같은 422 로: 클라이언트 처리 경로가 하나로 수렴한다.
+                throw new DomainException(ApiErrorCode.FEEDBACK_REPORT_NOT_AVAILABLE);
+            }
+            throw e;
+        }
     }
 
     // 공유 활성화: 소유자 검증 후 토큰 보장(없으면 발급). 멱등 — 현재 토큰 반환.

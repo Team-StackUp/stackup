@@ -8,6 +8,9 @@ import static org.mockito.Mockito.when;
 
 import com.stackup.stackup.common.exception.ApiErrorCode;
 import com.stackup.stackup.common.exception.DomainException;
+import com.stackup.stackup.common.storage.ObjectStorageClient;
+import com.stackup.stackup.common.storage.StorageErrorType;
+import com.stackup.stackup.common.storage.StorageException;
 import com.stackup.stackup.session.application.event.FeedbackRegenerateRequestedEvent;
 import com.stackup.stackup.session.domain.InterviewSession;
 import com.stackup.stackup.session.domain.InterviewSessionRepository;
@@ -16,6 +19,8 @@ import com.stackup.stackup.session.domain.SessionFeedback;
 import com.stackup.stackup.session.domain.SessionFeedbackRepository;
 import com.stackup.stackup.session.domain.SessionMode;
 import com.stackup.stackup.user.domain.User;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -32,6 +37,7 @@ class SessionFeedbackQueryServiceTest {
     @Mock InterviewSessionRepository sessionRepository;
     @Mock SessionFeedbackRepository feedbackRepository;
     @Mock ApplicationEventPublisher events;
+    @Mock ObjectStorageClient storage;
     @InjectMocks SessionFeedbackQueryService service;
 
     @Test
@@ -159,6 +165,53 @@ class SessionFeedbackQueryServiceTest {
         );
         ReflectionTestUtils.setField(s, "id", id);
         return s;
+    }
+
+    @Test
+    void getReportContent_streamsStoredReport() {
+        InterviewSession session = sessionFixture(50L);
+        SessionFeedback feedback = SessionFeedback.of(session, 80.0, 80.0, 80.0, 80.0,
+            "s", "w", null, null, null, null, "feedback/50/report.md");
+        when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(50L, 1L))
+            .thenReturn(Optional.of(session));
+        when(feedbackRepository.findBySession_Id(50L)).thenReturn(Optional.of(feedback));
+        InputStream stored = new ByteArrayInputStream("# report".getBytes());
+        when(storage.get("feedback/50/report.md")).thenReturn(stored);
+
+        assertThat(service.getReportContent(1L, 50L)).isSameAs(stored);
+    }
+
+    @Test
+    void getReportContent_throwsWhenReportMissing() {
+        // AI 리포트 저장 실패 폴백(reportS3Key=None)·구버전 피드백 — 프록시는 422 로 구분한다.
+        InterviewSession session = sessionFixture(50L);
+        SessionFeedback feedback = feedbackFixture(session);
+        when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(50L, 1L))
+            .thenReturn(Optional.of(session));
+        when(feedbackRepository.findBySession_Id(50L)).thenReturn(Optional.of(feedback));
+
+        assertThatThrownBy(() -> service.getReportContent(1L, 50L))
+            .isInstanceOfSatisfying(DomainException.class,
+                e -> assertThat(e.getErrorCode())
+                    .isEqualTo(ApiErrorCode.FEEDBACK_REPORT_NOT_AVAILABLE));
+    }
+
+    @Test
+    void getReportContent_treatsDanglingKeyAsNotAvailable() {
+        // DB 에 키는 남았는데 객체가 사라진 정합 붕괴 — 503(인프라 장애)이 아니라 422 로.
+        InterviewSession session = sessionFixture(50L);
+        SessionFeedback feedback = SessionFeedback.of(session, 80.0, 80.0, 80.0, 80.0,
+            "s", "w", null, null, null, null, "feedback/50/report.md");
+        when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(50L, 1L))
+            .thenReturn(Optional.of(session));
+        when(feedbackRepository.findBySession_Id(50L)).thenReturn(Optional.of(feedback));
+        when(storage.get("feedback/50/report.md"))
+            .thenThrow(new StorageException(StorageErrorType.OBJECT_NOT_FOUND, "gone"));
+
+        assertThatThrownBy(() -> service.getReportContent(1L, 50L))
+            .isInstanceOfSatisfying(DomainException.class,
+                e -> assertThat(e.getErrorCode())
+                    .isEqualTo(ApiErrorCode.FEEDBACK_REPORT_NOT_AVAILABLE));
     }
 
     private SessionFeedback feedbackFixture(InterviewSession session) {
