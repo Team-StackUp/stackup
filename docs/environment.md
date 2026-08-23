@@ -155,6 +155,7 @@ EMBEDDING_RETRY_BASE_DELAY_SEC=2.0  # delay = base*2^attempt + jitter (상한 30
 ANALYZED_RESUME_MD_KEY_TEMPLATE=analyzed/resume/{resume_id}/summary.md
 ANALYZED_REPOSITORY_MD_KEY_TEMPLATE=analyzed/repository/{repository_id}/summary.md
 ANALYZED_WEB_RESUME_MD_KEY_TEMPLATE=analyzed/web-resume/{resume_id}/summary.md
+FEEDBACK_REPORT_MD_KEY_TEMPLATE=feedback/{session_id}/report.md
 
 # ===== STT/TTS (Phase 2) =====
 STT_PROVIDER=whisper-api          # whisper-api | whisper-self-hosted

@@ -485,6 +485,12 @@
 > generator 가 모른 채 overall 계산 후 표시용으로 append).
 > `highlights[]` 는 강점·개선 본문에서 발췌한 핵심 구절 — 프론트가 부분 문자열 매칭으로 리포트에
 > 하이라이트 표시한다(`HighlightedText`). 빈 리스트 허용.
+> `reportS3Key` 는 AI 가 발행 직전에 저장한 **마크다운(GFM) 학습 리포트**의 스토리지 키
+> (`feedback/{session_id}/report.md`, [storage.md §2](./storage.md)). LLM 미호출 결정론 렌더 —
+> 위 payload 의 점수·패널·요약·코칭을 문서로 조립한 것이다. **null 허용**: 렌더·업로드 실패는
+> 피드백 전체를 FAILED 로 만들지 않고 None 폴백한다(리포트는 부가 산출물). FAILED 콜백에서는
+> 항상 null. Core 는 `session_feedbacks.report_file_path` 에 저장하고 소유자 전용 프록시
+> `GET /api/sessions/{id}/feedback/report` 로 중계한다(공개 공유 응답에는 키 미노출).
 
 ```json
 {

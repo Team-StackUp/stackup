@@ -26,7 +26,7 @@ session/{session_id}/audio/{message_id}.webm
 session/{session_id}/audio/{message_id}.transcript.txt
 interview/tts/{session_id}/{message_id}.{ext}                # 질문 whole-message TTS (영속, ttsAudioPath)
 interview/tts/{session_id}/{message_id}/seg-{seq}.{ext}      # 꼬리질문 문장 단위 TTS 세그먼트 (휘발성, DB 미기록)
-feedback/{session_id}/report.md
+feedback/{session_id}/report.md                              # AI 학습 리포트 (GFM, reportS3Key — Core 프록시로 열람)
 feedback/{session_id}/charts/{name}.png
 ```
 
