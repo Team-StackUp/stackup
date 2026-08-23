@@ -139,6 +139,31 @@ class DocumentEmbeddingSearchTest {
             .isEmpty();
     }
 
+    // 자료를 지우면 청크 원문도 즉시 파기한다. 검색에서 빼는 것(#216)과는 다른 문제다 —
+    // 행이 남아 있는 한 이력서 본문이 DB 에 그대로 있다.
+    @Test
+    void deleteByDocumentIdsRemovesChunks() {
+        AnalyzedDocument kept = document(97009L, "kept-purge");
+        AnalyzedDocument removed = document(97010L, "removed-purge");
+        embeddingRepository.upsertAll(kept.getId(), "test-model",
+            List.of(new EmbeddingChunk(0, "남아야 하는 청크", vector(0.4f))));
+        embeddingRepository.upsertAll(removed.getId(), "test-model",
+            List.of(new EmbeddingChunk(0, "파기 대상", vector(0.4f)),
+                new EmbeddingChunk(1, "파기 대상 2", vector(0.4f))));
+        em.flush();
+
+        assertThat(embeddingRepository.deleteByDocumentIds(List.of(removed.getId()))).isEqualTo(2);
+
+        assertThat(embeddingRepository.countByDocumentId(removed.getId())).isZero();
+        // 다른 문서의 청크까지 쓸어가면 안 된다.
+        assertThat(embeddingRepository.countByDocumentId(kept.getId())).isEqualTo(1);
+    }
+
+    @Test
+    void deleteByDocumentIdsIsNoopForEmptyInput() {
+        assertThat(embeddingRepository.deleteByDocumentIds(List.of())).isZero();
+    }
+
     private List<SearchHit> search(List<Long> documentIds) {
         return embeddingRepository.search(vector(0.9f), null, documentIds, 10);
     }

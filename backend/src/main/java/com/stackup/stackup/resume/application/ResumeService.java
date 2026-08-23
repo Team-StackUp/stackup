@@ -2,6 +2,7 @@ package com.stackup.stackup.resume.application;
 
 import com.stackup.stackup.common.exception.ApiErrorCode;
 import com.stackup.stackup.common.exception.DomainException;
+import com.stackup.stackup.common.storage.ObjectPurgeEvent;
 import com.stackup.stackup.common.storage.ObjectStorageClient;
 import com.stackup.stackup.resume.application.dto.ResumeResult;
 import com.stackup.stackup.resume.application.dto.ResumeUploadCommand;
@@ -104,8 +105,14 @@ public class ResumeService {
     public void delete(Long userId, Long resumeId) {
         Resume resume = loadOwned(userId, resumeId);
         resume.markDeleted();
-        // 분석 결과 cascade — document 도메인 listener 가 ResumeDeletedEvent 받아 AnalyzedDocument soft delete.
-        // 직접 의존 회피 (ArchUnit 도메인 cycle 방지).
+        // 업로드 원본 즉시 파기. 이력서 PDF 에는 이름·연락처·주소가 들어 있어
+        // (docs/security.md §5.2) 행만 soft delete 하고 객체를 남기면 "지웠다"고 할 수 없다.
+        // 웹 이력서(URL)는 업로드 원본이 없어 filePath 가 null 이다.
+        // 실제 삭제는 ObjectPurgeListener 가 커밋 이후에 한다.
+        events.publishEvent(new ObjectPurgeEvent(List.of(
+            resume.getFilePath() == null ? "" : resume.getFilePath())));
+        // 분석 결과 cascade — document 도메인 listener 가 ResumeDeletedEvent 받아 AnalyzedDocument soft delete
+        // + 분석 마크다운·임베딩 파기. 직접 의존 회피 (ArchUnit 도메인 cycle 방지).
         events.publishEvent(new ResumeDeletedEvent(userId, resumeId));
     }
 
