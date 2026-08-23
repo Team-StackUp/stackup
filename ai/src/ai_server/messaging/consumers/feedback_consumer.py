@@ -25,6 +25,7 @@ from ai_server.chain.feedback_generation_chain import (
     PersonalityEvaluator,
     SelfIntroEvaluator,
 )
+from ai_server.chain.feedback_report import render_feedback_report
 from ai_server.core.client import CoreClient
 from ai_server.messaging.consumers.failure_signal import (
     classify_failure,
@@ -47,6 +48,7 @@ from ai_server.model.messages.feedback import (
     VoiceAnalysisSummary,
 )
 from ai_server.rag.embedder import EmbeddingProvider
+from ai_server.storage.base import ObjectStorage
 
 log = structlog.get_logger(__name__)
 
@@ -91,6 +93,10 @@ class FeedbackConsumer:
         coaching_max_answers: int = 30,
         coaching_concurrency: int = 5,
         session_notifier: SessionRealtimeNotifier | None = None,
+        storage: ObjectStorage | None = None,
+        # 키 템플릿의 SSOT 는 settings — 여기 기본값을 두면 설정 변경이 테스트를 통과한 채
+        # 프로덕션 키만 바뀐다. storage 와 함께 주입될 때만 저장이 동작한다.
+        report_key_template: str | None = None,
     ) -> None:
         self._generator = generator
         self._publisher = publisher
@@ -106,6 +112,8 @@ class FeedbackConsumer:
         self._coaching_max_answers = coaching_max_answers
         self._coaching_concurrency = max(1, coaching_concurrency)
         self._session_notifier = session_notifier
+        self._storage = storage
+        self._report_key_template = report_key_template
 
     async def handle(self, message: AbstractIncomingMessage) -> None:
         await consume_with_failure_signal(
@@ -214,6 +222,12 @@ class FeedbackConsumer:
             message="피드백 리포트를 정리하고 있어요.",
             trace_id=envelope.trace_id,
         )
+        report_s3_key = await self._save_report(
+            req=req,
+            result=result,
+            answer_coaching=answer_coaching,
+            trace_id=envelope.trace_id,
+        )
         payload = FeedbackCallbackPayload(
             session_id=req.session_id,
             overall_score=result.overall_score,
@@ -227,11 +241,52 @@ class FeedbackConsumer:
             highlights=result.highlights,
             panel_breakdown=result.panel_breakdown,
             answer_coaching=answer_coaching,
-            report_s3_key=None,
+            report_s3_key=report_s3_key,
             attempt_id=req.attempt_id,
         )
 
         return payload
+
+    async def _save_report(
+        self,
+        *,
+        req: GenerateFeedbackRequest,
+        result: FeedbackResult,
+        answer_coaching: list[AnswerCoachingItem],
+        trace_id: str,
+    ) -> str | None:
+        """마크다운 리포트 렌더 → 스토리지 저장 → 키 반환.
+
+        리포트는 부가 산출물 — 여기서 예외를 흘리면 공용 가드가 피드백 전체를 FAILED 로
+        승격시키므로 전부 삼키고 None 폴백한다 (본 피드백은 정상 전달)."""
+        if self._storage is None or self._report_key_template is None:
+            return None
+        # 키 조립도 try 안 — 잘못된 템플릿(placeholder 오타)의 KeyError 가 가드로 새어나가
+        # 피드백 전체를 FAILED 로 만들지 않게 한다.
+        key = self._report_key_template
+        try:
+            key = self._report_key_template.format(session_id=req.session_id)
+            markdown = render_feedback_report(
+                req=req, result=result, answer_coaching=answer_coaching
+            )
+            await self._storage.put_text(key, markdown)
+        except Exception as exc:  # noqa: BLE001
+            log.warning(
+                "feedback.report.save_failed",
+                session_id=req.session_id,
+                key=key,
+                error=format_error_message(exc),
+                trace_id=trace_id,
+            )
+            return None
+        log.info(
+            "feedback.report.saved",
+            session_id=req.session_id,
+            key=key,
+            md_chars=len(markdown),
+            trace_id=trace_id,
+        )
+        return key
 
     def _failed_payload(
         self, req: GenerateFeedbackRequest, exc: Exception

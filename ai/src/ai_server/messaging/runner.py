@@ -276,6 +276,9 @@ class MessagingRuntime:
                 build_answer_coaching_chain(settings, core_client=core_client)
             ),
             session_notifier=session_notifier,
+            # 종합 피드백의 마크다운 리포트 저장(reportS3Key). 실패해도 피드백은 정상 발행.
+            storage=storage,
+            report_key_template=settings.feedback_report_md_key_template,
         )
 
         # 음성 답변 STT + 분석 (Phase 2)
