@@ -148,6 +148,8 @@ EMBEDDING_DIM=1536                # DB 컬럼 차원과 일치 필수
 EMBEDDING_CHUNK_SIZE=1000
 EMBEDDING_CHUNK_OVERLAP=200
 EMBEDDING_BATCH_SIZE=32            # 한 요청당 청크 수 (작을수록 429 회피, 호출 수↑)
+FEEDBACK_COACHING_MAX_ANSWERS=30   # 답변별 복기 대상 상한 (초과분은 잘라내고 로그 남김)
+FEEDBACK_COACHING_CONCURRENCY=5    # 복기 동시 호출 수 (429 회피용 — 낮출수록 느려지고 안전)
 EMBEDDING_MAX_RETRIES=5           # 429(RESOURCE_EXHAUSTED) 지수 백오프 재시도 횟수
 EMBEDDING_RETRY_BASE_DELAY_SEC=2.0  # delay = base*2^attempt + jitter (상한 30s)
 

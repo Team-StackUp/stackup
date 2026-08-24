@@ -259,6 +259,8 @@ class MessagingRuntime:
             core_client=core_client,
             embedder=embedder,
             rag_top_k=settings.feedback_rag_top_k,
+            coaching_max_answers=settings.feedback_coaching_max_answers,
+            coaching_concurrency=settings.feedback_coaching_concurrency,
             # 자기소개 첫인상 평가(Flash, 경량). 종합 점수엔 미포함, 패널 '첫인상' 항목으로만 표시.
             self_intro_evaluator=LlmSelfIntroEvaluator(
                 build_self_intro_evaluation_chain(settings, core_client=core_client)

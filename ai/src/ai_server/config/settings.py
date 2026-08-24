@@ -39,6 +39,12 @@ class Settings(BaseSettings):
     ai_realtime_exchange: str = "stackup.realtime"
     ai_realtime_routing_user: str = "realtime.user.notify"
     feedback_rag_top_k: int = 5
+    # 답변별 복기(코칭)는 답변 수만큼 LLM 을 부르는 피드백 최대 비용 지점이다. 아래 둘이
+    # 게이트웨이 429/과부하를 막는 안전밸브인데 상수로 박혀 있어 조일 수가 없었다 —
+    # 다른 부하 관련 값(embedding_batch_size·llm_*_timeout_sec·*_rag_timeout_sec)과 같이
+    # 환경변수로 뺀다. 게이트웨이가 조이기 시작하면 재배포 없이 이 둘을 낮춘다.
+    feedback_coaching_max_answers: int = 30
+    feedback_coaching_concurrency: int = 5
     # RAG 컨텍스트 구성(임베딩+검색) 전체 상한. 초과 시 (none) 으로 폴백해 첫 토큰을 막지 않는다.
     followup_rag_timeout_sec: float = 1.5
     # 질문 풀 생성 시 다문서 RAG 검색 상한. followup 과 대칭 — 초과 시 base_context 로 폴백.
