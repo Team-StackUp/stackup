@@ -60,6 +60,10 @@ public interface AnalyzedDocumentRepository extends JpaRepository<AnalyzedDocume
         """)
     List<Long> findActiveIdsByOwner(@Param("userId") Long userId);
 
+    // 분석 마크다운이 아직 남아 있는 **삭제된** 문서. OrphanedObjectSweeper 전용 —
+    // 위와 같은 이유로 deleted=true 조건이 안전의 핵심이다.
+    List<AnalyzedDocument> findTop100ByDeletedTrueAndDocumentPathIsNotNull();
+
     @Query("""
         SELECT d FROM AnalyzedDocument d
         WHERE d.coverLetter.id = :coverLetterId
