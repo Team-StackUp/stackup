@@ -1264,3 +1264,25 @@ async def test_no_storage_keeps_report_key_none():
 
     payload: FeedbackCallbackPayload = publisher.publish.await_args.kwargs["payload"]
     assert payload.report_s3_key is None
+
+
+# 코칭 상한·동시성은 게이트웨이 429 를 막는 안전밸브다. 상수로 박혀 있으면 게이트웨이가
+# 조이기 시작해도 재배포 없이는 낮출 수 없다 — runner 가 settings 값을 실제로 전달하는지 고정.
+def test_runner_wires_coaching_limits_from_settings() -> None:
+    import inspect
+
+    from ai_server.messaging import runner as runner_module
+
+    # 공백·줄바꿈에 깨지지 않게 정규화한 뒤 본다. 런타임 조립에 필요한 의존성이 많아
+    # 인스턴스를 만들어 검증하기보다 배선 자체를 고정하는 쪽이 싸다.
+    source = "".join(inspect.getsource(runner_module).split())
+    assert "coaching_max_answers=settings.feedback_coaching_max_answers" in source
+    assert "coaching_concurrency=settings.feedback_coaching_concurrency" in source
+
+
+def test_coaching_limits_are_settings_backed() -> None:
+    from ai_server.config.settings import Settings
+
+    fields = Settings.model_fields
+    assert "feedback_coaching_max_answers" in fields
+    assert "feedback_coaching_concurrency" in fields
