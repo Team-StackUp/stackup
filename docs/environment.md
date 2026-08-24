@@ -297,3 +297,14 @@ STORAGE_ORPHAN_SWEEP_INITIAL_DELAY_MS=60000  # 부팅 후 첫 실행 지연
 
 `storage.orphan-sweep-interval-ms` / `storage.orphan-sweep-initial-delay-ms` 로 주입된다.
 삭제된 자료의 S3 객체를 회수한다 (`docs/security.md §5.1.1`).
+
+### 휘발성 레코드 보존 (Core)
+
+```
+MESSAGING_PROCESSED_MESSAGE_RETENTION_DAYS=30   # 멱등 레코드 보존 기간
+MESSAGING_VOLATILE_SWEEP_INTERVAL_MS=86400000   # 멱등 레코드 정리 주기 (기본 24시간)
+AUTH_REFRESH_TOKEN_SWEEP_INTERVAL_MS=86400000   # 만료 refresh token 정리 주기
+```
+
+보존 기간은 **재전달 창보다 길어야 한다** — 너무 짧으면 DLQ 에서 늦게 재주입된 메시지가
+'처음 보는 메시지'가 되어 중복 처리된다(질문 중복·피드백 재생성).
