@@ -6,6 +6,9 @@ import com.stackup.stackup.auth.domain.RefreshToken;
 import com.stackup.stackup.auth.domain.RefreshTokenRepository;
 import com.stackup.stackup.common.messaging.domain.ProcessedMessage;
 import com.stackup.stackup.common.messaging.domain.ProcessedMessageRepository;
+import com.stackup.stackup.log.ai.domain.AiRequestLog;
+import com.stackup.stackup.log.ai.domain.AiRequestLogRepository;
+import com.stackup.stackup.log.ai.domain.AiRequestStatus;
 import com.stackup.stackup.support.PostgresRepositoryTest;
 import com.stackup.stackup.user.domain.User;
 import com.stackup.stackup.user.domain.UserRepository;
@@ -28,6 +31,7 @@ class VolatileRetentionTest {
 
     @Autowired ProcessedMessageRepository processedMessageRepository;
     @Autowired RefreshTokenRepository refreshTokenRepository;
+    @Autowired AiRequestLogRepository aiRequestLogRepository;
     @Autowired UserRepository userRepository;
     @Autowired EntityManager em;
 
@@ -64,6 +68,39 @@ class VolatileRetentionTest {
         assertThat(refreshTokenRepository.findById(expired.getId())).isEmpty();
         // 아직 유효한 토큰은 건드리지 않는다 — 지우면 로그인 세션이 끊긴다.
         assertThat(refreshTokenRepository.findById(live.getId())).isPresent();
+    }
+
+    // LLM 호출마다 한 행이라 가장 빨리 자라는 테이블. 보존 기한이 지난 것만 지운다.
+    @Test
+    void deletesOnlyAiRequestLogsOlderThanThreshold() {
+        Instant now = Instant.now();
+        AiRequestLog old = aiRequestLogRepository.save(aiLog("generate.questions"));
+        AiRequestLog recent = aiRequestLogRepository.save(aiLog("generate.followup"));
+        em.flush();
+        // created_at 은 @CreationTimestamp + updatable=false 라 엔티티를 고쳐도 DB 에 안 간다.
+        // 보존 로직을 시험하려면 실제 컬럼 값을 과거로 밀어야 해서 네이티브 UPDATE 를 쓴다.
+        backdate(old.getId(), now.minus(Duration.ofDays(120)));
+        backdate(recent.getId(), now.minus(Duration.ofDays(10)));
+        em.clear();
+
+        int deleted = aiRequestLogRepository.deleteCreatedBefore(now.minus(Duration.ofDays(90)));
+
+        assertThat(deleted).isEqualTo(1);
+        assertThat(aiRequestLogRepository.findById(old.getId())).isEmpty();
+        // 보존 기간 안의 로그는 남아야 한다 — 비용 추이를 보는 근거다.
+        assertThat(aiRequestLogRepository.findById(recent.getId())).isPresent();
+    }
+
+    private void backdate(Long id, Instant createdAt) {
+        em.createNativeQuery("UPDATE ai_request_logs SET created_at = ?1 WHERE id = ?2")
+            .setParameter(1, createdAt)
+            .setParameter(2, id)
+            .executeUpdate();
+    }
+
+    private AiRequestLog aiLog(String requestType) {
+        return AiRequestLog.of(null, null, requestType, "gemini-3.1-flash",
+            100, 200, 1200, AiRequestStatus.SUCCESS, null);
     }
 
     private ProcessedMessage processedMessage(String id, Instant processedAt) {

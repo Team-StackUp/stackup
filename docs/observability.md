@@ -237,6 +237,30 @@ docker logs stackup-ai | grep '9f4e5b'
 
 ---
 
+## 8.1 로그 테이블 보존
+
+DB 에 쌓이는 로그·휘발성 테이블은 정리 주기가 있다. 없으면 "short-lived 레코드"라는 전제가
+코드로는 지켜지지 않는다(루트 CLAUDE.md).
+
+| 테이블 | 보존 | 정리 |
+|---|---|---|
+| `ai_request_logs` | 90일 (`OBSERVABILITY_AI_LOG_RETENTION_DAYS`) | `AiRequestLogSweeper` |
+| `processed_messages` | 30일 (`MESSAGING_PROCESSED_MESSAGE_RETENTION_DAYS`) | `ProcessedMessageSweeper` |
+| `refresh_tokens` | 만료 즉시 | `ExpiredRefreshTokenSweeper` |
+| `oauth_states` | 만료 즉시 | 발급 시 self-cleaning |
+
+보존 기간의 성격이 테이블마다 다르다.
+
+- `ai_request_logs` 는 **비용 추이**가 가치다 — 짧게 잡으면 "지난 학기 대비 토큰이 얼마나
+  늘었나" 에 답할 수 없다. 지운다고 동작이 깨지지는 않는다.
+- `processed_messages` 는 **멱등성 보장 기간**이다 — 너무 짧으면 DLQ 에서 늦게 재주입된
+  메시지가 중복 처리된다(질문 중복·피드백 재생성). 공간 문제가 아니다.
+
+> **미구현**: `activity_logs`(US-31, 사용자 행동 로그)는 테이블·엔티티·리포지토리만 있고
+> 읽기도 쓰기도 없다. 구현 시 여기에 보존 정책을 함께 정한다.
+
+---
+
 ## 9. PII (Personal Identifiable Information) 마스킹
 
 `backend/src/main/java/com/stackup/stackup/common/log/PiiMasker.java` 가 마스킹 함수를 제공한다.

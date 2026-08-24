@@ -304,6 +304,8 @@ STORAGE_ORPHAN_SWEEP_INITIAL_DELAY_MS=60000  # 부팅 후 첫 실행 지연
 MESSAGING_PROCESSED_MESSAGE_RETENTION_DAYS=30   # 멱등 레코드 보존 기간
 MESSAGING_VOLATILE_SWEEP_INTERVAL_MS=86400000   # 멱등 레코드 정리 주기 (기본 24시간)
 AUTH_REFRESH_TOKEN_SWEEP_INTERVAL_MS=86400000   # 만료 refresh token 정리 주기
+OBSERVABILITY_AI_LOG_RETENTION_DAYS=90          # AI 호출 로그 보존 기간 (비용 추이 근거)
+OBSERVABILITY_AI_LOG_SWEEP_INTERVAL_MS=86400000 # AI 호출 로그 정리 주기
 ```
 
 보존 기간은 **재전달 창보다 길어야 한다** — 너무 짧으면 DLQ 에서 늦게 재주입된 메시지가
