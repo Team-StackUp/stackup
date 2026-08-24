@@ -239,10 +239,28 @@ docker logs stackup-ai | grep '9f4e5b'
 
 ## 9. PII (Personal Identifiable Information) 마스킹
 
-운영 로그에 자동 마스킹할 패턴:
-- 이메일: `***@***`
-- 전화번호: `010-****-****`
-- GitHub access token: `ghp_***`
-- JWT: `eyJ***`
+`backend/src/main/java/com/stackup/stackup/common/log/PiiMasker.java` 가 마스킹 함수를 제공한다.
+지원 패턴: 이메일 / 전화번호 / GitHub access token / JWT.
 
-`backend/src/main/java/com/stackup/stackup/common/log/PiiMasker.java` 단일 책임 클래스.
+> **자동 마스킹은 걸려 있지 않다.** `PiiMasker` 는 **호출하는 곳에서만** 동작하는 유틸이고,
+> 현재 호출부가 없다. 로그 파이프라인에 필터로 꽂혀 있지 않으므로 "로그에 남겨도 알아서
+> 가려지겠지"라고 가정하면 안 된다 — 애초에 남기지 않는 것이 규약이다(`docs/security.md §7`).
+
+### 왜 전역 필터로 꽂지 않았나
+
+`PiiMasker.mask()` 를 Logback 컨버터로 전 로그에 적용하면 **분산 추적이 깨진다.**
+전화번호 패턴이 구분자를 포함한 9자리 이상 숫자열을 모두 잡기 때문이다:
+
+```
+traceId=01234567-89ab-cdef-0123-456789abcdef
+  → traceId=***-***-6789ab-cdef-***-***-6789abcdef
+session ended at 1755993600000
+  → session ended at ***-***-0000
+```
+
+`X-Trace-Id` 상관관계는 Core·AI·RealTime 을 잇는 유일한 수단이라(§1) 이걸 잃는 대가가
+"혹시 모를 PII"보다 크다. 지금 백엔드·AI 로그는 모두 **식별자만** 남기고 본문을 남기지
+않으므로(감사 확인) 전역 필터의 실익도 없다.
+
+**쓰는 방법**: 값이 PII 임을 아는 지점에서 `maskEmail`·`maskPhoneNumber` 같은 개별 함수를
+직접 부른다. 임의의 로그 문자열에 `mask()` 를 통째로 거는 용도가 아니다.
