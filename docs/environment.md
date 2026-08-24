@@ -265,7 +265,7 @@ public record SecurityProperties(
 ```python
 class Settings(BaseSettings):
     GEMINI_API_KEY: str  # required
-    LLM_PRO_MODEL: str = "gemini-3.1-pro"
+    LLM_PRO_MODEL: str = "gemini-3.1-pro-preview"
     model_config = SettingsConfigDict(env_file=".env")
 ```
 

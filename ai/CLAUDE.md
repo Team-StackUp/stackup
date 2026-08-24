@@ -131,10 +131,15 @@ async def consume_resume_analyze(message: AbstractIncomingMessage) -> None:
 | 시점 | 모델 (env override 가능) | 용도 |
 |------|--------------------------|------|
 | 세션 시작 | Pro (`gemini-3.1-pro-preview` 기본) | 질문 풀 (품질) |
-| 세션 중 | Flash (`gemini-3.1-flash-lite-preview` 후보) | 꼬리질문 (저지연 < 3s) |
+| 세션 중 | Flash (`gemini-3.1-flash-lite` 기본) | 꼬리질문 (저지연 < 3s) |
 | 분석 (이력서/레포) | Pro | 마크다운 구조화 |
 
 설정은 `settings.py` + 환경변수로 모델명 주입 (코드에 하드코딩 금지).
+
+> **주의 — Pro 기본값이 `-preview` 별칭이다.** 게이트웨이가 preview 별칭을 은퇴시키면 질문 풀·
+> 분석·피드백이 한꺼번에 죽는다(모두 Pro 를 쓴다). 그 경우 `.env` 의 `LLM_PRO_MODEL` 한 줄로
+> 정식 별칭으로 넘어가면 되고 재배포·코드 수정이 필요 없다 — 이 표와 `settings.py` 기본값은
+> "지금 게이트웨이에서 검증된 이름"의 기록이지 유일한 진실이 아니다.
 
 ### 6.3 LangChain 사용 (OpenAI 호환 클라이언트)
 ```python
@@ -217,10 +222,10 @@ class Settings(BaseSettings):
     s3_bucket_name: str
     openai_api_key: str = ""
     google_api_key: str = ""
-    llm_pro_model: str = "gemini-3.1-pro"
-    llm_flash_model: str = "gemini-3.1-flash"
-    embedding_model: str = "text-embedding-004"
-    embedding_dim: int = 768
+    llm_pro_model: str = "gemini-3.1-pro-preview"
+    llm_flash_model: str = "gemini-3.1-flash-lite"
+    embedding_model: str = "gemini-embedding-001"
+    embedding_dim: int = 1536
     core_server_base_url: str = "http://core:8080"
 ```
 
