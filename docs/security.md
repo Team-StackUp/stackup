@@ -167,6 +167,9 @@ public class GithubTokenCipher {
 
 임베딩 청크는 DB 안에서 끝나므로 과거 삭제분도 V32 가 한 번에 정리한다.
 
+자소서는 원문이 S3 가 아니라 **행 안에**(`cover_letters.items`) 산다 — 삭제 시 원문을 같은
+트랜잭션에서 빈 배열로 비우고(`CoverLetter.purgeItems`), 과거 삭제분은 V34 가 백필한다.
+
 > 회원 탈퇴 시 사용자의 모든 자료를 일괄 파기하는 것은 별건이다(§5.3 의 hard delete, Phase 2).
 
 ### 5.2 민감정보

@@ -62,7 +62,11 @@ public class CoverLetterService {
     public void delete(Long userId, Long coverLetterId) {
         CoverLetter coverLetter = loadOwned(userId, coverLetterId);
         coverLetter.markDeleted();
-        // 분석 결과 cascade — document 도메인 listener 가 받아 AnalyzedDocument soft delete (도메인 cycle 회피).
+        // 문항 원문 즉시 파기 — 자소서 본문은 S3 가 아니라 이 행 안에 살아서, cascade 파기
+        // (분석 마크다운·임베딩)만으로는 "지웠는데 남아 있는" 상태가 된다.
+        coverLetter.purgeItems();
+        // 분석 결과 cascade — document 도메인 listener 가 받아 AnalyzedDocument soft delete
+        // + 분석 내용물 파기 (도메인 cycle 회피).
         events.publishEvent(new CoverLetterDeletedEvent(userId, coverLetterId));
     }
 

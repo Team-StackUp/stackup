@@ -78,4 +78,21 @@ class CoverLetterServiceTest {
         ReflectionTestUtils.setField(u, "id", 1L);
         return u;
     }
+
+    // 자소서 본문은 S3 가 아니라 행 안에 산다 — 삭제 시 soft delete 만 하면 지원동기·
+    // 성장과정 원문이 그대로 남는다. cascade(분석물)와 별개로 원문 자체를 비워야 한다.
+    @Test
+    void delete_purgesInlineItemsAlongWithSoftDelete() {
+        User user = user();
+        CoverLetter coverLetter = CoverLetter.create(
+            user, "공채 자소서", "[{\"question\":\"지원동기\",\"answer\":\"개인적 서술\"}]");
+        ReflectionTestUtils.setField(coverLetter, "id", 7L);
+        when(coverLetterRepository.findByIdAndUser_IdAndDeletedFalse(7L, 1L))
+            .thenReturn(Optional.of(coverLetter));
+
+        service.delete(1L, 7L);
+
+        assertThat(coverLetter.isDeleted()).isTrue();
+        assertThat(coverLetter.getItems()).isEqualTo("[]");
+    }
 }

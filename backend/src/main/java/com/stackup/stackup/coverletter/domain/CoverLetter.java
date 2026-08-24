@@ -76,6 +76,20 @@ public class CoverLetter extends BaseSoftDeleteEntity {
         this.status = CoverLetterStatus.FAILED;
     }
 
+    /**
+     * 문항 원문을 파기한다(빈 배열로).
+     *
+     * <p>자소서 본문은 지원동기·성장과정 같은 지극히 개인적인 서술이고, 다른 자료와 달리
+     * S3 가 아니라 <b>이 행 안에</b> 산다. 삭제 시 분석 마크다운·임베딩은 cascade 가
+     * 파기하지만(#219) 원문은 여기서 비워야 한다 — 삭제 후에는 아무도 읽지 않는다
+     * (분석은 생성 시점에 본문을 메시지에 인라인한다).
+     *
+     * <p>컬럼이 NOT NULL DEFAULT '[]' 라 제약 변경 없이 빈 배열로 비운다.
+     */
+    public void purgeItems() {
+        this.items = "[]";
+    }
+
     public void markDeleted() {
         this.deleted = true;
     }
