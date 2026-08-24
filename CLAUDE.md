@@ -144,7 +144,7 @@ cd frontend && npm install && npm run dev
 - Phase 1 (MVP) 진행 중. US-01 ~ US-20 우선.
 - 디자인 시스템 토큰 파일 미생성 — 디자인 적용 첫 PR에서 `frontend/src/app/styles/tokens.css` 생성.
 - Spring Security, RabbitMQ starter, Flyway는 백엔드 기능 작성 PR과 함께 도입.
-- `infra/rabbitmq/definitions.json`은 현재 exchange 3개 (`stackup.core-to-ai`, `stackup.ai-to-core`, `stackup.realtime`), 큐 7개 정의. 피드백 큐는 US-24 작업 시 추가.
+- `infra/rabbitmq/definitions.json`은 현재 exchange 4개 (`stackup.core-to-ai`, `stackup.ai-to-core`, `stackup.realtime` topic + `stackup.dlx` direct), 큐 15개 + DLQ 15개 정의 (분석 4종·질문·꼬리질문·피드백·음성·TTS + 콜백 5종 + realtime notify).
 - **Redis 미사용** — 휘발성 데이터(OAuth state, 멱등 키, 질문 풀 캐시)는 PostgreSQL의 short-lived 레코드 또는 Core 서버 인메모리로 처리.
 - 실시간 푸시는 **SSE + WebSocket 병행**. SSE는 작업 상태(RT2), WebSocket은 라이브 면접 메시지(RT1) 및 음성 스트림(RT3). 미디어 시그널링은 추후 WebRTC 도입 시점에 검토.
 - `RealTime Server (Go)`는 `realtime/` 디렉토리에 부트스트랩 완료. 현재 SSE만 활성, WS 엔드포인트는 US-Session-03 / US-Voice-01에서 도입.

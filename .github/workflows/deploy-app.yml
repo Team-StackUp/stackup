@@ -130,18 +130,6 @@ jobs:
           cd "$DEPLOY_DIR"
           docker compose up -d --build ai realtime backend
 
-      - name: Build and deploy frontend
-        env:
-          VITE_API_BASE_URL: https://stack-up.shop
-          VITE_REALTIME_BASE_URL: https://stack-up.shop
-          VITE_SSE_BASE_URL: https://stack-up.shop
-        run: |
-          cd "$GITHUB_WORKSPACE/frontend"
-          npm ci
-          npm run build
-          mkdir -p /var/www/stackup/frontend/dist
-          rsync -a --delete "$GITHUB_WORKSPACE/frontend/dist/" /var/www/stackup/frontend/dist/
-
       - name: Wait for healthy
         run: |
           cd "$DEPLOY_DIR"
@@ -165,6 +153,23 @@ jobs:
           done
           docker compose ps
           exit $rc
+
+      # 프론트 교체는 백엔드·AI 가 healthy 를 증명한 뒤에만 한다.
+      # 이전에는 헬스 게이트 앞에 있어서, 새 백엔드가 부팅에 실패해도 새 API 를 전제로
+      # 빌드된 프론트가 이미 라이브로 나가 있었다 — 실패한 배포가 "죽은 백엔드 + 새 프론트"
+      # 라는 어긋난 조합을 남긴다. 이 순서면 실패 시 프론트는 마지막 정상 버전에 머문다.
+      # (빌드 자체는 위 CI 의 Frontend 잡이 이미 검증했으므로 여기 빌드가 새로 실패할 여지는 작다.)
+      - name: Build and deploy frontend
+        env:
+          VITE_API_BASE_URL: https://stack-up.shop
+          VITE_REALTIME_BASE_URL: https://stack-up.shop
+          VITE_SSE_BASE_URL: https://stack-up.shop
+        run: |
+          cd "$GITHUB_WORKSPACE/frontend"
+          npm ci
+          npm run build
+          mkdir -p /var/www/stackup/frontend/dist
+          rsync -a --delete "$GITHUB_WORKSPACE/frontend/dist/" /var/www/stackup/frontend/dist/
 
       - name: Prune dangling images (best-effort)
         if: always()
