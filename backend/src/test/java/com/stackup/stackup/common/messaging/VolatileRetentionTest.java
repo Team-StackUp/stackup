@@ -76,9 +76,12 @@ class VolatileRetentionTest {
         Instant now = Instant.now();
         AiRequestLog old = aiRequestLogRepository.save(aiLog("generate.questions"));
         AiRequestLog recent = aiRequestLogRepository.save(aiLog("generate.followup"));
-        ReflectionTestUtils.setField(old, "createdAt", now.minus(Duration.ofDays(120)));
-        ReflectionTestUtils.setField(recent, "createdAt", now.minus(Duration.ofDays(10)));
         em.flush();
+        // created_at 은 @CreationTimestamp + updatable=false 라 엔티티를 고쳐도 DB 에 안 간다.
+        // 보존 로직을 시험하려면 실제 컬럼 값을 과거로 밀어야 해서 네이티브 UPDATE 를 쓴다.
+        backdate(old.getId(), now.minus(Duration.ofDays(120)));
+        backdate(recent.getId(), now.minus(Duration.ofDays(10)));
+        em.clear();
 
         int deleted = aiRequestLogRepository.deleteCreatedBefore(now.minus(Duration.ofDays(90)));
 
@@ -86,6 +89,13 @@ class VolatileRetentionTest {
         assertThat(aiRequestLogRepository.findById(old.getId())).isEmpty();
         // 보존 기간 안의 로그는 남아야 한다 — 비용 추이를 보는 근거다.
         assertThat(aiRequestLogRepository.findById(recent.getId())).isPresent();
+    }
+
+    private void backdate(Long id, Instant createdAt) {
+        em.createNativeQuery("UPDATE ai_request_logs SET created_at = ?1 WHERE id = ?2")
+            .setParameter(1, createdAt)
+            .setParameter(2, id)
+            .executeUpdate();
     }
 
     private AiRequestLog aiLog(String requestType) {
