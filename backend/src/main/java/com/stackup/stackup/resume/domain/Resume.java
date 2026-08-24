@@ -106,4 +106,14 @@ public class Resume extends BaseSoftDeleteEntity {
     public void markDeleted() {
         this.deleted = true;
     }
+
+    /**
+     * 스토리지 원본이 파기됐음을 표시한다(경로를 비운다).
+     *
+     * <p>객체가 없는데 키만 들고 있으면 "아직 회수 안 됨"과 구분되지 않아 스위퍼가 매번
+     * 다시 지우려 든다. 삭제된 행은 타입별 locator CHECK 에서 제외된다(V32).
+     */
+    public void markContentPurged() {
+        this.filePath = null;
+    }
 }

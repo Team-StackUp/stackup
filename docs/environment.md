@@ -287,3 +287,13 @@ cd frontend && npm install && npm run dev
 ```
 
 상세는 `infra/CLAUDE.md` 참조.
+
+### 스토리지 고아 객체 회수 (Core)
+
+```
+STORAGE_ORPHAN_SWEEP_INTERVAL_MS=900000      # 스위퍼 주기 (기본 15분)
+STORAGE_ORPHAN_SWEEP_INITIAL_DELAY_MS=60000  # 부팅 후 첫 실행 지연
+```
+
+`storage.orphan-sweep-interval-ms` / `storage.orphan-sweep-initial-delay-ms` 로 주입된다.
+삭제된 자료의 S3 객체를 회수한다 (`docs/security.md §5.1.1`).

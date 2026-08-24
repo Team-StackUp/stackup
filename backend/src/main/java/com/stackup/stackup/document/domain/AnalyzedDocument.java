@@ -124,4 +124,9 @@ public class AnalyzedDocument extends BaseSoftDeleteEntity {
     public void markDeleted() {
         this.deleted = true;
     }
+
+    /** 분석 마크다운이 파기됐음을 표시한다(경로를 비운다). {@code Resume#markContentPurged} 와 같은 이유. */
+    public void markContentPurged() {
+        this.documentPath = null;
+    }
 }
