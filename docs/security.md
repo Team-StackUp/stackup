@@ -208,7 +208,11 @@ public class GithubTokenCipher {
 - 사용자 답변 본문 (디버그 모드 한정, 운영은 마스킹)
 - 신용카드 등 결제 정보 (해당사항 없음)
 
-마스킹 대상은 `LoggingMasker` 유틸로 일괄 처리.
+마스킹 유틸은 `common/log/PiiMasker` 다(문서에 있던 `LoggingMasker` 는 존재하지 않는 이름이었다).
+**일괄 처리는 되지 않는다** — 로그 파이프라인에 필터로 꽂혀 있지 않고 호출부에서만 동작한다.
+전역 적용이 왜 위험한지는 [`observability.md §9`](./observability.md) 참조(트레이스 ID 가 뭉개진다).
+
+즉 위 목록은 "마스킹되니 남겨도 된다"가 아니라 **"남기지 않는다"** 는 규약이다.
 
 ---
 

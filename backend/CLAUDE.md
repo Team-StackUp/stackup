@@ -222,7 +222,7 @@ spring.jpa.hibernate.ddl-auto=validate   # Flyway 사용 → validate
 
 - Logback JSON 포맷 (운영) / human-readable (로컬)
 - MDC에 `traceId`, `userId`
-- 민감정보 마스킹: `common/log/PiiMasker.java`
+- 민감정보 마스킹 유틸: `common/log/PiiMasker.java` — **자동 적용 아님**(호출부에서만 동작, 현재 호출부 없음). 전역 필터로 꽂으면 트레이스 ID 가 뭉개진다: [`/docs/observability.md §9`](../docs/observability.md)
 - 자세한 정책: [`/docs/observability.md`](../docs/observability.md)
 
 ---
