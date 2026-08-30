@@ -442,7 +442,7 @@ AI의 LLM 호출별 토큰·지연시간을 `ai_request_logs`에 기록 (US-30 �
   "userId": 123,
   "sessionId": 99,
   "requestType": "generate.followup",
-  "modelName": "gemini-3.1-flash",
+  "modelName": "gemini-3.5-flash-lite",
   "inputTokens": 1820,
   "outputTokens": 210,
   "latencyMs": 1830,

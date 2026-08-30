@@ -105,7 +105,7 @@ async def trace_middleware(request, call_next):
 
 ```
 request_type    예: 'session.followup', 'resume.analyze'
-model_name      예: 'gemini-3.1-pro', 'gemini-3.1-flash', 'whisper-1'
+model_name      예: 'gemini-3.1-pro-preview', 'gemini-3.5-flash-lite', 'whisper-1'
 input_tokens    토큰 카운트
 output_tokens
 latency_ms

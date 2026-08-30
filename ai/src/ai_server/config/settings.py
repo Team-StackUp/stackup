@@ -110,7 +110,7 @@ class Settings(BaseSettings):
     llm_pro_timeout_sec: float = 30.0
 
     # 꼬리질문용 Flash 모델 (저지연 < 3s)
-    llm_flash_model: str = "gemini-3.1-flash-lite"
+    llm_flash_model: str = "gemini-3.5-flash-lite"
     llm_flash_temperature: float = 0.4
     llm_flash_max_tokens: int = 512
     # Flash 는 저지연 요구사항이 있어 Pro 보다 짧게.

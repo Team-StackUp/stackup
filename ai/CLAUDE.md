@@ -131,7 +131,7 @@ async def consume_resume_analyze(message: AbstractIncomingMessage) -> None:
 | 시점 | 모델 (env override 가능) | 용도 |
 |------|--------------------------|------|
 | 세션 시작 | Pro (`gemini-3.1-pro-preview` 기본) | 질문 풀 (품질) |
-| 세션 중 | Flash (`gemini-3.1-flash-lite` 기본) | 꼬리질문 (저지연 < 3s) |
+| 세션 중 | Flash (`gemini-3.5-flash-lite` 기본) | 꼬리질문 (저지연 < 3s) |
 | 분석 (이력서/레포) | Pro | 마크다운 구조화 |
 
 설정은 `settings.py` + 환경변수로 모델명 주입 (코드에 하드코딩 금지).
@@ -223,7 +223,7 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     google_api_key: str = ""
     llm_pro_model: str = "gemini-3.1-pro-preview"
-    llm_flash_model: str = "gemini-3.1-flash-lite"
+    llm_flash_model: str = "gemini-3.5-flash-lite"
     embedding_model: str = "gemini-embedding-001"
     embedding_dim: int = 1536
     core_server_base_url: str = "http://core:8080"
