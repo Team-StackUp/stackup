@@ -1,4 +1,9 @@
-export { apiClient, setAuthSideEffects, type ApiResponse } from './client'
+export {
+  apiClient,
+  setAuthSideEffects,
+  ensureAccessToken,
+  type ApiResponse,
+} from './client'
 export { tokenStore } from './token-store'
 export {
   ApiError,

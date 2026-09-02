@@ -7,7 +7,12 @@ import {
   type ReactNode,
 } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { isApiError, setAuthSideEffects, tokenStore } from '@/shared/api'
+import {
+  ensureAccessToken,
+  isApiError,
+  setAuthSideEffects,
+  tokenStore,
+} from '@/shared/api'
 import { fetchCurrentUser, logout as logoutApi } from '../api/auth'
 import {
   AuthContext,
@@ -83,6 +88,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     void (async () => {
       try {
+        // 토큰을 refresh 로 먼저 확보한 뒤 사용자 정보를 부른다.
+        // (토큰 없이 /users/me 를 쏴 401 → refresh → 재시도하던 낭비 제거)
+        const token = await ensureAccessToken()
+        if (!token) {
+          clearAuth()
+          return
+        }
         await refreshUser()
       } catch {
         clearAuth()

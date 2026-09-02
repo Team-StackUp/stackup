@@ -120,6 +120,22 @@ function refreshOnce(): Promise<string> {
   return refreshing
 }
 
+// 앱 부트스트랩용: 토큰이 없으면 refresh 로 먼저 확보한다.
+// 이렇게 해야 첫 인증 요청(/api/users/me)이 토큰 없이 나가 401 을 유발하고
+// 재시도되는 낭비가 사라진다. 세션이 없으면(refresh 401) null 을 돌려준다.
+export async function ensureAccessToken(): Promise<string | null> {
+  const existing = tokenStore.get()
+  if (existing) return existing
+  try {
+    return await refreshOnce()
+  } catch (err) {
+    // 일시적 장애(SYS_DEPENDENCY_DOWN)는 그대로 던져 상위에서 구분 처리.
+    if (err instanceof ApiError && err.code === 'SYS_DEPENDENCY_DOWN') throw err
+    // 그 외(세션 없음 등)는 비로그인으로 취급.
+    return null
+  }
+}
+
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError<ApiErrorBody>) => {
