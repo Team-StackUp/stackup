@@ -49,6 +49,25 @@ describe('WebcamSelfView', () => {
     unmount()
     expect(stop).toHaveBeenCalled()
   })
+
+  it('권한 대기 중 언마운트되면 뒤늦게 도착한 스트림도 정지한다 (LED 잔존 방지)', async () => {
+    const stop = vi.fn()
+    const stream = { getTracks: () => [{ stop }] }
+    let resolveStream!: (s: typeof stream) => void
+    const pending = new Promise<typeof stream>((res) => {
+      resolveStream = res
+    })
+    mockMediaDevices(vi.fn().mockReturnValue(pending))
+
+    const { unmount } = render(<WebcamSelfView />)
+    await userEvent.click(screen.getByRole('button', { name: '카메라 켜기' }))
+    // 프롬프트 대기 중(getUserMedia 미해결) 상태에서 언마운트.
+    unmount()
+    // 권한이 뒤늦게 허용됨 → 소유자 없는 트랙은 즉시 정지되어야 한다.
+    resolveStream(stream)
+    await pending
+    expect(stop).toHaveBeenCalled()
+  })
 })
 
 beforeEach(() => {
