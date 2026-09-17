@@ -74,8 +74,8 @@ def build_vision_pdf_reader(
         model=settings.llm_pro_model,  # 멀티모달(gemini-3.1-pro) — 게이트웨이 경유
         temperature=0.0,
         timeout=settings.llm_pro_timeout_sec,
-        api_key=settings.llm_api_key or None,
-        base_url=settings.llm_base_url,
+        api_key=settings.llm_api_key_for("pro"),
+        base_url=settings.llm_base_url_for("pro"),
         callbacks=callbacks,
     )
     return LlmVisionPdfReader(

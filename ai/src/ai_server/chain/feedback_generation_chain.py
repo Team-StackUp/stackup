@@ -121,8 +121,8 @@ def build_feedback_generation_chain(
         model=settings.llm_pro_model,
         temperature=settings.llm_pro_temperature,
         timeout=settings.llm_pro_timeout_sec,
-        api_key=settings.llm_api_key or None,
-        base_url=settings.llm_base_url,
+        api_key=settings.llm_api_key_for("pro"),
+        base_url=settings.llm_base_url_for("pro"),
         callbacks=callbacks,
     )
     return prompt | llm | parser
@@ -301,8 +301,8 @@ def build_panel_evaluator_chain(
         model=settings.llm_pro_model,
         temperature=settings.llm_pro_temperature,
         timeout=settings.llm_pro_timeout_sec,
-        api_key=settings.llm_api_key or None,
-        base_url=settings.llm_base_url,
+        api_key=settings.llm_api_key_for("pro"),
+        base_url=settings.llm_base_url_for("pro"),
         callbacks=callbacks,
     )
     return prompt | llm | parser
@@ -336,8 +336,8 @@ def build_feedback_synthesis_chain(
         model=settings.llm_pro_model,
         temperature=settings.llm_pro_temperature,
         timeout=settings.llm_pro_timeout_sec,
-        api_key=settings.llm_api_key or None,
-        base_url=settings.llm_base_url,
+        api_key=settings.llm_api_key_for("pro"),
+        base_url=settings.llm_base_url_for("pro"),
         callbacks=callbacks,
     )
     return prompt | llm | parser
@@ -379,8 +379,8 @@ def build_self_intro_evaluation_chain(
         model=settings.llm_flash_model,
         temperature=settings.llm_flash_temperature,
         timeout=settings.llm_flash_timeout_sec,
-        api_key=settings.llm_api_key or None,
-        base_url=settings.llm_base_url,
+        api_key=settings.llm_api_key_for("flash"),
+        base_url=settings.llm_base_url_for("flash"),
         callbacks=callbacks,
     )
     return prompt | llm | parser
@@ -418,8 +418,8 @@ def build_personality_evaluation_chain(
         model=settings.llm_flash_model,
         temperature=settings.llm_flash_temperature,
         timeout=settings.llm_flash_timeout_sec,
-        api_key=settings.llm_api_key or None,
-        base_url=settings.llm_base_url,
+        api_key=settings.llm_api_key_for("flash"),
+        base_url=settings.llm_base_url_for("flash"),
         callbacks=callbacks,
     )
     return prompt | llm | parser
@@ -549,8 +549,8 @@ def build_job_fit_evaluation_chain(
         model=settings.llm_pro_model,
         temperature=settings.llm_pro_temperature,
         timeout=settings.llm_pro_timeout_sec,
-        api_key=settings.llm_api_key or None,
-        base_url=settings.llm_base_url,
+        api_key=settings.llm_api_key_for("pro"),
+        base_url=settings.llm_base_url_for("pro"),
         callbacks=callbacks,
     )
     return prompt | llm | parser
@@ -641,8 +641,8 @@ def build_answer_coaching_chain(
         model=settings.llm_flash_model,
         temperature=settings.llm_flash_temperature,
         timeout=settings.llm_flash_timeout_sec,
-        api_key=settings.llm_api_key or None,
-        base_url=settings.llm_base_url,
+        api_key=settings.llm_api_key_for("flash"),
+        base_url=settings.llm_base_url_for("flash"),
         callbacks=callbacks,
     )
     return prompt | llm | parser
