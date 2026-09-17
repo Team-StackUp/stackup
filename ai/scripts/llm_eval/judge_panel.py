@@ -7,7 +7,6 @@ uv run --with numpy --with scipy --with pandas --with statsmodels --with krippen
 from __future__ import annotations
 
 import json
-from collections import defaultdict
 
 import krippendorff
 import numpy as np
