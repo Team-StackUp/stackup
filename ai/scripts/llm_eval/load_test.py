@@ -20,7 +20,10 @@ import time
 sys.path.insert(0, os.path.dirname(__file__))
 
 import run_eval as R  # noqa: E402
-from cases import COACHING_CASES, FOLLOWUP_CASES  # noqa: E402
+import importlib as _il  # noqa: E402
+
+_C = _il.import_module(os.environ.get("LLM_EVAL_CASES", "cases"))  # noqa: E402
+COACHING_CASES, FOLLOWUP_CASES = _C.COACHING_CASES, _C.FOLLOWUP_CASES
 
 
 def pct(xs, q):
