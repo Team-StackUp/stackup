@@ -15,12 +15,12 @@ for tag, path in [
     ("round2", "docs/research/local-llm-deep-dive-2026-09/data/judge.jsonl"),
 ]:
     sc = defaultdict(dict)
-    for l in open(path):
-        r = json.loads(l)
+    for line in open(path):
+        r = json.loads(line)
         for m, s in (r.get("ratings") or {}).items():
             try:
                 sc[(r["suite"], r["case_id"], m)][r["judge"]] = float(s["overall"])
-            except:
+            except (KeyError, TypeError, ValueError):
                 pass
     for (suite, cid, m), v in sc.items():
         if len(v) == 2:
