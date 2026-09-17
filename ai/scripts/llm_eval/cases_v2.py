@@ -211,7 +211,7 @@ _EXTRA_FOLLOWUP = [
         "history": "(none)",
         "expect_intent": "NORMAL",
         "expect_scores": "low",
-        "expect_correctness": None,
+        "expect_correctness": "high",  # LLM 2차 주석자 2/2 가 MATCH → 조정,
     },
     {
         "id": "f2-infra-fact-mismatch",
