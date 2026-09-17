@@ -66,6 +66,34 @@ class UsageCapture(AsyncCallbackHandler):
 
 
 EXTRA_BODY: dict[str, Any] = {}
+# --constrain-json: 질문 풀·코칭 체인에 JSON 스키마 강제(response_format json_schema) 적용
+CONSTRAIN_JSON = {"on": False}
+
+
+def _json_schema_body(model_cls: Any, name: str) -> dict[str, Any]:
+    return {
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {
+                "name": name,
+                "schema": model_cls.model_json_schema(by_alias=True),
+            },
+        }
+    }
+
+
+def _apply_body(node: Any, body: dict[str, Any]) -> None:
+    from langchain_openai import ChatOpenAI
+
+    if isinstance(node, ChatOpenAI):
+        node.extra_body = {**(node.extra_body or {}), **body}
+        return
+    for attr in ("steps", "first", "middle", "last", "bound"):
+        child = getattr(node, attr, None)
+        if child is None:
+            continue
+        for c in child if isinstance(child, (list, tuple)) else [child]:
+            _apply_body(c, body)
 
 
 def _apply_extra_body(node: Any) -> None:
@@ -169,6 +197,10 @@ async def run_questions(settings: Settings, case: dict, rep: int, label: str) ->
     cap = UsageCapture()
     base = build_question_generation_chain(settings)
     _apply_extra_body(base)
+    if CONSTRAIN_JSON["on"]:
+        from ai_server.chain.question_generation_chain import GeneratedQuestionPool
+
+        _apply_body(base, _json_schema_body(GeneratedQuestionPool, "question_pool"))
     chain = base.with_config(callbacks=[cap])
     gen = LlmQuestionGenerator(chain)
     t0 = time.perf_counter()
@@ -201,6 +233,10 @@ async def run_coaching(
     cap = UsageCapture()
     base = build_answer_coaching_chain(settings)
     _apply_extra_body(base)
+    if CONSTRAIN_JSON["on"]:
+        from ai_server.chain.feedback_generation_chain import CoachingResult
+
+        _apply_body(base, _json_schema_body(CoachingResult, "coaching"))
     chain = base.with_config(callbacks=[cap])
     coach = LlmAnswerCoach(chain)
     t0 = time.perf_counter()
@@ -300,12 +336,16 @@ async def main() -> int:
     ap.add_argument("--flash-max-tokens", type=int, default=0)
     ap.add_argument("--latency", action="store_true")
     ap.add_argument(
+        "--constrain-json", action="store_true", help="질문 풀·코칭에 JSON 스키마 강제"
+    )
+    ap.add_argument(
         "--extra-body", default="", help='JSON, 예: \'{"reasoning_effort": "none"}\''
     )
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
     settings = make_settings(args)
+    CONSTRAIN_JSON["on"] = args.constrain_json
     if args.extra_body:
         EXTRA_BODY.update(json.loads(args.extra_body))
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
