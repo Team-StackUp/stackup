@@ -150,7 +150,7 @@ Phase 1은 한국어 only. Phase 2 영어 추가 대비해서 키 기반 운영.
 export const env = {
   API_BASE_URL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080',
   SSE_BASE_URL: import.meta.env.VITE_SSE_BASE_URL ?? 'http://localhost:8080',
-  GITHUB_OAUTH_CLIENT_ID: import.meta.env.VITE_GITHUB_OAUTH_CLIENT_ID ?? '',
+  REALTIME_BASE_URL: import.meta.env.VITE_REALTIME_BASE_URL ?? 'http://localhost:38020',
 } as const;
 ```
 

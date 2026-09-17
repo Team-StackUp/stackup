@@ -255,7 +255,7 @@ SEED 팔레트 블록에는 `prefers-color-scheme` 미디어쿼리가 없어서,
 export const env = {
   API_BASE_URL: import.meta.env.VITE_API_BASE_URL,
   SSE_BASE_URL: import.meta.env.VITE_SSE_BASE_URL,
-  GITHUB_OAUTH_CLIENT_ID: import.meta.env.VITE_GITHUB_OAUTH_CLIENT_ID,
+  REALTIME_BASE_URL: import.meta.env.VITE_REALTIME_BASE_URL,
 } as const;
 ```
 

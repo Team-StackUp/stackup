@@ -196,7 +196,7 @@ chain = prompt | llm | PydanticOutputParser(pydantic_object=...)
   - 비용: $0.006 / 분 (1시간 면접 ≈ ₩500 / USD ≈ $0.36)
   - 셀프호스팅 옵션: `whisper.cpp` 또는 `faster-whisper` (GPU 권장, 비용 ↓ but 운영 부담 ↑)
   - 브라우저 내장 SpeechRecognition API는 정확도 부족으로 채택 안 함
-- **TTS: Gemini TTS 기본(한국어)** (`voice/tts/`) — 질문(INTERVIEWER) 메시지 음성화. Deepgram/OpenAI TTS 는 한국어 미지원이라 `GeminiTtsProvider`(`gemini-2.5-flash-preview-tts`, voice=Kore)가 기본. Gemini 는 raw PCM(L16/24kHz)을 반환하므로 WAV 로 감싸 `audio/wav` 로 저장. `TtsProvider` 추상화 + `GatewayTtsProvider`(Mindlogic 게이트웨이 `/audio/speech`, LLM_API_KEY, raw PCM→WAV)/`GeminiTtsProvider`(직접 GEMINI_API_KEY)/`OpenAiTtsProvider`(`gpt-4o-mini-tts`, mp3)/`MockTtsProvider`, `build_tts_provider` factory(`TTS_PROVIDER=auto`면 **LLM_API_KEY(gateway) > GEMINI_API_KEY > OPENAI_API_KEY** 순 — 게이트웨이 우선으로 직접 키 429 부하 분산). gateway/gemini 는 `gemini_tts_model`/`gemini_tts_voice` 공유. `generate.tts` consumer 가 합성 → S3 PUT(확장자는 content_type 기준) → `callback.tts` 발행. 재생은 Core 오디오 프록시(`GET /api/sessions/{sid}/messages/{mid}/audio`) 경유(MinIO presigned URL 이 내부 호스트라 브라우저 직접 접근 불가).
+- **TTS: Gemini TTS 기본(한국어)** (`voice/tts/`) — 질문(INTERVIEWER) 메시지 음성화. Deepgram/OpenAI TTS 는 한국어 미지원이라 `GeminiTtsProvider`(`gemini-2.5-flash-preview-tts`, voice=Kore)가 기본. Gemini 는 raw PCM(L16/24kHz)을 반환하므로 WAV 로 감싸 `audio/wav` 로 저장. `TtsProvider` 추상화 + `GatewayTtsProvider`(Mindlogic 게이트웨이 `/audio/speech`, LLM_API_KEY, raw PCM→WAV)/`GeminiTtsProvider`(직접 GEMINI_API_KEY)/`MockTtsProvider`, `build_tts_provider` factory(`TTS_PROVIDER=auto`면 **LLM_API_KEY(gateway) > GEMINI_API_KEY** 순 — 게이트웨이 우선으로 직접 키 429 부하 분산). gateway/gemini 는 `gemini_tts_model`/`gemini_tts_voice` 공유. `generate.tts` consumer 가 합성 → S3 PUT(확장자는 content_type 기준) → `callback.tts` 발행. 재생은 Core 오디오 프록시(`GET /api/sessions/{sid}/messages/{mid}/audio`) 경유(MinIO presigned URL 이 내부 호스트라 브라우저 직접 접근 불가).
 - **스트리밍 STT (실시간 음성 답변, RT3): Deepgram Live** (`voice/stt/deepgram_live.py`) — `websockets`로 Deepgram WS(`wss://api.deepgram.com/v1/listen`, nova-2)에 연결, interim/final 자막을 실시간 반환. `voice/stt/live.py`(`LiveSttProvider`/`LiveSttSession` 추상) + `voice/stt/mock_live.py`(키 없을 때 fallback) + `voice/stt/live_factory.py`(`LIVE_STT_PROVIDER=auto`면 DEEPGRAM_API_KEY 보유 시 deepgram_live).
   - FastAPI WS 엔드포인트 `/internal/voice/stream`(`api/voice_stream.py`): RealTime이 프록시한 오디오를 받아 부분/최종 자막을 다운 프레임(`transcript.partial`/`transcript.final`)으로 보내고, 발화 종료(`stop` 또는 UtteranceEnd) 시 메트릭 계산 후 `callback.voice` 발행 → 기존 followup 파이프라인 재사용.
 - **STT 환각 제거** (`voice/stt/sanitize.py`): Whisper/Deepgram 이 발화 끝 무음·잡음에서 학습데이터(방송/유튜브) 정형 문구를 환각으로 덧붙이는 문제(예: "MBC 뉴스 OOO입니다", "시청해주셔서 감사합니다", "구독과 좋아요", 영어 "thanks for watching")를 보수적으로 제거. 배치(`deepgram`/`openai_whisper`)는 `transcribe` 반환 시, 라이브(`deepgram_live`)는 **최종 자막마다** + `result()` 백스톱에서 적용 → 저장 전사·메트릭·실시간 표시 모두 정화. 환각만 남은 segment 는 제거해 무음/발음 메트릭이 실제 무음 반영. "감사합니다"·"뉴스 앱" 등 정상 표현은 보존.
@@ -220,8 +220,8 @@ class Settings(BaseSettings):
     s3_access_key: str
     s3_secret_key: str
     s3_bucket_name: str
-    openai_api_key: str = ""
-    google_api_key: str = ""
+    llm_api_key: str = ""
+    gemini_api_key: str = ""
     llm_pro_model: str = "gemini-3.1-pro-preview"
     llm_flash_model: str = "gemini-3.5-flash-lite"
     embedding_model: str = "gemini-embedding-001"
@@ -383,7 +383,7 @@ docker run --env-file .env -p 8000:8000 stackup-ai
 - **LLM 호출 로깅 본 구현** (`observability/llm_logging_callback.py`, US-30):
   LangChain `AsyncCallbackHandler` 가 토큰/latency 측정 → Core `/api/internal/ai-logs` POST.
 - **질문 TTS consumer 본 구현** (`messaging/consumers/tts_consumer.py`, `voice/tts/`):
-  `generate.tts` 수신 → OpenAI TTS 합성(`OpenAiTtsProvider`, mock fallback) → S3 PUT(`interview/tts/{sessionId}/{messageId}.mp3`) → `callback.tts` 발행.
+  `generate.tts` 수신 → TTS 합성(`GatewayTtsProvider`/`GeminiTtsProvider`, mock fallback) → S3 PUT(`interview/tts/{sessionId}/{messageId}.*`, 확장자는 content_type 기준) → `callback.tts` 발행.
 - **실시간 스트리밍 음성 답변 본 구현** (RT3, `api/voice_stream.py`, `voice/stt/{live,mock_live,deepgram_live,live_factory}.py`):
   FastAPI WS `/internal/voice/stream` 수신(RealTime 프록시 경유) → Deepgram Live(`deepgram_live.py`, mock fallback)로 부분/최종 자막 다운 → 발화 종료 시 메트릭 계산 후 `callback.voice` 발행. `VoiceCallbackService`/followup 무변경 재사용. 신규 의존성 `websockets`.
 - 배치 음성 분석(STT/WPM/filler) 모듈은 `voice/stt/whisper_api.py`(+ Deepgram) + `voice/analysis/metrics.py`로 본 구현(`analyze.voice` consumer)

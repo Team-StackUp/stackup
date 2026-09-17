@@ -87,8 +87,6 @@ GOOGLE_OAUTH_CLIENT_ID=
 GOOGLE_OAUTH_CLIENT_SECRET=
 GOOGLE_OAUTH_REDIRECT_URI=http://localhost:5173/auth/google/callback
 
-# ===== AI Server =====
-AI_SERVER_BASE_URL=http://ai:8000
 ```
 
 ---
@@ -97,8 +95,7 @@ AI_SERVER_BASE_URL=http://ai:8000
 
 ```dotenv
 # ===== App =====
-AI_SERVER_PORT=8000
-AI_LOG_LEVEL=INFO
+DEBUG=false                       # 호스트 포트는 루트 .env 의 AI_PORT (docker-compose)
 
 # ===== LLM (Mindlogic CNU AC Gateway 단일 경로) =====
 LLM_API_KEY=                      # 학교 발급 키
@@ -112,9 +109,8 @@ LLM_FLASH_MAX_TOKENS=512
 LLM_FLASH_TIMEOUT_SEC=10.0        # Pro 보다 짧게 — 꼬리질문 저지연(<3s) 요구사항
 QUESTIONS_RAG_TIMEOUT_SEC=1.5     # 질문 풀 생성 시 다문서 RAG 검색 상한. followup 과 대칭
 
-# (외부 직접 호출용, fallback)
+# (외부 직접 호출용, fallback — 임베딩·TTS 폴백)
 GEMINI_API_KEY=
-OPENAI_API_KEY=                   # Whisper STT에도 사용
 
 # ===== Object Storage =====
 STORAGE_BACKEND=s3                # s3 | local
@@ -160,12 +156,16 @@ ANALYZED_WEB_RESUME_MD_KEY_TEMPLATE=analyzed/web-resume/{resume_id}/summary.md
 FEEDBACK_REPORT_MD_KEY_TEMPLATE=feedback/{session_id}/report.md
 
 # ===== STT/TTS (Phase 2) =====
-STT_PROVIDER=whisper-api          # whisper-api | whisper-self-hosted
-WHISPER_MODEL=whisper-1           # OpenAI Whisper API 모델
-TTS_PROVIDER=auto                 # auto | mock | openai | gemini | gateway (auto=LLM_API_KEY(gateway) > GEMINI_API_KEY > OPENAI_API_KEY)
-OPENAI_TTS_MODEL=gpt-4o-mini-tts  # OpenAI TTS 모델 (질문 음성화)
-OPENAI_TTS_VOICE=alloy            # TTS 보이스
-OPENAI_TTS_TIMEOUT_SEC=30         # TTS HTTP 타임아웃(초)
+STT_PROVIDER=auto                 # auto | mock | deepgram (auto=DEEPGRAM_API_KEY 보유 시 deepgram, 없으면 mock)
+DEEPGRAM_BASE_URL=https://api.deepgram.com/v1
+DEEPGRAM_MODEL=whisper-large      # 한국어 정확도 우선; 저비용 우선 시 nova-2
+DEEPGRAM_LANGUAGE=ko
+DEEPGRAM_TIMEOUT_SEC=60
+TTS_PROVIDER=auto                 # auto | mock | gemini | gateway (auto=LLM_API_KEY(gateway) > GEMINI_API_KEY, 없으면 mock)
+GEMINI_TTS_MODEL=gemini-2.5-flash-preview-tts
+GEMINI_TTS_VOICE=Kore
+GEMINI_TTS_BASE_URL=https://generativelanguage.googleapis.com/v1beta
+GEMINI_TTS_TIMEOUT_SEC=30
 
 # ===== 실시간 스트리밍 STT (RT3 음성 답변, Phase 2) =====
 LIVE_STT_PROVIDER=auto                          # auto | mock | deepgram_live (auto=DEEPGRAM_API_KEY 보유 시 deepgram_live, 없으면 mock)
@@ -186,8 +186,7 @@ Vite 환경변수는 `VITE_` 접두 필수 (런타임에 노출됨).
 ```dotenv
 VITE_API_BASE_URL=http://localhost:8080
 VITE_SSE_BASE_URL=http://localhost:8080
-VITE_GITHUB_OAUTH_CLIENT_ID=        # public OK
-VITE_SENTRY_DSN=                    # 옵션
+VITE_REALTIME_BASE_URL=http://localhost:38020
 ```
 
 > 비밀값(API key 등)은 절대 `VITE_*`에 두지 않는다. 빌드 결과물에 평문으로 들어간다.
