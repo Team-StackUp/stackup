@@ -107,6 +107,10 @@ LLM_FLASH_MODEL=gemini-3.5-flash-lite   # 꼬리질문(US-19) 저지연 모델
 LLM_FLASH_TEMPERATURE=0.4
 LLM_FLASH_MAX_TOKENS=512
 LLM_FLASH_TIMEOUT_SEC=10.0        # Pro 보다 짧게 — 꼬리질문 저지연(<3s) 요구사항
+LLM_PRO_BASE_URL=                 # 티어별 OpenAI 호환 엔드포인트 오버라이드. 비우면 LLM_BASE_URL 공유
+LLM_PRO_API_KEY=                  # 오버라이드한 티어는 LLM_API_KEY 를 물려받지 않음(키 유출 방지)
+LLM_FLASH_BASE_URL=               # 예: http://ollama:11434/v1 (꼬리질문만 로컬 LLM)
+LLM_FLASH_API_KEY=                # 로컬 서버면 비워도 됨
 QUESTIONS_RAG_TIMEOUT_SEC=1.5     # 질문 풀 생성 시 다문서 RAG 검색 상한. followup 과 대칭
 
 # (외부 직접 호출용, fallback — 임베딩·TTS 폴백)

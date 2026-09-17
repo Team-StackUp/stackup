@@ -108,6 +108,17 @@ class Settings(BaseSettings):
     # Flash 는 저지연 요구사항이 있어 Pro 보다 짧게.
     llm_flash_timeout_sec: float = 10.0
 
+    # 티어별 엔드포인트 오버라이드 (OpenAI 호환). 비우면 위 llm_base_url / llm_api_key 공유.
+    # 예: 꼬리질문(Flash)만 로컬 Ollama 로 → LLM_FLASH_BASE_URL=http://ollama:11434/v1,
+    #     LLM_FLASH_MODEL=exaone3.5:7.8b. Pro 는 pdf_vision(멀티모달)도 쓰므로 텍스트 전용
+    #     로컬 모델로 돌리면 PDF 이미지 판독이 깨진다.
+    # base_url 을 오버라이드한 티어는 공용 llm_api_key(학교 게이트웨이 키)를 절대 물려받지 않는다
+    # — 다른 서버로 키가 새지 않게. 키가 필요 없는 로컬 서버면 비워 둬도 된다.
+    llm_pro_base_url: str = ""
+    llm_pro_api_key: str = ""
+    llm_flash_base_url: str = ""
+    llm_flash_api_key: str = ""
+
     analyzed_resume_md_key_template: str = "analyzed/resume/{resume_id}/summary.md"
     analyzed_repository_md_key_template: str = (
         "analyzed/repository/{repository_id}/summary.md"
@@ -157,6 +168,20 @@ class Settings(BaseSettings):
     pdf_vision_dpi: int = 150
 
     gemini_api_key: str = ""
+
+    def llm_base_url_for(self, tier: Literal["pro", "flash"]) -> str:
+        override = self.llm_pro_base_url if tier == "pro" else self.llm_flash_base_url
+        return override or self.llm_base_url
+
+    def llm_api_key_for(self, tier: Literal["pro", "flash"]) -> str | None:
+        override_url = (
+            self.llm_pro_base_url if tier == "pro" else self.llm_flash_base_url
+        )
+        tier_key = self.llm_pro_api_key if tier == "pro" else self.llm_flash_api_key
+        if override_url:
+            # 로컬 OpenAI 호환 서버(Ollama/vLLM)는 키를 검사하지 않지만 SDK 는 빈 키를 거부한다.
+            return tier_key or "not-needed"
+        return tier_key or self.llm_api_key or None
 
 
 def get_settings() -> Settings:

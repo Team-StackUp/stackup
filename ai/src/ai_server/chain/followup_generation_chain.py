@@ -215,8 +215,8 @@ def build_followup_generation_chain(
         model=settings.llm_flash_model,
         temperature=settings.llm_flash_temperature,
         timeout=settings.llm_flash_timeout_sec,
-        api_key=settings.llm_api_key or None,
-        base_url=settings.llm_base_url,
+        api_key=settings.llm_api_key_for("flash"),
+        base_url=settings.llm_base_url_for("flash"),
         max_tokens=settings.llm_flash_max_tokens,
         callbacks=callbacks,
     )
@@ -254,8 +254,8 @@ def build_streaming_followup_generator(
         model=settings.llm_flash_model,
         temperature=settings.llm_flash_temperature,
         timeout=settings.llm_flash_timeout_sec,
-        api_key=settings.llm_api_key or None,
-        base_url=settings.llm_base_url,
+        api_key=settings.llm_api_key_for("flash"),
+        base_url=settings.llm_base_url_for("flash"),
         max_tokens=settings.llm_flash_max_tokens,
         callbacks=callbacks,
     )
