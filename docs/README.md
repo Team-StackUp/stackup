@@ -28,6 +28,9 @@
 - [`observability.md`](./observability.md) — X-Trace-Id, 로깅 레벨, AI 요청 로깅
 - [`environment.md`](./environment.md) — 환경 변수, 로컬/스테이징/운영 분리
 
+### 조사·의사결정 기록
+- [`research/llm-provider-evaluation-2026-09.md`](./research/llm-provider-evaluation-2026-09.md) — 로컬 LLM·오픈 모델 대안 실측 비교 (품질 블라인드 채점·지연·비용)
+
 ### 협업
 - [`coding-conventions.md`](./coding-conventions.md) — 언어별 공통 코딩 규약
 - [`git-conventions.md`](./git-conventions.md) — 브랜치 전략, 커밋 컨벤션, PR 템플릿

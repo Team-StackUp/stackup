@@ -1,0 +1,682 @@
+{
+  "gw-gemini-3.1-pro": {
+    "followup": null,
+    "questions": {
+      "calls": 10,
+      "success_pct": 100.0,
+      "errors": [],
+      "count_exact_pct": 100.0,
+      "mode_category_fit_pct": 100.0,
+      "job_category_valid_pct": 100.0,
+      "multi_job_coverage_pct": 100.0,
+      "evidence_present_when_required_pct": 100.0,
+      "evidence_grounded_pct": 100.0,
+      "near_duplicate_pair_pct": 0.0,
+      "repeated_recent_question_count": 0,
+      "question_len_le80_pct": 17.3,
+      "non_korean_script_pct": 0.0,
+      "markdown_in_question_pct": 0.0,
+      "long_context_success": "2/2",
+      "latency_median": 24.74,
+      "latency_p90": 26.52
+    },
+    "coaching": null
+  },
+  "gw-gemini-3.5-flash-lite": {
+    "followup": {
+      "calls": 42,
+      "success_pct": 100.0,
+      "tag_compliance_pct": 100.0,
+      "intent_accuracy_pct": 100.0,
+      "intent_misses": {},
+      "score_label_accuracy_pct": 100.0,
+      "correctness_rule_accuracy_pct": 100.0,
+      "discrimination_gap_backend": 3.0,
+      "discrimination_gap_personality": 2.0,
+      "question_len_median": 76.5,
+      "question_len_le60_pct": 21.4,
+      "non_korean_script_pct": 0.0,
+      "latency_median": 2.04,
+      "latency_p90": 5.82,
+      "ttft_median": 1.54,
+      "ttft_p90": 5.71,
+      "over_3s_pct": 16.7,
+      "over_10s_timeout_pct": 0.0,
+      "latency_during_fanout": 2.077
+    },
+    "questions": {
+      "calls": 10,
+      "success_pct": 90.0,
+      "errors": [
+        "OutputParserException: Invalid json output: ```json\n{\n  \"questions\": [\n    {\n      \"category\": \"PROJECT_DEEP_DIVE\",\n      \"question\": \"모놀리식에서 주문 서비스를 분리할 때 사용한 "
+      ],
+      "count_exact_pct": 100.0,
+      "mode_category_fit_pct": 100.0,
+      "job_category_valid_pct": 100.0,
+      "multi_job_coverage_pct": 100.0,
+      "evidence_present_when_required_pct": 100.0,
+      "evidence_grounded_pct": 100.0,
+      "near_duplicate_pair_pct": 0.0,
+      "repeated_recent_question_count": 0,
+      "question_len_le80_pct": 44.7,
+      "non_korean_script_pct": 0.0,
+      "markdown_in_question_pct": 0.0,
+      "long_context_success": "1/2",
+      "latency_median": 4.19,
+      "latency_p90": 4.68
+    },
+    "coaching": {
+      "calls": 9,
+      "success_pct": 100.0,
+      "invented_numbers_pct": 0.0,
+      "non_korean_script_pct": 0.0,
+      "comment_one_line_pct": 100.0,
+      "latency_median": 3.03,
+      "latency_p90": 3.37,
+      "fanout15x5_success": "15/15",
+      "fanout15x5_wall_sec": 10.826,
+      "fanout15x5_per_call_p90": 4.57
+    }
+  },
+  "gw-gemma-4-31b": {
+    "followup": {
+      "calls": 42,
+      "success_pct": 100.0,
+      "tag_compliance_pct": 100.0,
+      "intent_accuracy_pct": 100.0,
+      "intent_misses": {},
+      "score_label_accuracy_pct": 100.0,
+      "correctness_rule_accuracy_pct": 100.0,
+      "discrimination_gap_backend": 3.0,
+      "discrimination_gap_personality": 3.0,
+      "question_len_median": 65.5,
+      "question_len_le60_pct": 40.5,
+      "non_korean_script_pct": 0.0,
+      "latency_median": 9.16,
+      "latency_p90": 54.28,
+      "ttft_median": 3.18,
+      "ttft_p90": 11.73,
+      "over_3s_pct": 100.0,
+      "over_10s_timeout_pct": 47.6
+    },
+    "questions": {
+      "calls": 10,
+      "success_pct": 100.0,
+      "errors": [],
+      "count_exact_pct": 100.0,
+      "mode_category_fit_pct": 100.0,
+      "job_category_valid_pct": 100.0,
+      "multi_job_coverage_pct": 100.0,
+      "evidence_present_when_required_pct": 100.0,
+      "evidence_grounded_pct": 100.0,
+      "near_duplicate_pair_pct": 0.0,
+      "repeated_recent_question_count": 0,
+      "question_len_le80_pct": 84.6,
+      "non_korean_script_pct": 0.0,
+      "markdown_in_question_pct": 0.0,
+      "long_context_success": "2/2",
+      "latency_median": 43.68,
+      "latency_p90": 50.06
+    },
+    "coaching": {
+      "calls": 9,
+      "success_pct": 100.0,
+      "invented_numbers_pct": 0.0,
+      "non_korean_script_pct": 0.0,
+      "comment_one_line_pct": 100.0,
+      "latency_median": 22.56,
+      "latency_p90": 26.88
+    }
+  },
+  "gw-gpt-oss-120b": {
+    "followup": {
+      "calls": 42,
+      "success_pct": 100.0,
+      "tag_compliance_pct": 54.8,
+      "intent_accuracy_pct": 100.0,
+      "intent_misses": {},
+      "score_label_accuracy_pct": 42.4,
+      "correctness_rule_accuracy_pct": 72.7,
+      "discrimination_gap_backend": 4.0,
+      "discrimination_gap_personality": null,
+      "question_len_median": 43.0,
+      "question_len_le60_pct": 71.4,
+      "non_korean_script_pct": 0.0,
+      "latency_median": 4.87,
+      "latency_p90": 6.9,
+      "ttft_median": 3.88,
+      "ttft_p90": 5.27,
+      "over_3s_pct": 97.6,
+      "over_10s_timeout_pct": 0.0
+    },
+    "questions": {
+      "calls": 10,
+      "success_pct": 100.0,
+      "errors": [],
+      "count_exact_pct": 100.0,
+      "mode_category_fit_pct": 90.0,
+      "job_category_valid_pct": 100.0,
+      "multi_job_coverage_pct": 100.0,
+      "evidence_present_when_required_pct": 100.0,
+      "evidence_grounded_pct": 100.0,
+      "near_duplicate_pair_pct": 0.0,
+      "repeated_recent_question_count": 0,
+      "question_len_le80_pct": 96.2,
+      "non_korean_script_pct": 0.0,
+      "markdown_in_question_pct": 0.0,
+      "long_context_success": "2/2",
+      "latency_median": 15.38,
+      "latency_p90": 17.68
+    },
+    "coaching": {
+      "calls": 9,
+      "success_pct": 100.0,
+      "invented_numbers_pct": 11.1,
+      "non_korean_script_pct": 0.0,
+      "comment_one_line_pct": 100.0,
+      "latency_median": 8.88,
+      "latency_p90": 10.57
+    }
+  },
+  "gw-llama-4-maverick": {
+    "followup": {
+      "calls": 42,
+      "success_pct": 100.0,
+      "tag_compliance_pct": 100.0,
+      "intent_accuracy_pct": 92.9,
+      "intent_misses": {
+        "f-weak-vague": [
+          "DONT_KNOW",
+          "DONT_KNOW",
+          "DONT_KNOW"
+        ]
+      },
+      "score_label_accuracy_pct": 90.9,
+      "correctness_rule_accuracy_pct": 81.8,
+      "discrimination_gap_backend": 3.0,
+      "discrimination_gap_personality": 2.0,
+      "question_len_median": 49.0,
+      "question_len_le60_pct": 66.7,
+      "non_korean_script_pct": 0.0,
+      "latency_median": 1.85,
+      "latency_p90": 2.75,
+      "ttft_median": 1.32,
+      "ttft_p90": 1.61,
+      "over_3s_pct": 0.0,
+      "over_10s_timeout_pct": 0.0
+    },
+    "questions": {
+      "calls": 10,
+      "success_pct": 100.0,
+      "errors": [],
+      "count_exact_pct": 100.0,
+      "mode_category_fit_pct": 100.0,
+      "job_category_valid_pct": 100.0,
+      "multi_job_coverage_pct": 100.0,
+      "evidence_present_when_required_pct": 100.0,
+      "evidence_grounded_pct": 100.0,
+      "near_duplicate_pair_pct": 0.0,
+      "repeated_recent_question_count": 0,
+      "question_len_le80_pct": 96.2,
+      "non_korean_script_pct": 0.0,
+      "markdown_in_question_pct": 0.0,
+      "long_context_success": "2/2",
+      "latency_median": 7.27,
+      "latency_p90": 8.21
+    },
+    "coaching": {
+      "calls": 9,
+      "success_pct": 100.0,
+      "invented_numbers_pct": 0.0,
+      "non_korean_script_pct": 0.0,
+      "comment_one_line_pct": 100.0,
+      "latency_median": 3.82,
+      "latency_p90": 4.45
+    }
+  },
+  "gw-solar-pro4": {
+    "followup": {
+      "calls": 42,
+      "success_pct": 100.0,
+      "tag_compliance_pct": 100.0,
+      "intent_accuracy_pct": 95.2,
+      "intent_misses": {
+        "f-weak-vague": [
+          "DONT_KNOW",
+          "DONT_KNOW"
+        ]
+      },
+      "score_label_accuracy_pct": 87.9,
+      "correctness_rule_accuracy_pct": 100.0,
+      "discrimination_gap_backend": 2.0,
+      "discrimination_gap_personality": 2.0,
+      "question_len_median": 103.0,
+      "question_len_le60_pct": 9.5,
+      "non_korean_script_pct": 0.0,
+      "latency_median": 2.32,
+      "latency_p90": 4.43,
+      "ttft_median": 1.3,
+      "ttft_p90": 2.27,
+      "over_3s_pct": 23.8,
+      "over_10s_timeout_pct": 0.0
+    },
+    "questions": {
+      "calls": 10,
+      "success_pct": 100.0,
+      "errors": [],
+      "count_exact_pct": 100.0,
+      "mode_category_fit_pct": 80.0,
+      "job_category_valid_pct": 100.0,
+      "multi_job_coverage_pct": 100.0,
+      "evidence_present_when_required_pct": 100.0,
+      "evidence_grounded_pct": 100.0,
+      "near_duplicate_pair_pct": 0.0,
+      "repeated_recent_question_count": 0,
+      "question_len_le80_pct": 0.0,
+      "non_korean_script_pct": 0.0,
+      "markdown_in_question_pct": 0.0,
+      "long_context_success": "2/2",
+      "latency_median": 16.23,
+      "latency_p90": 21.14
+    },
+    "coaching": {
+      "calls": 9,
+      "success_pct": 100.0,
+      "invented_numbers_pct": 0.0,
+      "non_korean_script_pct": 0.0,
+      "comment_one_line_pct": 88.9,
+      "latency_median": 5.32,
+      "latency_p90": 10.06
+    }
+  },
+  "local-ax4-light": {
+    "followup": {
+      "calls": 42,
+      "success_pct": 100.0,
+      "tag_compliance_pct": 100.0,
+      "intent_accuracy_pct": 90.5,
+      "intent_misses": {
+        "f-weak-vague": [
+          "DONT_KNOW",
+          "DONT_KNOW",
+          "DONT_KNOW"
+        ],
+        "f-confirm-short": [
+          "DONT_KNOW"
+        ]
+      },
+      "score_label_accuracy_pct": 75.8,
+      "correctness_rule_accuracy_pct": 54.5,
+      "discrimination_gap_backend": 3.0,
+      "discrimination_gap_personality": 1.0,
+      "question_len_median": 73.5,
+      "question_len_le60_pct": 23.8,
+      "non_korean_script_pct": 0.0,
+      "latency_median": 4.26,
+      "latency_p90": 6.41,
+      "ttft_median": 2.08,
+      "ttft_p90": 3.93,
+      "over_3s_pct": 83.3,
+      "over_10s_timeout_pct": 2.4,
+      "latency_cold": 12.152,
+      "latency_after_cold": 2.745,
+      "latency_during_fanout": 81.17
+    },
+    "questions": {
+      "calls": 10,
+      "success_pct": 70.0,
+      "errors": [
+        "OutputParserException: Failed to parse GeneratedQuestionPool from completion {\"questions\": [{\"category\": \"PROJECT_DEEP_DIVE\", \"question\": \"EKS 클러스터 운영 시 HPA를 CP",
+        "OutputParserException: Failed to parse GeneratedQuestionPool from completion {\"questions\": [{\"category\": \"PROJECT_DEEP_DIVE\", \"question\": \"주문 서비스 MSA 전환 시 Kafka",
+        "OutputParserException: Failed to parse GeneratedQuestionPool from completion {\"questions\": [{\"category\": \"PROJECT_DEEP_DIVE\", \"question\": \"EKS 클러스터 운영 시 HPA를 CP"
+      ],
+      "count_exact_pct": 100.0,
+      "mode_category_fit_pct": 100.0,
+      "job_category_valid_pct": 100.0,
+      "multi_job_coverage_pct": null,
+      "evidence_present_when_required_pct": 100.0,
+      "evidence_grounded_pct": 91.4,
+      "near_duplicate_pair_pct": 0.0,
+      "repeated_recent_question_count": 0,
+      "question_len_le80_pct": 28.6,
+      "non_korean_script_pct": 0.0,
+      "markdown_in_question_pct": 0.0,
+      "long_context_success": "1/2",
+      "latency_median": 35.08,
+      "latency_p90": 38.43
+    },
+    "coaching": {
+      "calls": 9,
+      "success_pct": 88.9,
+      "invented_numbers_pct": 0.0,
+      "non_korean_script_pct": 0.0,
+      "comment_one_line_pct": 100.0,
+      "latency_median": 14.86,
+      "latency_p90": 15.5,
+      "fanout15x5_success": "15/15",
+      "fanout15x5_wall_sec": 231.365,
+      "fanout15x5_per_call_p90": 84.04
+    }
+  },
+  "local-kanana2-3b": {
+    "followup": {
+      "calls": 42,
+      "success_pct": 100.0,
+      "tag_compliance_pct": 28.6,
+      "intent_accuracy_pct": 78.6,
+      "intent_misses": {
+        "f-dont-know-explicit": [
+          "NORMAL",
+          "NORMAL",
+          "NORMAL"
+        ],
+        "f-dont-know-stt": [
+          "NORMAL",
+          "NORMAL",
+          "NORMAL"
+        ],
+        "f-clarification": [
+          "NORMAL",
+          "NORMAL",
+          "NORMAL"
+        ]
+      },
+      "score_label_accuracy_pct": 9.1,
+      "correctness_rule_accuracy_pct": 72.7,
+      "discrimination_gap_backend": null,
+      "discrimination_gap_personality": null,
+      "question_len_median": 61.0,
+      "question_len_le60_pct": 0.0,
+      "non_korean_script_pct": 0.0,
+      "latency_median": 1.14,
+      "latency_p90": 222.66,
+      "ttft_median": null,
+      "ttft_p90": null,
+      "over_3s_pct": 23.8,
+      "over_10s_timeout_pct": 16.7,
+      "latency_cold": 3.345,
+      "latency_after_cold": 0.628
+    },
+    "questions": {
+      "calls": 10,
+      "success_pct": 0.0,
+      "errors": [
+        "OutputParserException: Invalid json output: 증 뉴 관 관 적 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관\nFor troubleshooting, visit: https://docs.lan",
+        "OutputParserException: Invalid json output: 관 구 구 구 구 구 구 구 관 관 구 관 관 관 구 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관\nFor troubleshooting, vis",
+        "OutputParserException: Invalid json output: 구 구 관 관 관  구 관 관 관 연 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관 관\nFor troubleshooting, visit: https"
+      ],
+      "count_exact_pct": null,
+      "mode_category_fit_pct": null,
+      "job_category_valid_pct": null,
+      "multi_job_coverage_pct": null,
+      "evidence_present_when_required_pct": null,
+      "evidence_grounded_pct": null,
+      "near_duplicate_pair_pct": null,
+      "repeated_recent_question_count": 0,
+      "question_len_le80_pct": null,
+      "non_korean_script_pct": null,
+      "markdown_in_question_pct": null,
+      "long_context_success": "0/2",
+      "latency_median": null,
+      "latency_p90": null
+    },
+    "coaching": {
+      "calls": 9,
+      "success_pct": 0.0,
+      "invented_numbers_pct": null,
+      "non_korean_script_pct": null,
+      "comment_one_line_pct": null,
+      "latency_median": null,
+      "latency_p90": null
+    }
+  },
+  "local-midm2-mini": {
+    "followup": {
+      "calls": 42,
+      "success_pct": 100.0,
+      "tag_compliance_pct": 28.6,
+      "intent_accuracy_pct": 14.3,
+      "intent_misses": {
+        "f-strong-backend": [
+          "DONT_KNOW",
+          "DONT_KNOW",
+          "DONT_KNOW"
+        ],
+        "f-weak-vague": [
+          "DONT_KNOW",
+          "DONT_KNOW",
+          "DONT_KNOW"
+        ],
+        "f-clarification": [
+          "DONT_KNOW",
+          "DONT_KNOW",
+          "DONT_KNOW"
+        ],
+        "f-confirm-short": [
+          "DONT_KNOW",
+          "DONT_KNOW",
+          "DONT_KNOW"
+        ],
+        "f-infra-fact-error": [
+          "DONT_KNOW",
+          "DONT_KNOW",
+          "DONT_KNOW"
+        ],
+        "f-dba-correct-with-context": [
+          "DONT_KNOW",
+          "DONT_KNOW",
+          "DONT_KNOW"
+        ],
+        "f-frontend-strong": [
+          "DONT_KNOW",
+          "DONT_KNOW",
+          "DONT_KNOW"
+        ],
+        "f-personality-star": [
+          "DONT_KNOW",
+          "DONT_KNOW",
+          "DONT_KNOW"
+        ],
+        "f-personality-rambling": [
+          "DONT_KNOW",
+          "DONT_KNOW",
+          "DONT_KNOW"
+        ],
+        "f-stt-messy-normal": [
+          "DONT_KNOW",
+          "DONT_KNOW",
+          "DONT_KNOW"
+        ],
+        "f-long-answer-history": [
+          "DONT_KNOW",
+          "DONT_KNOW",
+          "DONT_KNOW"
+        ],
+        "f-english-mixed": [
+          "DONT_KNOW",
+          "DONT_KNOW",
+          "DONT_KNOW"
+        ]
+      },
+      "score_label_accuracy_pct": 9.1,
+      "correctness_rule_accuracy_pct": 72.7,
+      "discrimination_gap_backend": null,
+      "discrimination_gap_personality": null,
+      "question_len_median": 81.5,
+      "question_len_le60_pct": 16.7,
+      "non_korean_script_pct": 0.0,
+      "latency_median": 1.9,
+      "latency_p90": 3.08,
+      "ttft_median": null,
+      "ttft_p90": null,
+      "over_3s_pct": 14.3,
+      "over_10s_timeout_pct": 0.0,
+      "latency_cold": 7.673,
+      "latency_after_cold": 1.192,
+      "latency_during_fanout": 33.094
+    },
+    "questions": {
+      "calls": 10,
+      "success_pct": 30.0,
+      "errors": [
+        "OutputParserException: Failed to parse GeneratedQuestionPool from completion {\"questions\": [{\"question\": \"React 18에서 virtualize timeline 구현 시 성능 개선을 위해 window 가",
+        "OutputParserException: Failed to parse GeneratedQuestionPool from completion {\"questions\": [{\"question\": \"Terraform으로 VPC와 RDS를 환경별로 분리하신 경험에서, 실제 개발환경과 운영환경 간의",
+        "OutputParserException: Failed to parse GeneratedQuestionPool from completion {\"questions\": [{\"question\": \"알림 봇 개발 시 동시 쓰기 락 문제를 해결하기 위해 PostgreSQL로 전환하셨다고 하셨는데,"
+      ],
+      "count_exact_pct": 100.0,
+      "mode_category_fit_pct": 100.0,
+      "job_category_valid_pct": 100.0,
+      "multi_job_coverage_pct": null,
+      "evidence_present_when_required_pct": 90.0,
+      "evidence_grounded_pct": 100.0,
+      "near_duplicate_pair_pct": 0.0,
+      "repeated_recent_question_count": 1,
+      "question_len_le80_pct": 66.7,
+      "non_korean_script_pct": 0.0,
+      "markdown_in_question_pct": 0.0,
+      "long_context_success": "1/2",
+      "latency_median": 17.24,
+      "latency_p90": 20.8
+    },
+    "coaching": {
+      "calls": 9,
+      "success_pct": 0.0,
+      "invented_numbers_pct": null,
+      "non_korean_script_pct": null,
+      "comment_one_line_pct": null,
+      "latency_median": null,
+      "latency_p90": null,
+      "fanout15x5_success": "0/15",
+      "fanout15x5_wall_sec": 99.15,
+      "fanout15x5_per_call_p90": null
+    }
+  },
+  "local-qwen3-4b-instruct": {
+    "followup": {
+      "calls": 42,
+      "success_pct": 100.0,
+      "tag_compliance_pct": 100.0,
+      "intent_accuracy_pct": 100.0,
+      "intent_misses": {},
+      "score_label_accuracy_pct": 81.8,
+      "correctness_rule_accuracy_pct": 57.6,
+      "discrimination_gap_backend": 2.0,
+      "discrimination_gap_personality": 2.0,
+      "question_len_median": 92.5,
+      "question_len_le60_pct": 19.0,
+      "non_korean_script_pct": 0.0,
+      "latency_median": 3.3,
+      "latency_p90": 5.47,
+      "ttft_median": 1.73,
+      "ttft_p90": 3.52,
+      "over_3s_pct": 54.8,
+      "over_10s_timeout_pct": 0.0,
+      "latency_cold": 10.665,
+      "latency_after_cold": 2.651,
+      "latency_during_fanout": 78.779
+    },
+    "questions": {
+      "calls": 10,
+      "success_pct": 90.0,
+      "errors": [
+        "OutputParserException: Failed to parse GeneratedQuestionPool from completion {\"questions\": [{\"category\": \"PROJECT_DEEP_DIVE\", \"question\": \"알림 봇 프로젝트에서 SQLite를 사"
+      ],
+      "count_exact_pct": 100.0,
+      "mode_category_fit_pct": 88.9,
+      "job_category_valid_pct": 100.0,
+      "multi_job_coverage_pct": 100.0,
+      "evidence_present_when_required_pct": 100.0,
+      "evidence_grounded_pct": 100.0,
+      "near_duplicate_pair_pct": 0.0,
+      "repeated_recent_question_count": 0,
+      "question_len_le80_pct": 53.2,
+      "non_korean_script_pct": 0.0,
+      "markdown_in_question_pct": 0.0,
+      "long_context_success": "2/2",
+      "latency_median": 31.43,
+      "latency_p90": 39.3
+    },
+    "coaching": {
+      "calls": 9,
+      "success_pct": 100.0,
+      "invented_numbers_pct": 0.0,
+      "non_korean_script_pct": 0.0,
+      "comment_one_line_pct": 100.0,
+      "latency_median": 12.83,
+      "latency_p90": 17.97,
+      "fanout15x5_success": "15/15",
+      "fanout15x5_wall_sec": 224.064,
+      "fanout15x5_per_call_p90": 81.05
+    }
+  },
+  "local-qwen3.5-4b": {
+    "followup": {
+      "calls": 42,
+      "success_pct": 100.0,
+      "tag_compliance_pct": 33.3,
+      "intent_accuracy_pct": 92.9,
+      "intent_misses": {
+        "f-weak-vague": [
+          "DONT_KNOW"
+        ],
+        "f-confirm-short": [
+          "DONT_KNOW"
+        ],
+        "f-personality-rambling": [
+          "CLARIFICATION"
+        ]
+      },
+      "score_label_accuracy_pct": 18.2,
+      "correctness_rule_accuracy_pct": 69.7,
+      "discrimination_gap_backend": 2.0,
+      "discrimination_gap_personality": null,
+      "question_len_median": 60.0,
+      "question_len_le60_pct": 54.8,
+      "non_korean_script_pct": 0.0,
+      "latency_median": 6.37,
+      "latency_p90": 7.56,
+      "ttft_median": 3.97,
+      "ttft_p90": 4.97,
+      "over_3s_pct": 100.0,
+      "over_10s_timeout_pct": 0.0,
+      "latency_cold": 15.47,
+      "latency_after_cold": 6.643,
+      "latency_during_fanout": 111.486
+    },
+    "questions": {
+      "calls": 10,
+      "success_pct": 50.0,
+      "errors": [
+        "OutputParserException: Failed to parse GeneratedQuestionPool from completion [{\"category\": \"PROJECT_DEEP_DIVE\", \"question\": \"결제 콜백 지연 시 중복 주문을 멱등 키와 Outbox 패턴으로",
+        "OutputParserException: Failed to parse GeneratedQuestionPool from completion [{\"category\": \"PROJECT_DEEP_DIVE\", \"question\": \"Outbox 패턴을 도입할 때, Kafka 메시지 발행과 DB ",
+        "OutputParserException: Failed to parse GeneratedQuestionPool from completion [{\"category\": \"PROJECT_DEEP_DIVE\", \"question\": \"2000 개 이상의 타임라인 항목에서 가상화를 도입해 성능을 4"
+      ],
+      "count_exact_pct": 100.0,
+      "mode_category_fit_pct": 100.0,
+      "job_category_valid_pct": 100.0,
+      "multi_job_coverage_pct": 100.0,
+      "evidence_present_when_required_pct": 100.0,
+      "evidence_grounded_pct": 100.0,
+      "near_duplicate_pair_pct": 0.0,
+      "repeated_recent_question_count": 0,
+      "question_len_le80_pct": 40.7,
+      "non_korean_script_pct": 0.0,
+      "markdown_in_question_pct": 0.0,
+      "long_context_success": "0/2",
+      "latency_median": 41.02,
+      "latency_p90": 51.08
+    },
+    "coaching": {
+      "calls": 9,
+      "success_pct": 100.0,
+      "invented_numbers_pct": 0.0,
+      "non_korean_script_pct": 0.0,
+      "comment_one_line_pct": 100.0,
+      "latency_median": 18.87,
+      "latency_p90": 19.72,
+      "fanout15x5_success": "15/15",
+      "fanout15x5_wall_sec": 304.74,
+      "fanout15x5_per_call_p90": 110.82
+    }
+  }
+}
