@@ -1,0 +1,169 @@
+{
+  "lcpp-gemma4-26b-a4b-iq3s": {
+    "coaching": {
+      "gemini-3.1-pro-preview": 4.0,
+      "claude-opus-5": 4.33,
+      "mean": 4.17
+    },
+    "followup": {
+      "gemini-3.1-pro-preview": 3.86,
+      "claude-opus-5": 3.71,
+      "mean": 3.79
+    },
+    "questions": {
+      "gemini-3.1-pro-preview": 3.6,
+      "claude-opus-5": 4.2,
+      "mean": 3.9
+    }
+  },
+  "lcpp-gemma4-e2b": {
+    "coaching": {
+      "gemini-3.1-pro-preview": 3.67,
+      "claude-opus-5": 2.67,
+      "mean": 3.17
+    },
+    "followup": {
+      "gemini-3.1-pro-preview": 2.5,
+      "claude-opus-5": 2.86,
+      "mean": 2.68
+    },
+    "questions": {
+      "gemini-3.1-pro-preview": 2.6,
+      "claude-opus-5": 2.8,
+      "mean": 2.7
+    }
+  },
+  "gw-gemini-3.5-flash-lite": {
+    "coaching": {
+      "gemini-3.1-pro-preview": 4.33,
+      "claude-opus-5": 4.0,
+      "mean": 4.17
+    },
+    "followup": {
+      "gemini-3.1-pro-preview": 4.43,
+      "claude-opus-5": 4.07,
+      "mean": 4.25
+    },
+    "questions": {
+      "gemini-3.1-pro-preview": 4.0,
+      "claude-opus-5": 4.2,
+      "mean": 4.1
+    }
+  },
+  "gw-gemma-4-31b": {
+    "coaching": {
+      "gemini-3.1-pro-preview": 5.0,
+      "claude-opus-5": 4.33,
+      "mean": 4.67
+    },
+    "followup": {
+      "gemini-3.1-pro-preview": 4.86,
+      "claude-opus-5": 4.07,
+      "mean": 4.46
+    },
+    "questions": {
+      "gemini-3.1-pro-preview": 4.4,
+      "claude-opus-5": 4.0,
+      "mean": 4.2
+    }
+  },
+  "lcpp-qwen3-4b-jsonschema": {
+    "coaching": {
+      "gemini-3.1-pro-preview": 2.67,
+      "claude-opus-5": 2.0,
+      "mean": 2.33
+    },
+    "questions": {
+      "gemini-3.1-pro-preview": 2.4,
+      "claude-opus-5": 2.4,
+      "mean": 2.4
+    }
+  },
+  "lcpp-qwen3.6-35b-a3b-q2kxl": {
+    "coaching": {
+      "gemini-3.1-pro-preview": 3.33,
+      "claude-opus-5": 3.0,
+      "mean": 3.17
+    },
+    "followup": {
+      "gemini-3.1-pro-preview": 3.0,
+      "claude-opus-5": 3.14,
+      "mean": 3.07
+    },
+    "questions": {
+      "gemini-3.1-pro-preview": 4.25,
+      "claude-opus-5": 3.75,
+      "mean": 4.0
+    }
+  },
+  "lcpp-gemma4-e4b": {
+    "coaching": {
+      "gemini-3.1-pro-preview": 3.33,
+      "claude-opus-5": 3.0,
+      "mean": 3.17
+    },
+    "followup": {
+      "gemini-3.1-pro-preview": 2.79,
+      "claude-opus-5": 3.0,
+      "mean": 2.9
+    },
+    "questions": {
+      "gemini-3.1-pro-preview": 3.8,
+      "claude-opus-5": 3.2,
+      "mean": 3.5
+    }
+  },
+  "local-qwen3-4b-instruct": {
+    "coaching": {
+      "gemini-3.1-pro-preview": 3.0,
+      "claude-opus-5": 2.0,
+      "mean": 2.5
+    },
+    "followup": {
+      "gemini-3.1-pro-preview": 2.43,
+      "claude-opus-5": 2.36,
+      "mean": 2.4
+    },
+    "questions": {
+      "gemini-3.1-pro-preview": 2.8,
+      "claude-opus-5": 2.8,
+      "mean": 2.8
+    }
+  },
+  "lcpp-kanana2-3b": {
+    "coaching": {
+      "gemini-3.1-pro-preview": 1.0,
+      "claude-opus-5": 1.0,
+      "mean": 1.0
+    },
+    "followup": {
+      "gemini-3.1-pro-preview": 1.21,
+      "claude-opus-5": 1.29,
+      "mean": 1.25
+    },
+    "questions": {
+      "gemini-3.1-pro-preview": 1.0,
+      "claude-opus-5": 1.0,
+      "mean": 1.0
+    }
+  },
+  "lcpp-gptoss-20b": {
+    "followup": {
+      "gemini-3.1-pro-preview": 2.86,
+      "claude-opus-5": 3.21,
+      "mean": 3.04
+    },
+    "questions": {
+      "gemini-3.1-pro-preview": 2.75,
+      "claude-opus-5": 2.75,
+      "mean": 2.75
+    }
+  },
+  "gw-gemini-3.1-pro": {
+    "questions": {
+      "gemini-3.1-pro-preview": 4.6,
+      "claude-opus-5": 4.8,
+      "mean": 4.7
+    }
+  }
+}

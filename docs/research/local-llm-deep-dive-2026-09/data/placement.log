@@ -1,0 +1,33 @@
+19:09:50 lcpp-qwen3-4b-np1 ready after 23x2s :: vram=3798 MiB :: 
+19:17:33 lcpp-qwen3-4b-np4-q8kv ready after 2x2s :: vram=5184 MiB :: 
+19:23:05 np4 after :: vram=5202 MiB
+19:25:10 speed-qwen3-4b-np4 ready after 2x2s :: vram=5184 MiB :: 
+19:26:49 speed-qwen3-4b-np4-f16 ready after 2x2s :: vram=5534 MiB :: 
+19:28:50 fa-on ready after 2x2s :: vram=3806 MiB :: 
+19:29:35 fa-off ready after 10x2s :: vram=4274 MiB :: 
+19:30:07 fa-on-ub1024 ready after 2x2s :: vram=3890 MiB :: 
+19:30:34 fa-on-ub256 ready after 2x2s :: vram=3764 MiB :: 
+19:31:53 lcpp-qwen3-4b-json ready after 2x2s :: vram=3806 MiB :: 
+19:38:43 lcpp-kanana2-3b ready after 2x2s :: vram=3174 MiB :: 
+19:42:33 lcpp-midm2-mini ready after 2x2s :: vram=3140 MiB :: 
+19:47:48 lcpp-gemma4-e2b ready after 25x2s :: vram=1778 MiB :: 
+19:52:07 lcpp-gemma4-e4b ready after 8x2s :: vram=3360 MiB :: 
+20:01:02 gemma4-26b-a4b-iq3s ready after 12x2s :: vram=5328 MiB :: 
+20:01:02 gemma4-26b-a4b-iq3s mem=6.333GiB / 11GiB vram=5328 MiB host=2729MB used 12682MB avail swap=3795MB
+gemma4-26b-a4b-iq3s speed: pp_tps/tg_tps runs: [(90, 16), (181, 15)]
+20:12:38 gemma4-26b-a4b-iq3s done host_avail=11902MB swap=4232MB
+20:12:57 qwen3.6-35b-a3b-q2kxl ready after 9x2s :: vram=3872 MiB :: 
+20:12:57 qwen3.6-35b-a3b-q2kxl mem=6.513GiB / 11GiB vram=3872 MiB host=2356MB used 13097MB avail swap=4136MB
+qwen3.6-35b-a3b-q2kxl speed: pp_tps/tg_tps runs: [(131, 20), (183, 20)]
+20:22:21 qwen3.6-35b-a3b-q2kxl done host_avail=12823MB swap=4509MB
+20:22:32 load-gemma4-e4b-np4 ready after 5x2s :: vram=3648 MiB :: 
+20:27:39 e4b-np4 vram=3782 MiB 
+20:27:47 load-gemma4-e2b-np4 ready after 4x2s :: vram=1856 MiB :: 
+21:15:16 gptoss-20b ready after 10x2s :: vram=4544 MiB :: 
+21:15:16 gptoss-20b mem=5.919GiB / 11GiB vram=4544 MiB host=2289MB used 13150MB avail swap=4269MB
+gptoss-20b speed: pp_tps/tg_tps runs: [(158, 17), (178, 17)]
+21:32:27 gptoss-20b done host_avail=13077MB swap=4425MB
+21:40:57 kanana2-30b-a3b-q2k ready after 8x2s :: vram=3664 MiB :: 
+21:40:57 kanana2-30b-a3b-q2k mem=6.525GiB / 11GiB vram=3664 MiB host=2142MB used 13319MB avail swap=4311MB
+kanana2-30b-a3b-q2k speed: pp_tps/tg_tps runs: [(117, 24), (128, 23)]
+22:00:47 kanana2-30b-a3b-q2k done host_avail=12998MB swap=4350MB
