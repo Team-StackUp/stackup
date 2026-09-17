@@ -36,7 +36,16 @@ export function useVoiceRecorder() {
     setStream(null)
   }, [])
 
-  useEffect(() => cleanup, [cleanup])
+  // 언마운트 정리. requestId 를 올려 아직 pending 인 getUserMedia 를 무효화한다 —
+  // 안 그러면 resolve 가 언마운트 뒤에 도착해 start() 가드(아래 requestId 비교)를 통과,
+  // 소유자 없는 녹음이 시작되며 마이크 표시등이 켜진 채 남는다.
+  useEffect(
+    () => () => {
+      requestIdRef.current += 1
+      cleanup()
+    },
+    [cleanup],
+  )
 
   const start = useCallback(async (): Promise<boolean> => {
     if (status === 'unsupported' || status === 'recording') return false
