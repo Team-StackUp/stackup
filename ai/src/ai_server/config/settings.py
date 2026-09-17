@@ -53,13 +53,8 @@ class Settings(BaseSettings):
     # 후속 작업에서 풀 저장 도입 시 늘리기 (예: 5).
     questions_initial_pool_size: int = 1
 
-    # STT (음성 답변). "auto" 면 deepgram > openai_whisper > mock 순으로 키 보유 여부에 따라 자동 선택.
-    stt_provider: Literal["auto", "mock", "openai_whisper", "deepgram"] = "auto"
-    openai_api_key: str = ""
-    openai_base_url: str = "https://api.openai.com/v1"
-    whisper_model: str = "whisper-1"
-    whisper_language: str = "ko"
-    whisper_timeout_sec: float = 60.0
+    # STT (음성 답변). "auto" 면 DEEPGRAM_API_KEY 보유 시 deepgram, 없으면 mock.
+    stt_provider: Literal["auto", "mock", "deepgram"] = "auto"
     deepgram_api_key: str = ""
     deepgram_base_url: str = "https://api.deepgram.com/v1"
     deepgram_model: str = "whisper-large"  # 한국어 정확도 우선; 저비용 우선 시 nova-2.
@@ -74,13 +69,10 @@ class Settings(BaseSettings):
     deepgram_live_endpointing_ms: int = 800  # 무음 800ms → utterance end
     voice_stream_internal_path: str = "/internal/voice/stream"
 
-    # TTS (질문 음성화). "auto" 면 gateway(충남대 키) > gemini(직접 키) > openai, 없으면 mock.
+    # TTS (질문 음성화). "auto" 면 gateway(충남대 키) > gemini(직접 키), 없으면 mock.
     # gateway 는 Mindlogic 게이트웨이(/audio/speech)가 Gemini TTS 로 라우팅 — 직접 키 429 부하 분산.
-    # Deepgram/OpenAI TTS 는 한국어 미지원. gateway/gemini 모두 gemini_tts_model/voice 를 공유한다.
-    tts_provider: Literal["auto", "mock", "openai", "gemini", "gateway"] = "auto"
-    openai_tts_model: str = "gpt-4o-mini-tts"
-    openai_tts_voice: str = "alloy"
-    openai_tts_timeout_sec: float = 30.0
+    # Deepgram/OpenAI TTS 는 한국어 미지원이라 제공자로 두지 않는다. gateway/gemini 모두 gemini_tts_model/voice 를 공유한다.
+    tts_provider: Literal["auto", "mock", "gemini", "gateway"] = "auto"
     # Gemini TTS — 한국어 지원. raw PCM(L16) 반환 → 저장 시 WAV 로 감싼다.
     gemini_tts_model: str = "gemini-2.5-flash-preview-tts"
     gemini_tts_voice: str = "Kore"

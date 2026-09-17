@@ -239,7 +239,7 @@ class MessagingRuntime:
             session_notifier=session_notifier,
             tts=tts,
             storage=storage,
-            tts_voice=settings.openai_tts_voice,
+            tts_voice=settings.gemini_tts_voice,
             rag_timeout_sec=settings.followup_rag_timeout_sec,
         )
 
@@ -303,7 +303,7 @@ class MessagingRuntime:
             publisher=self._publisher,
             idempotency=self._idempotency,
             callback_routing_key=settings.ai_callback_routing_tts,
-            voice=settings.openai_tts_voice,
+            voice=settings.gemini_tts_voice,
             key_template=settings.tts_audio_key_template,
             session_notifier=session_notifier,
         )

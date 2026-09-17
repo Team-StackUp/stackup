@@ -119,8 +119,8 @@ async def consume(message: AbstractIncomingMessage) -> None:
   [`/docs/messaging.md §10`](../../../docs/messaging.md))
 
 ### `voice/`
-- `voice/stt/` — interface + provider impls (배치 Whisper/Deepgram + 라이브 Deepgram Live)
-- `voice/tts/` — provider 추상화 (Gateway/Gemini/OpenAI/Mock)
+- `voice/stt/` — interface + provider impls (배치 Deepgram + 라이브 Deepgram Live, 키 없으면 Mock)
+- `voice/tts/` — provider 추상화 (Gateway/Gemini/Mock)
 - `voice/analysis/` — WPM, filler, silence (`metrics.py`)
 
 ### `storage/`
