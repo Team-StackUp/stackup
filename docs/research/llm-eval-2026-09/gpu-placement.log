@@ -1,0 +1,16 @@
+16:43:38 stackup-eval-qwen3-4b-instruct-8k try1 :: stackup-eval-qwen3-4b-instruct-8k:latest    81f2e7df722a    4.2 GB    100% GPU     8192       4 minutes from now    
+16:57:40 qwen3-4b-instruct after-run :: stackup-eval-qwen3-4b-instruct-8k:latest    81f2e7df722a    4.2 GB    100% GPU     8192       4 minutes from now    
+16:57:40 qwen3-4b-instruct cuda-init-failures-last-40m: 2
+16:57:49 stackup-eval-qwen3.5-4b-8k try1 :: stackup-eval-qwen3.5-4b-8k:latest    dd1117801f2c    6.4 GB    29%/71% CPU/GPU    8192       4 minutes from now    
+17:22:06 qwen3.5-4b after-run :: stackup-eval-qwen3.5-4b-8k:latest    dd1117801f2c    6.4 GB    29%/71% CPU/GPU    8192       4 minutes from now    
+17:22:06 qwen3.5-4b cuda-init-failures-last-40m: 0
+17:22:12 stackup-eval-kanana2-3b-8k try1 :: stackup-eval-kanana2-3b-8k:latest    552c00606745    3.4 GB    100% GPU     8192       4 minutes from now    
+18:00:32 kanana2-3b after-run :: stackup-eval-kanana2-3b-8k:latest    552c00606745    3.4 GB    100% GPU     8192       4 minutes from now    
+18:00:32 kanana2-3b cuda-init-failures-last-40m: 0
+18:00:38 stackup-eval-midm2-mini-8k try1 :: stackup-eval-midm2-mini-8k:latest    9b4435b118b1    3.6 GB    100% GPU     8192       4 minutes from now    
+18:07:47 midm2-mini after-run :: stackup-eval-midm2-mini-8k:latest    9b4435b118b1    3.6 GB    100% GPU     8192       4 minutes from now    
+18:07:47 midm2-mini cuda-init-failures-last-40m: 0
+18:07:48 gemma4-e2b CREATE FAILED (gemma4:e2b-it-qat)
+18:07:56 stackup-eval-ax4-light-8k try1 :: stackup-eval-ax4-light-8k:latest    f112ea3ec3d1    5.3 GB    6%/94% CPU/GPU    8192       4 minutes from now    
+18:23:39 ax4-light after-run :: stackup-eval-ax4-light-8k:latest    f112ea3ec3d1    5.3 GB    6%/94% CPU/GPU    8192       4 minutes from now    
+18:23:39 ax4-light cuda-init-failures-last-40m: 0
