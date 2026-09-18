@@ -32,6 +32,7 @@
 - [`research/llm-provider-evaluation-2026-09.md`](./research/llm-provider-evaluation-2026-09.md) — 로컬 LLM·오픈 모델 대안 실측 비교 (품질 블라인드 채점·지연·비용)
 - [`research/llm-eval-2026-09/experiment-report.md`](./research/llm-eval-2026-09/experiment-report.md) — 위 비교의 전체 실험 리포트 (환경·케이스·지표 정의·세부 결과·실험 중 발견·재현 방법)
 - [`research/local-llm-deep-dive-2026-09/local-llm-deep-dive.md`](./research/local-llm-deep-dive-2026-09/local-llm-deep-dive.md) — 로컬 LLM 전환 심층 조사 (서빙 최적화·동시성·중형 MoE 품질·하드웨어·비용, PDF 동봉)
+- [`research/thesis/`](./research/thesis/README.md) — 논문용 실증 연구 자료 (연구 설계·선행연구·양자화·지연·판정자 편향·통계, 원자료 포함)
 
 ### 협업
 - [`coding-conventions.md`](./coding-conventions.md) — 언어별 공통 코딩 규약
