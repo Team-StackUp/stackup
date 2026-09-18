@@ -11,6 +11,7 @@
 | [`research-design.md`](./research-design.md) | 연구 질문 RQ1~RQ7, 가설, 분석 계획, 대체 가능성 판정 기준 |
 | [`related-work.md`](./related-work.md) | 선행연구 정리와 연구 공백 |
 | [`quantization-study.md`](./quantization-study.md) | RQ2 — 비트 폭·한국어 보정 행렬·재양자화 |
+| [`prefill-scaling.md`](./prefill-scaling.md) | RQ3·RQ5 — 입력 길이와 첫 응답 시간, 토크나이저 효율의 지연 환산 |
 | [`latency-experiment.md`](./latency-experiment.md) | RQ3 — 개방형 Poisson 부하, 프리픽스 캐시, 처리 용량 경계, 에너지 |
 | [`tokenizer-efficiency.md`](./tokenizer-efficiency.md) | RQ5 — 한국어 토크나이저 효율 |
 | [`judge-panel-analysis.md`](./judge-panel-analysis.md) | RQ6 — 3계열 판정자 패널, 일치도, 같은 계열 편향 |
@@ -27,6 +28,7 @@
 | `quant/raw/`, `quant/analysis/` | 양자화 조건별 모델 출력과 자동 지표 |
 | `judges/` | 판정자 원 응답과 패널 점수 |
 | `latency/` | 개방형 부하 요청별 기록, GPU 전력 원격 측정 |
+| `prefill/` | 입력 길이별 첫 토큰 지연 원자료 (모델 3종 × 6단계 × 5회) |
 | `human-eval/` | 라벨 시트와 2차 주석자 응답 |
 
 ## 재현
