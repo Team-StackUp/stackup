@@ -1,6 +1,7 @@
 # LLM 제공자 검토 — 로컬 LLM · 오픈 모델 대안 (2026-09-17)
 
 > 회의(2026-09-21) 안건용. 실험 하네스: [`ai/scripts/llm_eval/`](../../ai/scripts/llm_eval/README.md)
+> 전체 실험 리포트(방법·케이스·세부 결과·사고 기록·재현·출력 예시): [`llm-eval-2026-09/experiment-report.md`](./llm-eval-2026-09/experiment-report.md)
 > 로컬 LLM 전환 심층 조사(병렬 서빙·중형 MoE·하드웨어·비용): [`local-llm-deep-dive-2026-09/local-llm-deep-dive.md`](./local-llm-deep-dive-2026-09/local-llm-deep-dive.md)
 
 ## 1. 결론
