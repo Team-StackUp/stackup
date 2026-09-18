@@ -10,6 +10,7 @@
 | `cases.py` | 라벨이 붙은 케이스: 질문 풀 5개(긴 문맥 p90 포함), 꼬리질문 14개(강한·약한·모름·재설명·확인형·사실 불일치 등), 코칭 3개 |
 | `run_eval.py` | 후보 1개를 돌려 원시 결과 JSONL 저장. `--latency` 는 콜드스타트, 코칭 15건×동시 5, 그 도중 꼬리질문 지연 측정 |
 | `analyze.py` | 규칙 기반 자동 지표 (태그 준수, 의도 정확도, 점수 라벨·사실대조 규칙, 근거 인용 검증, 중복, 외국 문자, 지연) |
+| `load_test.py` | 동시 사용자 부하: 동시 1/2/4/8명 꼬리질문 지연·첫 토큰·처리량, 코칭 15건×동시 5 도중 꼬리질문 지연 |
 | `judge.py` | 블라인드 비교 채점. 판정 모델 2개(gemini-3.1-pro-preview, claude-opus-5)로 자기 계열 선호 편향 상쇄 |
 
 ## 실행 (stackup-ai 컨테이너 안)
@@ -29,3 +30,12 @@ python judge.py --out judge.jsonl /tmp/eval/*.jsonl > judge-table.json
 
 주의: reasoning 을 끌 수 없는 모델(gpt-oss)은 운영 `LLM_FLASH_MAX_TOKENS=512` 에서 추론이 토큰을 다 써
 꼬리질문이 비어 나온다. 공정 비교가 필요하면 `--flash-max-tokens 2048`.
+
+JSON 스키마 강제(`response_format: json_schema`)로 질문 풀·코칭을 돌리려면 `run_eval.py --constrain-json`.
+소형 모델에서 파싱 성공률은 오르지만 내용 품질은 떨어질 수 있다 ([심층 조사 §4.5](../../../docs/research/local-llm-deep-dive-2026-09/local-llm-deep-dive.md)).
+
+```bash
+python load_test.py --label local-x --base-url http://<서버>:8080/v1 --api-key x --model <모델> \
+  --concurrency 1,2,4,8 --out /tmp/eval/load-local-x.jsonl
+```
+
