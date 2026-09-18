@@ -1,37 +1,40 @@
 {
   "q-gemma4-26b-UD-IQ2_M": {
     "followup": {
-      "calls": 40,
+      "calls": 80,
       "success_pct": 100.0,
       "tag_compliance_pct": 100.0,
       "intent_accuracy_pct": 92.5,
       "intent_misses": {
         "f-weak-vague": [
+          "DONT_KNOW",
           "DONT_KNOW"
         ],
         "f2-offtopic-weak": [
+          "DONT_KNOW",
           "DONT_KNOW"
         ],
         "f2-repeat-history-weak": [
+          "DONT_KNOW",
           "DONT_KNOW"
         ]
       },
       "score_label_accuracy_pct": 96.3,
-      "correctness_rule_accuracy_pct": 96.2,
-      "discrimination_gap_backend": 5.0,
+      "correctness_rule_accuracy_pct": 94.2,
+      "discrimination_gap_backend": 4.5,
       "discrimination_gap_personality": 3.0,
-      "question_len_median": 79.5,
-      "question_len_le60_pct": 20.0,
+      "question_len_median": 79.0,
+      "question_len_le60_pct": 16.2,
       "non_korean_script_pct": 0.0,
-      "latency_median": 7.98,
+      "latency_median": 8.0,
       "latency_p90": 9.83,
-      "ttft_median": 3.86,
-      "ttft_p90": 5.45,
+      "ttft_median": 3.88,
+      "ttft_p90": 5.53,
       "over_3s_pct": 100.0,
       "over_10s_timeout_pct": 7.5
     },
     "questions": {
-      "calls": 15,
+      "calls": 30,
       "success_pct": 100.0,
       "errors": [],
       "count_exact_pct": 100.0,
@@ -42,20 +45,20 @@
       "evidence_grounded_pct": 100.0,
       "near_duplicate_pair_pct": 0.0,
       "repeated_recent_question_count": 0,
-      "question_len_le80_pct": 32.9,
+      "question_len_le80_pct": 35.4,
       "non_korean_script_pct": 0.0,
       "markdown_in_question_pct": 0.0,
-      "long_context_success": "1/1",
-      "latency_median": 57.63,
-      "latency_p90": 70.64
+      "long_context_success": "2/2",
+      "latency_median": 57.84,
+      "latency_p90": 68.41
     },
     "coaching": {
-      "calls": 15,
+      "calls": 30,
       "success_pct": 100.0,
       "invented_numbers_pct": 6.7,
       "non_korean_script_pct": 0.0,
       "comment_one_line_pct": 100.0,
-      "latency_median": 30.15,
+      "latency_median": 29.99,
       "latency_p90": 35.09
     }
   }
