@@ -1,0 +1,65 @@
+{
+  "q-qwen3-4b-Instruct-2507-UD-Q2_K_XL": {
+    "followup": {
+      "calls": 40,
+      "success_pct": 97.5,
+      "tag_compliance_pct": 76.9,
+      "intent_accuracy_pct": 89.7,
+      "intent_misses": {
+        "f-dont-know-stt": [
+          "NORMAL"
+        ],
+        "f2-dk-no-experience": [
+          "NORMAL"
+        ],
+        "f2-dk-forgot": [
+          "NORMAL"
+        ],
+        "f2-cl-which-part": [
+          "NORMAL"
+        ]
+      },
+      "score_label_accuracy_pct": 50.0,
+      "correctness_rule_accuracy_pct": 40.0,
+      "discrimination_gap_backend": null,
+      "discrimination_gap_personality": 1.0,
+      "question_len_median": 93,
+      "question_len_le60_pct": 7.7,
+      "non_korean_script_pct": 0.0,
+      "latency_median": 3.23,
+      "latency_p90": 5.65,
+      "ttft_median": 1.65,
+      "ttft_p90": 3.63,
+      "over_3s_pct": 66.7,
+      "over_10s_timeout_pct": 0.0
+    },
+    "questions": {
+      "calls": 15,
+      "success_pct": 100.0,
+      "errors": [],
+      "count_exact_pct": 100.0,
+      "mode_category_fit_pct": 86.7,
+      "job_category_valid_pct": 100.0,
+      "multi_job_coverage_pct": 66.7,
+      "evidence_present_when_required_pct": 100.0,
+      "evidence_grounded_pct": 84.3,
+      "near_duplicate_pair_pct": 0.0,
+      "repeated_recent_question_count": 1,
+      "question_len_le80_pct": 49.4,
+      "non_korean_script_pct": 0.0,
+      "markdown_in_question_pct": 0.0,
+      "long_context_success": "1/1",
+      "latency_median": 32.06,
+      "latency_p90": 36.25
+    },
+    "coaching": {
+      "calls": 15,
+      "success_pct": 100.0,
+      "invented_numbers_pct": 40.0,
+      "non_korean_script_pct": 0.0,
+      "comment_one_line_pct": 93.3,
+      "latency_median": 15.48,
+      "latency_p90": 23.86
+    }
+  }
+}

@@ -1,0 +1,99 @@
+{
+  "q-qwen3-4b-requant-Q4toQ2_K": {
+    "followup": {
+      "calls": 40,
+      "success_pct": 100.0,
+      "tag_compliance_pct": 90.0,
+      "intent_accuracy_pct": 65.0,
+      "intent_misses": {
+        "f-dont-know-explicit": [
+          "NORMAL"
+        ],
+        "f-dont-know-stt": [
+          "NORMAL"
+        ],
+        "f-clarification": [
+          "NORMAL"
+        ],
+        "f-confirm-short": [
+          "CLARIFICATION"
+        ],
+        "f2-dk-no-experience": [
+          "NORMAL"
+        ],
+        "f2-dk-pass": [
+          "NORMAL"
+        ],
+        "f2-dk-forgot": [
+          "NORMAL"
+        ],
+        "f2-dk-english": [
+          "NORMAL"
+        ],
+        "f2-dk-stt-fragment": [
+          "NORMAL"
+        ],
+        "f2-cl-term": [
+          "NORMAL"
+        ],
+        "f2-cl-repeat": [
+          "NORMAL"
+        ],
+        "f2-cl-example": [
+          "NORMAL"
+        ],
+        "f2-cl-which-part": [
+          "NORMAL"
+        ],
+        "f2-cl-stt-noisy": [
+          "NORMAL"
+        ]
+      },
+      "score_label_accuracy_pct": 48.1,
+      "correctness_rule_accuracy_pct": 76.9,
+      "discrimination_gap_backend": 0.0,
+      "discrimination_gap_personality": 0.0,
+      "question_len_median": 84.5,
+      "question_len_le60_pct": 10.0,
+      "non_korean_script_pct": 0.0,
+      "latency_median": 5.61,
+      "latency_p90": 10.56,
+      "ttft_median": 3.48,
+      "ttft_p90": 3.76,
+      "over_3s_pct": 80.0,
+      "over_10s_timeout_pct": 25.0
+    },
+    "questions": {
+      "calls": 15,
+      "success_pct": 0.0,
+      "errors": [
+        "OutputParserException: Failed to parse GeneratedQuestionPool from completion {\"questions\": [{\"targetEvidence\": \"자기소개에서 '결제 콜백 지연으로 인한 중복 주문 문제'를 해결한 경험을 기반으로, 기",
+        "OutputParserException: Failed to parse GeneratedQuestionPool from completion {\"questions\": [{\"targetEvidence\": \"자소서나 자기소개에서 언급되지 않음\", \"expectedSignal\": \"이력서에 기재",
+        "OutputParserException: Failed to parse GeneratedQuestionPool from completion {\"questions\": [{\"category\": \"TECH_CHOICE\", \"jobCategory\": \"INFRA\", \"targetEvidence\""
+      ],
+      "count_exact_pct": null,
+      "mode_category_fit_pct": null,
+      "job_category_valid_pct": null,
+      "multi_job_coverage_pct": null,
+      "evidence_present_when_required_pct": null,
+      "evidence_grounded_pct": null,
+      "near_duplicate_pair_pct": null,
+      "repeated_recent_question_count": 0,
+      "question_len_le80_pct": null,
+      "non_korean_script_pct": null,
+      "markdown_in_question_pct": null,
+      "long_context_success": "0/1",
+      "latency_median": null,
+      "latency_p90": null
+    },
+    "coaching": {
+      "calls": 15,
+      "success_pct": 73.3,
+      "invented_numbers_pct": 9.1,
+      "non_korean_script_pct": 0.0,
+      "comment_one_line_pct": 81.8,
+      "latency_median": 11.05,
+      "latency_p90": 148.52
+    }
+  }
+}

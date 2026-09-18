@@ -21,7 +21,14 @@ from collections import defaultdict
 import httpx
 
 sys.path.insert(0, os.path.dirname(__file__))
-from cases import COACHING_CASES, FOLLOWUP_CASES, QUESTION_CASES  # noqa: E402
+import importlib as _il  # noqa: E402
+
+_C = _il.import_module(os.environ.get("LLM_EVAL_CASES", "cases"))  # noqa: E402
+COACHING_CASES, FOLLOWUP_CASES, QUESTION_CASES = (
+    _C.COACHING_CASES,
+    _C.FOLLOWUP_CASES,
+    _C.QUESTION_CASES,
+)
 
 JUDGES = ["gemini-3.1-pro-preview", "claude-opus-5"]
 
@@ -115,6 +122,8 @@ def case_brief(suite: str, cid: str) -> str:
             f"직군 {', '.join(c['job_categories'])} / 모드 {c['mode']} / 요청 질문 수 {c['max_questions']}\n"
             f"자기소개: {c.get('self_introduction') or '(없음)'}\n"
             f"최근 받은 질문(중복 금지): {c.get('recent_questions') or '(없음)'}\n"
+            f"타깃 회사/JD: {(c.get('target_company_name') or '') + ' ' + (c.get('target_job_description') or '(없음)')}\n"
+            f"집중 영역: {c.get('focus_areas') or '(없음)'}\n"
             f"지원자 자료:\n{_clip(c['context'], 6000)}"
         )
     c = C_BY_ID[cid]
@@ -137,16 +146,19 @@ KEYS = {
 
 
 async def judge_one(
-    client, base_url, api_key, judge, suite, cid, cands: dict[str, str], rng
+    client, base_url, api_key, judge, suite, cid, cands: dict[str, str], ordering=0
 ):
-    labels = list(cands)
-    rng.shuffle(labels)
+    # 재현 가능한 순서: (판정자, 과제, 케이스) 로 시드. ordering 1 은 같은 순서의 역순 → 위치 편향 상쇄.
+    labels = sorted(cands)
+    random.Random(f"{judge}|{suite}|{cid}").shuffle(labels)
+    if ordering % 2 == 1:
+        labels = labels[::-1]
     letters = list(string.ascii_uppercase[: len(labels)])
     mapping = dict(zip(letters, labels))
     blocks = "\n\n".join(f"### 후보 {L}\n{cands[mapping[L]]}" for L in letters)
     keys = KEYS[suite]
     schema = (
-        "{"
+        '{"rationale": "채점 근거 1~2문장 (점수보다 먼저)", '
         + ", ".join(f'"{k}": 1-5' for k in keys)
         + ', "issue": "가장 큰 문제 한 줄"}'
     )
@@ -180,6 +192,9 @@ async def judge_one(
                 "suite": suite,
                 "case_id": cid,
                 "ratings": {mapping[L]: data[L] for L in letters if L in data},
+                "positions": {mapping[L]: i for i, L in enumerate(letters)},
+                "ordering": ordering,
+                "output_chars": {mapping[L]: len(cands[mapping[L]]) for L in letters},
                 "n_candidates": len(letters),
             }
         except Exception as exc:  # noqa: BLE001
@@ -193,9 +208,19 @@ async def main() -> None:
     ap.add_argument("--out", required=True)
     ap.add_argument("--exclude", default="", help="쉼표로 구분한 label 제외")
     ap.add_argument("--concurrency", type=int, default=4)
+    ap.add_argument(
+        "--judges", default=",".join(JUDGES), help="쉼표로 구분한 판정 모델"
+    )
+    ap.add_argument(
+        "--orderings",
+        type=int,
+        default=1,
+        help="후보 제시 순서 수 (2 = 시드 순서 + 역순)",
+    )
     ap.add_argument("paths", nargs="+")
     args = ap.parse_args()
     exclude = {x for x in args.exclude.split(",") if x}
+    judges = [j for j in args.judges.split(",") if j]
 
     recs_by_label: dict[str, list[dict]] = defaultdict(list)
     for p in args.paths:
@@ -208,14 +233,13 @@ async def main() -> None:
     items = build_items(recs_by_label)
     base_url = os.environ["LLM_BASE_URL"].rstrip("/")
     api_key = os.environ["LLM_API_KEY"]
-    rng = random.Random(20260917)
     sem = asyncio.Semaphore(args.concurrency)
     async with httpx.AsyncClient() as client:
 
-        async def run(judge, key, cands):
+        async def run(judge, key, cands, ordering=0):
             async with sem:
                 res = await judge_one(
-                    client, base_url, api_key, judge, key[0], key[1], cands, rng
+                    client, base_url, api_key, judge, key[0], key[1], cands, ordering
                 )
                 print(
                     f"  {judge:<24} {key[0]:<9} {key[1]:<28} {'ERR ' + res['error'] if 'error' in res else 'ok'}",
@@ -224,9 +248,10 @@ async def main() -> None:
                 return res
 
         tasks = [
-            run(j, k, c)
+            run(j, k, c, o)
             for k, c in sorted(items.items())
-            for j in JUDGES
+            for j in judges
+            for o in range(args.orderings)
             if len(c) >= 2
         ]
         results = await asyncio.gather(*tasks)

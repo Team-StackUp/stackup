@@ -6,6 +6,7 @@ python analyze.py /tmp/eval/*.jsonl > summary.json
 from __future__ import annotations
 
 import json
+import os
 import re
 import statistics
 import sys
@@ -13,7 +14,14 @@ from collections import defaultdict
 from typing import Any
 
 sys.path.insert(0, __file__.rsplit("/", 1)[0])
-from cases import COACHING_CASES, FOLLOWUP_CASES, QUESTION_CASES  # noqa: E402
+import importlib as _il  # noqa: E402
+
+_C = _il.import_module(os.environ.get("LLM_EVAL_CASES", "cases"))  # noqa: E402
+COACHING_CASES, FOLLOWUP_CASES, QUESTION_CASES = (
+    _C.COACHING_CASES,
+    _C.FOLLOWUP_CASES,
+    _C.QUESTION_CASES,
+)
 
 HAN = re.compile(r"[一-鿿㐀-䶿]")
 KANA = re.compile(r"[぀-ヿ]")

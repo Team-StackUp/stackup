@@ -1,0 +1,66 @@
+{
+  "q-qwen3-4b-Instruct-2507-Q6_K": {
+    "followup": {
+      "calls": 40,
+      "success_pct": 100.0,
+      "tag_compliance_pct": 100.0,
+      "intent_accuracy_pct": 92.5,
+      "intent_misses": {
+        "f2-cl-repeat": [
+          "DONT_KNOW"
+        ],
+        "f2-cl-example": [
+          "DONT_KNOW"
+        ],
+        "f2-cl-which-part": [
+          "NORMAL"
+        ]
+      },
+      "score_label_accuracy_pct": 70.4,
+      "correctness_rule_accuracy_pct": 84.6,
+      "discrimination_gap_backend": 2.0,
+      "discrimination_gap_personality": 2.0,
+      "question_len_median": 79.0,
+      "question_len_le60_pct": 15.0,
+      "non_korean_script_pct": 0.0,
+      "latency_median": 3.13,
+      "latency_p90": 5.28,
+      "ttft_median": 1.64,
+      "ttft_p90": 3.38,
+      "over_3s_pct": 52.5,
+      "over_10s_timeout_pct": 0.0
+    },
+    "questions": {
+      "calls": 15,
+      "success_pct": 80.0,
+      "errors": [
+        "OutputParserException: Failed to parse GeneratedQuestionPool from completion {\"questions\": [{\"category\": \"PROJECT_DEEP_DIVE\", \"question\": \"결제 콜백 지연 시 중복 주문을 멱등 ",
+        "OutputParserException: Failed to parse GeneratedQuestionPool from completion {\"questions\": [{\"category\": \"PROJECT_DEEP_DIVE\", \"question\": \"여행 일정 타임라인에서 항목 2천 개 ",
+        "OutputParserException: Failed to parse GeneratedQuestionPool from completion {\"questions\": [{\"category\": \"PROJECT_DEEP_DIVE\", \"question\": \"알림 봇에서 SQLite를 사용했을 때"
+      ],
+      "count_exact_pct": 100.0,
+      "mode_category_fit_pct": 91.7,
+      "job_category_valid_pct": 100.0,
+      "multi_job_coverage_pct": 100.0,
+      "evidence_present_when_required_pct": 100.0,
+      "evidence_grounded_pct": 96.6,
+      "near_duplicate_pair_pct": 0.0,
+      "repeated_recent_question_count": 0,
+      "question_len_le80_pct": 55.6,
+      "non_korean_script_pct": 0.0,
+      "markdown_in_question_pct": 0.0,
+      "long_context_success": "1/1",
+      "latency_median": 31.73,
+      "latency_p90": 37.03
+    },
+    "coaching": {
+      "calls": 15,
+      "success_pct": 100.0,
+      "invented_numbers_pct": 20.0,
+      "non_korean_script_pct": 0.0,
+      "comment_one_line_pct": 100.0,
+      "latency_median": 12.93,
+      "latency_p90": 16.83
+    }
+  }
+}

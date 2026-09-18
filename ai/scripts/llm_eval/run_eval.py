@@ -29,7 +29,14 @@ from langchain_core.callbacks import AsyncCallbackHandler
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from cases import COACHING_CASES, FOLLOWUP_CASES, QUESTION_CASES  # noqa: E402
+import importlib as _il  # noqa: E402
+
+_C = _il.import_module(os.environ.get("LLM_EVAL_CASES", "cases"))  # noqa: E402
+COACHING_CASES, FOLLOWUP_CASES, QUESTION_CASES = (
+    _C.COACHING_CASES,
+    _C.FOLLOWUP_CASES,
+    _C.QUESTION_CASES,
+)
 
 from ai_server.chain.feedback_generation_chain import (  # noqa: E402
     LlmAnswerCoach,
@@ -218,6 +225,9 @@ async def run_questions(settings: Settings, case: dict, rep: int, label: str) ->
             context=case["context"],
             recent_questions=case.get("recent_questions"),
             self_introduction=case.get("self_introduction"),
+            target_company_name=case.get("target_company_name"),
+            target_job_description=case.get("target_job_description"),
+            focus_areas=case.get("focus_areas"),
         )
         rec.update(ok=True, questions=[q.model_dump() for q in pool.questions])
     except Exception as exc:  # noqa: BLE001

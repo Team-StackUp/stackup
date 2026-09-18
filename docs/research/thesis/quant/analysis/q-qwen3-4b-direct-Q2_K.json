@@ -1,0 +1,96 @@
+{
+  "q-qwen3-4b-direct-Q2_K": {
+    "followup": {
+      "calls": 40,
+      "success_pct": 100.0,
+      "tag_compliance_pct": 95.0,
+      "intent_accuracy_pct": 67.5,
+      "intent_misses": {
+        "f-dont-know-explicit": [
+          "NORMAL"
+        ],
+        "f-dont-know-stt": [
+          "NORMAL"
+        ],
+        "f-clarification": [
+          "NORMAL"
+        ],
+        "f2-dk-no-experience": [
+          "NORMAL"
+        ],
+        "f2-dk-pass": [
+          "NORMAL"
+        ],
+        "f2-dk-forgot": [
+          "NORMAL"
+        ],
+        "f2-dk-english": [
+          "NORMAL"
+        ],
+        "f2-dk-stt-fragment": [
+          "NORMAL"
+        ],
+        "f2-cl-term": [
+          "NORMAL"
+        ],
+        "f2-cl-repeat": [
+          "NORMAL"
+        ],
+        "f2-cl-example": [
+          "NORMAL"
+        ],
+        "f2-cl-which-part": [
+          "NORMAL"
+        ],
+        "f2-cl-stt-noisy": [
+          "NORMAL"
+        ]
+      },
+      "score_label_accuracy_pct": 51.9,
+      "correctness_rule_accuracy_pct": 34.6,
+      "discrimination_gap_backend": null,
+      "discrimination_gap_personality": 1.0,
+      "question_len_median": 102.0,
+      "question_len_le60_pct": 10.0,
+      "non_korean_script_pct": 0.0,
+      "latency_median": 3.76,
+      "latency_p90": 5.68,
+      "ttft_median": 3.1,
+      "ttft_p90": 3.67,
+      "over_3s_pct": 77.5,
+      "over_10s_timeout_pct": 0.0
+    },
+    "questions": {
+      "calls": 15,
+      "success_pct": 33.3,
+      "errors": [
+        "OutputParserException: Failed to parse GeneratedQuestionPool from completion {\"questions\": [{\"category\": \"TECH_CHOICE\", \"jobCategory\": \"BACKEND\", \"targetEvidenc",
+        "OutputParserException: Failed to parse GeneratedQuestionPool from completion {\"questions\": [{\"category\": \"TECH_CHOICE\", \"jobCategory\": \"FRONTEND\", \"question\": \"",
+        "OutputParserException: Failed to parse GeneratedQuestionPool from completion {\"questions\": [{\"category\": \"TECH_CHOICE\", \"jobCategory\": \"BACKEND\", \"targetEvidenc"
+      ],
+      "count_exact_pct": 60.0,
+      "mode_category_fit_pct": 60.0,
+      "job_category_valid_pct": 40.0,
+      "multi_job_coverage_pct": 100.0,
+      "evidence_present_when_required_pct": 100.0,
+      "evidence_grounded_pct": 5.9,
+      "near_duplicate_pair_pct": 22.9,
+      "repeated_recent_question_count": 1,
+      "question_len_le80_pct": 88.9,
+      "non_korean_script_pct": 0.0,
+      "markdown_in_question_pct": 0.0,
+      "long_context_success": "1/1",
+      "latency_median": 126.76,
+      "latency_p90": 150.21
+    },
+    "coaching": {
+      "calls": 15,
+      "success_pct": 100.0,
+      "invented_numbers_pct": 6.7,
+      "non_korean_script_pct": 6.7,
+      "comment_one_line_pct": 0.0,
+      "latency_median": 152.77,
+      "latency_p90": 156.15
+    }
+  }
+}
