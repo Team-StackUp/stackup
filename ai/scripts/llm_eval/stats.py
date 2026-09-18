@@ -14,6 +14,7 @@
 4. 판정자 계열 편향: (Gemini 판정 − Claude 판정) 을 Google 계열 모델 vs 그 외로 비교,
    차이의 부트스트랩 CI + Mann-Whitney U
 5. 검정력: 관측된 쌍대 차이 표준편차로 0.3 / 0.5 점 차이를 검출하는 데 필요한 케이스 수
+   + 동등성 검정(TOST): '차이가 없다'를 주장하려면 비유의(p>.05)가 아니라 등가 구간 안에 있음을 보여야 한다
 6. 자동 지표 비율의 Wilson 95% CI, 지연 중간값의 부트스트랩 95% CI
 """
 
@@ -99,6 +100,44 @@ def n_for_paired(
 ) -> int:
     za, zb = stats.norm.ppf(1 - alpha / 2), stats.norm.ppf(power)
     return int(math.ceil(((za + zb) * sd / delta) ** 2)) if delta > 0 and sd > 0 else 0
+
+
+def tost_paired(diffs: list[float], margin: float) -> dict:
+    """쌍대 차이의 동등성 검정 (TOST). |차이| < margin 이면 '실질적 차이 없음'.
+
+    두 단측 t 검정 중 큰 p 값이 결과다. p < .05 면 등가 구간 안에 있다고 본다.
+    margin 은 연구자가 정하는 실질적 유의미 경계이며, 근거를 함께 보고해야 한다.
+    """
+    d = np.asarray(diffs, dtype=float)
+    n = len(d)
+    mean = float(d.mean())
+    sd = float(d.std(ddof=1)) if n > 1 else 0.0
+    se = sd / math.sqrt(n) if n > 1 and sd > 0 else 0.0
+    if se == 0:
+        p = 0.0 if abs(mean) < margin else 1.0
+        return {
+            "n": n,
+            "mean": mean,
+            "margin": margin,
+            "p_tost": p,
+            "ci90": (mean, mean),
+        }
+    df = n - 1
+    t_lo = (mean + margin) / se
+    t_hi = (mean - margin) / se
+    p_lo = 1 - stats.t.cdf(t_lo, df)  # H0: 차이 <= -margin
+    p_hi = stats.t.cdf(t_hi, df)  # H0: 차이 >= +margin
+    tcrit = stats.t.ppf(0.95, df)
+    return {
+        "n": n,
+        "mean": mean,
+        "sd": sd,
+        "margin": margin,
+        "p_lower": float(p_lo),
+        "p_upper": float(p_hi),
+        "p_tost": float(max(p_lo, p_hi)),
+        "ci90": (mean - tcrit * se, mean + tcrit * se),
+    }
 
 
 def load_judge(path: str):
