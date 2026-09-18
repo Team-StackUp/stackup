@@ -1,0 +1,72 @@
+{
+ "Qwen3-4B-Instruct-2507-Q4_K_M": {
+  "kld": 0.031823,
+  "kld99": 0.259877,
+  "ppl_ratio": 1.038991,
+  "top1": 90.153,
+  "rmsdp": 5.4
+ },
+ "Qwen3-4B-requant-Q4toQ2_K": {
+  "kld": 0.77586,
+  "kld99": 4.573796,
+  "ppl_ratio": 1.661782,
+  "top1": 60.937,
+  "rmsdp": 27.349
+ },
+ "Qwen3-4B-Instruct-2507-Q5_K_M": {
+  "kld": 0.013022,
+  "kld99": 0.085391,
+  "ppl_ratio": 1.004483,
+  "top1": 94.553,
+  "rmsdp": 3.175
+ },
+ "Qwen3-4B-direct-Q2_K": {
+  "kld": 0.739228,
+  "kld99": 4.098537,
+  "ppl_ratio": 1.649067,
+  "top1": 61.111,
+  "rmsdp": 26.586
+ },
+ "Qwen3-4B-koimat-IQ2_XXS": {
+  "kld": 1.145076,
+  "kld99": 5.751983,
+  "ppl_ratio": 2.203385,
+  "top1": 53.856,
+  "rmsdp": 34.02
+ },
+ "Qwen3-4B-Instruct-2507-Q3_K_M": {
+  "kld": 0.112298,
+  "kld99": 0.852805,
+  "ppl_ratio": 1.101464,
+  "top1": 84.052,
+  "rmsdp": 10.372
+ },
+ "Qwen3-4B-Instruct-2507-Q8_0": {
+  "kld": 0.001193,
+  "kld99": 0.00843,
+  "ppl_ratio": 1.007479,
+  "top1": 98.257,
+  "rmsdp": 0.996
+ },
+ "Qwen3-4B-Instruct-2507-UD-Q2_K_XL": {
+  "kld": 0.348909,
+  "kld99": 2.643899,
+  "ppl_ratio": 1.212023,
+  "top1": 74.51,
+  "rmsdp": 18.268
+ },
+ "Qwen3-4B-Instruct-2507-Q6_K": {
+  "kld": 0.007926,
+  "kld99": 0.0498,
+  "ppl_ratio": 1.00778,
+  "top1": 95.403,
+  "rmsdp": 2.61
+ },
+ "Qwen3-4B-koimat-Q2_K": {
+  "kld": 0.337009,
+  "kld99": 2.520539,
+  "ppl_ratio": 1.219868,
+  "top1": 74.706,
+  "rmsdp": 18.138
+ }
+}
