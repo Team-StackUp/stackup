@@ -17,6 +17,7 @@
 | [`label-verification.md`](./label-verification.md) | 정답 라벨 독립 검증 (LLM 2차 주석자) |
 | [`stats/round1-stats.md`](./stats/round1-stats.md), [`stats/round2-stats.md`](./stats/round2-stats.md) | 1·2라운드 데이터 통계 재분석 |
 | [`human-eval/README.md`](./human-eval/README.md) | 인간 평가 키트 (라벨 시트·루브릭·절차) |
+| [`model-provenance.md`](./model-provenance.md) | 모델 파일 출처·직접 만든 양자화본 명령·삭제 기록 |
 
 ## 원자료
 
