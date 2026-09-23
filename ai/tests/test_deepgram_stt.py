@@ -105,3 +105,31 @@ async def test_deepgram_5xx_is_retriable():
             await provider.transcribe(audio_bytes=b"x", content_type="audio/webm")
     assert exc_info.value.code == "STT_UNAVAILABLE"
     assert exc_info.value.retriable is True
+
+
+@pytest.mark.asyncio
+async def test_deepgram_timeout_keeps_exception_type_in_message():
+    """타임아웃 예외는 str() 이 빈 문자열이다 — 타입을 안 남기면 로그가
+    'Deepgram 호출 실패: ' 로 끝나 connect/read 를 구분할 수 없었다."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectTimeout("", request=request)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        provider = DeepgramSttProvider(api_key="k", client=client)
+        with pytest.raises(SttError) as exc_info:
+            await provider.transcribe(audio_bytes=b"x", content_type="audio/webm")
+
+    assert exc_info.value.code == "STT_UNAVAILABLE"
+    assert exc_info.value.retriable is True
+    assert "ConnectTimeout" in exc_info.value.message
+
+
+def test_deepgram_connect_timeout_is_separate_from_read_timeout():
+    """일괄 timeout 이면 연결이 막혔을 때도 read 한도만큼 붙잡고 있다가 실패한다."""
+    provider = DeepgramSttProvider(
+        api_key="k", timeout_sec=30.0, connect_timeout_sec=5.0
+    )
+    timeout = provider._timeout  # noqa: SLF001 — 구성값 회귀 고정
+    assert timeout.connect == 5.0
+    assert timeout.read == 30.0

@@ -34,6 +34,7 @@ def build_stt_provider(settings: Settings) -> SttProvider:
             model=settings.deepgram_model,
             language=settings.deepgram_language or None,
             timeout_sec=settings.deepgram_timeout_sec,
+            connect_timeout_sec=settings.deepgram_connect_timeout_sec,
         )
 
     if provider == "mock":
