@@ -17,7 +17,7 @@ from ai_server.model.messages.voice import (
 )
 from ai_server.storage.base import ObjectStorage
 from ai_server.voice.analysis.metrics import analyze
-from ai_server.voice.stt.base import SttError, SttProvider
+from ai_server.voice.stt.base import SttError, SttProvider, TranscriptionResult
 
 log = structlog.get_logger(__name__)
 
@@ -43,6 +43,8 @@ class VoiceConsumer:
         callback_routing_key: str,
         filler_pattern: str,
         core_client: CoreClient | None = None,
+        stt_max_attempts: int = 3,
+        stt_retry_backoff_sec: float = 0.5,
     ) -> None:
         self._stt = stt
         self._storage = storage
@@ -51,6 +53,8 @@ class VoiceConsumer:
         self._callback_routing_key = callback_routing_key
         self._filler_pattern = filler_pattern
         self._core_client = core_client
+        self._stt_max_attempts = max(1, stt_max_attempts)
+        self._stt_retry_backoff_sec = stt_retry_backoff_sec
 
     async def handle(self, message: AbstractIncomingMessage) -> None:
         async with message.process(requeue=False):
@@ -91,45 +95,21 @@ class VoiceConsumer:
                     await self._publish_failed(envelope, req, code="AUDIO_FETCH_FAILED")
                     return
 
-                started = None
                 try:
-                    started = time.perf_counter()
-                    result = await self._stt.transcribe(
-                        audio_bytes=audio_bytes,
-                        content_type=req.content_type,
-                        hint=req.previous_question_text,
-                    )
-                    self._record_stt_log(
-                        req,
-                        envelope,
-                        latency_ms=_elapsed_ms(started),
-                        status="SUCCESS",
-                        error_message=None,
+                    result = await self._transcribe_with_retry(
+                        req, envelope, audio_bytes
                     )
                 except SttError as exc:
-                    self._record_stt_log(
-                        req,
-                        envelope,
-                        latency_ms=_elapsed_ms(started),
-                        status="FAILED",
-                        error_message=exc.message,
-                    )
                     log.error(
                         "voice.stt.failed",
                         error=str(exc),
                         code=exc.code,
                         session_id=req.session_id,
+                        attempts=getattr(exc, "attempts", 1),
                     )
                     await self._publish_failed(envelope, req, code=exc.code)
                     return
                 except Exception as exc:
-                    self._record_stt_log(
-                        req,
-                        envelope,
-                        latency_ms=_elapsed_ms(started),
-                        status="FAILED",
-                        error_message=str(exc),
-                    )
                     log.error(
                         "voice.stt.unexpected",
                         error=str(exc),
@@ -161,6 +141,72 @@ class VoiceConsumer:
                     wpm=metrics.speaking_rate_wpm,
                     trace_id=envelope.trace_id,
                 )
+
+    async def _transcribe_with_retry(
+        self, req: AnalyzeVoiceRequest, envelope, audio_bytes: bytes
+    ) -> TranscriptionResult:
+        """일시 장애(retriable)면 지수 백오프로 재시도.
+
+        Deepgram 호출은 간헐적으로 응답 없이 멎는다 — 운영 실패 2건이 60.8s/61.5s 로
+        read 한도에 정확히 걸렸고, 성공 호출은 p50 3.6초였다. 멎은 뒤 같은 오디오를
+        재전송하면 대부분 즉시 전사되므로(실패 파일 6개 중 5개가 재전송에서 성공),
+        한 번의 딸꾹질이 사용자에게 영구 실패로 보이지 않도록 여기서 흡수한다.
+
+        비재시도(STT_AUTH_FAILED, STT_BAD_REQUEST)는 재전송해도 같은 결과라 즉시 올린다.
+        예상 못 한 예외는 코드 버그일 가능성이 높아 재시도로 지연만 늘리므로 그대로 올린다.
+        `ai_request_logs` 에는 시도마다 한 행씩 남는다 — 재시도율을 보려면 error_message
+        앞의 `[n/N]` 을 본다.
+        """
+        for attempt in range(1, self._stt_max_attempts + 1):
+            started = time.perf_counter()
+            try:
+                result = await self._stt.transcribe(
+                    audio_bytes=audio_bytes,
+                    content_type=req.content_type,
+                    hint=req.previous_question_text,
+                )
+            except SttError as exc:
+                self._record_stt_log(
+                    req,
+                    envelope,
+                    latency_ms=_elapsed_ms(started),
+                    status="FAILED",
+                    error_message=f"[{attempt}/{self._stt_max_attempts}] {exc.message}",
+                )
+                if not exc.retriable or attempt == self._stt_max_attempts:
+                    exc.attempts = attempt  # 최종 실패 로그가 실제 시도 횟수를 싣도록
+                    raise
+                backoff = self._stt_retry_backoff_sec * (2 ** (attempt - 1))
+                log.warn(
+                    "voice.stt.retry",
+                    code=exc.code,
+                    attempt=attempt,
+                    max_attempts=self._stt_max_attempts,
+                    backoff_sec=backoff,
+                    session_id=req.session_id,
+                )
+                await asyncio.sleep(backoff)
+                continue
+            except Exception as exc:
+                self._record_stt_log(
+                    req,
+                    envelope,
+                    latency_ms=_elapsed_ms(started),
+                    status="FAILED",
+                    error_message=str(exc),
+                )
+                raise
+
+            self._record_stt_log(
+                req,
+                envelope,
+                latency_ms=_elapsed_ms(started),
+                status="SUCCESS",
+                error_message=None,
+            )
+            return result
+
+        raise AssertionError("도달 불가 — 마지막 시도는 항상 raise 한다")
 
     async def _publish_callback(self, envelope, payload: VoiceCallbackPayload) -> None:
         await self._publisher.publish(

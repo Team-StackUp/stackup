@@ -250,3 +250,128 @@ async def test_consumer_unmarks_when_publish_fails():
         await consumer.handle(_StubMessage(_envelope()))
 
     assert store.is_seen_then_mark("voice-1") is False
+
+
+@pytest.mark.asyncio
+async def test_consumer_retries_retriable_stt_error_and_succeeds():
+    """Deepgram 이 한 번 멎어도 재전송하면 대부분 전사된다 — 사용자에게 실패를 보이지 않는다."""
+    ok = _stt_ok()
+    stt = MagicMock()
+    stt.transcribe = AsyncMock(
+        side_effect=[
+            SttError(
+                code="STT_UNAVAILABLE",
+                message="Deepgram 호출 실패: ReadTimeout",
+                retriable=True,
+            ),
+            await ok.transcribe(audio_bytes=b"", content_type="audio/webm"),
+        ]
+    )
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+
+    consumer = VoiceConsumer(
+        stt=stt,
+        storage=_storage_ok(),
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.voice",
+        filler_pattern=r"(?:음+|어+|그+|아+)",
+        stt_max_attempts=3,
+        stt_retry_backoff_sec=0.0,
+    )
+    await consumer.handle(_StubMessage(_envelope()))
+
+    assert stt.transcribe.await_count == 2
+    payload: VoiceCallbackPayload = publisher.publish.await_args.kwargs["payload"]
+    assert payload.error_code is None
+    assert payload.transcript.startswith("ACID")
+
+
+@pytest.mark.asyncio
+async def test_consumer_does_not_retry_non_retriable_stt_error():
+    """인증·잘못된 요청은 재전송해도 같은 결과라 즉시 실패시킨다."""
+    stt = MagicMock()
+    stt.transcribe = AsyncMock(
+        side_effect=SttError(code="STT_AUTH_FAILED", message="bad key", retriable=False)
+    )
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+
+    consumer = VoiceConsumer(
+        stt=stt,
+        storage=_storage_ok(),
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.voice",
+        filler_pattern=r"(?:음+|어+|그+|아+)",
+        stt_max_attempts=3,
+        stt_retry_backoff_sec=0.0,
+    )
+    await consumer.handle(_StubMessage(_envelope()))
+
+    assert stt.transcribe.await_count == 1
+    payload: VoiceCallbackPayload = publisher.publish.await_args.kwargs["payload"]
+    assert payload.error_code == "STT_AUTH_FAILED"
+
+
+@pytest.mark.asyncio
+async def test_consumer_publishes_failure_after_exhausting_retries():
+    stt = MagicMock()
+    stt.transcribe = AsyncMock(
+        side_effect=SttError(
+            code="STT_UNAVAILABLE",
+            message="Deepgram 호출 실패: ReadTimeout",
+            retriable=True,
+        )
+    )
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+    core_client = MagicMock()
+    core_client.record_ai_log = AsyncMock()
+
+    consumer = VoiceConsumer(
+        stt=stt,
+        storage=_storage_ok(),
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.voice",
+        filler_pattern=r"(?:음+|어+|그+|아+)",
+        core_client=core_client,
+        stt_max_attempts=3,
+        stt_retry_backoff_sec=0.0,
+    )
+    await consumer.handle(_StubMessage(_envelope()))
+    await asyncio.sleep(0)
+
+    assert stt.transcribe.await_count == 3
+    payload: VoiceCallbackPayload = publisher.publish.await_args.kwargs["payload"]
+    assert payload.error_code == "STT_UNAVAILABLE"
+    # 시도마다 로그 한 행 — 재시도율을 error_message 의 [n/N] 으로 추적한다.
+    assert core_client.record_ai_log.await_count == 3
+    assert "[3/3]" in core_client.record_ai_log.await_args.kwargs["error_message"]
+
+
+@pytest.mark.asyncio
+async def test_consumer_does_not_retry_unexpected_exception():
+    """예상 못 한 예외는 코드 버그일 가능성이 높아 재시도로 지연만 늘린다."""
+    stt = MagicMock()
+    stt.transcribe = AsyncMock(side_effect=RuntimeError("boom"))
+    publisher = MagicMock()
+    publisher.publish = AsyncMock()
+
+    consumer = VoiceConsumer(
+        stt=stt,
+        storage=_storage_ok(),
+        publisher=publisher,
+        idempotency=LruIdempotencyStore(max_size=10),
+        callback_routing_key="callback.voice",
+        filler_pattern=r"(?:음+|어+|그+|아+)",
+        stt_max_attempts=3,
+        stt_retry_backoff_sec=0.0,
+    )
+    await consumer.handle(_StubMessage(_envelope()))
+
+    assert stt.transcribe.await_count == 1
+    payload: VoiceCallbackPayload = publisher.publish.await_args.kwargs["payload"]
+    assert payload.error_code == "TRANSCRIPTION_FAILED"

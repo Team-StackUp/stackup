@@ -30,7 +30,8 @@ class DeepgramSttProvider:
         base_url: str = "https://api.deepgram.com/v1",
         model: str = "whisper-large",
         language: str | None = "ko",
-        timeout_sec: float = 60.0,
+        timeout_sec: float = 30.0,
+        connect_timeout_sec: float = 5.0,
         client: httpx.AsyncClient | None = None,
     ) -> None:
         if not api_key:
@@ -39,7 +40,9 @@ class DeepgramSttProvider:
         self._base_url = base_url.rstrip("/")
         self._model = model
         self._language = language
-        self._timeout_sec = timeout_sec
+        # connect 를 따로 둔다 — 일괄 timeout 이면 연결이 막혔을 때도 read 한도만큼(운영 60초)
+        # 붙잡고 있다가 실패했다. 정상 호출은 p50 3.6초라 read 30초로도 여유가 크다.
+        self._timeout = httpx.Timeout(timeout_sec, connect=connect_timeout_sec)
         self._client = client
 
     @property
@@ -78,14 +81,19 @@ class DeepgramSttProvider:
                     url, params=params, headers=headers, content=audio_bytes
                 )
             else:
-                async with httpx.AsyncClient(timeout=self._timeout_sec) as client:
+                async with httpx.AsyncClient(timeout=self._timeout) as client:
                     resp = await client.post(
                         url, params=params, headers=headers, content=audio_bytes
                     )
         except httpx.HTTPError as exc:
+            # 타임아웃 예외는 str() 이 빈 문자열이라 타입을 같이 남겨야 connect/read 를 구분한다.
+            detail = str(exc)
             raise SttError(
                 code="STT_UNAVAILABLE",
-                message=f"Deepgram 호출 실패: {exc}",
+                message=(
+                    f"Deepgram 호출 실패: {type(exc).__name__}"
+                    + (f": {detail}" if detail else "")
+                ),
                 retriable=True,
             ) from exc
 

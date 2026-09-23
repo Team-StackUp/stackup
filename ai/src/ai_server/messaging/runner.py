@@ -293,6 +293,8 @@ class MessagingRuntime:
             callback_routing_key=settings.ai_callback_routing_voice,
             filler_pattern=settings.voice_filler_pattern,
             core_client=core_client,
+            stt_max_attempts=settings.stt_max_attempts,
+            stt_retry_backoff_sec=settings.stt_retry_backoff_sec,
         )
 
         # 질문 TTS (Part A) — tts 인스턴스는 위에서 이미 생성됨.

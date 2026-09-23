@@ -59,7 +59,14 @@ class Settings(BaseSettings):
     deepgram_base_url: str = "https://api.deepgram.com/v1"
     deepgram_model: str = "whisper-large"  # 한국어 정확도 우선; 저비용 우선 시 nova-2.
     deepgram_language: str = "ko"
-    deepgram_timeout_sec: float = 60.0
+    # read 한도. 정상 호출은 p50 3.6초/최대 12초라 30초도 크게 여유롭다.
+    # 이전 60초는 Deepgram 이 멎었을 때 사용자를 1분간 붙잡아 두기만 했다.
+    deepgram_timeout_sec: float = 30.0
+    deepgram_connect_timeout_sec: float = 5.0
+    # STT 재시도. Deepgram 이 간헐적으로 응답 없이 멎는데, 같은 오디오를 재전송하면
+    # 대부분 즉시 전사된다. retriable 오류에만 적용(인증·잘못된 요청은 즉시 실패).
+    stt_max_attempts: int = 3
+    stt_retry_backoff_sec: float = 0.5
 
     # 스트리밍 STT (실시간 음성 답변). "auto" 면 DEEPGRAM_API_KEY 보유 시 deepgram_live, 없으면 mock.
     live_stt_provider: Literal["auto", "mock", "deepgram_live"] = "auto"
