@@ -4,7 +4,11 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { currentTurn } from '@/domain/session'
 import type { Message } from '@/domain/session'
 import { toast } from '@/shared/ui'
-import { submitVoiceAnswer, fetchMessageSegmentObjectUrl } from '../api/messageApi'
+import {
+  submitVoiceAnswer,
+  retranscribeVoiceAnswer,
+  fetchMessageSegmentObjectUrl,
+} from '../api/messageApi'
 import { createSegmentQueue } from '../lib/media/segmentAudioQueue'
 import { sessionKeys, useSession } from './useSession'
 import { messageKeys, useSessionMessages } from './useSessionMessages'
@@ -294,6 +298,22 @@ export function useLiveInterview(sessionId: number, deliveryMode: DeliveryMode =
   const { mutate: voiceMutate } = voiceMutation
   const submitVoice = useCallback((audio: Blob) => voiceMutate(audio), [voiceMutate])
 
+  // STT 실패 답변 재전사. 오디오는 S3 에 남아 있으니 답변을 다시 입력할 필요가 없다.
+  // 업로드와 같은 경로를 타므로 성공 시 목록을 무효화해 "음성 인식 중…" 으로 되돌리고,
+  // 완료는 SESSION_MESSAGE SSE 로 도착한다.
+  const retranscribeMutation = useMutation({
+    mutationFn: (messageId: number) => retranscribeVoiceAnswer(sessionId, messageId),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: messageKeys.list(sessionId) }),
+    onError: () =>
+      toast.error('다시 인식하지 못했어요. 텍스트로 답변해 주세요.'),
+  })
+  const { mutate: retranscribeMutate } = retranscribeMutation
+  const retranscribe = useCallback(
+    (messageId: number) => retranscribeMutate(messageId),
+    [retranscribeMutate],
+  )
+
   // 서버 메시지 기준으로 가장 최근 면접관 메시지가 여전히 sentinel이면 스트리밍 진행 중.
   const questionStreaming = useMemo(() => {
     const latest = [...serverMessages].reverse().find((m) => m.role === 'INTERVIEWER')
@@ -343,6 +363,8 @@ export function useLiveInterview(sessionId: number, deliveryMode: DeliveryMode =
     submitVoice,
     voiceUploading: voiceMutation.isPending,
     voiceError: voiceMutation.isError,
+    retranscribe,
+    retranscribing: retranscribeMutation.isPending,
     endSession,
     interruptSession,
     isLoading: sessionQuery.isLoading,

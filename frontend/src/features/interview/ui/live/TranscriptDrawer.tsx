@@ -9,11 +9,15 @@ export function TranscriptDrawer({
   items,
   awaitingQuestion,
   mode = 'text',
+  onRetranscribe,
+  retranscribing = false,
   onClose,
 }: {
   items: ThreadItem[]
   awaitingQuestion: boolean
   mode?: DeliveryMode
+  onRetranscribe?: (messageId: number) => void
+  retranscribing?: boolean
   onClose: () => void
 }) {
   useEffect(() => {
@@ -48,7 +52,13 @@ export function TranscriptDrawer({
           </button>
         </header>
         <div className="min-h-0 flex-1">
-          <ConversationThread items={items} awaitingQuestion={awaitingQuestion} mode={mode} />
+          <ConversationThread
+            items={items}
+            awaitingQuestion={awaitingQuestion}
+            mode={mode}
+            onRetranscribe={onRetranscribe}
+            retranscribing={retranscribing}
+          />
         </div>
       </aside>
     </div>

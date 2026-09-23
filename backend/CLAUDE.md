@@ -552,6 +552,18 @@ docker compose up -d
   (`STT_CALLBACK_TIMEOUT`). 그러면 기존 STT 실패 경로를 그대로 타서 사용자가 같은 질문에
   텍스트로 다시 답할 수 있다. 목록 생성 후 콜백이 도착한 경우를 위해 확정 직전 상태를 다시
   확인한다(완료된 답변을 실패로 되돌리지 않는다).
+- **STT 실패 재전사 본 구현**: STT 가 실패하면 `failVoiceTranscription()` 이 content 를 실패
+  문구로 덮고 FAILED 로 확정해 턴을 풀어 줬는데, **오디오는 S3 에 그대로 남아 있는데 꺼낼
+  경로가 없어** 사용자가 답변을 통째로 다시 입력해야 했다. 실패의 대부분은 Deepgram 이
+  간헐적으로 멎는 것이고 같은 파일을 재전송하면 대체로 전사된다(AI 서버의 자동 재시도가
+  1차 방어선 — `ai/CLAUDE.md §8`). `POST /api/sessions/{sid}/messages/voice/{mid}/retranscribe`
+  (`VoiceRetranscribeService`)가 2차 방어선: `retryVoiceTranscription()` 으로 placeholder 상태로
+  되돌리고 업로드와 **같은** `VoiceAnswerUploadedEvent` + AFTER_COMMIT 경로로 `analyze.voice` 를
+  재발행한다(content_type 은 저장하지 않으므로 S3 key 확장자에서 역산 — `buildKey` 의 역함수).
+  **실패 메시지가 세션의 마지막일 때만 허용** — 이미 다시 답변했다면 뒤늦은 전사가 지나간 턴을
+  덮어쓴다(`VOICE_RETRANSCRIBE_NOT_ALLOWED`). 프론트는 스테이지 인라인 배너 + 대화 기록 드로어
+  양쪽에 '다시 인식하기' 를 낸다(스테이지엔 실패 안내가 아예 없어서 사용자가 왜 답변이 사라졌는지
+  모른 채 다시 말해야 했다).
 - **Spring AI 미사용** — LLM·임베딩 호출은 모두 AI 서버 위임. Core는 RabbitMQ 발행만 담당.
 - **Redis 미사용** — 휘발성 데이터는 DB short-lived 레코드 또는 인메모리로.
 

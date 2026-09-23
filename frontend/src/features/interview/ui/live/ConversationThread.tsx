@@ -10,10 +10,14 @@ export const ConversationThread = memo(function ConversationThread({
   items,
   awaitingQuestion,
   mode = 'text',
+  onRetranscribe,
+  retranscribing = false,
 }: {
   items: ThreadItem[]
   awaitingQuestion: boolean
   mode?: DeliveryMode
+  onRetranscribe?: (messageId: number) => void
+  retranscribing?: boolean
 }) {
   // 내부 스레드 컨테이너만 스크롤한다. scrollIntoView 는 스크롤 가능한 모든
   // 조상(=window)까지 스크롤해 페이지가 푸터로 끌려 내려가므로 사용하지 않는다.
@@ -26,13 +30,26 @@ export const ConversationThread = memo(function ConversationThread({
   // 가장 마지막 질문만 자동재생(초기 로드 시 과거 질문 일괄 재생 방지).
   const lastQuestionKey = [...items].reverse().find(isQuestion)?.key
 
+  // 재전사는 마지막 메시지에만 건다 — 이미 다시 답변했다면 뒤늦은 전사가 지나간 턴을
+  // 덮어쓰므로 서버도 거절한다(VoiceRetranscribeService). 버튼을 아예 내지 않는다.
+  const lastKey = items[items.length - 1]?.key
+
   return (
     <div ref={containerRef} className="flex h-full flex-col gap-3 overflow-y-auto px-4 py-6">
       {items.map((item) =>
         isQuestion(item) ? (
           <QuestionBubble key={item.key} message={item} autoPlay={mode === 'voice' && item.key === lastQuestionKey} />
         ) : (
-          <AnswerBubble key={item.key} message={item} />
+          <AnswerBubble
+            key={item.key}
+            message={item}
+            onRetranscribe={
+              onRetranscribe && item.key === lastKey && item.id != null
+                ? () => onRetranscribe(item.id as number)
+                : undefined
+            }
+            retranscribing={retranscribing}
+          />
         ),
       )}
       {awaitingQuestion ? <TypingIndicator /> : null}

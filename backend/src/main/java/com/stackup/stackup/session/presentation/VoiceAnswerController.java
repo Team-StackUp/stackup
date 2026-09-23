@@ -2,6 +2,7 @@ package com.stackup.stackup.session.presentation;
 
 import com.stackup.stackup.common.security.UserPrincipal;
 import com.stackup.stackup.session.application.VoiceAnswerSubmitService;
+import com.stackup.stackup.session.application.VoiceRetranscribeService;
 import com.stackup.stackup.session.application.VoiceStreamService;
 import com.stackup.stackup.session.application.dto.MessageResult;
 import com.stackup.stackup.session.application.dto.VoiceAnswerUploadCommand;
@@ -32,6 +33,7 @@ public class VoiceAnswerController {
 
     private final VoiceAnswerSubmitService submitService;
     private final VoiceStreamService streamService;
+    private final VoiceRetranscribeService retranscribeService;
 
     @Operation(
         operationId = "submitVoiceAnswer",
@@ -84,5 +86,28 @@ public class VoiceAnswerController {
         @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey
     ) {
         return VoiceStreamBeginResponse.from(streamService.begin(principal.userId(), sessionId, idempotencyKey));
+    }
+
+    @Operation(
+        operationId = "retranscribeVoiceAnswer",
+        summary = "STT 실패한 음성 답변 재전사",
+        description = "S3 에 남아 있는 같은 오디오로 STT 를 다시 요청한다. 답변을 다시 입력하지 "
+            + "않아도 되게 하는 경로. 실패한 음성 답변이 세션의 마지막 메시지일 때만 허용 — "
+            + "이미 다시 답변했다면 뒤늦은 전사가 지나간 턴을 덮어쓴다."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "transcribing 으로 되돌리고 analyze.voice 재발행"),
+        @ApiResponse(responseCode = "401", description = "인증 실패"),
+        @ApiResponse(responseCode = "404", description = "세션/메시지 없음"),
+        @ApiResponse(responseCode = "422", description = "재전사 대상이 아니거나 세션이 IN_PROGRESS 아님")
+    })
+    @PostMapping("/{messageId}/retranscribe")
+    public MessageResponse retranscribe(
+        @AuthenticationPrincipal UserPrincipal principal,
+        @PathVariable Long sessionId,
+        @PathVariable Long messageId
+    ) {
+        return MessageResponse.from(
+            retranscribeService.retranscribe(principal.userId(), sessionId, messageId));
     }
 }

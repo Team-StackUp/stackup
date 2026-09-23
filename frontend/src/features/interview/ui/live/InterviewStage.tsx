@@ -58,6 +58,8 @@ export function InterviewStage({
   restoreDraft,
   onSubmitVoice,
   voiceUploading,
+  onRetranscribe,
+  retranscribing,
   onEnd,
   onInterrupt,
   wasSegmented,
@@ -74,6 +76,8 @@ export function InterviewStage({
   restoreDraft?: { content: string; nonce: number } | null
   onSubmitVoice: (audio: Blob) => void
   voiceUploading: boolean
+  onRetranscribe: (messageId: number) => void
+  retranscribing: boolean
   onEnd: () => void
   /** 잠시 중단 — 대화를 남긴 채 나중에 이어서 진행한다. */
   onInterrupt: () => void
@@ -90,6 +94,17 @@ export function InterviewStage({
   const currentQuestion = [...items].reverse().find(isQuestion)
   const lastItem = items[items.length - 1]
   const transcribing = Boolean(lastItem && isTranscribing(lastItem))
+  // STT 가 실패하면 턴이 풀려 컴포저만 다시 열린다 — 스테이지에는 아무 설명이 없어서
+  // 사용자는 왜 답변이 사라졌는지 모른 채 다시 말해야 했다(실패 안내는 대화 기록
+  // 드로어 안에만 있었다). 녹음은 S3 에 남아 있으므로 여기서 바로 되돌릴 수 있게 한다.
+  const failedVoiceId =
+    lastItem &&
+    isTranscribing(lastItem) &&
+    lastItem.status === 'FAILED' &&
+    lastItem.audioFilePath &&
+    lastItem.id != null
+      ? lastItem.id
+      : null
   const speaking = currentQuestion ? isSpeaking(currentQuestion.id ?? -1) : false
 
   return (
@@ -183,6 +198,22 @@ export function InterviewStage({
         <WebcamSelfView />
       </div>
 
+      {failedVoiceId != null ? (
+        <div className="relative z-10 flex flex-wrap items-center justify-center gap-2 border-t border-border bg-surface-raised/85 px-4 py-2 backdrop-blur-md">
+          <span className="text-caption text-fg-muted" role="status">
+            음성 인식에 실패했어요. 녹음은 그대로 남아 있어요.
+          </span>
+          <button
+            type="button"
+            onClick={() => onRetranscribe(failedVoiceId)}
+            disabled={retranscribing}
+            className="rounded-pill bg-primary px-3 py-1 text-caption font-medium text-fg-on-primary transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {retranscribing ? '다시 인식하는 중…' : '↻ 다시 인식하기'}
+          </button>
+        </div>
+      ) : null}
+
       <div className="relative z-10">
         <AnswerComposer
           disabled={awaitingQuestion || connection !== 'open'}
@@ -202,6 +233,8 @@ export function InterviewStage({
           items={items}
           awaitingQuestion={awaitingQuestion}
           mode={deliveryMode}
+          onRetranscribe={onRetranscribe}
+          retranscribing={retranscribing}
           onClose={() => setTranscriptOpen(false)}
         />
       )}
