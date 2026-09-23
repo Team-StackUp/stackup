@@ -161,6 +161,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sessions/{sessionId}/messages/voice/{messageId}/retranscribe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * STT 실패한 음성 답변 재전사
+         * @description S3 에 남아 있는 같은 오디오로 STT 를 다시 요청한다. 답변을 다시 입력하지 않아도 되게 하는 경로. 실패한 음성 답변이 세션의 마지막 메시지일 때만 허용 — 이미 다시 답변했다면 뒤늦은 전사가 지나간 턴을 덮어쓴다.
+         */
+        post: operations["retranscribeVoiceAnswer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sessions/{sessionId}/messages/voice/stream-begin": {
         parameters: {
             query?: never;
@@ -2117,6 +2137,56 @@ export interface operations {
                 };
             };
             /** @description 세션이 IN_PROGRESS 아니거나 직전 메시지가 질문 아님 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["MessageResponse"];
+                };
+            };
+        };
+    };
+    retranscribeVoiceAnswer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: number;
+                messageId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description transcribing 으로 되돌리고 analyze.voice 재발행 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["MessageResponse"];
+                };
+            };
+            /** @description 인증 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["MessageResponse"];
+                };
+            };
+            /** @description 세션/메시지 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["MessageResponse"];
+                };
+            };
+            /** @description 재전사 대상이 아니거나 세션이 IN_PROGRESS 아님 */
             422: {
                 headers: {
                     [name: string]: unknown;

@@ -289,6 +289,15 @@ public class InterviewMessage extends BaseTimeEntity {
         this.status = MessageStatus.FAILED;
     }
 
+    // STT 실패를 되돌려 같은 오디오로 다시 전사한다. 오디오는 S3 에 그대로 있으므로
+    // 실패는 영구적일 이유가 없다 — Deepgram 이 간헐적으로 멎는 것이 실패의 대부분이고,
+    // 같은 파일을 재전송하면 대체로 전사된다(voice_consumer 의 자동 재시도가 1차 방어선,
+    // 이건 그마저 소진됐을 때 사용자가 직접 당기는 2차 방어선).
+    public void retryVoiceTranscription() {
+        this.content = VOICE_TRANSCRIPTION_PENDING_TEXT;
+        this.status = MessageStatus.CREATED;
+    }
+
     // 꼬리질문 placeholder 를 AI 생성 실패로 확정. 삭제하지 않고 실패 사실을 보여준 뒤
     // 세션은 다음 일반질문으로 넘어간다(QuestionsCallbackService.applyFollowupFailed).
     public void failFollowup() {

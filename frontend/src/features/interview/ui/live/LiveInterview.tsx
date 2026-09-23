@@ -21,6 +21,8 @@ export function LiveInterview({ sessionId }: { sessionId: number }) {
     restoreDraft,
     submitVoice,
     voiceUploading,
+    retranscribe,
+    retranscribing,
     endSession,
     interruptSession,
     isLoading,
@@ -86,6 +88,8 @@ export function LiveInterview({ sessionId }: { sessionId: number }) {
       restoreDraft={restoreDraft}
       onSubmitVoice={submitVoice}
       voiceUploading={voiceUploading}
+      onRetranscribe={retranscribe}
+      retranscribing={retranscribing}
       onEnd={endSession}
       onInterrupt={interruptSession}
       wasSegmented={wasSegmented}

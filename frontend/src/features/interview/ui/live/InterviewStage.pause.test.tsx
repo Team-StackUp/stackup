@@ -38,6 +38,8 @@ function renderStage(onInterrupt = vi.fn(), onEnd = vi.fn()) {
       onDeliveryModeChange={vi.fn()}
       wasSegmented={() => false}
       isSpeaking={() => false}
+      onRetranscribe={vi.fn()}
+      retranscribing={false}
     />,
   )
   return { onInterrupt, onEnd }

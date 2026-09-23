@@ -34,6 +34,19 @@ export async function submitVoiceAnswer(
   return data
 }
 
+// STT 실패한 음성 답변을 같은 오디오로 다시 전사 요청. 오디오는 S3 에 남아 있으므로
+// 답변을 다시 입력할 필요가 없다. 응답은 transcribing 으로 되돌아간 메시지이고,
+// 완료는 업로드 때와 같이 SESSION_MESSAGE SSE 로 도착한다.
+export async function retranscribeVoiceAnswer(
+  sessionId: number,
+  messageId: number,
+): Promise<S['MessageResponse']> {
+  const { data } = await apiClient.post<S['MessageResponse']>(
+    `/api/sessions/${sessionId}/messages/voice/${messageId}/retranscribe`,
+  )
+  return data
+}
+
 // 오디오 바이트를 Core 프록시로 받아 object URL 로 변환.
 // MinIO presigned URL 이 내부 호스트라 브라우저가 직접 못 가므로 이 경로를 쓴다.
 export async function fetchMessageAudioObjectUrl(
