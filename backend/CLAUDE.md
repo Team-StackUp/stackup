@@ -564,6 +564,16 @@ docker compose up -d
   덮어쓴다(`VOICE_RETRANSCRIBE_NOT_ALLOWED`). 프론트는 스테이지 인라인 배너 + 대화 기록 드로어
   양쪽에 '다시 인식하기' 를 낸다(스테이지엔 실패 안내가 아예 없어서 사용자가 왜 답변이 사라졌는지
   모른 채 다시 말해야 했다).
+- **분석 실패 재분석 본 구현**: 분석이 실패하면 되돌릴 수 없었다 — 재분석 API 가 없어 사용자는
+  자료를 지우고 다시 등록해야 했고(PDF 면 파일 재업로드), 화면에는 AI 서버의 예외 문자열이
+  그대로 노출됐다(운영에서 웹 이력서 1건이 `APITimeoutError: Request timed out.` 로 사흘째 FAILED).
+  원본(S3 파일·URL·자소서 본문)은 살아 있으므로 다시 돌리기만 하면 된다.
+  `POST /api/documents/{id}/reanalyze`(`DocumentReanalysisService`, 202)가 실패 문서를 soft delete 하고
+  출처(resume/web/repository/coverLetter)에 맞는 `AnalysisRequestService.request*Analysis` 로 **새**
+  AnalyzedDocument 를 만들어 재발행한다 — 실패 행을 남기면 목록에 실패 카드와 진행 카드가 나란히 보인다.
+  FAILED 가 아닌 문서는 `DOC_REANALYZE_NOT_ALLOWED`. 프론트는 `errorCode` 로 고른 한국어 문구만 쓰고
+  (`features/analysis/lib/analysisError.ts`) 원문은 서버 로그용으로만 남기며, 재시도해도 결과가 같은
+  실패(빈 PDF·차단된 URL 등)에는 버튼을 내지 않는다. 음성 답변 재전사와 같은 성격의 2차 방어선.
 - **Spring AI 미사용** — LLM·임베딩 호출은 모두 AI 서버 위임. Core는 RabbitMQ 발행만 담당.
 - **Redis 미사용** — 휘발성 데이터는 DB short-lived 레코드 또는 인메모리로.
 

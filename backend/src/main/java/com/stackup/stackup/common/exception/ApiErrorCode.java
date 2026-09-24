@@ -33,6 +33,8 @@ public enum ApiErrorCode {
     DOC_NOT_ANALYZED(HttpStatus.UNPROCESSABLE_CONTENT, "아직 분석되지 않은 문서입니다."),
     DOC_ANALYSIS_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "문서 분석에 실패했습니다."),
     DOC_NOT_FOUND(HttpStatus.NOT_FOUND, "분석 문서를 찾을 수 없습니다."),
+    DOC_REANALYZE_NOT_ALLOWED(HttpStatus.UNPROCESSABLE_CONTENT,
+        "다시 분석할 수 있는 문서가 아닙니다."),
     INTERNAL_AUTH_FAILED(HttpStatus.UNAUTHORIZED, "내부 API 인증에 실패했습니다."),
     EMBEDDING_BAD_REQUEST(HttpStatus.BAD_REQUEST, "임베딩 요청 페이로드가 올바르지 않습니다."),
 
@@ -55,7 +57,7 @@ public enum ApiErrorCode {
     VOICE_INVALID_CONTENT_TYPE(HttpStatus.BAD_REQUEST, "지원하지 않는 음성 형식입니다."),
     VOICE_MESSAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "음성 메시지를 찾을 수 없습니다."),
     VOICE_UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "음성 파일 업로드에 실패했습니다."),
-    VOICE_RETRANSCRIBE_NOT_ALLOWED(HttpStatus.UNPROCESSABLE_ENTITY,
+    VOICE_RETRANSCRIBE_NOT_ALLOWED(HttpStatus.UNPROCESSABLE_CONTENT,
         "다시 인식할 수 있는 음성 답변이 아닙니다."),
     MESSAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "메시지를 찾을 수 없습니다."),
     MESSAGE_NOT_BOOKMARKABLE(HttpStatus.UNPROCESSABLE_ENTITY, "질문만 오답노트에 담을 수 있습니다."),

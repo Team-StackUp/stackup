@@ -1541,6 +1541,65 @@
         }
       }
     },
+    "/api/documents/{documentId}/reanalyze" : {
+      "post" : {
+        "tags" : [ "Documents" ],
+        "summary" : "분석에 실패한 문서 다시 분석",
+        "description" : "원본(S3 파일·URL·자소서 본문)은 그대로 살아 있으므로 같은 자료로 분석을 다시 요청한다. 자료를 지우고 다시 등록할 필요가 없다. 새 분석 문서가 만들어지고 실패한 문서는 목록에서 사라진다.",
+        "operationId" : "reanalyzeDocument",
+        "parameters" : [ {
+          "name" : "documentId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "202" : {
+            "description" : "재분석 요청 발행 — 새 문서 id 반환",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ReanalyzeDocumentResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ReanalyzeDocumentResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "문서 없음",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ReanalyzeDocumentResponse"
+                }
+              }
+            }
+          },
+          "422" : {
+            "description" : "실패 상태가 아니라 다시 분석할 대상이 아님",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ReanalyzeDocumentResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/cover-letters" : {
       "get" : {
         "tags" : [ "CoverLetters" ],
@@ -3886,6 +3945,17 @@
           }
         },
         "required" : [ "requestType", "status" ]
+      },
+      "ReanalyzeDocumentResponse" : {
+        "type" : "object",
+        "description" : "재분석 요청 결과 — 새로 만들어진 분석 문서 id",
+        "properties" : {
+          "documentId" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "새 분석 문서 id (PROCESSING 상태로 시작)"
+          }
+        }
       },
       "CoverLetterCreateRequest" : {
         "type" : "object",
