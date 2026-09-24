@@ -102,7 +102,7 @@ LLM_API_KEY=                      # 학교 발급 키
 LLM_BASE_URL=https://factchat-cloud.mindlogic.ai/v1/gateway
 LLM_PRO_MODEL=gemini-3.1-pro-preview
 LLM_PRO_TEMPERATURE=0.2
-LLM_PRO_TIMEOUT_SEC=30.0          # 요청 타임아웃(초). 미설정 시 SDK 기본값까지 무기한 대기 위험
+LLM_PRO_TIMEOUT_SEC=60.0          # 요청 타임아웃(초). 운영 성공 호출 p90 31.9초·최대 56초(재시도 포함)라 30초는 짧았다
 LLM_FLASH_MODEL=gemini-3.5-flash-lite   # 꼬리질문(US-19) 저지연 모델
 LLM_FLASH_TEMPERATURE=0.4
 LLM_FLASH_MAX_TOKENS=512
@@ -164,7 +164,7 @@ STT_PROVIDER=auto                 # auto | mock | deepgram (auto=DEEPGRAM_API_KE
 DEEPGRAM_BASE_URL=https://api.deepgram.com/v1
 DEEPGRAM_MODEL=whisper-large      # 한국어 정확도 우선; 저비용 우선 시 nova-2
 DEEPGRAM_LANGUAGE=ko
-DEEPGRAM_TIMEOUT_SEC=30           # read 한도 (정상 호출 p50 3.6초 / 최대 12초)
+DEEPGRAM_TIMEOUT_SEC=20           # read 한도 (정상 호출 p50 3.8초 / p90 8.1초 / 최대 12.1초)
 DEEPGRAM_CONNECT_TIMEOUT_SEC=5    # connect 한도 — 일괄 timeout 이면 연결 막힘도 read 한도만큼 붙잡는다
 STT_MAX_ATTEMPTS=3                # 일시 장애(retriable) 재시도 횟수. 1 이면 재시도 없음
 STT_RETRY_BACKOFF_SEC=0.5         # 지수 백오프 기준값 (0.5 → 0.5s, 1s)

@@ -406,6 +406,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/documents/{documentId}/reanalyze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 분석에 실패한 문서 다시 분석
+         * @description 원본(S3 파일·URL·자소서 본문)은 그대로 살아 있으므로 같은 자료로 분석을 다시 요청한다. 자료를 지우고 다시 등록할 필요가 없다. 새 분석 문서가 만들어지고 실패한 문서는 목록에서 사라진다.
+         */
+        post: operations["reanalyzeDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/cover-letters": {
         parameters: {
             query?: never;
@@ -1293,6 +1313,14 @@ export interface components {
             latencyMs?: number;
             status: string;
             errorMessage?: string;
+        };
+        /** @description 재분석 요청 결과 — 새로 만들어진 분석 문서 id */
+        ReanalyzeDocumentResponse: {
+            /**
+             * Format: int64
+             * @description 새 분석 문서 id (PROCESSING 상태로 시작)
+             */
+            documentId?: number;
         };
         CoverLetterCreateRequest: {
             title?: string;
@@ -2833,6 +2861,55 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    reanalyzeDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 재분석 요청 발행 — 새 문서 id 반환 */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ReanalyzeDocumentResponse"];
+                };
+            };
+            /** @description 인증 실패 */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ReanalyzeDocumentResponse"];
+                };
+            };
+            /** @description 문서 없음 */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ReanalyzeDocumentResponse"];
+                };
+            };
+            /** @description 실패 상태가 아니라 다시 분석할 대상이 아님 */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ReanalyzeDocumentResponse"];
+                };
             };
         };
     };

@@ -59,9 +59,9 @@ class Settings(BaseSettings):
     deepgram_base_url: str = "https://api.deepgram.com/v1"
     deepgram_model: str = "whisper-large"  # 한국어 정확도 우선; 저비용 우선 시 nova-2.
     deepgram_language: str = "ko"
-    # read 한도. 정상 호출은 p50 3.6초/최대 12초라 30초도 크게 여유롭다.
-    # 이전 60초는 Deepgram 이 멎었을 때 사용자를 1분간 붙잡아 두기만 했다.
-    deepgram_timeout_sec: float = 30.0
+    # read 한도. 운영 성공 호출은 p50 3.8초/p90 8.1초/최대 12.1초라 20초면 1.65배 여유다.
+    # 멎은 호출을 붙잡는 시간이 곧 사용자 대기 시간이므로(재시도 전 낭비) 짧을수록 좋다.
+    deepgram_timeout_sec: float = 20.0
     deepgram_connect_timeout_sec: float = 5.0
     # STT 재시도. Deepgram 이 간헐적으로 응답 없이 멎는데, 같은 오디오를 재전송하면
     # 대부분 즉시 전사된다. retriable 오류에만 적용(인증·잘못된 요청은 즉시 실패).
@@ -106,7 +106,11 @@ class Settings(BaseSettings):
     llm_pro_model: str = "gemini-3.1-pro-preview"
     llm_pro_temperature: float = 0.2
     # 요청 타임아웃 미설정 시 SDK 기본값(수백 초)까지 무기한 대기할 수 있어 명시.
-    llm_pro_timeout_sec: float = 30.0
+    # Pro 는 입력이 커서 한 번에 오래 걸린다 — 운영 성공 호출이 synthesis p90 31.9초,
+    # questions 최대 25.7초였고, 30초에 걸려 내부 재시도로 겨우 성공한 건이 56초로 찍혔다
+    # (타임아웃 30초 + 재시도 26초). 문서 분석은 3번 모두 30초를 넘겨 영구 실패했다.
+    # 60초면 관측 최대(31.9초)의 1.9배 — 재시도로 같은 호출을 두 번 물지 않게 한다.
+    llm_pro_timeout_sec: float = 60.0
 
     # 꼬리질문용 Flash 모델 (저지연 < 3s)
     llm_flash_model: str = "gemini-3.5-flash-lite"

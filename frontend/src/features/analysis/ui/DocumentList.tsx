@@ -2,7 +2,11 @@ import { useState } from 'react'
 import { EmptyState, ListSkeleton, Markdown, Modal, StatusBadge, type StatusTone, QueryError } from '@/shared/ui'
 import { DOCUMENT_SOURCE_LABEL as SOURCE_LABEL } from '@/domain/rag'
 import type { DocumentFilter } from '../api/analysis'
-import { useDocuments } from '../model/useDocuments'
+import { useDocuments, useReanalyzeDocument } from '../model/useDocuments'
+import {
+  analysisFailureMessage,
+  isRetriableAnalysisFailure,
+} from '../lib/analysisError'
 import { useDocumentMarkdown } from '../model/useDocumentMarkdown'
 import type {
   AnalysisSourceType,
@@ -28,6 +32,7 @@ type Props = {
 export function DocumentList({ filter = {}, sourceType }: Props) {
   const { data = [], isPending, isError, refetch } = useDocuments(filter)
   const [activeId, setActiveId] = useState<number | null>(null)
+  const { mutate: reanalyze, isPending: reanalyzing } = useReanalyzeDocument()
 
   if (isPending) {
     return <ListSkeleton label="분석 결과를 불러오는 중…" />
@@ -60,6 +65,8 @@ export function DocumentList({ filter = {}, sourceType }: Props) {
             key={doc.id}
             doc={doc}
             onOpen={() => setActiveId(doc.id)}
+            onReanalyze={() => reanalyze(doc.id)}
+            reanalyzing={reanalyzing}
           />
         ))}
       </ul>
@@ -78,9 +85,13 @@ export function DocumentList({ filter = {}, sourceType }: Props) {
 function DocumentCard({
   doc,
   onOpen,
+  onReanalyze,
+  reanalyzing,
 }: {
   doc: AnalyzedDocument
   onOpen: () => void
+  onReanalyze: () => void
+  reanalyzing: boolean
 }) {
   const meta = STATUS_META[doc.analysisStatus]
   const clickable = doc.analysisStatus === 'ANALYZED'
@@ -133,9 +144,25 @@ function DocumentCard({
       ) : null}
 
       {doc.analysisStatus === 'FAILED' ? (
-        <p className="mt-3 text-caption text-danger-700">
-          {doc.errorMessage ?? '분석에 실패했습니다.'}
-        </p>
+        <div className="mt-3">
+          <p className="text-caption text-danger-700">
+            {analysisFailureMessage(doc.errorCode)}
+          </p>
+          {isRetriableAnalysisFailure(doc.errorCode) ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                // 카드 전체가 버튼인 경우가 있어 상세 열기로 번지지 않게 막는다.
+                e.stopPropagation()
+                onReanalyze()
+              }}
+              disabled={reanalyzing}
+              className="mt-2 rounded-pill border border-border px-3 py-1 text-caption font-medium text-fg-strong transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:text-fg-muted"
+            >
+              {reanalyzing ? '다시 분석하는 중…' : '↻ 다시 분석하기'}
+            </button>
+          ) : null}
+        </div>
       ) : null}
     </>
   )
