@@ -285,3 +285,49 @@ async def test_gemini_embed_gives_up_after_max_retries_on_429() -> None:
     assert exc_info.value.retriable is True
     # 최초 1 + 재시도 2 = 3회.
     assert fake_aio.models.embed_content.await_count == 3
+
+
+@pytest.mark.asyncio
+async def test_gemini_embed_records_ai_log_per_attempt() -> None:
+    """재시도율이 보여야 batch_size·백오프를 근거 있게 조정할 수 있다.
+
+    운영에서 임베딩은 429 재시도로 사용자에게 실패를 보이지 않았지만, 호출 로그가 없어
+    '몇 번 만에 통과했는지'를 아무도 몰랐다. STT 와 같은 `[n/N]` 규약으로 남긴다.
+    """
+    import asyncio
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from ai_server.rag.embedder import GeminiEmbeddingProvider
+
+    class _RateLimited(Exception):
+        code = 429
+        status = "RESOURCE_EXHAUSTED"
+
+    core = MagicMock()
+    core.record_ai_log = AsyncMock()
+    ok = SimpleNamespace(embeddings=[SimpleNamespace(values=[0.1, 0.2, 0.3, 0.4])])
+
+    fake_aio = MagicMock()
+    fake_aio.models.embed_content = AsyncMock(side_effect=[_RateLimited("429"), ok])
+    fake_client = MagicMock()
+    fake_client.aio = fake_aio
+
+    with patch("google.genai.Client", return_value=fake_client):
+        emb = GeminiEmbeddingProvider(
+            api_key="fake",
+            model="gemini-embedding-001",
+            dim=4,
+            max_retries=1,
+            retry_base_delay_sec=0.0,
+            core_client=core,
+        )
+
+    await emb.embed(["안녕하세요"])
+    await asyncio.sleep(0)
+
+    assert fake_aio.models.embed_content.await_count == 2
+    calls = core.record_ai_log.await_args_list
+    assert [c.kwargs["status"] for c in calls] == ["FAILED", "SUCCESS"]
+    assert "[1/2]" in calls[0].kwargs["error_message"]
+    assert all(c.kwargs["request_type"] == "embedding.embed" for c in calls)

@@ -4,9 +4,13 @@ import asyncio
 import hashlib
 import random
 import struct
+import time
 from typing import Protocol
 
 import structlog
+
+from ai_server.core.client import CoreClient
+from ai_server.observability.ai_call_log import record_ai_call
 
 log = structlog.get_logger(__name__)
 
@@ -90,6 +94,7 @@ class GeminiEmbeddingProvider:
         batch_size: int = 32,
         max_retries: int = 5,
         retry_base_delay_sec: float = 2.0,
+        core_client: CoreClient | None = None,
     ) -> None:
         if not api_key:
             raise ValueError("GEMINI_API_KEY 누락 — provider=gemini 사용 불가")
@@ -103,6 +108,7 @@ class GeminiEmbeddingProvider:
         self._batch_size = max(1, batch_size)
         self._max_retries = max(0, max_retries)
         self._retry_base_delay = max(0.0, retry_base_delay_sec)
+        self._core_client = core_client
 
     @property
     def dim(self) -> int:
@@ -136,13 +142,26 @@ class GeminiEmbeddingProvider:
     async def _embed_batch_with_retry(self, batch: list[str], config: object) -> object:
         attempt = 0
         while True:
+            started = time.perf_counter()
             try:
-                return await self._client.aio.models.embed_content(
+                resp = await self._client.aio.models.embed_content(
                     model=self._model,
                     contents=batch,
                     config=config,
                 )
             except Exception as exc:
+                # 시도마다 한 행 — STT 와 같은 규약(`[n/N]` 접두)으로 재시도율을 추적한다.
+                record_ai_call(
+                    self._core_client,
+                    request_type="embedding.embed",
+                    model_name=self._model,
+                    latency_ms=int((time.perf_counter() - started) * 1000),
+                    status="FAILED",
+                    error_message=(
+                        f"[{attempt + 1}/{self._max_retries + 1}] "
+                        f"{type(exc).__name__}: {exc}"
+                    ),
+                )
                 rate_limited = _is_rate_limited(exc)
                 if rate_limited and attempt < self._max_retries:
                     delay = min(
@@ -164,6 +183,17 @@ class GeminiEmbeddingProvider:
                     retriable=True,
                 ) from exc
 
+            record_ai_call(
+                self._core_client,
+                request_type="embedding.embed",
+                model_name=self._model,
+                latency_ms=int((time.perf_counter() - started) * 1000),
+                status="SUCCESS",
+                input_tokens=None,
+                output_tokens=None,
+            )
+            return resp
+
 
 def build_embedding_provider(
     *,
@@ -174,6 +204,7 @@ def build_embedding_provider(
     batch_size: int = 32,
     max_retries: int = 5,
     retry_base_delay_sec: float = 2.0,
+    core_client: CoreClient | None = None,
 ) -> EmbeddingProvider:
     if provider == "mock":
         return MockEmbeddingProvider(dim=dim, model=model)
@@ -185,6 +216,7 @@ def build_embedding_provider(
             batch_size=batch_size,
             max_retries=max_retries,
             retry_base_delay_sec=retry_base_delay_sec,
+            core_client=core_client,
         )
     if provider == "openai":
         raise NotImplementedError("openai embedding provider 미구현 — 후속 PR에서 추가")

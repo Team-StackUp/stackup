@@ -130,6 +130,11 @@ async def consume(message: AbstractIncomingMessage) -> None:
 ### `observability/`
 - `llm_logging_callback.py` — LangChain `AsyncCallbackHandler`. 토큰/latency 측정 후
   `core/client.py: record_ai_log` 로 Core `POST /api/internal/ai-logs` (fire-and-forget)
+- `ai_call_log.py` — **체인을 거치지 않는 외부 호출**(STT/TTS/임베딩)용 공용 기록기.
+  `record_ai_call(...)`(fire-and-forget) + `measure_ai_call(...)`(지연 측정 + 성공/실패 자동 기록).
+  콜백은 LangChain 경로만 잡으므로 이쪽은 호출부가 직접 남겨야 한다 — 실제로 TTS·임베딩·라이브
+  STT 는 기록이 아예 없어서 운영 TTS 실패 43건의 원인을 사후에 알 수 없었다. 관측이 본 작업을
+  죽이면 안 되므로 태스크로 떼어 보내고 예외는 삼킨다.
 
 ---
 
