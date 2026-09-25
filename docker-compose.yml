@@ -75,41 +75,55 @@ services:
     container_name: stackup-ai
     ports:
       - "${AI_PORT:-38030}:38030"
+    # 값이 붙은 항목만 compose 가 소유한다 — 컨테이너 토폴로지(서비스 호스트명)와
+    # MINIO_* → S3_* 이름 변환처럼 settings.py 가 알 수 없는 것들.
+    #
+    # 이름만 적은 항목은 **전달만** 한다: .env 에 있으면 그 값이, 없으면 아무것도 넘어가지
+    # 않아 settings.py 의 기본값이 그대로 산다. 여기에 `${VAR:-기본값}` 으로 기본값을 또
+    # 적으면 settings.py 를 고쳐도 운영에 영원히 도달하지 못한다 —
+    # 실제로 LLM_PRO_TIMEOUT_SEC 를 30→60 으로 올린 변경이 이 줄에 막혀 무효가 됐고,
+    # 웹 이력서 분석이 계속 타임아웃으로 죽었다(실제 소요 37.4초).
+    # `${VAR:-}` 도 금지다 — 미설정이 빈 문자열로 주입돼 역시 코드 기본값을 덮는다.
+    # 중복 방지는 ai/tests/test_compose_defaults.py 가 CI 에서 강제한다.
     environment:
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-stackup}:${RABBITMQ_PASSWORD:-stackup}@rabbitmq:38050/
-      STORAGE_BACKEND: ${STORAGE_BACKEND:-s3}
-      STORAGE_LOCAL_ROOT: ${STORAGE_LOCAL_ROOT:-/var/lib/stackup-ai/storage}
-      S3_ENDPOINT_URL: http://minio:38060
-      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
-      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
-      S3_BUCKET_NAME: ${MINIO_BUCKET:-stackup}
-      S3_REGION: ${S3_REGION:-us-east-1}
-      LLM_API_KEY: ${LLM_API_KEY:-}
-      LLM_BASE_URL: ${LLM_BASE_URL:-https://factchat-cloud.mindlogic.ai/v1/gateway}
-      LLM_PRO_MODEL: ${LLM_PRO_MODEL:-gemini-3.1-pro-preview}
-      LLM_FLASH_MODEL: ${LLM_FLASH_MODEL:-gemini-3.5-flash-lite}
-      LLM_FLASH_TEMPERATURE: ${LLM_FLASH_TEMPERATURE:-0.4}
-      LLM_FLASH_MAX_TOKENS: ${LLM_FLASH_MAX_TOKENS:-512}
-      LLM_PRO_TIMEOUT_SEC: ${LLM_PRO_TIMEOUT_SEC:-30.0}
-      LLM_PRO_BASE_URL: ${LLM_PRO_BASE_URL:-}
-      LLM_PRO_API_KEY: ${LLM_PRO_API_KEY:-}
-      LLM_FLASH_BASE_URL: ${LLM_FLASH_BASE_URL:-}
-      LLM_FLASH_API_KEY: ${LLM_FLASH_API_KEY:-}
-      LLM_FLASH_TIMEOUT_SEC: ${LLM_FLASH_TIMEOUT_SEC:-10.0}
-      QUESTIONS_RAG_TIMEOUT_SEC: ${QUESTIONS_RAG_TIMEOUT_SEC:-1.5}
-      STT_PROVIDER: ${STT_PROVIDER:-auto}
-      DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY:-}
-      DEEPGRAM_BASE_URL: ${DEEPGRAM_BASE_URL:-https://api.deepgram.com/v1}
-      DEEPGRAM_MODEL: ${DEEPGRAM_MODEL:-whisper-large}
-      DEEPGRAM_LANGUAGE: ${DEEPGRAM_LANGUAGE:-ko}
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-stackup}:${RABBITMQ_PASSWORD:-stackup}@rabbitmq:38050/
+      - S3_ENDPOINT_URL=http://minio:38060
+      - S3_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
+      - S3_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin}
+      - S3_BUCKET_NAME=${MINIO_BUCKET:-stackup}
+      - STORAGE_LOCAL_ROOT=${STORAGE_LOCAL_ROOT:-/var/lib/stackup-ai/storage}
       # AI → Core 내부 API. 같은 compose 네트워크의 backend 서비스로 직접 라우팅.
-      CORE_INTERNAL_BASE_URL: ${CORE_INTERNAL_BASE_URL:-http://backend:38010}
-      CORE_INTERNAL_API_KEY: ${CORE_INTERNAL_API_KEY:-local-development-internal-api-key}
-      # 임베딩
-      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-mock}
-      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-gemini-embedding-001}
-      EMBEDDING_DIM: ${EMBEDDING_DIM:-1536}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      - CORE_INTERNAL_BASE_URL=${CORE_INTERNAL_BASE_URL:-http://backend:38010}
+      - CORE_INTERNAL_API_KEY=${CORE_INTERNAL_API_KEY:-local-development-internal-api-key}
+      # ── 아래는 전달만. 기본값의 주인은 ai/src/ai_server/config/settings.py ──
+      - S3_REGION
+      - STORAGE_BACKEND
+      - LLM_API_KEY
+      - LLM_BASE_URL
+      - LLM_PRO_MODEL
+      - LLM_FLASH_MODEL
+      - LLM_FLASH_TEMPERATURE
+      - LLM_FLASH_MAX_TOKENS
+      - LLM_PRO_TIMEOUT_SEC
+      - LLM_PRO_BASE_URL
+      - LLM_PRO_API_KEY
+      - LLM_FLASH_BASE_URL
+      - LLM_FLASH_API_KEY
+      - LLM_FLASH_TIMEOUT_SEC
+      - QUESTIONS_RAG_TIMEOUT_SEC
+      - STT_PROVIDER
+      - STT_MAX_ATTEMPTS
+      - STT_RETRY_BACKOFF_SEC
+      - DEEPGRAM_API_KEY
+      - DEEPGRAM_BASE_URL
+      - DEEPGRAM_MODEL
+      - DEEPGRAM_LANGUAGE
+      - DEEPGRAM_TIMEOUT_SEC
+      - DEEPGRAM_CONNECT_TIMEOUT_SEC
+      - EMBEDDING_PROVIDER
+      - EMBEDDING_MODEL
+      - EMBEDDING_DIM
+      - GEMINI_API_KEY
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
