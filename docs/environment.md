@@ -4,6 +4,37 @@
 
 ---
 
+## 0. 설정값의 주인 — 우선순위
+
+AI 서버 설정은 세 군데에 있을 수 있고, **아래로 갈수록 세다**:
+
+```
+ai/src/ai_server/config/settings.py   기본값의 주인 (single source of truth)
+        ↑ 덮어씀
+docker-compose.yml                    컨테이너 토폴로지·이름 변환만 (`- KEY=값`)
+        ↑ 덮어씀
+운영 .env                             환경마다 달라야 하는 것만 (시크릿·운영 전용 선택)
+```
+
+**같은 기본값을 두 군데 적지 않는다.** compose 나 `.env` 에 코드와 같은 값을 적어 두면
+`settings.py` 를 고쳐도 운영에 영원히 도달하지 못하고, 조용히 무효가 돼서 알아챌 방법도 없다.
+실제로 `LLM_PRO_TIMEOUT_SEC` 를 30→60 으로 올린 변경이 compose 의
+`${LLM_PRO_TIMEOUT_SEC:-30.0}` 한 줄에 막혀 무효가 됐고, 웹 이력서 분석이 계속
+타임아웃으로 죽었다(실제 소요 37.4초 — 30초로는 불가능, 60초면 성공).
+
+- compose 는 값을 지우고 **이름만** 적어 전달만 한다(`- LLM_PRO_TIMEOUT_SEC`).
+  `.env` 에 있으면 그 값이 가고, 없으면 아무것도 안 가서 코드 기본값이 산다.
+  `${VAR:-}` 도 금지 — 미설정이 빈 문자열로 주입돼 역시 코드 기본값을 덮는다.
+- `.env.example` 에 `KEY=값` 으로 적은 줄은 `deploy-app.yml` 이 운영 `.env` 에 **영구 복사**한다.
+  그러므로 환경마다 달라야 하는 것만 적고, 나머지는 주석으로 남긴다.
+- 이 규약은 `ai/tests/test_compose_defaults.py` 가 CI 에서 강제한다.
+
+**예외** — compose 가 기본값을 가져야 하는 것: 서비스 호스트명(`http://backend:38010`,
+`http://minio:38060`)처럼 `settings.py` 가 알 수 없는 컨테이너 토폴로지, `MINIO_ROOT_USER`
+→ `S3_ACCESS_KEY` 같은 이름 변환, 비면 로컬 기동이 막히는 개발용 기본값.
+
+---
+
 ## 1. 환경 분리
 
 | 환경 | 용도 | 호스트 |
