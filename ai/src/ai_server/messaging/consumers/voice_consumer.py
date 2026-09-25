@@ -11,6 +11,7 @@ from ai_server.messaging.consumers.failure_signal import unmark_on_error
 from ai_server.messaging.idempotency import LruIdempotencyStore
 from ai_server.messaging.publisher import CallbackPublisher
 from ai_server.model.envelope import Envelope
+from ai_server.observability.ai_call_log import record_ai_call
 from ai_server.model.messages.voice import (
     AnalyzeVoiceRequest,
     VoiceCallbackPayload,
@@ -242,28 +243,16 @@ class VoiceConsumer:
         status: str,
         error_message: str | None,
     ) -> None:
-        if self._core_client is None:
-            return
-
-        async def _do() -> None:
-            try:
-                await self._core_client.record_ai_log(
-                    request_type="stt.transcribe",
-                    model_name=_provider_model_name(self._stt),
-                    input_tokens=None,
-                    output_tokens=None,
-                    latency_ms=latency_ms,
-                    status=status,
-                    user_id=envelope.context.user_id,
-                    session_id=req.session_id,
-                    error_message=(error_message[:1000] if error_message else None),
-                )
-            except Exception as exc:
-                log.warn(
-                    "voice.ai_log.failed", error=str(exc), session_id=req.session_id
-                )
-
-        asyncio.create_task(_do())
+        record_ai_call(
+            self._core_client,
+            request_type="stt.transcribe",
+            model_name=_provider_model_name(self._stt),
+            latency_ms=latency_ms,
+            status=status,
+            error_message=error_message,
+            user_id=envelope.context.user_id,
+            session_id=req.session_id,
+        )
 
 
 def _elapsed_ms(started: float | None) -> int | None:

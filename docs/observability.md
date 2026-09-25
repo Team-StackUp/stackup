@@ -118,6 +118,25 @@ error_message
 - 실패율 알림 (5분 윈도우 5% 초과 시)
 - 사용자별 토큰 사용량 (남용 감지)
 
+### 3.1 기록 경로 — 두 가지
+
+| 경로 | 구현 | 대상 |
+|------|------|------|
+| LangChain 콜백 | `observability/llm_logging_callback.py` | 체인을 타는 LLM 호출(질문·꼬리질문·피드백·문서 분석) |
+| 직접 기록 | `observability/ai_call_log.py` | 체인 밖 외부 호출 — STT(배치·라이브)·TTS·임베딩 |
+
+콜백은 체인 경로만 잡는다. 그래서 한동안 TTS·임베딩·라이브 STT 는 `ai_request_logs` 에
+**한 줄도 남지 않았고**, 운영 TTS 요청 245건 중 43건이 실패했는데 원인을 사후에 알 수 없었다.
+외부 API 를 새로 붙일 때는 이 표에 어느 경로로 기록되는지 함께 적는다.
+
+**현재 `request_type` 목록**: `generate.questions` · `generate.followup.stream` ·
+`generate.feedback.{panel,synthesis,coaching,self_intro}` · `analyze.document` ·
+`stt.transcribe` · `stt.live` · `tts.synthesize` · `embedding.embed`
+
+재시도가 있는 경로(STT·임베딩)는 **시도마다 한 행**을 남기고 `error_message` 앞에 `[n/N]` 을
+붙인다. 실패율을 셀 때 분모가 '요청'이 아니라 '시도'가 되므로, 사용자에게 보인 실패만 세려면
+`[N/N]` 으로 끝난 행만 센다. 이 규약 덕분에 재시도율 자체를 관측할 수 있다.
+
 ```sql
 SELECT model_name, AVG(latency_ms), COUNT(*) AS reqs
 FROM ai_request_logs

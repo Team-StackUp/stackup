@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 
 import structlog
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
@@ -10,6 +11,8 @@ from ai_server.messaging.publisher import CallbackPublisher
 from ai_server.model.envelope import MessageContext
 from ai_server.model.messages.voice import VoiceCallbackPayload
 from ai_server.voice.analysis.metrics import analyze
+from ai_server.core.client import CoreClient
+from ai_server.observability.ai_call_log import record_ai_call
 from ai_server.voice.stt.live import LiveSttProvider
 
 log = structlog.get_logger(__name__)
@@ -23,6 +26,10 @@ def _provider(ws: WebSocket) -> LiveSttProvider:
 
 def _publisher(ws: WebSocket) -> CallbackPublisher:
     return ws.app.state.callback_publisher
+
+
+def _core_client(ws: WebSocket) -> CoreClient | None:
+    return getattr(ws.app.state, "core_client", None)
 
 
 def _settings(ws: WebSocket) -> Settings:
@@ -49,6 +56,7 @@ async def voice_stream(
     provider = _provider(ws)
     publisher = _publisher(ws)
     session = provider.open_session(content_type=content_type, language=None)
+    started = time.perf_counter()
     await session.start()
 
     async def pump_transcripts() -> None:
@@ -93,6 +101,19 @@ async def voice_stream(
             )
         result = await session.result()
         await session.close()
+        # 라이브 STT 도 과금되는 외부 호출인데 기록이 없어 지연·실패가 보이지 않았다.
+        # 전사가 비어 있으면 무음일 수도, 상류가 조용히 죽었을 수도 있다 — 구분이 되게 남긴다.
+        record_ai_call(
+            _core_client(ws),
+            request_type="stt.live",
+            model_name=getattr(provider, "model_name", None),
+            latency_ms=int((time.perf_counter() - started) * 1000),
+            status="SUCCESS" if result.text.strip() else "FAILED",
+            error_message=(
+                None if result.text.strip() else "빈 전사(무음 또는 상류 무응답)"
+            ),
+            session_id=session_id,
+        )
 
         if result.text.strip():
             metrics = analyze(result, filler_pattern=settings.voice_filler_pattern)

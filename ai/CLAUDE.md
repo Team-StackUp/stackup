@@ -383,6 +383,20 @@ docker run --env-file .env -p 8000:8000 stackup-ai
 - **스토리지 추상화** (`storage/`): `S3Storage`(기본) / `LocalFilesystemStorage`. `STORAGE_BACKEND` 토글.
 - **LLM 호출 로깅 본 구현** (`observability/llm_logging_callback.py`, US-30):
   LangChain `AsyncCallbackHandler` 가 토큰/latency 측정 → Core `/api/internal/ai-logs` POST.
+- **체인 밖 외부 호출 로깅 본 구현** (`observability/ai_call_log.py`): 위 콜백은 LangChain 경로만
+  잡아서 TTS·임베딩·라이브 STT 가 `ai_request_logs` 에 **한 줄도 남지 않았다** — 운영 TTS 요청
+  245건 중 43건이 실패했는데 원인을 사후에 알 수 없었고, "지금 정상"이 아니라 "안 보임"이었다.
+  공용 `record_ai_call`/`measure_ai_call` 로 세 경로를 계측한다:
+  - **TTS** — `voice/tts/logging_provider.py: LoggingTtsProvider` 데코레이터(`request_type=tts.synthesize`).
+    consumer 가 아니라 provider 를 감싼 이유는 TTS 가 `generate.tts` consumer 말고도 followup
+    consumer 의 문장 단위 인라인 합성(Part B)에서 호출되기 때문 — consumer 쪽만 계측하면 라이브
+    경로가 통째로 빠진다. mock 은 외부 호출이 아니라 감싸지 않는다.
+  - **임베딩** — `rag/embedder.py` 가 **시도마다** 한 행(`request_type=embedding.embed`,
+    `error_message` 앞에 `[n/N]`). 429 재시도로 사용자에겐 실패가 안 보였지만 몇 번 만에
+    통과하는지 아무도 몰랐다 — batch_size·백오프를 근거 있게 조정하려면 이 숫자가 필요하다.
+  - **라이브 STT** — `api/voice_stream.py` 가 스트림 1건당 한 행(`request_type=stt.live`).
+    빈 전사는 FAILED 로 남겨 무음과 상류 무응답을 구분할 단서를 만든다.
+  `MessagingRuntime.core_client` 를 노출해 WS 핸들러(`app.state.core_client`)도 같은 클라이언트를 쓴다.
 - **질문 TTS consumer 본 구현** (`messaging/consumers/tts_consumer.py`, `voice/tts/`):
   `generate.tts` 수신 → TTS 합성(`GatewayTtsProvider`/`GeminiTtsProvider`, mock fallback) → S3 PUT(`interview/tts/{sessionId}/{messageId}.*`, 확장자는 content_type 기준) → `callback.tts` 발행.
 - **실시간 스트리밍 음성 답변 본 구현** (RT3, `api/voice_stream.py`, `voice/stt/{live,mock_live,deepgram_live,live_factory}.py`):

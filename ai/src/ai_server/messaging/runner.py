@@ -38,7 +38,7 @@ from ai_server.chain.question_generation_chain import (
     build_question_generation_chain,
 )
 from ai_server.config.settings import Settings
-from ai_server.core.client import HttpCoreClient
+from ai_server.core.client import CoreClient, HttpCoreClient
 from ai_server.messaging.connection import RabbitConnection
 from ai_server.rag.chunker import MarkdownChunker
 from ai_server.rag.embedder import build_embedding_provider
@@ -91,7 +91,7 @@ class MessagingRuntime:
         )
 
         storage = build_storage(settings)
-        core_client = HttpCoreClient(
+        core_client = self._core_client = HttpCoreClient(
             base_url=settings.core_internal_base_url,
             api_key=settings.core_internal_api_key,
             timeout_sec=settings.core_internal_timeout_sec,
@@ -111,6 +111,7 @@ class MessagingRuntime:
             batch_size=settings.embedding_batch_size,
             max_retries=settings.embedding_max_retries,
             retry_base_delay_sec=settings.embedding_retry_base_delay_sec,
+            core_client=core_client,
         )
         vision_pdf_reader = build_vision_pdf_reader(settings, core_client=core_client)
 
@@ -227,7 +228,7 @@ class MessagingRuntime:
             settings, core_client=core_client
         )
         # TTS provider 는 꼬리질문 인라인 세그먼트 합성과 질문 TTS 양쪽에서 재사용한다.
-        tts = build_tts_provider(settings)
+        tts = build_tts_provider(settings, core_client=core_client)
         self._followup_consumer = FollowupConsumer(
             generator=followup_generator,
             publisher=self._publisher,
@@ -315,6 +316,10 @@ class MessagingRuntime:
     @property
     def publisher(self) -> CallbackPublisher:
         return self._publisher
+
+    @property
+    def core_client(self) -> CoreClient:
+        return self._core_client
 
     async def start(self) -> None:
         await self._connection.open()

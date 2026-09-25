@@ -23,6 +23,7 @@ def _build_lifespan(settings: Settings):
             app.state.settings = settings
             app.state.live_stt_provider = build_live_stt_provider(settings)
             app.state.callback_publisher = runtime.publisher
+            app.state.core_client = runtime.core_client
             yield
         finally:
             await runtime.stop()
