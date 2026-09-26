@@ -16,9 +16,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -31,6 +35,50 @@ public class GlobalExceptionHandler {
         log.warn("Domain exception. code={}, traceId={}, details={}",
             errorCode.name(), TraceContext.getTraceId(), exception.getDetails());
         return buildResponse(errorCode, resolveMessage(exception, errorCode), exception.getDetails());
+    }
+
+    // ── 잘못된 요청은 4xx 로 끝낸다 ──────────────────────────────────────────────
+    //
+    // 아래 네 예외는 전부 미처리라 catch-all 로 떨어져 500 + ERROR 로그 + 스택트레이스를
+    // 남겼다. 운영 로그의 SYS_INTERNAL_ERROR 11건이 **전부** 이것들이었고 진짜 서버 버그는
+    // 0건이었다 — 즉 실제 장애가 나도 오타 URL·스캐너 트래픽에 묻혀 구분이 안 된다.
+    // 클라이언트 잘못은 클라이언트에게 알리고(4xx), 로그는 WARN 으로 낮춘다.
+
+    // 본문 누락·깨진 JSON·필드 타입 불일치. 파싱 단계라 @Valid 가 돌기 전에 터진다.
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiErrorResponse> handleUnreadableBody(HttpMessageNotReadableException exception) {
+        log.warn("Malformed request body. traceId={}, cause={}",
+            TraceContext.getTraceId(), rootCauseName(exception));
+        return buildResponse(ApiErrorCode.MALFORMED_REQUEST,
+            ApiErrorCode.MALFORMED_REQUEST.getDefaultMessage(), null);
+    }
+
+    // /api/sessions/abc 처럼 경로변수를 변환하지 못한 경우.
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException exception) {
+        log.warn("Path/param type mismatch. traceId={}, name={}",
+            TraceContext.getTraceId(), exception.getName());
+        return buildResponse(ApiErrorCode.MALFORMED_REQUEST,
+            ApiErrorCode.MALFORMED_REQUEST.getDefaultMessage(),
+            Map.of("parameter", Objects.toString(exception.getName(), "")));
+    }
+
+    // 존재하지 않는 경로. 봇 스캔이 상시 들어오므로 이걸 500 으로 두면 로그가 오염된다.
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleNoResource(NoResourceFoundException exception) {
+        log.debug("No handler for path. traceId={}, path={}",
+            TraceContext.getTraceId(), exception.getResourcePath());
+        return buildResponse(ApiErrorCode.ENDPOINT_NOT_FOUND,
+            ApiErrorCode.ENDPOINT_NOT_FOUND.getDefaultMessage(), null);
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiErrorResponse> handleMethodNotSupported(
+        HttpRequestMethodNotSupportedException exception) {
+        log.warn("Method not supported. traceId={}, method={}",
+            TraceContext.getTraceId(), exception.getMethod());
+        return buildResponse(ApiErrorCode.METHOD_NOT_ALLOWED,
+            ApiErrorCode.METHOD_NOT_ALLOWED.getDefaultMessage(), null);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -101,6 +149,15 @@ public class GlobalExceptionHandler {
         );
 
         return ResponseEntity.status(errorCode.getStatus()).body(response);
+    }
+
+    // 예외 타입만 남긴다 — 원문 메시지에는 파싱 실패한 사용자 입력 조각이 섞일 수 있다.
+    private static String rootCauseName(Throwable exception) {
+        Throwable cause = exception;
+        while (cause.getCause() != null && cause.getCause() != cause) {
+            cause = cause.getCause();
+        }
+        return cause.getClass().getSimpleName();
     }
 
     private String resolveMessage(DomainException exception, ApiErrorCode errorCode) {
