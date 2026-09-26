@@ -63,7 +63,10 @@ public enum ApiErrorCode {
     MESSAGE_NOT_BOOKMARKABLE(HttpStatus.UNPROCESSABLE_ENTITY, "질문만 오답노트에 담을 수 있습니다."),
 
     VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "요청 값이 올바르지 않습니다."),
+    MALFORMED_REQUEST(HttpStatus.BAD_REQUEST, "요청 형식이 올바르지 않습니다."),
     ACCESS_DENIED(HttpStatus.FORBIDDEN, "접근 권한이 없습니다."),
+    ENDPOINT_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 경로입니다."),
+    METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "지원하지 않는 요청 메서드입니다."),
 
     SYS_RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "요청이 너무 많습니다."),
     SYS_DEPENDENCY_DOWN(HttpStatus.SERVICE_UNAVAILABLE, "필수 외부 의존성이 응답하지 않습니다."),
