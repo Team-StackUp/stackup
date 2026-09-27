@@ -97,6 +97,8 @@ MINIO_BUCKET=stackup
 # ===== App =====
 SPRING_PROFILES_ACTIVE=local
 SERVER_PORT=8080
+SCHEDULING_POOL_SIZE=4            # @Scheduled 스레드 수. Spring 기본값 1이면 스위퍼들이 직렬화되고,
+                                  # 느린 작업 하나가 면접 복구 스위퍼까지 멈춘다
 
 # ===== Auth =====
 JWT_SECRET=                       # base64-encoded 32+ bytes (필수, default 없음)

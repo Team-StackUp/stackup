@@ -14,6 +14,14 @@ spring:
     multipart:
       max-file-size: 20MB
       max-request-size: 20MB
+  task:
+    scheduling:
+      # 기본값은 1이다. @Scheduled 가 6개(+#256 으로 7개)인데 그중
+      # SessionTimeoutSweeper·StaleTranscriptionSweeper 는 **멈춘 면접을 푸는 유일한 장치**다.
+      # 한 스레드를 공유하면 느린 작업 하나가(가장 유력한 건 S3/MinIO 를 도는
+      # OrphanedObjectSweeper) 면접 복구를 통째로 멈춘다 — 아무 신호도 없이.
+      pool:
+        size: ${SCHEDULING_POOL_SIZE:4}
 
 server:
   port: ${SERVER_PORT:38010}
