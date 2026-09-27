@@ -151,11 +151,12 @@ def test_default_model_is_nova2_not_whisper():
 
 
 @pytest.mark.asyncio
-async def test_nova_model_sends_keyword_hint():
-    """nova 계열에서만 keywords 를 붙인다 — Whisper 모델은 400 을 낸다.
+async def test_keyword_hint_is_never_sent():
+    """직전 질문을 keywords 로 보내지 않는다.
 
-    whisper-large 를 쓰는 동안 이 경로는 잠들어 있었다. 모델 교체로 켜지므로
-    실제로 파라미터가 실리는지 고정해 둔다(운영 키로 200 응답·전사 동일 확인 완료).
+    한국어에서 효과가 없음을 실측했다(힌트 유/무 5회씩, 출력 분포 동일 — 차이로 보이던
+    것은 nova-2 의 비결정성이었다). 효과가 없는데 매 호출마다 질문 200자를 외부로 보내고,
+    Deepgram 이 언젠가 이 값을 반영하면 답변 전사가 질문 어휘로 끌려간다.
     """
     seen = {}
 
@@ -163,30 +164,14 @@ async def test_nova_model_sends_keyword_hint():
         seen.update(dict(request.url.params))
         return httpx.Response(200, json={"metadata": {}, "results": {"channels": []}})
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-        provider = DeepgramSttProvider(api_key="k", model="nova-2", client=client)
-        await provider.transcribe(
-            audio_bytes=b"x", content_type="audio/webm", hint="ACID 를 설명해 주세요"
-        )
-
-    assert seen["model"] == "nova-2"
-    assert seen["keywords"] == "ACID 를 설명해 주세요"
-
-
-@pytest.mark.asyncio
-async def test_whisper_model_omits_keyword_hint():
-    seen = {}
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        seen.update(dict(request.url.params))
-        return httpx.Response(200, json={"metadata": {}, "results": {"channels": []}})
-
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-        provider = DeepgramSttProvider(
-            api_key="k", model="whisper-large", client=client
-        )
-        await provider.transcribe(
-            audio_bytes=b"x", content_type="audio/webm", hint="ACID 를 설명해 주세요"
-        )
-
-    assert "keywords" not in seen
+    for model in ("nova-2", "nova-3", "whisper-large"):
+        seen.clear()
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            provider = DeepgramSttProvider(api_key="k", model=model, client=client)
+            await provider.transcribe(
+                audio_bytes=b"x",
+                content_type="audio/webm",
+                hint="ACID 를 설명해 주세요",
+            )
+        assert seen["model"] == model
+        assert "keywords" not in seen, f"{model} 에서 keywords 가 실렸다"

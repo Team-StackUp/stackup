@@ -208,10 +208,23 @@ chain = prompt | llm | PydanticOutputParser(pydantic_object=...)
   whisper 가 기술 영문을 원문 유지(`Revalidation Event`)하는 반면 nova-2 는 한글화(`리밸리데이션
   이벤트`)하는 차이 정도다.
   - **부작용 2개를 같이 처리했다.** ① `keywords` 힌트 경로가 켜진다(Whisper 는 400 이라 잠들어
-    있었다) — 운영 키로 200·전사 동일 확인 후 테스트로 고정. ② `pronunciation_accuracy` 는 STT
-    신뢰도라 **모델마다 분포가 다르다**. Core 의 `PRONUNCIATION_LOW` 를 0.85→0.93 으로 재보정
-    (실측: whisper 중앙 0.841 → 0.85 기준 57% 가 '불분명'으로 이미 무의미했다 / nova-2 중앙
-    0.976, 0.93 기준 15%).
+    있었다). ② `pronunciation_accuracy` 는 STT 신뢰도라 **모델마다 분포가 다르다**. Core 의
+    `PRONUNCIATION_LOW` 를 0.85→0.93 으로 재보정(실측: whisper 중앙 0.841 → 0.85 기준 57% 가
+    '불분명'으로 이미 무의미했다 / nova-2 중앙 0.976, 0.93 기준 15%).
+- **`keywords` 힌트는 보내지 않는다 (2026-09-27, 위 ①의 후속)**: 모델 교체 직후엔 "200 응답 +
+  전사 동일"만 보고 안전하다고 판단했는데, **비교 1회로는 효과 없음과 비결정성을 구분할 수
+  없었다.** 같은 오디오로 힌트 유/무를 5회씩 돌리니 두 조건의 출력 분포가 **동일**했다
+  (각각 297자 4회 + 285자 1회). 즉 차이처럼 보이던 것은 힌트가 아니라 **nova-2 자체의
+  비결정성**이다. 단어 하나 + 강도(`백오프:10`)로 줄여도, 영어 단어(`jitter:10`)로 바꿔도
+  같았다 — 한국어에서 Deepgram keyword boosting 은 동작하지 않는다.
+  - 그래서 `params["keywords"]` 를 뺐다. 효과가 없는데 매 호출마다 질문 200자를 외부로 보내고,
+    Deepgram 이 언젠가 이 값을 반영하기 시작하면 **답변 전사가 질문 어휘 쪽으로 끌려간다** —
+    채점하는 서비스에서 그건 사용자가 하지 않은 말로 감점되는 것이다. `hint` 인자 자체는
+    `SttProvider` 공통 인터페이스라 남겨 둔다.
+  - `keyterm`(nova-3 용 후속 파라미터)은 nova-2 에서 400 이다.
+  - **덤으로 알게 된 것: nova-2 는 비결정적이다.** 같은 파일 10회 중 2회가 마지막 문장
+    ("여기까지 하겠습니다.")을 빠뜨렸다. 재전사(`retranscribe`)가 다른 결과를 내는 것은
+    버그가 아니라 이 성질 때문이며, 실패가 아니어도 재전사가 도움이 될 수 있다는 뜻이다.
 - **STT 타임아웃 분리 + 재시도** (`voice/stt/deepgram.py`, `messaging/consumers/voice_consumer.py`): Deepgram 배치 호출이 간헐적으로 응답 없이 멎는다 — 운영 실패 2건이 60.8s/61.5s 로 read 한도에 정확히 걸렸고 성공 호출은 p50 3.6초/최대 12초였다. 오디오 크기·손상·인증·모델·로컬 네트워크는 실측으로 배제됐고(실패 파일 6개 중 5개가 재전송에서 즉시 전사), 상류가 구간적으로 멎는 것이 원인. 일괄 `timeout=60` 을 `httpx.Timeout(read=20, connect=5)` 으로 쪼개 연결 막힘에 1분을 쓰지 않게 하고, `VoiceConsumer` 가 `SttError.retriable` 을 **읽어** 지수 백오프로 재시도한다(`STT_MAX_ATTEMPTS` 기본 3, `STT_RETRY_BACKOFF_SEC` 0.5). 비재시도(STT_AUTH_FAILED/STT_BAD_REQUEST)와 예상 못 한 예외는 재시도 없이 즉시 실패 콜백. 타임아웃 예외는 `str()` 이 빈 문자열이라 메시지에 예외 타입을 같이 남긴다(이전 로그는 `Deepgram 호출 실패: ` 로 끝나 connect/read 구분이 불가능했다). `ai_request_logs` 는 시도마다 한 행 — `error_message` 앞의 `[n/N]` 으로 재시도율을 본다.
 - **STT 환각 제거** (`voice/stt/sanitize.py`): Whisper/Deepgram 이 발화 끝 무음·잡음에서 학습데이터(방송/유튜브) 정형 문구를 환각으로 덧붙이는 문제(예: "MBC 뉴스 OOO입니다", "시청해주셔서 감사합니다", "구독과 좋아요", 영어 "thanks for watching")를 보수적으로 제거. 배치(`deepgram`/`openai_whisper`)는 `transcribe` 반환 시, 라이브(`deepgram_live`)는 **최종 자막마다** + `result()` 백스톱에서 적용 → 저장 전사·메트릭·실시간 표시 모두 정화. 환각만 남은 segment 는 제거해 무음/발음 메트릭이 실제 무음 반영. "감사합니다"·"뉴스 앱" 등 정상 표현은 보존.
 - 추상화 계층 두기: `voice/stt/base.py` (interface), `voice/stt/whisper_api.py`, `voice/tts/base.py` + `voice/tts/{provider}.py`

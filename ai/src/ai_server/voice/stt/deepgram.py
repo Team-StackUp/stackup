@@ -65,10 +65,14 @@ class DeepgramSttProvider:
         }
         if self._language:
             params["language"] = self._language
-        # Deepgram keywords 는 model=nova-* 에서만 지원 (Whisper 모델은 400).
-        # hint 는 한국어 정확도가 모델 자체로 충분하므로 nova 계열에서만 사용.
-        if hint and self._model.startswith("nova"):
-            params["keywords"] = hint[:200]
+        # hint(직전 질문 본문)는 **보내지 않는다.** Deepgram keywords 로 실어 봤지만
+        # 한국어에서는 아무 효과가 없었다. 같은 오디오로 힌트 유/무 5회씩 측정한 결과
+        # 두 조건의 출력 분포가 동일했다(각각 297자 4회 + 285자 1회) — 차이처럼 보이던 것은
+        # nova-2 자체의 비결정성이었다. 단어 하나 + 강도(`백오프:10`)로 줄여도 같았다.
+        # 효과가 없는데 매 호출마다 질문 200자를 외부로 보내고, 언젠가 Deepgram 이 이 값을
+        # 실제로 반영하기 시작하면 **답변 전사가 질문 어휘 쪽으로 끌려간다** — 채점하는
+        # 서비스에서 그건 사용자가 하지 않은 말로 감점되는 것이다.
+        # hint 인자는 인터페이스에 남겨 둔다(SttProvider 공통, 다른 제공자가 쓸 수 있다).
 
         headers = {
             "Authorization": f"Token {self._api_key}",
