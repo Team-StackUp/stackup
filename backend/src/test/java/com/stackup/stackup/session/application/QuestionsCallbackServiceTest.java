@@ -586,6 +586,77 @@ class QuestionsCallbackServiceTest {
         verify(poolRepository, never()).findFirstBySessionIdAndUsedFalseOrderByIdxAsc(any());
     }
 
+    // ── 콜백 유실 복구 (StaleFollowupSweeper 경로) ──────────────────────────────
+
+    @Test
+    void failStaleFollowup_marksFailedAndAdvances() {
+        InterviewSession session = sessionFixture(40L, SessionStatus.IN_PROGRESS);
+        InterviewMessage placeholder = InterviewMessage.followupPlaceholder(
+            session, 3, parentMessageFixture(session));
+        ReflectionTestUtils.setField(placeholder, "id", 444L);
+
+        when(messageRepository.findById(444L)).thenReturn(Optional.of(placeholder));
+        when(messageRepository.save(any(InterviewMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(sessionRepository.findById(40L)).thenReturn(Optional.of(session));
+        when(poolRepository.findFirstBySessionIdAndUsedFalseOrderByIdxAsc(40L)).thenReturn(Optional.empty());
+        when(sessionRepository.finishIfInProgress(any(), any(), any())).thenReturn(1);
+
+        service.failStaleFollowup(444L);
+
+        // AI 가 실패를 보고한 경우와 같은 결과여야 한다 — 어떻게 실패했는지에 따라
+        // 사용자가 보는 화면이 갈리면 안 된다.
+        assertThat(placeholder.getContent())
+            .isEqualTo(InterviewMessage.FOLLOWUP_GENERATION_FAILED_TEXT);
+        assertThat(placeholder.getStatus())
+            .isEqualTo(com.stackup.stackup.session.domain.MessageStatus.FAILED);
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.COMPLETED);
+    }
+
+    // 스위퍼가 목록을 만든 뒤 콜백이 도착했을 수 있다. 완성된 질문을 실패로 되돌리면
+    // 사용자가 받은 질문이 화면에서 사라진다.
+    @Test
+    void failStaleFollowup_skipsWhenCallbackArrivedMeanwhile() {
+        InterviewSession session = sessionFixture(41L, SessionStatus.IN_PROGRESS);
+        InterviewMessage placeholder = InterviewMessage.followupPlaceholder(
+            session, 3, parentMessageFixture(session));
+        ReflectionTestUtils.setField(placeholder, "id", 445L);
+        placeholder.completeFollowup("뒤늦게 도착한 진짜 꼬리질문?", false);
+
+        when(messageRepository.findById(445L)).thenReturn(Optional.of(placeholder));
+
+        service.failStaleFollowup(445L);
+
+        assertThat(placeholder.getContent()).isEqualTo("뒤늦게 도착한 진짜 꼬리질문?");
+        verify(messageRepository, never()).save(any(InterviewMessage.class));
+        verify(events, never()).publishEvent(any());
+    }
+
+    // 스위퍼 조회 이후 세션이 시간초과로 끝났을 수 있다 — 종료 세션에 질문을 더하지 않는다.
+    @Test
+    void failStaleFollowup_skipsWhenSessionAlreadyTerminal() {
+        InterviewSession session = sessionFixture(42L, SessionStatus.IN_PROGRESS);
+        InterviewMessage placeholder = InterviewMessage.followupPlaceholder(
+            session, 3, parentMessageFixture(session));
+        ReflectionTestUtils.setField(placeholder, "id", 446L);
+        ReflectionTestUtils.setField(session, "status", SessionStatus.COMPLETED);
+
+        when(messageRepository.findById(446L)).thenReturn(Optional.of(placeholder));
+
+        service.failStaleFollowup(446L);
+
+        assertThat(placeholder.getContent()).isEqualTo(InterviewMessage.FOLLOWUP_GENERATING_TEXT);
+        verify(events, never()).publishEvent(any());
+    }
+
+    @Test
+    void failStaleFollowup_isNoopWhenMessageMissing() {
+        when(messageRepository.findById(447L)).thenReturn(Optional.empty());
+
+        service.failStaleFollowup(447L);
+
+        verify(events, never()).publishEvent(any());
+    }
+
     private QuestionsCallbackEnvelope poolEnvelope(Long sessionId, List<GeneratedQuestion> questions) {
         QuestionsCallbackPayload payload = new QuestionsCallbackPayload(
             sessionId, "POOL", questions, null, null, null, null, null, null

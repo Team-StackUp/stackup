@@ -45,6 +45,21 @@ public interface InterviewMessageRepository extends JpaRepository<InterviewMessa
     List<InterviewMessage> findStaleTranscribing(@Param("pendingText") String pendingText,
                                                  @Param("before") java.time.Instant before);
 
+    // AI 꼬리질문 콜백을 기다리다 멈춰 있는 placeholder. 음성 쪽 findStaleTranscribing 과
+    // 같은 성격이다 — callback.questions(FOLLOWUP) 이 유실되면 "(생성 중)" 인 채로 영구히 남고
+    // 면접이 그 자리에서 멈춘다.
+    @Query("""
+        select m from InterviewMessage m
+        where m.role = com.stackup.stackup.session.domain.MessageRole.INTERVIEWER
+          and m.status = com.stackup.stackup.session.domain.MessageStatus.CREATED
+          and m.content = :generatingText
+          and m.createdAt < :before
+          and m.session.deleted = false
+          and m.session.status = com.stackup.stackup.session.domain.SessionStatus.IN_PROGRESS
+        """)
+    List<InterviewMessage> findStaleFollowupPlaceholders(@Param("generatingText") String generatingText,
+                                                         @Param("before") java.time.Instant before);
+
     // 질문에 달린 답변(있으면 1개). 오답노트에 '내 답변 + 코칭'을 함께 보여주기 위해.
     List<InterviewMessage> findByParentMessage_IdIn(List<Long> parentMessageIds);
 }
