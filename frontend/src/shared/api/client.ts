@@ -77,7 +77,9 @@ const REFRESH_LOCK = 'stackup-auth-refresh'
 export function withRefreshLock<T>(fn: () => Promise<T>): Promise<T> {
   const locks = typeof navigator === 'undefined' ? undefined : navigator.locks
   if (!locks?.request) return fn()
-  return locks.request(REFRESH_LOCK, fn)
+  // lib.dom 은 콜백의 반환값을 그대로 결과 타입으로 잡는다. 프라미스를 돌려주면
+  // Promise<Promise<T>> 로 추론되는데, 플랫폼은 이를 평탄화해 T 로 resolve 한다.
+  return locks.request(REFRESH_LOCK, fn) as Promise<T>
 }
 
 async function performRefresh(): Promise<string> {
