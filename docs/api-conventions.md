@@ -207,6 +207,30 @@ GET /api/sessions?status=COMPLETED&jobCategory=BACKEND&from=2026-01-01&to=2026-0
 
 ---
 
+## 잘못된 요청의 상태 코드
+
+클라이언트 잘못은 **반드시 4xx** 로 끝낸다. 5xx 로 새어 나가면 두 가지가 동시에 망가진다 —
+클라이언트 재시도 로직이 영원히 성공하지 못할 요청을 반복하고, 운영 로그에서 진짜 장애가
+오타 URL·봇 스캔에 묻힌다. 실제로 2026-09-27 점검 시점 운영 로그의 `SYS_INTERNAL_ERROR`
+11건이 **전부** 아래 네 종류였고 서버 버그는 0건이었다.
+
+| 상황 | 예외 | 응답 |
+|---|---|---|
+| 본문 누락·깨진 JSON·필드 타입 불일치 | `HttpMessageNotReadableException` | 400 `MALFORMED_REQUEST` |
+| 경로변수 변환 실패 (`/api/sessions/abc`) | `MethodArgumentTypeMismatchException` | 400 `MALFORMED_REQUEST` |
+| `@Valid` 위반 | `MethodArgumentNotValidException` | 400 `VALIDATION_ERROR` |
+| 존재하지 않는 경로 | `NoResourceFoundException` | 404 `ENDPOINT_NOT_FOUND` |
+| 지원하지 않는 메서드 | `HttpRequestMethodNotSupportedException` | 405 `METHOD_NOT_ALLOWED` |
+
+파싱 실패 응답에 **원문 예외 메시지를 싣지 않는다** — 깨진 본문 조각(= 사용자 입력)이
+그대로 반사된다. 고정 문구만 내보내고 원인은 서버 로그에 예외 타입으로만 남긴다.
+
+새 `@RequestBody` 엔드포인트를 추가할 때 이 표를 다시 볼 필요는 없다 —
+`GlobalExceptionHandler` 가 전역으로 처리하고 회귀는
+`GlobalExceptionHandlerClientErrorTest` 가 고정한다.
+
+---
+
 ## 5. 에러 코드 카탈로그
 
 > 신규 추가 시 본 카탈로그에 반드시 등록. 같은 코드를 두 도메인에서 사용 금지.
