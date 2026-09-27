@@ -11,6 +11,7 @@ import com.stackup.stackup.session.application.dto.VoiceCallbackPayload;
 import com.stackup.stackup.session.application.event.AnswerSubmittedEvent;
 import com.stackup.stackup.session.domain.InterviewMessage;
 import com.stackup.stackup.session.domain.InterviewMessageRepository;
+import com.stackup.stackup.session.domain.MessageStatus;
 import com.stackup.stackup.session.domain.MessageVoiceAnalysis;
 import com.stackup.stackup.session.domain.MessageVoiceAnalysisRepository;
 import lombok.RequiredArgsConstructor;
@@ -57,6 +58,34 @@ public class VoiceCallbackService {
         InterviewMessage message = messageRepository.findById(p.interviewMessageId()).orElse(null);
         if (message == null) {
             log.warn("callback.voice message not found. id={}", p.interviewMessageId());
+            markProcessed(envelope.messageId());
+            return;
+        }
+
+        // 메시지가 정말 그 세션의 것인지 확인한다.
+        //
+        // 스트리밍 음성(RT3)은 messageId 를 **클라이언트가 쿼리로 보낸다**
+        // (wss://…/realtime/sessions/{id}/audio?messageId=N). RealTime 은 토큰의
+        // SESSION 범위가 URL 의 세션 id 와 맞는지만 보고 messageId 는 검사하지 않으며,
+        // AI 는 DB 를 모른다(설계상). 그래서 이 검사가 없으면 자기 세션 토큰을 가진
+        // 사용자가 남의 messageId 를 실어 보내 **타인의 답변 내용을 덮어쓸 수 있다**
+        // (findById 만 하고 세션을 안 봤다). 여기가 마지막 방어선이다.
+        if (message.getSession() == null || !message.getSession().getId().equals(p.sessionId())) {
+            log.warn("callback.voice session mismatch — drop. claimedSessionId={}, actualSessionId={}, msg={}",
+                p.sessionId(),
+                message.getSession() == null ? null : message.getSession().getId(),
+                message.getId());
+            markProcessed(envelope.messageId());
+            return;
+        }
+
+        // 이미 전사가 끝났거나 실패로 확정된 메시지는 건드리지 않는다.
+        // StaleTranscriptionSweeper 가 FAILED 로 확정해 턴을 푼 뒤 늦은 콜백이 도착하면,
+        // 되살아난 답변과 사용자가 새로 쓴 답변이 동시에 살아있게 된다
+        // (꼬리질문 쪽에서 같은 이유로 막아 둔 것과 동일한 사유).
+        if (message.getStatus() != MessageStatus.CREATED) {
+            log.info("callback.voice late — message already settled({}). sessionId={}, msg={}",
+                message.getStatus(), p.sessionId(), message.getId());
             markProcessed(envelope.messageId());
             return;
         }
