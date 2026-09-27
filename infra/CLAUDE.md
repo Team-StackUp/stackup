@@ -17,9 +17,16 @@ infra/
 │   ├── Dockerfile
 │   ├── rabbitmq.conf     # management.load_definitions
 │   └── definitions.json  # exchanges / queues / bindings (자동 import)
-└── minio/
-    ├── Dockerfile
-    └── init.sh           # 부트스트랩: 버킷 생성
+├── minio/
+│   ├── Dockerfile
+│   └── init.sh           # 부트스트랩: 버킷 생성
+├── backup/               # 운영 백업 (PG 덤프 + MinIO 아카이브, cron)
+│   ├── backup.sh
+│   └── README.md
+└── nginx/                # 운영 nginx 설정 원본 (적용은 수동 — sudo 필요)
+    ├── stack-up.shop.conf
+    ├── conf.d-stackup-ratelimit.conf
+    └── README.md
 
 # (루트)
 docker-compose.yml         # 모든 인프라 서비스 + 헬스체크
@@ -90,7 +97,9 @@ docker exec stackup-postgres pg_dump -U stackup stackup > backup.sql
 docker exec -i stackup-postgres psql -U stackup stackup < backup.sql
 ```
 
-운영 단계에서는 자동 스냅샷 (RDS) 또는 cron 기반 dump.
+**운영 백업은 구현돼 있다** — `infra/backup/` (매일 04:00 cron, PG 덤프 + MinIO 아카이브,
+보존 14일, 실패 시 Discord 알림, 신선도는 `/api/system/health` 의 `backup` 컴포넌트).
+2026-09-26 이전까지는 백업이 **하나도 없었다**.
 
 ---
 
@@ -268,4 +277,5 @@ docker system df
 - ❌ definitions.json 수동 변경 후 커밋 누락
 - ❌ 운영 비밀(.env 본체) 커밋
 - ❌ `docker compose down -v` 를 운영 데이터 위에서 실수로 실행
+  (2026-09-26 부터 `infra/backup/` 이 일 1회 백업을 남긴다 — 그래도 최대 24시간을 잃는다)
 - ❌ 포트 하드코딩 (변수화 안 함)

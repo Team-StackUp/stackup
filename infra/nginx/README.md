@@ -36,13 +36,43 @@ sudo systemctl reload nginx
 | 항목 | 이전 | 이후 |
 |---|---|---|
 | `/ai/` 프록시 | AI 서버가 인터넷에 공개(`/ai/docs`·`/ai/redoc`·`/ai/openapi.json` 포함) | **제거** — 쓰는 곳이 없었다 |
-| TLS | 전역 설정이 TLSv1·1.1 허용, 서버가 실제로 수락 | 이 사이트만 **TLSv1.2/1.3** |
+| TLS | TLSv1·1.1 수락 | **TLSv1.2/1.3** (전역 `nginx.conf` 도 변경) |
 | 보안 헤더 | 전무 | HSTS·nosniff·X-Frame-Options·Referrer-Policy·Permissions-Policy |
 | rate limit | 없음 | API 20r/s(burst 60), 인증 2r/s(burst 20) |
 | 버전 노출 | `nginx/1.18.0 (Ubuntu)` | `server_tokens off` |
 
 바꾸지 않은 것(이미 올바름): `client_max_body_size 25m`(백엔드 25MB 상한과 일치),
 `/realtime/` 의 `proxy_buffering off` + 1h 타임아웃(SSE·WS 가 이게 없으면 깨진다).
+
+### TLS — server 블록만으로는 안 됐다
+
+처음엔 이 사이트의 `server` 블록에만 `ssl_protocols TLSv1.2 TLSv1.3;` 을 넣었다. **효과가 없었다.**
+
+`ssl_protocols` 는 **SNI 이전**에 결정되므로, 같은 `443` 소켓을 여러 `server` 가 공유하면
+**default server 의 값이 전체에 적용**된다. 이 호스트는 443 에 4개 사이트가 물려 있어
+전역 `/etc/nginx/nginx.conf` 를 바꿔야 했다:
+
+```diff
+-	ssl_protocols TLSv1 TLSv1.1 TLSv1.2 TLSv1.3;   # Dropping SSLv3, ref: POODLE
++	ssl_protocols TLSv1.2 TLSv1.3;
+```
+
+백업: `/etc/nginx/nginx.conf.bak-20260927-132844`. **이 변경은 5개 사이트 전부에 적용된다.**
+사이트 블록의 선언도 그대로 남겨 뒀다 — 전역이 되돌아가도 의도가 설정에 남는다.
+
+### TLS 버전 지원 여부를 확인하는 법 (틀리기 쉽다)
+
+`openssl s_client` 출력의 `Protocol : TLSv1` 줄은 **클라이언트가 시도한** 버전이라
+**실패해도 찍힌다.** 이걸 "수락"으로 읽어서 두 번 오판했다. 올바른 신호는 협상된 암호다:
+
+```bash
+out=$(echo | openssl s_client -connect stack-up.shop:443 -servername stack-up.shop         -tls1 -cipher 'DEFAULT@SECLEVEL=0' 2>&1)
+echo "$out" | grep -q "Cipher is (NONE)" && echo "거절" || echo "수락"
+```
+
+`Cipher is (NONE)` + `alert number 70`(protocol_version) = 서버가 거절한 것이다.
+또한 최신 OpenSSL(3.x)은 기본적으로 TLS 1.0/1.1 을 **제안조차 하지 않으므로**
+`-cipher 'DEFAULT@SECLEVEL=0'` 없이 테스트하면 서버 설정과 무관하게 항상 실패한다.
 
 ### `/ai/` 를 지운 근거
 
