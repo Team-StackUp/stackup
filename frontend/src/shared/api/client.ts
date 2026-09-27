@@ -60,6 +60,28 @@ function isRefreshPayload(data: unknown): data is { accessToken: string } {
   return typeof token === 'string' && token.length > 0
 }
 
+// 탭 사이 직렬화.
+//
+// refresh 는 서버에서 **회전**한다 — 기존 토큰을 즉시 revoke 하고 새 토큰을 발급한다
+// (RefreshTokenService.rotate, 유예 없음). 아래 `refreshing` 단일 비행은 모듈 변수라
+// **한 탭 안에서만** 중복을 막는다. 리프레시 쿠키는 탭이 공유하므로, 탭 두 개가 동시에
+// 부팅하면(창 복원·새 탭으로 열기) 둘 다 같은 토큰으로 refresh 를 쏘고 진 쪽이
+// AUTH_REVOKED_TOKEN(401)을 받아 **그 탭만 로그아웃된다.** 진행 중인 면접 탭이 지면
+// 사용자는 이유 없이 튕긴 것으로 본다.
+//
+// Web Locks 로 origin 전체에서 한 번에 하나만 돌게 한다. 기다린 탭은 A 가 갱신해 둔
+// 쿠키로 다시 회전하므로(T2→T3) 정상 동작한다 — 회전이 한 번 더 일어날 뿐이다.
+// 락을 못 쓰는 환경(구형 Safari·비보안 컨텍스트)에서는 지금과 같이 그냥 진행한다.
+const REFRESH_LOCK = 'stackup-auth-refresh'
+
+export function withRefreshLock<T>(fn: () => Promise<T>): Promise<T> {
+  const locks = typeof navigator === 'undefined' ? undefined : navigator.locks
+  if (!locks?.request) return fn()
+  // lib.dom 은 콜백의 반환값을 그대로 결과 타입으로 잡는다. 프라미스를 돌려주면
+  // Promise<Promise<T>> 로 추론되는데, 플랫폼은 이를 평탄화해 T 로 resolve 한다.
+  return locks.request(REFRESH_LOCK, fn) as Promise<T>
+}
+
 async function performRefresh(): Promise<string> {
   const response = await refreshClient.post(REFRESH_PATH, {})
   if (!isRefreshPayload(response.data)) {
@@ -100,7 +122,7 @@ function refreshOnce(): Promise<string> {
     return Promise.reject(makeTransientAuthError())
   }
   if (!refreshing) {
-    refreshing = performRefresh()
+    refreshing = withRefreshLock(performRefresh)
       .catch((err: unknown) => {
         if (isAuthRefreshFailure(err)) {
           tokenStore.clear()
