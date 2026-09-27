@@ -57,7 +57,12 @@ class Settings(BaseSettings):
     stt_provider: Literal["auto", "mock", "deepgram"] = "auto"
     deepgram_api_key: str = ""
     deepgram_base_url: str = "https://api.deepgram.com/v1"
-    deepgram_model: str = "whisper-large"  # 한국어 정확도 우선; 저비용 우선 시 nova-2.
+    # whisper-large 에서 nova-2 로 교체(2026-09-27). 운영 음성으로 30회 측정했더니
+    # whisper-large 는 **23%(7/30)가 20초 read 타임아웃**이었고 파일에 따라 60%까지 갔다.
+    # 재시도 3회가 대부분 흡수하지만 최악 오디오는 5번에 1번꼴로 사용자에게 실패가 보이고,
+    # 실패할 때마다 20초씩 더 기다린다. nova-2 는 같은 조건에서 28/28 성공, 응답도 2~3배 빠르다.
+    # nova-3 는 더 빠르지만 없는 말을 지어내고("아 네. 질문 지레인데?") 영문 철자가 깨져 제외.
+    deepgram_model: str = "nova-2"
     deepgram_language: str = "ko"
     # read 한도. 운영 성공 호출은 p50 3.8초/p90 8.1초/최대 12.1초라 20초면 1.65배 여유다.
     # 멎은 호출을 붙잡는 시간이 곧 사용자 대기 시간이므로(재시도 전 낭비) 짧을수록 좋다.

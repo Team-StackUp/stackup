@@ -19,8 +19,9 @@ class DeepgramSttProvider:
     Mindlogic 게이트웨이가 STT 미지원이라 Deepgram 직접 호출. DEEPGRAM_API_KEY 필요.
     응답에서 transcript + utterances(=문장 단위 segment) + words 활용.
 
-    한국어 정확도 우선 시 model=whisper-large 권장 (whisper-1 동등).
-    저비용 우선 시 nova-2 (한국어는 살짝 떨어짐).
+    기본 nova-2. whisper-large 는 운영 음성 30회 측정에서 23%(7/30)가 20초 read
+    타임아웃이었고 파일에 따라 60% 까지 갔다 — nova-2 는 같은 조건 28/28 성공에
+    응답도 2~3배 빠르다. nova-3 는 더 빠르지만 없는 말을 지어내고 영문 철자가 깨져 제외.
     """
 
     def __init__(
@@ -28,7 +29,7 @@ class DeepgramSttProvider:
         *,
         api_key: str,
         base_url: str = "https://api.deepgram.com/v1",
-        model: str = "whisper-large",
+        model: str = "nova-2",
         language: str | None = "ko",
         timeout_sec: float = 30.0,
         connect_timeout_sec: float = 5.0,
