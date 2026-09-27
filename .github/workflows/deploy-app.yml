@@ -60,6 +60,8 @@ jobs:
           GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
           GOOGLE_OAUTH_REDIRECT_URI: ${{ secrets.GOOGLE_OAUTH_REDIRECT_URI }}
           DEEPGRAM_API_KEY: ${{ secrets.DEEPGRAM_API_KEY }}
+          # 백업 실패 알림용(infra/backup/backup.sh). cron 에는 환경변수가 없어 .env 로 전달한다.
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
           cd "$DEPLOY_DIR"
           if [ ! -f .env ]; then
@@ -117,6 +119,7 @@ jobs:
           upsert_env "GITHUB_OAUTH_CLIENT_SECRET" "$GITHUB_OAUTH_CLIENT_SECRET"
           upsert_env "GITHUB_OAUTH_REDIRECT_URI" "https://stack-up.shop/auth/callback"
           upsert_env "DEEPGRAM_API_KEY" "$DEEPGRAM_API_KEY"
+          upsert_env "DISCORD_WEBHOOK_URL" "$DISCORD_WEBHOOK_URL"
           # STT_PROVIDER 자동 선택. auto 로 두면 AI factory 가 보유 키 기준으로 선택 (deepgram > mock).
           # 키가 있으면 auto 로 설정해두면 충분 — 명시적 전환 불필요.
           if [ -n "$DEEPGRAM_API_KEY" ]; then

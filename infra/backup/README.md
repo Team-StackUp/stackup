@@ -22,10 +22,30 @@ RabbitMQ 볼륨은 받지 않는다 — 큐는 재선언되고 메시지는 휘�
 0 4 * * * /home/stackup/stackup/infra/backup/backup.sh >> /home/stackup/backups/backup.log 2>&1
 ```
 
-## 백업이 살아 있는지 확인
+## 실패를 어떻게 알아채는가
 
-cron 출력은 아무도 보지 않으므로 **성공 시각 마커**를 남긴다. 이게 하루 이상 낡았으면
-백업이 멈춘 것이다.
+실패 모드가 두 가지이고 잡는 방법도 다르다.
+
+| 실패 모드 | 감지 | 비고 |
+|---|---|---|
+| **돌았는데 실패** (pg_dump 오류, 디스크 부족 등) | 스크립트가 **Discord 알림** | `DISCORD_WEBHOOK_URL` 필요. 알림 실패는 삼켜서 백업 결과를 덮지 않는다 |
+| **아예 안 돎** (cron 죽음, 서버 재부팅 등) | 백엔드 헬스체크 `backup` 컴포넌트 | 스크립트가 안 돌았으니 스스로는 못 알린다 — 밖에서 봐야 한다 |
+
+`GET /api/system/health` 의 `backup` 컴포넌트가 `LAST_SUCCESS` 나이를 본다
+(`backup.max-age-hours`, 기본 36시간 = 일 1회 + 여유).
+
+**이 컴포넌트는 전체 상태(`status`)에 반영되지 않는다.** 백업이 낡은 건 "복구 수단이 없다"는
+뜻이지 "면접이 안 된다"가 아니다. aggregate 에 넣으면 업타임 감시가 헛울리고 진짜 장애와
+구분도 안 된다. 값만 보여주고 집계에서는 뺀다.
+
+```json
+{ "status": "UP",
+  "components": { "backup": { "name": "backup", "status": "DOWN" } } }
+```
+
+컨테이너는 `${BACKUP_DIR}` 를 `/var/backups/stackup` 에 **읽기 전용**으로 마운트해 마커만 본다.
+
+## 직접 확인
 
 ```bash
 cat ~/backups/LAST_SUCCESS     # 예: 2026-09-26T15:44:58+09:00
