@@ -552,6 +552,30 @@ docker compose up -d
   (`STT_CALLBACK_TIMEOUT`). 그러면 기존 STT 실패 경로를 그대로 타서 사용자가 같은 질문에
   텍스트로 다시 답할 수 있다. 목록 생성 후 콜백이 도착한 경우를 위해 확정 직전 상태를 다시
   확인한다(완료된 답변을 실패로 되돌리지 않는다).
+- **꼬리질문 콜백 유실 복구 본 구현**: 스트리밍 꼬리질문은 `(생성 중)` placeholder 를 먼저
+  INSERT 하고 `callback.questions(FOLLOWUP)` 이 도착해야 확정된다. AI 가 **실패를 보고**하면
+  `applyFollowupFailed` 가 처리하지만, **콜백 자체가 오지 않으면**(AI 크래시·DLQ 격리·브로커
+  단절) 그 경로를 아무도 타지 못한다 — placeholder 가 CREATED 로 남고, 답할 질문이 없어
+  면접이 그 자리에서 멈춘다(세션 시간 초과로 통째로 끝날 때까지). 음성 답변의
+  `(transcribing)` 과 정확히 같은 구멍인데 질문 쪽에만 대응이 없었다. 운영에서 1건 발생
+  (messageId=444, sessionId=93 — 28일째 CREATED, 해당 세션은 시간초과로 조기 종료됨).
+  `StaleFollowupSweeper`(기본 2분 주기)가 `interview.followup.stale-generation-minutes`
+  (기본 3분)를 넘긴 placeholder 를 찾아 `QuestionsCallbackService.failStaleFollowup` 을 부른다.
+  - **콜백 경로와 같은 코드를 탄다**(`markFollowupFailedAndAdvance`) — 실패 문구 확정 +
+    `SESSION_MESSAGE` 발행 + `advanceToNextGeneral`. "어떻게 실패했는지"에 따라 사용자가
+    보는 결과가 갈리면 안 된다. 이벤트 reason 만 `FOLLOWUP_TIMEOUT` 으로 구분한다.
+  - 확정 직전 상태를 다시 확인한다 — 스위퍼 조회 이후 콜백이 도착했거나(완성된 질문을
+    실패로 되돌리면 안 된다) 세션이 종료됐을 수 있다.
+  - **실패로 확정된 질문은 TTS 를 요청하지 않는다**(`SessionTtsRequester` 가드). 실패 사실은
+    화면에 보여야 하므로 SSE 는 그대로 나가는데, `QuestionPersistedEvent` 에 가드가 없어
+    Gemini TTS 가 "질문 생성에 실패했습니다"를 음성으로 만들고 있었다 — 운영 2건
+    (messageId=434·437, `tts_status=SUCCEEDED`). 면접관이 오류 문구를 읽고, 대화 기록의
+    재생 버튼도 그걸 들려준다.
+  - 두 스위퍼의 조회 JPQL 은 `InterviewMessageSweepQueryTest`(`@PostgresRepositoryTest`)로
+    검증한다. **멈춘 면접을 푸는 유일한 장치인데 지금까지 테스트가 없었다** — 넓으면 정상
+    진행 중인 턴을 실패로 되돌리고, 좁으면 조용히 0건이 되어 스위퍼가 있으나 마나가 되는데
+    둘 다 배포 전에는 신호가 없다(§15.1). `createdAt` 은 감사 필드라 못 바꾸므로 cutoff 를
+    움직여 양방향으로 확인한다.
 - **STT 실패 재전사 본 구현**: STT 가 실패하면 `failVoiceTranscription()` 이 content 를 실패
   문구로 덮고 FAILED 로 확정해 턴을 풀어 줬는데, **오디오는 S3 에 그대로 남아 있는데 꺼낼
   경로가 없어** 사용자가 답변을 통째로 다시 입력해야 했다. 실패의 대부분은 Deepgram 이

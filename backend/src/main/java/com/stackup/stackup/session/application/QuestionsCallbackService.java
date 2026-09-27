@@ -328,11 +328,50 @@ public class QuestionsCallbackService {
             publishErrorEvent(session, "FOLLOWUP", payload);
             return;
         }
+        markFollowupFailedAndAdvance(session, placeholder, "FOLLOWUP_FAILED");
+    }
+
+    /**
+     * 꼬리질문 콜백을 영영 못 받은 placeholder 를 실패로 확정하고 면접을 진행시킨다.
+     *
+     * <p>{@link StaleFollowupSweeper} 가 메시지마다 호출한다. AI 가 status=FAILED 콜백을
+     * 보내 준 경우는 {@link #applyFollowupFailed} 가 처리하지만, 콜백 자체가 오지 않으면
+     * (AI 크래시·DLQ 격리·브로커 단절) 그 경로를 타지 못한다 — 음성 답변의
+     * `(transcribing)` 과 정확히 같은 구멍이고, 여기가 그 대응이다.
+     *
+     * <p>확정 직전 상태를 다시 확인한다: 스위퍼가 목록을 만든 뒤 콜백이 도착했을 수 있고,
+     * 완성된 질문을 실패로 되돌리면 사용자가 받은 질문이 사라진다.
+     */
+    @Transactional
+    public void failStaleFollowup(Long messageId) {
+        InterviewMessage placeholder = messageRepository.findById(messageId).orElse(null);
+        if (placeholder == null) {
+            return;
+        }
+        if (placeholder.getStatus() != MessageStatus.CREATED
+            || !InterviewMessage.FOLLOWUP_GENERATING_TEXT.equals(placeholder.getContent())) {
+            return;
+        }
+        InterviewSession session = placeholder.getSession();
+        // 스위퍼 조회 이후 세션이 끝났을 수 있다(시간초과·수동종료). 종료 세션에 질문을
+        // 더하지 않는 것은 콜백 경로의 terminal 가드와 같은 원칙.
+        if (session == null || session.isDeleted() || session.getStatus().isTerminal()) {
+            return;
+        }
+        log.warn("follow-up stuck in generation — no callback arrived. sessionId={}, messageId={}",
+            session.getId(), messageId);
+        markFollowupFailedAndAdvance(session, placeholder, "FOLLOWUP_TIMEOUT");
+    }
+
+    // 실패 확정 + 화면 갱신 + 다음 일반질문. 콜백 경로와 스위퍼 경로가 같은 코드를 타야
+    // "어떻게 실패했는지"에 따라 사용자가 보는 결과가 갈리지 않는다.
+    private void markFollowupFailedAndAdvance(InterviewSession session, InterviewMessage placeholder,
+                                              String reason) {
         placeholder.failFollowup();
         InterviewMessage message = messageRepository.save(placeholder);
-        publishQuestionEvents(session, message, "FOLLOWUP_FAILED");
-        log.info("callback.questions FOLLOWUP marked failed, advancing to next general. sessionId={}, msg={}",
-            session.getId(), message.getId());
+        publishQuestionEvents(session, message, reason);
+        log.info("follow-up marked failed({}), advancing to next general. sessionId={}, msg={}",
+            reason, session.getId(), message.getId());
         advanceToNextGeneral(session.getId());
     }
 
