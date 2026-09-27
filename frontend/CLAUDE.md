@@ -167,6 +167,16 @@ import { LoginButton } from '@/features/auth/ui/LoginButton';
 - 기본 헤더: `Authorization`, `X-Trace-Id`(클라이언트 생성)
 - 401 응답 시 refresh → 원 요청 재시도 (interceptor)
 - 에러는 표준 에러 코드 ([`/docs/api-conventions.md §5`](../docs/api-conventions.md)) 기반 분기
+- **refresh 는 탭 사이에서도 직렬화한다** (`withRefreshLock`, Web Locks).
+  서버의 `RefreshTokenService.rotate` 는 기존 토큰을 **유예 없이 즉시 revoke** 하고 새 토큰을
+  발급한다. 모듈 변수인 `refreshing` 단일 비행은 **한 탭 안에서만** 듣는데 리프레시 쿠키는
+  탭이 공유하므로, 탭 두 개가 동시에 부팅하면(창 복원·새 탭으로 열기 — 하드 로드마다
+  부트스트랩이 `ensureAccessToken`→refresh 를 한 번 쏜다) 진 쪽이 `AUTH_REVOKED_TOKEN`(401)을
+  받아 그 탭만 로그아웃된다. 진행 중인 면접 탭이 지면 사용자는 이유 없이 튕긴 것으로 본다.
+  - 기다린 탭은 이긴 탭이 갱신해 둔 쿠키로 다시 회전하므로(T2→T3) 정상 동작한다.
+  - Web Locks 가 없는 환경(구형 Safari·비보안 컨텍스트)에서는 기존과 같이 그냥 진행한다.
+  - 운영에서 **아직 발생한 적은 없다** — 리프레시 토큰 발급 51건 중 1초 이내 간격 0건
+    (최단 3.86초). 예방 목적의 수정이다.
 
 ### 7.3 features의 API 호출
 - 각 feature는 자체 `api/` 폴더에서 query/mutation 정의
