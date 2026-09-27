@@ -13,7 +13,11 @@ public record DeliveryFeedback(String rating, String comment) {
     private static final double WPM_FAST = 150;        // 어절/분 초과면 빠름
     private static final double SILENCE_RATIO_HIGH = 0.35;  // 전체 발화시간 중 무음 비율
     private static final double FILLERS_PER_100_HIGH = 3.0;  // 100어절당 간투어 개수
-    private static final double PRONUNCIATION_LOW = 0.85;    // STT 신뢰도 근사
+    // STT 신뢰도 근사. **모델을 바꾸면 반드시 재보정해야 한다** — 값의 분포가 모델마다 다르다.
+    // whisper-large 시절 0.85 는 운영 77건 중 44건(57%)을 '발음 불분명'으로 찍어 이미 무의미했다.
+    // nova-2 로 교체하며 실제 답변 26건을 재측정: 중앙 0.976 / p10 0.909 / 최소 0.840.
+    // 0.93 이면 15%(4/26)가 걸린다 — 하위권만 짚어 신호가 남으면서 과다 판정은 피하는 지점.
+    private static final double PRONUNCIATION_LOW = 0.93;
 
     // 음성 메트릭이 하나라도 있으면 평가, 전부 없으면(텍스트 답변 등) null.
     public static DeliveryFeedback assess(

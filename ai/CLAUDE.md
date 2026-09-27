@@ -199,6 +199,19 @@ chain = prompt | llm | PydanticOutputParser(pydantic_object=...)
 - **TTS: Gemini TTS 기본(한국어)** (`voice/tts/`) — 질문(INTERVIEWER) 메시지 음성화. Deepgram/OpenAI TTS 는 한국어 미지원이라 `GeminiTtsProvider`(`gemini-2.5-flash-preview-tts`, voice=Kore)가 기본. Gemini 는 raw PCM(L16/24kHz)을 반환하므로 WAV 로 감싸 `audio/wav` 로 저장. `TtsProvider` 추상화 + `GatewayTtsProvider`(Mindlogic 게이트웨이 `/audio/speech`, LLM_API_KEY, raw PCM→WAV)/`GeminiTtsProvider`(직접 GEMINI_API_KEY)/`MockTtsProvider`, `build_tts_provider` factory(`TTS_PROVIDER=auto`면 **LLM_API_KEY(gateway) > GEMINI_API_KEY** 순 — 게이트웨이 우선으로 직접 키 429 부하 분산). gateway/gemini 는 `gemini_tts_model`/`gemini_tts_voice` 공유. `generate.tts` consumer 가 합성 → S3 PUT(확장자는 content_type 기준) → `callback.tts` 발행. 재생은 Core 오디오 프록시(`GET /api/sessions/{sid}/messages/{mid}/audio`) 경유(MinIO presigned URL 이 내부 호스트라 브라우저 직접 접근 불가).
 - **스트리밍 STT (실시간 음성 답변, RT3): Deepgram Live** (`voice/stt/deepgram_live.py`) — `websockets`로 Deepgram WS(`wss://api.deepgram.com/v1/listen`, nova-2)에 연결, interim/final 자막을 실시간 반환. `voice/stt/live.py`(`LiveSttProvider`/`LiveSttSession` 추상) + `voice/stt/mock_live.py`(키 없을 때 fallback) + `voice/stt/live_factory.py`(`LIVE_STT_PROVIDER=auto`면 DEEPGRAM_API_KEY 보유 시 deepgram_live).
   - FastAPI WS 엔드포인트 `/internal/voice/stream`(`api/voice_stream.py`): RealTime이 프록시한 오디오를 받아 부분/최종 자막을 다운 프레임(`transcript.partial`/`transcript.final`)으로 보내고, 발화 종료(`stop` 또는 UtteranceEnd) 시 메트릭 계산 후 `callback.voice` 발행 → 기존 followup 파이프라인 재사용.
+- **STT 모델 nova-2 로 교체 (2026-09-27)**: 운영 음성 3종을 30회 돌려 재시도 없이 측정하니
+  whisper-large 는 **23%(7/30)가 20초 read 타임아웃**이었고 파일별 편차가 컸다(60% / 10% / 0%
+  — 크기와 무관). 재시도 3회가 대부분 흡수하지만 최악 오디오는 5번에 1번꼴로 사용자에게 실패가
+  보이고, 실패마다 20초씩 더 기다린다(3회 전부 실패 시 61초). 같은 조건에서 **nova-2 는 28/28
+  성공**, 응답도 2~3배 빠르다. nova-3 는 가장 빠르지만 없는 말을 지어내고("아 네. 질문 지레인데?")
+  `imbeded`·`readis` 처럼 영문 철자가 깨져 제외했다. 한국어 품질은 whisper ≈ nova-2 로,
+  whisper 가 기술 영문을 원문 유지(`Revalidation Event`)하는 반면 nova-2 는 한글화(`리밸리데이션
+  이벤트`)하는 차이 정도다.
+  - **부작용 2개를 같이 처리했다.** ① `keywords` 힌트 경로가 켜진다(Whisper 는 400 이라 잠들어
+    있었다) — 운영 키로 200·전사 동일 확인 후 테스트로 고정. ② `pronunciation_accuracy` 는 STT
+    신뢰도라 **모델마다 분포가 다르다**. Core 의 `PRONUNCIATION_LOW` 를 0.85→0.93 으로 재보정
+    (실측: whisper 중앙 0.841 → 0.85 기준 57% 가 '불분명'으로 이미 무의미했다 / nova-2 중앙
+    0.976, 0.93 기준 15%).
 - **STT 타임아웃 분리 + 재시도** (`voice/stt/deepgram.py`, `messaging/consumers/voice_consumer.py`): Deepgram 배치 호출이 간헐적으로 응답 없이 멎는다 — 운영 실패 2건이 60.8s/61.5s 로 read 한도에 정확히 걸렸고 성공 호출은 p50 3.6초/최대 12초였다. 오디오 크기·손상·인증·모델·로컬 네트워크는 실측으로 배제됐고(실패 파일 6개 중 5개가 재전송에서 즉시 전사), 상류가 구간적으로 멎는 것이 원인. 일괄 `timeout=60` 을 `httpx.Timeout(read=20, connect=5)` 으로 쪼개 연결 막힘에 1분을 쓰지 않게 하고, `VoiceConsumer` 가 `SttError.retriable` 을 **읽어** 지수 백오프로 재시도한다(`STT_MAX_ATTEMPTS` 기본 3, `STT_RETRY_BACKOFF_SEC` 0.5). 비재시도(STT_AUTH_FAILED/STT_BAD_REQUEST)와 예상 못 한 예외는 재시도 없이 즉시 실패 콜백. 타임아웃 예외는 `str()` 이 빈 문자열이라 메시지에 예외 타입을 같이 남긴다(이전 로그는 `Deepgram 호출 실패: ` 로 끝나 connect/read 구분이 불가능했다). `ai_request_logs` 는 시도마다 한 행 — `error_message` 앞의 `[n/N]` 으로 재시도율을 본다.
 - **STT 환각 제거** (`voice/stt/sanitize.py`): Whisper/Deepgram 이 발화 끝 무음·잡음에서 학습데이터(방송/유튜브) 정형 문구를 환각으로 덧붙이는 문제(예: "MBC 뉴스 OOO입니다", "시청해주셔서 감사합니다", "구독과 좋아요", 영어 "thanks for watching")를 보수적으로 제거. 배치(`deepgram`/`openai_whisper`)는 `transcribe` 반환 시, 라이브(`deepgram_live`)는 **최종 자막마다** + `result()` 백스톱에서 적용 → 저장 전사·메트릭·실시간 표시 모두 정화. 환각만 남은 segment 는 제거해 무음/발음 메트릭이 실제 무음 반영. "감사합니다"·"뉴스 앱" 등 정상 표현은 보존.
 - 추상화 계층 두기: `voice/stt/base.py` (interface), `voice/stt/whisper_api.py`, `voice/tts/base.py` + `voice/tts/{provider}.py`
