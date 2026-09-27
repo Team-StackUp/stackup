@@ -203,6 +203,10 @@ services:
       S3_REGION: ${S3_REGION:-us-east-1}
       S3_PATH_STYLE: "true"
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-*}
+    volumes:
+      # 백업 신선도 확인용(BackupHealthIndicator). 호스트 경로라 compose 가 소유한다.
+      # 읽기 전용 — 앱이 백업 파일을 건드릴 일은 없다.
+      - ${BACKUP_DIR:-/home/stackup/backups}:/var/backups/stackup:ro
     depends_on:
       postgres:
         condition: service_healthy

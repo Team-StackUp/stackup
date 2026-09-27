@@ -170,4 +170,60 @@ class SystemHealthServiceTest {
     private static HealthIndicator indicator(Status status, Map<String, Object> details) {
         return () -> Health.status(status).withDetails(details).build();
     }
+
+    /**
+     * 백업이 낡아도 전체 상태는 끌어내리지 않는다.
+     *
+     * <p>백업 신선도는 "복구 수단이 없다"는 운영 신호이지 "면접이 안 된다"가 아니다.
+     * aggregate 에 넣으면 업타임 감시가 장애로 오인해 헛울리고, 진짜 장애와 구분도 안 된다.
+     * 그래서 값은 보여주되 집계에서만 뺀다.
+     */
+    @Test
+    void health_backupStaleDoesNotDragOverallStatusDown() {
+        HealthEndpoint healthEndpoint = healthEndpoint(Map.of(
+            "db", indicator(Status.UP, Map.of()),
+            "rabbit", indicator(Status.UP, Map.of()),
+            "s3", indicator(Status.UP, Map.of()),
+            "aiServer", indicator(Status.UP, Map.of()),
+            "backup", indicator(Status.DOWN, Map.of())
+        ));
+        SystemHealthService systemHealthService = new SystemHealthService(healthEndpoint);
+
+        var response = systemHealthService.health();
+
+        assertThat(response.components().get("backup").status()).isEqualTo(Status.DOWN.getCode());
+        assertThat(response.status()).isEqualTo(Status.UP.getCode());
+    }
+
+    @Test
+    void health_realOutageStillDragsOverallStatusDown() {
+        // 위 예외 처리가 진짜 장애까지 삼키면 안 된다.
+        HealthEndpoint healthEndpoint = healthEndpoint(Map.of(
+            "db", indicator(Status.DOWN, Map.of()),
+            "rabbit", indicator(Status.UP, Map.of()),
+            "s3", indicator(Status.UP, Map.of()),
+            "aiServer", indicator(Status.UP, Map.of()),
+            "backup", indicator(Status.UP, Map.of())
+        ));
+        SystemHealthService systemHealthService = new SystemHealthService(healthEndpoint);
+
+        assertThat(systemHealthService.health().status()).isEqualTo(Status.DOWN.getCode());
+    }
+
+    @Test
+    void ready_doesNotIncludeBackup() {
+        // 준비 상태(트래픽 수용 가능)와 백업은 무관하다.
+        HealthEndpoint healthEndpoint = healthEndpoint(Map.of(
+            "db", indicator(Status.UP, Map.of()),
+            "rabbit", indicator(Status.UP, Map.of()),
+            "backup", indicator(Status.DOWN, Map.of())
+        ));
+        SystemHealthService systemHealthService = new SystemHealthService(healthEndpoint);
+
+        var response = systemHealthService.ready();
+
+        assertThat(response.components()).doesNotContainKey("backup");
+        assertThat(response.status()).isEqualTo(Status.UP.getCode());
+    }
+
 }
