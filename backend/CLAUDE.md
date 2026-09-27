@@ -574,6 +574,18 @@ docker compose up -d
   FAILED 가 아닌 문서는 `DOC_REANALYZE_NOT_ALLOWED`. 프론트는 `errorCode` 로 고른 한국어 문구만 쓰고
   (`features/analysis/lib/analysisError.ts`) 원문은 서버 로그용으로만 남기며, 재시도해도 결과가 같은
   실패(빈 PDF·차단된 URL 등)에는 버튼을 내지 않는다. 음성 답변 재전사와 같은 성격의 2차 방어선.
+- **callback.voice 세션 소유 검증 본 구현 (보안)**: `VoiceCallbackService.apply` 가
+  `findById(interviewMessageId)` 만 하고 **그 메시지가 콜백의 sessionId 소속인지 확인하지
+  않았다.** 스트리밍 음성(RT3)은 messageId 를 **클라이언트가 쿼리로 보내고**
+  (`wss://…/realtime/sessions/{id}/audio?messageId=N`), RealTime 은 토큰의 SESSION 범위가
+  URL 세션 id 와 맞는지만 볼 뿐 messageId 는 검사하지 않으며, AI 는 DB 를 모른다(설계상
+  내부 통신 전용). 결과적으로 **자기 세션 토큰을 가진 사용자가 남의 messageId 를 실어 보내
+  타인의 면접 답변을 덮어쓸 수 있었다**(전사 내용 교체 + 음성 분석 행 삽입 + 피해자 채널로
+  SSE 발행). 체인 어디에도 검사가 없어 Core 가 마지막 방어선이다 — 세션 불일치 콜백은
+  드롭한다. 배치 업로드 경로는 placeholder 를 서버가 만들어 영향이 없었다.
+  같은 지점에 **늦은 콜백 가드**도 넣었다: `StaleTranscriptionSweeper` 가 FAILED 로 확정해
+  턴을 푼 뒤 늦은 콜백이 도착하면 옛 답변이 COMPLETED 로 되살아나 같은 턴에 답변이 둘이
+  된다(꼬리질문 `applyFollowup` 이 같은 이유로 막아 둔 것과 동일). `status != CREATED` 면 드롭.
 - **Spring AI 미사용** — LLM·임베딩 호출은 모두 AI 서버 위임. Core는 RabbitMQ 발행만 담당.
 - **Redis 미사용** — 휘발성 데이터는 DB short-lived 레코드 또는 인메모리로.
 
