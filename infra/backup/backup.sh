@@ -5,9 +5,35 @@
 # 기록·피드백·이력서 파일이 도커 볼륨 단일 사본에만 존재했고, `docker compose down -v`
 # 한 번이면 전부 사라지는 상태였다(infra/CLAUDE.md 가 그 명령을 초기화 절차로 안내한다).
 #
-# 한계: 같은 디스크에 저장하므로 **논리적 사고**(실수 삭제·잘못된 마이그레이션·손상)만
-# 막는다. 디스크·호스트 장애는 못 막는다 — 원격 복제는 후속 과제(docs/operations.md).
+# 한계: **같은 호스트**에 저장하므로 논리적 사고(실수 삭제·잘못된 마이그레이션·손상)와
+# 데이터 디스크 고장까지는 막지만, 호스트 자체를 잃으면 같이 사라진다 — 원격 복제는
+# 후속 과제. (운영 확인: 데이터는 /dev/nvme0n1p3, 백업은 /dev/nvme1n1p1 로 **다른 물리
+# 디스크**다. 이전 주석은 "같은 디스크"라고 적혀 있었는데 사실이 아니었다.)
 set -Eeuo pipefail
+
+# ── 실패 알림 ─────────────────────────────────────────────────────────────────
+# README 는 2026-09-26 부터 "실패 시 Discord 알림"을 안내했지만 **그 코드가 없었다.**
+# 문서만 보고 "실패하면 연락이 오겠지" 라고 믿는 것이 가장 나쁜 상태다 — 조용히 멈춘
+# 백업과 정상 백업이 구분되지 않는다. 여기서 실제로 보낸다.
+#
+# trap 으로 건다: fail() 뿐 아니라 set -e 로 죽는 예상 못 한 실패(디스크 가득, docker
+# 데몬 중단 등)까지 잡아야 한다. 그런 것들이 정확히 "아무도 모르게" 실패하는 종류다.
+#
+# ERR 이 아니라 **EXIT 하나만** 쓴다. 둘 다 걸면 set -e 로 죽을 때 ERR→EXIT 순으로
+# 연달아 떠서 같은 실패를 두 번 알린다.
+# 로그 경로는 BACKUP_DIR 정의 **이전에** trap 이 걸리므로 기본값을 여기서도 펼친다
+# (set -u 라 미정의 변수를 그냥 참조하면 알림 함수 자체가 죽는다).
+# shellcheck source=/dev/null
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/../ops" && pwd)/notify.sh"
+
+backup_failed() {
+  local rc=$?
+  [ "$rc" -eq 0 ] && return 0
+  local logfile="${BACKUP_LOG:-${BACKUP_DIR:-$HOME/backups}/backup.log}"
+  ops_notify fail "백업 실패 (exit=$rc)" \
+    "$(tail -n 20 "$logfile" 2>/dev/null || echo '(로그 없음)')"
+}
+trap backup_failed EXIT
 
 BACKUP_DIR="${BACKUP_DIR:-$HOME/backups}"
 RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-14}"
@@ -57,3 +83,7 @@ find "$BACKUP_DIR" -maxdepth 1 \( -name 'pg-*.dump' -o -name 'minio-*.tar.gz' \)
 date -Iseconds > "$BACKUP_DIR/LAST_SUCCESS"
 
 log "done. pg=$(du -h "$pg_file" | cut -f1) (tables=$pg_tables), minio=$(du -h "$minio_file" | cut -f1), 보관=$deleted개, 보존=${RETENTION_DAYS}일"
+
+# 성공으로 끝났으니 trap 을 해제한다. (rc=0 이면 backup_failed 가 그냥 빠져나오지만,
+# 명시적으로 풀어 두는 편이 의도가 드러난다.)
+trap - EXIT
