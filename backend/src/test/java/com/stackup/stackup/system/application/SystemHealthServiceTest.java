@@ -210,6 +210,26 @@ class SystemHealthServiceTest {
         assertThat(systemHealthService.health().status()).isEqualTo(Status.DOWN.getCode());
     }
 
+    // 스케줄러가 멈춰도 면접 진행·로그인·조회는 된다. 멈춘 것은 '고장 복구' 쪽이라
+    // 백업과 같은 취급을 한다 — 값은 보여주되 집계에서는 뺀다.
+    @Test
+    void health_schedulerDownDoesNotDragOverallStatusDown() {
+        HealthEndpoint healthEndpoint = healthEndpoint(Map.of(
+            "db", indicator(Status.UP, Map.of()),
+            "rabbit", indicator(Status.UP, Map.of()),
+            "s3", indicator(Status.UP, Map.of()),
+            "aiServer", indicator(Status.UP, Map.of()),
+            "backup", indicator(Status.UP, Map.of()),
+            "scheduler", indicator(Status.DOWN, Map.of())
+        ));
+        SystemHealthService systemHealthService = new SystemHealthService(healthEndpoint);
+
+        var response = systemHealthService.health();
+
+        assertThat(response.components().get("scheduler").status()).isEqualTo(Status.DOWN.getCode());
+        assertThat(response.status()).isEqualTo(Status.UP.getCode());
+    }
+
     @Test
     void ready_doesNotIncludeBackup() {
         // 준비 상태(트래픽 수용 가능)와 백업은 무관하다.

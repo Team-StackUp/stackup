@@ -41,6 +41,14 @@ public class S3ObjectStorageClient implements ObjectStorageClient {
             .endpointOverride(properties.endpoint())
             .region(Region.of(properties.region()))
             .credentialsProvider(credentialsProvider)
+            // SDK 기본값에는 **호출 전체 상한이 없다**(소켓 타임아웃 + 재시도 3회뿐).
+            // 이 클라이언트는 요청 스레드(업로드·프록시)와 스케줄러 스레드
+            // (OrphanedObjectSweeper)가 같이 쓴다 — MinIO 가 느려지면 전자는 톰캣
+            // 스레드를, 후자는 스케줄러를 붙잡는다. 스케줄러가 붙잡히면 면접 복구
+            // 스위퍼가 같이 멈춘다. 상한을 걸어 "느림"이 "멈춤"으로 번지지 않게 한다.
+            .overrideConfiguration(o -> o
+                .apiCallAttemptTimeout(Duration.ofSeconds(10))
+                .apiCallTimeout(Duration.ofSeconds(30)))
             .serviceConfiguration(S3Configuration.builder()
                 .pathStyleAccessEnabled(properties.pathStyle())
                 .build())

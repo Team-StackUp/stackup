@@ -586,6 +586,22 @@ docker compose up -d
   같은 지점에 **늦은 콜백 가드**도 넣었다: `StaleTranscriptionSweeper` 가 FAILED 로 확정해
   턴을 푼 뒤 늦은 콜백이 도착하면 옛 답변이 COMPLETED 로 되살아나 같은 턴에 답변이 둘이
   된다(꼬리질문 `applyFollowup` 이 같은 이유로 막아 둔 것과 동일). `status != CREATED` 면 드롭.
+- **스케줄러 스레드 풀 + 생존 신호 본 구현**: `@Scheduled` 가 7개인데 Spring Boot 기본
+  `spring.task.scheduling.pool.size` 는 **1** 이라 전부 한 줄로 서 있었다. 그중
+  `SessionTimeoutSweeper`·`StaleTranscriptionSweeper`·`StaleFollowupSweeper` 는
+  **멈춘 면접을 푸는 유일한 장치**다 — 느린 작업 하나가(S3/MinIO 를 도는
+  `OrphanedObjectSweeper` 가 가장 유력) 면접 복구를 통째로 멈춘다.
+  - `pool.size` 를 `${SCHEDULING_POOL_SIZE:4}` 로. 설정 한 줄이 지워져도 컴파일·테스트가
+    통과하고 **운영에서도 장애 때까지 아무 증상이 없어** `SchedulingPoolSizeTest` 로 지킨다.
+  - **S3 클라이언트에 호출 상한**(`apiCallTimeout` 30초 / `apiCallAttemptTimeout` 10초).
+    AWS SDK v2 기본값에는 호출 전체 상한이 없다(소켓 타임아웃 + 재시도뿐). 같은 클라이언트를
+    요청 스레드(업로드·프록시)와 스케줄러가 공유하므로 "느림"이 "멈춤"으로 번진다.
+  - **`SchedulerHeartbeat` + `SchedulerHealthIndicator`**: 스위퍼들은 할 일이 없으면 로그를
+    남기지 않아 "돌았는데 대상이 없었다"와 "아예 안 돌았다"를 구분할 수 없었다(운영 백엔드
+    전체 로그에 sweeper 관련 줄 **0건**). 1분마다 타임스탬프만 갱신하고, 5분 넘게 멈추면
+    `/api/system/health` 의 `scheduler` 가 DOWN. DB·네트워크를 건드리지 않는다 — 심장박동이
+    자기가 감시하는 문제(느린 I/O)로 막히면 안 된다. `BACKUP` 과 같이 **informational** 이라
+    aggregate 는 끌어내리지 않는다(스케줄러가 멈춰도 면접·로그인·조회는 된다).
 - **Spring AI 미사용** — LLM·임베딩 호출은 모두 AI 서버 위임. Core는 RabbitMQ 발행만 담당.
 - **Redis 미사용** — 휘발성 데이터는 DB short-lived 레코드 또는 인메모리로.
 

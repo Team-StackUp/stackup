@@ -28,6 +28,9 @@ public class SystemHealthService {
     // "복구 수단이 없다"가 구분되지 않고, /health 를 보는 업타임 감시가 헛울린다.
     // 값은 보여주되 aggregate 에서는 뺀다.
     private static final ComponentSpec BACKUP = new ComponentSpec("backup", "backup", true);
+    // 스케줄러가 멈춰도 면접 진행·로그인·조회는 된다 — 멈춘 것은 '고장 복구'다.
+    // BACKUP 과 같은 이유로 값만 보여주고 aggregate 에서는 뺀다.
+    private static final ComponentSpec SCHEDULER = new ComponentSpec("scheduler", "scheduler", true);
 
     private final HealthEndpoint healthEndpoint;
 
@@ -44,7 +47,7 @@ public class SystemHealthService {
     }
 
     public SystemHealthResponse health() {
-        return buildResponse(List.of(DATABASE, RABBITMQ, S3, AI_SERVER, BACKUP));
+        return buildResponse(List.of(DATABASE, RABBITMQ, S3, AI_SERVER, BACKUP, SCHEDULER));
     }
 
     private SystemHealthResponse buildResponse(List<ComponentSpec> specs) {
