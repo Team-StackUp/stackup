@@ -1,6 +1,6 @@
 # Product Overview — StackUp
 
-> IT 직군 멀티모달 AI 면접 시뮬레이터
+> 멀티모달 AI 모의면접 시뮬레이터 (취준생 전반 — 개발·비개발 직군)
 
 ---
 

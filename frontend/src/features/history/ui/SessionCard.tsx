@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { StatusBadge, type StatusTone } from '@/shared/ui'
 import { formatDate } from '@/shared/utils'
 import type { Session } from '../api/historyApi'
+import { JOB_CATEGORY_LABEL } from '@/domain/session/model/jobCategory'
 
 const STATUS: Record<string, { label: string; tone: StatusTone }> = {
   READY: { label: '준비', tone: 'neutral' },
@@ -18,12 +19,6 @@ const MODE: Record<string, string> = {
   JOB_TAILORED: '직무 맞춤',
 }
 
-const JOB: Record<string, string> = {
-  FRONTEND: '프론트엔드',
-  BACKEND: '백엔드',
-  INFRA: '인프라',
-  DBA: 'DBA',
-}
 
 /**
  * 상태별로 눌렀을 때 갈 곳. 예전에는 COMPLETED 만 링크였고 나머지는 아예 눌리지 않아,
@@ -45,7 +40,7 @@ export function SessionCard({ session }: { session: Session }) {
     : session.jobCategory
       ? [session.jobCategory]
       : []
-  const jobLabel = jobs.map((j) => JOB[j] ?? j).join('·')
+  const jobLabel = jobs.map((j) => JOB_CATEGORY_LABEL[j] ?? j).join('·')
 
   const body = (
     <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-surface-raised px-5 py-4 transition-colors duration-fast hover:border-border-strong">

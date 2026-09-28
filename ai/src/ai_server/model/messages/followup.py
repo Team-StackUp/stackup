@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 
 from ai_server.model._config import camel_config
 from ai_server.model.messages.questions import GenerationStatus
+from ai_server.model.messages.job_category import JobCategory
 
 InterviewMode = Literal["PERSONALITY", "TECHNICAL", "INTEGRATED"]
 
@@ -29,7 +30,7 @@ class GenerateFollowupRequest(BaseModel):
     previous_question: str
     answer_text: str
     mode: InterviewMode
-    job_category: Literal["FRONTEND", "BACKEND", "INFRA", "DBA"]
+    job_category: JobCategory
     context_document_ids: list[int] = Field(default_factory=list)
     parent_category: str | None = None  # 직전 질문 카테고리 (루브릭 선택)
     # 직전 질문이 기대하는 핵심(평가 관점). correctness/specificity 충족도 채점에 사용.

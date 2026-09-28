@@ -20,7 +20,7 @@ export function HomeHero() {
           <div className="lg:col-span-6">
             <Reveal>
               <p className="font-mono text-caption tracking-tight text-fg-subtle">
-                IT 면접 시뮬레이터
+                AI 모의면접 시뮬레이터
               </p>
               {/* 브랜드를 히어로의 주역으로 — 하이픈만 브랜드색으로 끊어 로고 락업처럼 읽히게. */}
               <h1

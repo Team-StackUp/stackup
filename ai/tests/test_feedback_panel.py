@@ -216,9 +216,59 @@ def test_domain_guides_differ_by_job_category():
 def test_unknown_job_category_falls_back_to_generic_guide():
     from ai_server.chain.feedback_generation_chain import _TECH_GUIDE
 
-    assert _tech_guide_for("QA") == _TECH_GUIDE
+    # 예전엔 "QA" 를 미등록 예시로 썼다 — 이제 실제 직군이라 더는 fallback 이 아니다.
+    assert _tech_guide_for("NOT_A_REAL_CATEGORY") == _TECH_GUIDE
     assert _tech_guide_for("") == _TECH_GUIDE
     assert _tech_guide_for(None) == _TECH_GUIDE
+
+
+def test_generic_guide_is_not_engineering_flavoured():
+    """비개발 직군까지 대상이라 기본 관점이 기술 이야기를 하면 안 된다.
+
+    예전 기본값은 "기술 정확성, 깊이, trade-off" 였다. 영업·인사 지원자에게 그 기준을
+    들이대면 점수의 근거가 통째로 헛돈다.
+    """
+    from ai_server.chain.feedback_generation_chain import _TECH_GUIDE
+
+    for word in ("기술", "trade-off"):
+        assert word not in _TECH_GUIDE, f"기본 관점에 '{word}' 가 들어 있다"
+
+
+def test_every_job_category_has_label_and_guide():
+    """직군을 늘릴 때 라벨·평가관점 중 하나만 빠뜨리면 그 직군만 조용히 일반 문구를 받는다."""
+    from ai_server.chain.feedback_generation_chain import _DOMAIN_KO, _DOMAIN_TECH_GUIDE
+    from ai_server.model.messages.job_category import JobCategory
+    from typing import get_args
+
+    categories = set(get_args(JobCategory))
+    assert categories - set(_DOMAIN_KO) == set(), "한국어 라벨 누락"
+    assert categories - set(_DOMAIN_TECH_GUIDE) == set(), "평가 관점 누락"
+    assert set(_DOMAIN_KO) - categories == set(), "타입에 없는 라벨이 남아 있다"
+
+
+def test_literal_matches_db_check_constraint():
+    """AI 의 Literal 과 DB CHECK 가 어긋나면 그 직군 세션이 저장되거나 검증되다 터진다.
+
+    직군 목록은 Java enum·마이그레이션·Python Literal·프론트 세 군데에 흩어져 있다.
+    사람이 동시에 맞추는 일을 믿지 않는다 — 마이그레이션 원문에서 읽어 대조한다.
+    """
+    import pathlib
+    import re
+    from typing import get_args
+
+    from ai_server.model.messages.job_category import JobCategory
+
+    sql = (
+        pathlib.Path(__file__).resolve().parents[2]
+        / "backend/src/main/resources/db/migration/V35__extend_job_categories.sql"
+    ).read_text(encoding="utf-8")
+    in_sql = set(re.findall(r"'([A-Z_]+)'", sql))
+
+    assert in_sql == set(get_args(JobCategory)), (
+        "Literal 과 마이그레이션 CHECK 가 다르다: "
+        f"only-sql={sorted(in_sql - set(get_args(JobCategory)))} "
+        f"only-py={sorted(set(get_args(JobCategory)) - in_sql)}"
+    )
 
 
 def test_domain_spec_uses_domain_specific_guide():

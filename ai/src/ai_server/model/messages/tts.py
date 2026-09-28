@@ -3,6 +3,7 @@ from typing import Literal
 from pydantic import BaseModel
 
 from ai_server.model._config import camel_config
+from ai_server.model.messages.job_category import JobCategory
 
 
 class GenerateTtsRequest(BaseModel):
@@ -14,7 +15,7 @@ class GenerateTtsRequest(BaseModel):
     message_id: int  # interview_messages.id (INTERVIEWER 질문)
     text: str
     mode: Literal["PERSONALITY", "TECHNICAL", "INTEGRATED"]
-    job_category: Literal["FRONTEND", "BACKEND", "INFRA", "DBA"]
+    job_category: JobCategory
 
 
 class TtsCallbackPayload(BaseModel):

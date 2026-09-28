@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 
 from ai_server.model._config import camel_config
 from ai_server.model.messages.questions import GenerationStatus
+from ai_server.model.messages.job_category import JobCategory
 
 InterviewMode = Literal["PERSONALITY", "TECHNICAL", "INTEGRATED", "JOB_TAILORED"]
 
@@ -55,7 +56,7 @@ class GenerateFeedbackRequest(BaseModel):
 
     session_id: int
     mode: InterviewMode
-    job_category: Literal["FRONTEND", "BACKEND", "INFRA", "DBA"]
+    job_category: JobCategory
     total_question_count: int | None = None
     # 종료 사유(USER_REQUEST/MAX_QUESTIONS_REACHED/POOL_EXHAUSTED 등). 프롬프트 컨텍스트로만
     # 쓰이므로 자유 문자열로 둬 Core 가 사유를 추가해도 피드백 파싱이 깨지지 않게 한다.
