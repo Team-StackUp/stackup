@@ -9,6 +9,11 @@
 ### 1.1 ID 생성
 - 클라이언트 또는 Nginx Gateway가 부여 (UUID v4)
 - 한 요청의 모든 후속 처리(REST/Queue/SSE)에 동일 traceId 전파
+  - **2026-09-28 이전에는 큐를 건너면 끊겼다.** 컨슈머가 엔벨로프의 traceId 를 MDC 로
+    되돌리지 않아, 이어서 발행하는 메시지에 `RabbitMessagePublisher` 가 **새 traceId** 를
+    붙였다. 지금은 5개 `@RabbitListener` 가 `TraceContext.runWithTraceId` 로 감싸 원 요청의
+    id 아래에서 실행된다.
+  - AI 서버 로그에는 아직 traceId 가 없다(uvicorn 기본 액세스 로그). 남은 과제.
 
 ### 1.2 전파 규약
 
@@ -56,48 +61,28 @@ async def trace_middleware(request, call_next):
 
 ## 2. 로깅
 
-### 2.1 출력 포맷 (JSON)
-```json
-{
-  "ts": "2026-04-27T15:00:00.123Z",
-  "level": "INFO",
-  "service": "core-server",
-  "traceId": "9f4e5b...",
-  "userId": 42,
-  "logger": "c.s.s.session.SessionService",
-  "msg": "session created",
-  "sessionId": 99
-}
+### 2.1 출력 포맷
+
+**평문이다. JSON 이 아니다.** (2026-09-28 정정 — 이 절은 원래 JSON 예시를 싣고 있었지만
+그런 설정이 존재한 적이 없다. `logback-spring.xml` 도 없고 인코더 의존성도 없다.)
+
+JSON 을 도입하지 않은 이유: 로그를 모아 가는 수집기가 없고 실제로 읽는 경로는 `docker logs`
+다 — 거기서는 평문이 더 낫다. 수집기를 도입할 때 encoder 를 바꾸면 된다.
+
+패턴은 `application.yml` 의 `logging.pattern.console` 이고 **traceId 를 포함한다**:
+
+```
+2026-09-28T13:50:01.123Z  INFO [3f2a…-9c1b] [io-38010-exec-5] c.s.s.session.application.SessionService : ...
+2026-09-28T13:50:02.004Z  WARN [no-trace]   [scheduling-2]    c.s.s.s.a.StaleFollowupSweeper           : ...
 ```
 
-### 2.2 레벨 정책
+`%X{traceId:-no-trace}` 라서 traceId 가 없는 흐름(스케줄러 스위퍼 등)은 `no-trace` 로 뜬다 —
+빈칸으로 두면 "추적이 끊긴 것"과 "원래 요청이 없는 것"이 구분되지 않는다.
 
-| Level | 용도 | 예시 |
-|-------|------|------|
-| `ERROR` | 사용자 영향 + 운영자 조치 필요 | RabbitMQ 발행 실패, 외부 API 5xx |
-| `WARN` | 회복 가능, 주시 필요 | retry 발생, fallback 발동, slow query |
-| `INFO` | 도메인 이벤트 (감사 가능) | 회원가입, 세션 생성/종료, 분석 완료 |
-| `DEBUG` | 개발용 (운영 OFF) | 메서드 진입, 파라미터 |
-| `TRACE` | 트레이스 상세 | (거의 사용 X) |
-
-### 2.3 로거별 권장 레벨
-- 운영: 루트 INFO, `org.springframework`, `io.netty` WARN
-- 개발: 루트 DEBUG, 기타 INFO
-
-### 2.4 무엇을 로깅할 것인가
-| Yes | No |
-|-----|-----|
-| domain event 발생 (entity ID 동봉) | 메서드 진입/종료 (DEBUG 이하) |
-| 외부 API 호출 시작/완료/실패 | 사용자 답변 본문 (민감) |
-| 비동기 작업 발행/소비 | API 키, 토큰 (보안) |
-| 인증 실패 (rate-limit·alert 대상) | request body 전체 (volume) |
-
-### 2.5 구조화 필드 컨벤션
-- 모든 ID는 별도 필드 (`userId`, `sessionId`, `messageId`)로
-- 외부 API 호출은 `external.service`, `external.endpoint`, `external.latencyMs`, `external.status`
-- 에러는 `error.code`, `error.message`, `error.stack` (stack은 짧게)
-
----
+> **2026-09-28 이전에는 traceId 가 로그에 아예 없었다.** `TraceIdFilter` 가 MDC 를 채우고
+> 엔벨로프가 큐 너머로 실어 날랐는데 **로그 패턴이 MDC 를 참조하지 않았다.** 메시지 문자열에
+> 직접 박아 넣은 몇 줄(`SecurityConfig`, `GlobalExceptionHandler`)만 보였다. MDC 를 채우는
+> 코드가 사실상 아무 일도 하지 않고 있었던 셈이다.
 
 ## 3. AI 요청 로깅 (US-30)
 

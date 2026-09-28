@@ -1,5 +1,6 @@
 package com.stackup.stackup.document.infrastructure;
 
+import com.stackup.stackup.common.trace.TraceContext;
 import com.stackup.stackup.document.application.AnalysisCallbackService;
 import com.stackup.stackup.document.application.dto.AnalysisCallbackEnvelope;
 import lombok.RequiredArgsConstructor;
@@ -19,12 +20,16 @@ public class AnalysisCallbackHandler {
 
     @RabbitListener(queues = "${app.messaging.rabbitmq.queues.names.core-callback-analysis}")
     public void handle(AnalysisCallbackEnvelope envelope) {
-        try {
-            callbackService.apply(envelope);
-        } catch (RuntimeException e) {
-            log.error("callback.analysis processing failed. messageId={}",
-                envelope == null ? null : envelope.messageId(), e);
-            throw e;
-        }
+        TraceContext.runWithTraceId(
+            envelope == null ? null : envelope.traceId(),
+            () -> {
+            try {
+                callbackService.apply(envelope);
+            } catch (RuntimeException e) {
+                log.error("callback.analysis processing failed. messageId={}",
+                    envelope == null ? null : envelope.messageId(), e);
+                throw e;
+            }
+            });
     }
 }

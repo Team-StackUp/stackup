@@ -26,6 +26,20 @@ spring:
 server:
   port: ${SERVER_PORT:38010}
 
+# traceId 를 **로그 줄에** 싣는다.
+#
+# TraceIdFilter 가 MDC 에 넣고 엔벨로프가 큐 너머로 실어 나르는데도, 지금까지 운영 로그에는
+# traceId 가 없었다 — 로그 패턴이 MDC 를 참조하지 않아서다. SecurityConfig·
+# GlobalExceptionHandler 처럼 **메시지 문자열에 직접 박아 넣은 몇 줄만** 보였고, 나머지는
+# 전부 추적 불가였다. 즉 MDC 를 채우는 코드가 사실상 아무 일도 하지 않고 있었다.
+#
+# JSON 포맷은 쓰지 않는다. docs/observability.md §2.1 이 JSON 을 적어 뒀지만 로그를 모아 가는
+# 수집기가 없고, 실제로 읽는 경로는 `docker logs` 다 — 거기서는 평문이 더 낫다.
+# 수집기를 도입할 때 encoder 를 바꾸면 된다(문서도 그렇게 정정했다).
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %5p [%X{traceId:-no-trace}] [%t] %-40.40logger{39} : %m%n%wEx"
+
 management:
   endpoints:
     web:

@@ -220,8 +220,16 @@ spring.jpa.hibernate.ddl-auto=validate   # Flyway 사용 → validate
 
 ## 14. 로깅
 
-- Logback JSON 포맷 (운영) / human-readable (로컬)
-- MDC에 `traceId`, `userId`
+- **평문 포맷** (`application.yml` 의 `logging.pattern.console`). JSON 아니다 — 로그 수집기가
+  없고 실제로 읽는 경로가 `docker logs` 라서. 문서가 오래 JSON 이라고 적어 뒀는데 그런 설정이
+  존재한 적이 없다(2026-09-28 정정).
+- **MDC `traceId` 는 로그 패턴에 포함된다** (`%X{traceId:-no-trace}`). 2026-09-28 이전에는
+  MDC 만 채우고 패턴이 참조하지 않아 **로그 어디에도 traceId 가 없었다.**
+- `TraceIdFilter` 는 `@Order(HIGHEST_PRECEDENCE)` — 없으면 Spring Security 체인(-100) 뒤로
+  밀려 **인증 실패 로그의 traceId 가 null 이 된다**(운영에서 실제로 그랬다).
+- RabbitMQ 컨슈머 5개는 `TraceContext.runWithTraceId(envelope.traceId(), …)` 로 감싼다 —
+  이게 없으면 큐를 건널 때마다 발행부가 새 traceId 를 만들어 추적이 끊긴다.
+- `userId` 는 아직 MDC 에 넣지 않는다.
 - 민감정보 마스킹 유틸: `common/log/PiiMasker.java` — **자동 적용 아님**(호출부에서만 동작, 현재 호출부 없음). 전역 필터로 꽂으면 트레이스 ID 가 뭉개진다: [`/docs/observability.md §9`](../docs/observability.md)
 - 자세한 정책: [`/docs/observability.md`](../docs/observability.md)
 
