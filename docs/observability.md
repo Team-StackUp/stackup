@@ -4,6 +4,26 @@
 
 ---
 
+## 0. AI 호출 비용 귀속 (`ai_request_logs.session_id`)
+
+**2026-09-28 이전에는 `stt.transcribe` 말고 전부 NULL 이었다.** 2026-08-06 이래 쌓인
+`generate.*`·`feedback.*`·`tts.synthesize`·`embedding.embed` 로그 전부가 세션을 모른 채
+기록됐다. `record_ai_call` 과 `CoreAiLogCallback` 은 둘 다 `session_id` 를 **받을 수 있게**
+만들어져 있었는데 실제로 넘기는 호출부가 voice consumer 하나뿐이었다.
+
+그래서 "이 면접이 얼마나 들었나", "어느 세션이 게이트웨이 크레딧을 태웠나" 를 답할 수 없었다 —
+2026-09-17 에 실제로 크레딧이 소진돼 운영 AI 가 402 로 죽었을 때 정확히 이 질문을 못 했다.
+
+체인 빌더마다 인자로 넘기면 LangChain 콜백 생성 지점 6곳과 체인 팩토리 시그니처가 전부
+오염된다. 관측값은 횡단 관심사이므로 **traceId 와 같은 방식으로 컨텍스트에 싣는다** —
+`trace_context(trace_id, session_id=…, user_id=…)` 가 컨슈머 진입점에서 묶고,
+`record_ai_call` 과 `CoreAiLogCallback` 이 명시 인자가 없을 때 거기서 읽는다.
+명시 인자가 있으면 그쪽이 이긴다.
+
+세션이 없는 흐름(문서 분석)은 그대로 NULL 이다 — 억지로 채우지 않는다.
+
+---
+
 ## 1. 분산 추적 (X-Trace-Id)
 
 ### 1.1 ID 생성

@@ -10,6 +10,7 @@ from langchain_core.callbacks import AsyncCallbackHandler
 from langchain_core.outputs import LLMResult
 
 from ai_server.core.client import CoreClient
+from ai_server.observability.trace import current_session_id, current_user_id
 
 log = structlog.get_logger(__name__)
 
@@ -71,6 +72,12 @@ class CoreAiLogCallback(AsyncCallbackHandler):
         return int((time.perf_counter() - started) * 1000)
 
     async def _fire(self, **kwargs: Any) -> None:
+        # 체인 빌더는 세션을 모른다(팩토리가 요청 밖에서 불릴 수 있다). 기록 시점에
+        # 컨텍스트에서 읽어 채운다 — 이게 없으면 generate.* / feedback.* 로그의
+        # session_id 가 전부 NULL 로 남는다(2026-08-06 이래 실제로 그랬다).
+        kwargs.setdefault("session_id", current_session_id())
+        kwargs.setdefault("user_id", current_user_id())
+
         # fire-and-forget: 본 핸들러 실패가 LLM 응답 흐름을 막지 않도록.
         async def _do() -> None:
             try:
