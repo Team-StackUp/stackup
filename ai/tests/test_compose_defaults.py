@@ -98,3 +98,43 @@ def test_no_empty_string_fallbacks_for_settings_keys() -> None:
         if key in settings_fields and re.fullmatch(r"\$\{[A-Z_0-9]+:-\}", value)
     )
     assert not bad, f"빈 문자열 fallback 이 코드 기본값을 덮는다: {bad}"
+
+
+def test_published_ports_bind_loopback_by_default():
+    """호스트 공개 포트는 전부 루프백에 묶여야 한다.
+
+    2026-09-28 점검에서 스택 포트 8개가 전부 0.0.0.0 이었다 — Core·RealTime·AI 뿐 아니라
+    PostgreSQL·RabbitMQ·MinIO 까지. 서버가 자기 공인 IP 로 38010 을 부르면 200 이 왔다
+    (호스트 방화벽은 막지 않는다 — 도커가 제 iptables 체인을 ufw 앞에 끼워 넣는다).
+
+    필요한 곳이 없다: nginx 는 127.0.0.1 로만 프록시하고 서비스끼리는 도커 네트워크를 쓴다.
+    "0.0.0.0" 은 기본값이 아니라 **명시적 선택**(BIND_ADDR)이어야 한다. 이 한 줄은 지워져도
+    컴파일·테스트가 통과하고 운영에서도 조용하므로 CI 가 대신 본다.
+    """
+    text = COMPOSE.read_text(encoding="utf-8")
+    offenders = []
+    in_ports = False
+    for raw in text.splitlines():
+        line = raw.strip()
+        if line.startswith("#"):
+            continue
+        if line == "ports:":
+            in_ports = True
+            continue
+        if in_ports:
+            if not line.startswith("- "):
+                in_ports = False
+                continue
+            entry = line[2:].strip().strip('"').strip("'")
+            # "HOST:CONTAINER" 는 모든 인터페이스, "ADDR:HOST:CONTAINER" 만 허용한다.
+            if entry.count(":") < 2 or not (
+                entry.startswith("${BIND_ADDR:-127.0.0.1}")
+                or entry.startswith("127.0.0.1")
+            ):
+                offenders.append(entry)
+
+    assert (
+        not offenders
+    ), "포트가 모든 인터페이스에 열린다 — BIND_ADDR 를 앞에 붙일 것: " + ", ".join(
+        offenders
+    )

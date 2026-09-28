@@ -1,3 +1,19 @@
+# 호스트에 공개하는 포트는 **루프백에만** 묶는다 (BIND_ADDR, 기본 127.0.0.1).
+#
+# 2026-09-28 점검에서 스택 포트 8개가 전부 0.0.0.0 에 묶여 있었다 — Core·RealTime·AI 뿐
+# 아니라 PostgreSQL(38040)·RabbitMQ(38050/38051)·MinIO(38060/38061)까지. 확인한 사실:
+#   · 서버가 **자기 공인 IP** 로 http://<public>:38010/api/system/health 를 부르면 200 이다
+#     → 호스트 방화벽이 막지 않는다. ufw 가 있어도 도커는 제 iptables 체인을 앞에 끼워 넣어
+#       publish 한 포트를 그냥 통과시킨다(잘 알려진 함정).
+#   · 외부에서는 TCP 핸드셰이크만 간헐적으로 성립하고 HTTP 응답은 오지 않는다
+#     → 상류(학교망) 어딘가가 걸러 주고 있는 것으로 보인다. **그건 우리 것이 아니다.**
+#
+# 필요한 곳이 하나도 없다: nginx 는 127.0.0.1:38010 / 127.0.0.1:38020 으로만 프록시하고,
+# 서비스끼리는 도커 네트워크 이름(backend:38010, minio:38060, rabbitmq:38050)으로 통신한다.
+# 38051/38061 콘솔은 SSH 터널로 계속 볼 수 있다(-L 38061:127.0.0.1:38061).
+#
+# LAN 에 열어야 하면 BIND_ADDR=0.0.0.0 으로 명시적으로 켠다 — 기본값이 아니라 선택이어야 한다.
+
 name: stackup
 
 services:
@@ -6,7 +22,7 @@ services:
     container_name: stackup-postgres
     command: ["postgres", "-c", "port=38040"]
     ports:
-      - "${POSTGRES_PORT:-38040}:38040"
+      - "${BIND_ADDR:-127.0.0.1}:${POSTGRES_PORT:-38040}:38040"
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-stackup}
       POSTGRES_USER: ${POSTGRES_USER:-stackup}
@@ -24,8 +40,8 @@ services:
     build: ./infra/rabbitmq
     container_name: stackup-rabbitmq
     ports:
-      - "${RABBITMQ_PORT:-38050}:38050"
-      - "${RABBITMQ_MANAGEMENT_PORT:-38051}:38051"
+      - "${BIND_ADDR:-127.0.0.1}:${RABBITMQ_PORT:-38050}:38050"
+      - "${BIND_ADDR:-127.0.0.1}:${RABBITMQ_MANAGEMENT_PORT:-38051}:38051"
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-stackup}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-stackup}
@@ -41,8 +57,8 @@ services:
     build: ./infra/minio
     container_name: stackup-minio
     ports:
-      - "${MINIO_API_PORT:-38060}:38060"
-      - "${MINIO_CONSOLE_PORT:-38061}:38061"
+      - "${BIND_ADDR:-127.0.0.1}:${MINIO_API_PORT:-38060}:38060"
+      - "${BIND_ADDR:-127.0.0.1}:${MINIO_CONSOLE_PORT:-38061}:38061"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
@@ -74,7 +90,7 @@ services:
     build: ./ai
     container_name: stackup-ai
     ports:
-      - "${AI_PORT:-38030}:38030"
+      - "${BIND_ADDR:-127.0.0.1}:${AI_PORT:-38030}:38030"
     # 값이 붙은 항목만 compose 가 소유한다 — 컨테이너 토폴로지(서비스 호스트명)와
     # MINIO_* → S3_* 이름 변환처럼 settings.py 가 알 수 없는 것들.
     #
@@ -147,7 +163,7 @@ services:
     build: ./realtime
     container_name: stackup-realtime
     ports:
-      - "${REALTIME_PORT:-38020}:38020"
+      - "${BIND_ADDR:-127.0.0.1}:${REALTIME_PORT:-38020}:38020"
     environment:
       REALTIME_LISTEN_ADDR: :38020
       REALTIME_RABBITMQ_URL: amqp://${RABBITMQ_USER:-stackup}:${RABBITMQ_PASSWORD:-stackup}@rabbitmq:38050/
@@ -170,7 +186,7 @@ services:
       context: ./backend
     container_name: stackup-backend
     ports:
-      - "${BACKEND_PORT:-38010}:38010"
+      - "${BIND_ADDR:-127.0.0.1}:${BACKEND_PORT:-38010}:38010"
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
       SERVER_PORT: "38010"
