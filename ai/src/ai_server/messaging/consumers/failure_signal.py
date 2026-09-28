@@ -8,6 +8,7 @@ import structlog
 from aio_pika.abc import AbstractIncomingMessage
 from pydantic import BaseModel
 
+from ai_server.observability.trace import trace_context
 from ai_server.messaging.idempotency import LruIdempotencyStore
 from ai_server.messaging.publisher import CallbackPublisher
 from ai_server.model.envelope import Envelope
@@ -118,68 +119,69 @@ async def consume_with_failure_signal(
             )
             raise
 
-        if idempotency.is_seen_then_mark(envelope.message_id):
-            log.info(
-                f"{domain}.idempotent.skip",
-                message_id=envelope.message_id,
-                trace_id=envelope.trace_id,
-            )
-            return
-
-        async def _publish(payload: BaseModel) -> None:
-            await publisher.publish(
-                routing_key=routing_key,
-                message_type=message_type,
-                payload=payload,
-                trace_id=envelope.trace_id,
-                correlation_id=envelope.message_id,
-                context=envelope.context,
-            )
-
-        log_ids: dict[str, Any] = {
-            "message_id": envelope.message_id,
-            "trace_id": envelope.trace_id,
-        }
-        session_id = getattr(envelope.payload, "session_id", None)
-        if session_id is not None:
-            log_ids["session_id"] = session_id
-
-        try:
-            payload = await process(envelope)
-        except Exception as exc:  # noqa: BLE001
-            if expected_errors and isinstance(exc, expected_errors):
-                # 예상된 도메인 실패(빈 PDF·404 URL 등 일상 입력)는 traceback 없는 warning —
-                # ERROR 레벨 스택트레이스로 일상 실패가 알람을 울리지 않게 한다.
-                log.warning(
-                    f"{domain}.{action}.failed",
-                    error_code=getattr(exc, "code", None),
-                    retriable=getattr(exc, "retriable", None),
-                    error=str(exc),
-                    **log_ids,
+        with trace_context(envelope.trace_id):
+            if idempotency.is_seen_then_mark(envelope.message_id):
+                log.info(
+                    f"{domain}.idempotent.skip",
+                    message_id=envelope.message_id,
+                    trace_id=envelope.trace_id,
                 )
-            else:
-                log.exception(f"{domain}.{action}.failed", **log_ids)
+                return
+
+            async def _publish(payload: BaseModel) -> None:
+                await publisher.publish(
+                    routing_key=routing_key,
+                    message_type=message_type,
+                    payload=payload,
+                    trace_id=envelope.trace_id,
+                    correlation_id=envelope.message_id,
+                    context=envelope.context,
+                )
+
+            log_ids: dict[str, Any] = {
+                "message_id": envelope.message_id,
+                "trace_id": envelope.trace_id,
+            }
+            session_id = getattr(envelope.payload, "session_id", None)
+            if session_id is not None:
+                log_ids["session_id"] = session_id
+
             try:
-                # 팩토리 자체가 죽어도(검증 오류 등) 같은 안전망을 태운다 —
-                # try 밖이면 unmark 없이 DLQ 로 가서 재주입이 duplicate skip 으로 삼켜진다.
-                fallback = failed_payload(envelope.payload, exc)
-                await _publish(fallback)
-            except Exception:  # noqa: BLE001
-                log.exception(
-                    f"{domain}.failed_callback.publish_failed",
-                    **log_ids,
-                )
-                idempotency.unmark(envelope.message_id)
-                raise exc
-            return
+                payload = await process(envelope)
+            except Exception as exc:  # noqa: BLE001
+                if expected_errors and isinstance(exc, expected_errors):
+                    # 예상된 도메인 실패(빈 PDF·404 URL 등 일상 입력)는 traceback 없는 warning —
+                    # ERROR 레벨 스택트레이스로 일상 실패가 알람을 울리지 않게 한다.
+                    log.warning(
+                        f"{domain}.{action}.failed",
+                        error_code=getattr(exc, "code", None),
+                        retriable=getattr(exc, "retriable", None),
+                        error=str(exc),
+                        **log_ids,
+                    )
+                else:
+                    log.exception(f"{domain}.{action}.failed", **log_ids)
+                try:
+                    # 팩토리 자체가 죽어도(검증 오류 등) 같은 안전망을 태운다 —
+                    # try 밖이면 unmark 없이 DLQ 로 가서 재주입이 duplicate skip 으로 삼켜진다.
+                    fallback = failed_payload(envelope.payload, exc)
+                    await _publish(fallback)
+                except Exception:  # noqa: BLE001
+                    log.exception(
+                        f"{domain}.failed_callback.publish_failed",
+                        **log_ids,
+                    )
+                    idempotency.unmark(envelope.message_id)
+                    raise exc
+                return
 
-        try:
-            await _publish(payload)
-        except Exception:
-            idempotency.unmark(envelope.message_id)
-            raise
-        log.info(
-            f"{domain}.{action}.done",
-            **log_ids,
-            **(done_fields(payload) if done_fields is not None else {}),
-        )
+            try:
+                await _publish(payload)
+            except Exception:
+                idempotency.unmark(envelope.message_id)
+                raise
+            log.info(
+                f"{domain}.{action}.done",
+                **log_ids,
+                **(done_fields(payload) if done_fields is not None else {}),
+            )
