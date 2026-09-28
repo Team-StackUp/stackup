@@ -56,7 +56,18 @@ fi
 
 if [ "$current" = "UP" ]; then
   # 첫 실행(previous 없음)에 "복구됨"을 보내지 않는다 — 처음부터 정상인 게 정상이다.
-  [ -n "$previous" ] && ops_notify ok "헬스 복구 (이전: $previous)" "$detail"
+  #
+  # `[ -n "$previous" ] && ops_notify ...` 로 쓰면 안 된다. previous 가 비었을 때
+  # && 가 단락되어 **스크립트가 1로 끝난다** — 정상인데 cron 이 실패로 보고,
+  # 매 첫 실행마다 메일/로그 소음이 난다. 감시 도구가 정상 상태에서 실패 코드를
+  # 내면 "이 cron 이 원래 그래" 가 되고, 진짜 실패도 같이 무시된다.
+  if [ -n "$previous" ]; then
+    ops_notify ok "헬스 복구 (이전: $previous)" "$detail"
+  fi
 else
   ops_notify fail "헬스 이상: $current" "$detail"
 fi
+
+# 알림 전송 실패가 이 스크립트의 종료 코드를 오염시키지 않게 명시적으로 끝낸다.
+# (ops_notify 는 항상 0 을 돌려주지만, 마지막 명령의 상태에 의존하지 않는다.)
+exit 0

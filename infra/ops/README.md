@@ -19,6 +19,7 @@
 |---|---|
 | `notify.sh` | 보내는 곳 한 군데. `ops_notify <ok\|warn\|fail> <제목> <본문>` |
 | `health-check.sh` | 헬스 폴링 + **상태가 바뀔 때만** 알림 |
+| `selftest.sh` | 위 둘의 자가 테스트. 로컬 수신기로만 보낸다 — **팀 채널로 아무것도 안 나간다** |
 
 `infra/backup/backup.sh` 도 `notify.sh` 를 소스해서 실패를 알린다.
 
@@ -56,13 +57,19 @@ aggregate 에서 빠져 있어서(informational — "복구 수단이 없다"와
 `OPS_ALERT_WEBHOOK_URL` → 없으면 `DISCORD_WEBHOOK_URL`(현재 PR 알림 봇과 같은 채널).
 운영 알림을 따로 받고 싶으면 전용 웹훅을 `.env` 에 넣으면 그쪽으로 옮겨간다.
 
-## 검증 방법 (팀 채널로 보내지 않고)
+**cron 은 정상일 때 0 으로 끝나야 한다.** 감시 도구가 정상 상태에서 실패 코드를 내면
+"이 cron 은 원래 그래" 가 되고, 진짜 실패도 같이 무시된다. 실제로 `[ -n "$previous" ] &&
+ops_notify ...` 로 썼다가 첫 실행마다 exit 1 이 나던 것을 잡았다 — 단락 평가의 마지막
+상태가 그대로 종료 코드가 된다.
+
+## 검증
 
 ```bash
-# 로컬 수신기를 띄우고 그쪽으로 보낸다
-python3 -m http.server 8897 &   # 실제로는 POST 를 받는 핸들러 필요
-OPS_ALERT_WEBHOOK_URL=http://127.0.0.1:8897/hook ./health-check.sh
+bash infra/ops/selftest.sh     # 14개 케이스, python3 + curl 만 필요
 ```
 
+CI 의 `Infra (ops 스크립트)` 잡이 `bash -n` · `shellcheck -S warning` · selftest 를 돌린다.
+셸은 컴파일러도 타입체커도 없고, 이 스크립트들은 **조용히 깨지는 종류**라서 CI 가 대신 본다.
+
 웹훅 **유효성**은 게시 없이 확인할 수 있다 — Discord 웹훅 URL 에 `GET` 하면 이름과
-channel_id 를 돌려준다.
+channel_id 를 돌려준다(`http=200`, `name=…`).

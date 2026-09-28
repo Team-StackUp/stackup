@@ -131,3 +131,29 @@ jobs:
       - name: Test
         working-directory: ./realtime
         run: go test -race ./...
+
+  infra:
+    name: Infra (ops 스크립트)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 운영 알림·헬스 감시는 셸이라 컴파일러도 타입체커도 없다. 그런데 이 스크립트들은
+      # **조용히 깨지는 종류**다 — 만드는 동안 실제로 두 번 깨졌고 둘 다 눈에 안 띄었다:
+      #   · 임베디드 파이썬 따옴표가 깨져 판정이 빈 값 → 감시가 그냥 통과
+      #   · `[ -n "$x" ] && notify` 단락으로 정상인데 exit 1 → cron 이 실패로 봄
+      # selftest 는 로컬 수신기로만 보낸다(팀 채널로 아무것도 나가지 않는다).
+      - name: Shell syntax
+        run: |
+          for f in infra/ops/*.sh infra/backup/backup.sh; do
+            bash -n "$f" || exit 1
+          done
+
+      - name: ShellCheck
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          shellcheck -S warning infra/ops/notify.sh infra/ops/health-check.sh \
+                                infra/ops/selftest.sh infra/backup/backup.sh
+
+      - name: Self test
+        run: bash infra/ops/selftest.sh
