@@ -13,7 +13,10 @@
     되돌리지 않아, 이어서 발행하는 메시지에 `RabbitMessagePublisher` 가 **새 traceId** 를
     붙였다. 지금은 5개 `@RabbitListener` 가 `TraceContext.runWithTraceId` 로 감싸 원 요청의
     id 아래에서 실행된다.
-  - AI 서버 로그에는 아직 traceId 가 없다(uvicorn 기본 액세스 로그). 남은 과제.
+  - AI 서버도 2026-09-28 부터 싣는다 — `observability/trace.py` 의 `trace_context` 가
+    엔벨로프 traceId 를 structlog contextvars 에 묶어 그 구간 모든 로그에 자동 부착한다.
+    (그전까지는 `ai/CLAUDE.md` 가 `trace_context` 를 패턴으로 제시했는데 **구현이 없었다**.)
+    uvicorn 의 액세스 로그(`GET /health`)에는 여전히 없다 — 요청 단위 미들웨어는 미도입.
 
 ### 1.2 전파 규약
 

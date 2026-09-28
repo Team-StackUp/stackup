@@ -6,6 +6,7 @@ import time
 import structlog
 from aio_pika.abc import AbstractIncomingMessage
 
+from ai_server.observability.trace import trace_context
 from ai_server.core.client import CoreClient
 from ai_server.messaging.consumers.failure_signal import unmark_on_error
 from ai_server.messaging.idempotency import LruIdempotencyStore
@@ -71,77 +72,80 @@ class VoiceConsumer:
                 )
                 raise
 
-            if self._idempotency.is_seen_then_mark(envelope.message_id):
-                log.info("voice.idempotent.skip", message_id=envelope.message_id)
-                return
-
-            # 마킹 이후 어떤 예외든 unmark — 콜백 0건 DLQ 재주입 삼킴 방지 (F6).
-            async with unmark_on_error(self._idempotency, envelope.message_id):
-                req = envelope.payload
-                log.info(
-                    "voice.analyze.start",
-                    message_id=envelope.message_id,
-                    session_id=req.session_id,
-                    interview_message_id=req.message_id,
-                    key=req.audio_s3_key,
-                    trace_id=envelope.trace_id,
-                )
-
-                try:
-                    audio_bytes = await self._storage.get_bytes(req.audio_s3_key)
-                except Exception as exc:
-                    log.error(
-                        "voice.storage.failed", error=str(exc), key=req.audio_s3_key
-                    )
-                    await self._publish_failed(envelope, req, code="AUDIO_FETCH_FAILED")
+            with trace_context(envelope.trace_id):
+                if self._idempotency.is_seen_then_mark(envelope.message_id):
+                    log.info("voice.idempotent.skip", message_id=envelope.message_id)
                     return
 
-                try:
-                    result = await self._transcribe_with_retry(
-                        req, envelope, audio_bytes
-                    )
-                except SttError as exc:
-                    log.error(
-                        "voice.stt.failed",
-                        error=str(exc),
-                        code=exc.code,
+                # 마킹 이후 어떤 예외든 unmark — 콜백 0건 DLQ 재주입 삼킴 방지 (F6).
+                async with unmark_on_error(self._idempotency, envelope.message_id):
+                    req = envelope.payload
+                    log.info(
+                        "voice.analyze.start",
+                        message_id=envelope.message_id,
                         session_id=req.session_id,
-                        attempts=getattr(exc, "attempts", 1),
+                        interview_message_id=req.message_id,
+                        key=req.audio_s3_key,
+                        trace_id=envelope.trace_id,
                     )
-                    await self._publish_failed(envelope, req, code=exc.code)
-                    return
-                except Exception as exc:
-                    log.error(
-                        "voice.stt.unexpected",
-                        error=str(exc),
+
+                    try:
+                        audio_bytes = await self._storage.get_bytes(req.audio_s3_key)
+                    except Exception as exc:
+                        log.error(
+                            "voice.storage.failed", error=str(exc), key=req.audio_s3_key
+                        )
+                        await self._publish_failed(
+                            envelope, req, code="AUDIO_FETCH_FAILED"
+                        )
+                        return
+
+                    try:
+                        result = await self._transcribe_with_retry(
+                            req, envelope, audio_bytes
+                        )
+                    except SttError as exc:
+                        log.error(
+                            "voice.stt.failed",
+                            error=str(exc),
+                            code=exc.code,
+                            session_id=req.session_id,
+                            attempts=getattr(exc, "attempts", 1),
+                        )
+                        await self._publish_failed(envelope, req, code=exc.code)
+                        return
+                    except Exception as exc:
+                        log.error(
+                            "voice.stt.unexpected",
+                            error=str(exc),
+                            session_id=req.session_id,
+                        )
+                        await self._publish_failed(
+                            envelope, req, code="TRANSCRIPTION_FAILED"
+                        )
+                        return
+
+                    metrics = analyze(result, filler_pattern=self._filler_pattern)
+
+                    payload = VoiceCallbackPayload(
                         session_id=req.session_id,
+                        interview_message_id=req.message_id,
+                        transcript=result.text,
+                        speaking_rate_wpm=metrics.speaking_rate_wpm,
+                        silence_duration_sec=metrics.silence_duration_sec,
+                        filler_word_counts=metrics.filler_word_counts,
+                        pronunciation_accuracy=metrics.pronunciation_accuracy,
+                        error_code=None,
                     )
-                    await self._publish_failed(
-                        envelope, req, code="TRANSCRIPTION_FAILED"
+                    await self._publish_callback(envelope, payload)
+                    log.info(
+                        "voice.analyze.done",
+                        message_id=envelope.message_id,
+                        session_id=req.session_id,
+                        interview_message_id=req.message_id,
+                        wpm=metrics.speaking_rate_wpm,
+                        trace_id=envelope.trace_id,
                     )
-                    return
-
-                metrics = analyze(result, filler_pattern=self._filler_pattern)
-
-                payload = VoiceCallbackPayload(
-                    session_id=req.session_id,
-                    interview_message_id=req.message_id,
-                    transcript=result.text,
-                    speaking_rate_wpm=metrics.speaking_rate_wpm,
-                    silence_duration_sec=metrics.silence_duration_sec,
-                    filler_word_counts=metrics.filler_word_counts,
-                    pronunciation_accuracy=metrics.pronunciation_accuracy,
-                    error_code=None,
-                )
-                await self._publish_callback(envelope, payload)
-                log.info(
-                    "voice.analyze.done",
-                    message_id=envelope.message_id,
-                    session_id=req.session_id,
-                    interview_message_id=req.message_id,
-                    wpm=metrics.speaking_rate_wpm,
-                    trace_id=envelope.trace_id,
-                )
 
     async def _transcribe_with_retry(
         self, req: AnalyzeVoiceRequest, envelope, audio_bytes: bytes

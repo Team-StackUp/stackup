@@ -95,6 +95,14 @@ async def consume(message: AbstractIncomingMessage) -> None:
             await mark_processed(envelope.message_id)
 ```
 
+> **`trace_context` 는 2026-09-28 까지 이 문서에만 있었고 구현이 없었다.** 이 패턴을 따라
+> 쓰면 ImportError 가 났고, 실제 컨슈머들은 traceId 를 로그에 전혀 싣지 않았다 — 운영 AI
+> 로그에 trace 가 하나도 없던 이유다. 지금은 `observability/trace.py` 에 있고
+> `consume_with_failure_signal`(생성·분석 컨슈머 공통) + `voice`/`tts` 컨슈머가 쓴다.
+> structlog 기본 프로세서 첫 번째가 `merge_contextvars` 라 한 번 묶으면 그 구간의 **모든
+> 로그 줄에 자동으로 실린다**. contextvars 는 asyncio 태스크별로 격리돼 동시 처리 메시지끼리
+> 섞이지 않는다(`tests/test_trace_context.py` 가 고정).
+
 ### `analyzer/`
 - 분석 use case 단위 (`resume_analyzer.py`, `repository_analyzer.py`, `web_resume_analyzer.py`)
 - 소스 추출 추상화는 `analyzer/sources/` (PDF/GitHub/웹/텍스트), 임베딩 인제스트는 `_embedding_step.py`
