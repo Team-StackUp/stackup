@@ -72,7 +72,11 @@ class VoiceConsumer:
                 )
                 raise
 
-            with trace_context(envelope.trace_id):
+            with trace_context(
+                envelope.trace_id,
+                session_id=getattr(envelope.payload, "session_id", None),
+                user_id=getattr(envelope.payload, "user_id", None),
+            ):
                 if self._idempotency.is_seen_then_mark(envelope.message_id):
                     log.info("voice.idempotent.skip", message_id=envelope.message_id)
                     return

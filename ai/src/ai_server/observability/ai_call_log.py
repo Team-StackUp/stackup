@@ -8,6 +8,7 @@ from typing import AsyncIterator
 import structlog
 
 from ai_server.core.client import CoreClient
+from ai_server.observability.trace import current_session_id, current_user_id
 
 log = structlog.get_logger(__name__)
 
@@ -36,6 +37,11 @@ def record_ai_call(
     """
     if core_client is None:
         return
+
+    # 호출부가 안 넘기면 컨텍스트에서 가져온다 — 체인 빌더 6곳의 시그니처를 오염시키지
+    # 않으면서 "어느 면접의 호출인가" 를 채운다.
+    session_id = session_id if session_id is not None else current_session_id()
+    user_id = user_id if user_id is not None else current_user_id()
 
     async def _do() -> None:
         try:

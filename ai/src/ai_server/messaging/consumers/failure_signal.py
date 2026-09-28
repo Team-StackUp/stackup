@@ -119,7 +119,11 @@ async def consume_with_failure_signal(
             )
             raise
 
-        with trace_context(envelope.trace_id):
+        with trace_context(
+            envelope.trace_id,
+            session_id=getattr(envelope.payload, "session_id", None),
+            user_id=getattr(envelope.payload, "user_id", None),
+        ):
             if idempotency.is_seen_then_mark(envelope.message_id):
                 log.info(
                     f"{domain}.idempotent.skip",
