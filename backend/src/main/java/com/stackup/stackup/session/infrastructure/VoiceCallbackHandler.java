@@ -1,5 +1,6 @@
 package com.stackup.stackup.session.infrastructure;
 
+import com.stackup.stackup.common.trace.TraceContext;
 import com.stackup.stackup.session.application.VoiceCallbackService;
 import com.stackup.stackup.session.application.dto.VoiceCallbackEnvelope;
 import lombok.RequiredArgsConstructor;
@@ -19,12 +20,16 @@ public class VoiceCallbackHandler {
 
     @RabbitListener(queues = "${app.messaging.rabbitmq.queues.names.core-callback-voice}")
     public void handle(VoiceCallbackEnvelope envelope) {
-        try {
-            callbackService.apply(envelope);
-        } catch (RuntimeException e) {
-            log.error("callback.voice processing failed. messageId={}",
-                envelope == null ? null : envelope.messageId(), e);
-            throw e;
-        }
+        TraceContext.runWithTraceId(
+            envelope == null ? null : envelope.traceId(),
+            () -> {
+            try {
+                callbackService.apply(envelope);
+            } catch (RuntimeException e) {
+                log.error("callback.voice processing failed. messageId={}",
+                    envelope == null ? null : envelope.messageId(), e);
+                throw e;
+            }
+            });
     }
 }

@@ -1,5 +1,6 @@
 package com.stackup.stackup.session.infrastructure;
 
+import com.stackup.stackup.common.trace.TraceContext;
 import com.stackup.stackup.session.application.TtsCallbackService;
 import com.stackup.stackup.session.application.dto.TtsCallbackEnvelope;
 import lombok.RequiredArgsConstructor;
@@ -18,12 +19,16 @@ public class TtsCallbackHandler {
 
     @RabbitListener(queues = "${app.messaging.rabbitmq.queues.names.core-callback-tts}")
     public void handle(TtsCallbackEnvelope envelope) {
-        try {
-            callbackService.apply(envelope);
-        } catch (RuntimeException e) {
-            log.error("callback.tts processing failed. messageId={}",
-                envelope == null ? null : envelope.messageId(), e);
-            throw e;
-        }
+        TraceContext.runWithTraceId(
+            envelope == null ? null : envelope.traceId(),
+            () -> {
+            try {
+                callbackService.apply(envelope);
+            } catch (RuntimeException e) {
+                log.error("callback.tts processing failed. messageId={}",
+                    envelope == null ? null : envelope.messageId(), e);
+                throw e;
+            }
+            });
     }
 }

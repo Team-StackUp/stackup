@@ -1,5 +1,6 @@
 package com.stackup.stackup.session.infrastructure;
 
+import com.stackup.stackup.common.trace.TraceContext;
 import com.stackup.stackup.session.application.FeedbackCallbackService;
 import com.stackup.stackup.session.application.dto.FeedbackCallbackEnvelope;
 import lombok.RequiredArgsConstructor;
@@ -19,12 +20,16 @@ public class FeedbackCallbackHandler {
 
     @RabbitListener(queues = "${app.messaging.rabbitmq.queues.names.core-callback-feedback}")
     public void handle(FeedbackCallbackEnvelope envelope) {
-        try {
-            callbackService.apply(envelope);
-        } catch (RuntimeException e) {
-            log.error("callback.feedback processing failed. messageId={}",
-                envelope == null ? null : envelope.messageId(), e);
-            throw e;
-        }
+        TraceContext.runWithTraceId(
+            envelope == null ? null : envelope.traceId(),
+            () -> {
+            try {
+                callbackService.apply(envelope);
+            } catch (RuntimeException e) {
+                log.error("callback.feedback processing failed. messageId={}",
+                    envelope == null ? null : envelope.messageId(), e);
+                throw e;
+            }
+            });
     }
 }
