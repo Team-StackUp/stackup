@@ -400,6 +400,24 @@ docker run --env-file .env -p 8000:8000 stackup-ai
   (직무가 무엇을 하는 자리인지 이해·지원동기). 두 축을 `panelBreakdown` 의 `evaluator="직무 적합도"`·
   `evaluator="직무 이해도"` 항목으로 append(첫인상과 같은 병렬·미집계 메커니즘). 그 외 모드/빈 JD/실패는 건너뜀.
 - **꼬리질문 토큰 스트리밍 본 구현**: followup 출력을 `<intent>…</intent><question>…</question><meta>{json}</meta>` 구분자 포맷으로 바꾸고(`chain/prompts/followup_generation.py`), `StreamingFollowupGenerator`(`astream`)가 `<question>` 토큰만 `SessionRealtimeNotifier`(`messaging/session_notify.py`)로 `SESSION_MESSAGE_DELTA` 발행(`stackup.realtime`/`realtime.session.notify`, Core 우회). `DONT_KNOW` 면 델타 미발행. 종료 후 `parse_followup_result` 로 검증해 기존 `callback.questions(FOLLOWUP, followupMessageId)` 발행. 와이어링은 `messaging/runner.py`(분석 진행 publisher 재사용).
+- **평가위원 앵커 축별 분리 (2026-09-29)**: 패널 평가위원에게 **자기 축 기준값만** 준다
+  (`build_axis_score_basis` → `PanelFeedbackGenerator(axis_score_basis=…)`).
+  전에는 네 축(technical/logic/communication/**overall**)이 담긴 같은 블록을 모든 위원에게
+  똑같이 넘겼다. 문제가 셋이었다:
+  - 프롬프트는 "해당 축 기준값이 있으면 ±15점 이내"라고 하는데, 기준값 라벨
+    (`logic_score`)과 위원의 축 이름(`논리·인과관계 명확성`)이 **달라서** 위원이 스스로
+    짝을 찾아야 했다. 직군 위원은 축 이름이 "직무 역량·깊이"인데 라벨은
+    `technical_accuracy` 라 더 멀다.
+  - `overall_score` 가 보였다 — **어느 위원도 써서는 안 될 앵커**다.
+  - 남의 축 숫자는 앵커링으로 새어 들어간다(논리 위원이 technical 80 을 보면 자기 점수를
+    그쪽으로 당긴다).
+  - 직군 위원은 여러 명이라 key 가 `tech:{직군}` 이다 — `axis_of` 가 이걸 `technical` 로
+    접는다. 하나라도 빠지면 그 위원만 조용히 옛 동작(전체 기준값)으로 떨어진다.
+  - **축별 기준값이 없으면(per-answer 평가 0건) 기존 공용 문자열로 폴백한다.** 앵커가
+    통째로 사라지면 점수가 캘리브레이션 없이 흔들린다.
+  - 단일 생성기(`LlmFeedbackGenerator`)는 네 축을 한 번에 내므로 전체 기준값이 필요하다 —
+    그래서 선택 인자이고, 소비자가 `inspect.signature` 로 지원 여부를 보고 넘긴다.
+  - 숫자 계산은 `_score_baselines` 한 곳으로 모았다(전체 문자열과 축별이 달라지면 안 된다).
 - **정직한 "모르겠습니다" 채점 정정 (2026-09-29)**: 답변 평가 점수를 전부 nullable 로
   바꾸고 "null = 채점 대상 아님"을 집계 전 구간에 관철했다. `_mean` 이 None 을 제외하므로
   **0 과 null 의 차이가 곧 점수 차이**인데, 세 곳이 어긋나 있었다.

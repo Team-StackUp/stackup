@@ -149,6 +149,7 @@ class FeedbackConsumer:
         )
         transcript = _build_transcript(req.messages)
         score_basis = _build_score_basis(req.messages)
+        axis_score_basis = build_axis_score_basis(req.messages)
         user_id = envelope.context.user_id
         rag_context = await self._build_rag_context(req, user_id)
         voice_analysis_summary = _build_voice_analysis_summary(
@@ -200,6 +201,7 @@ class FeedbackConsumer:
                     end_reason=req.end_reason,
                     transcript=transcript,
                     score_basis=score_basis,
+                    axis_score_basis=axis_score_basis,
                     rag_context=rag_context,
                     voice_analysis_summary=voice_analysis_summary,
                     domain_question_counts=req.domain_question_counts,
@@ -336,6 +338,7 @@ class FeedbackConsumer:
         end_reason: str | None,
         transcript: str,
         score_basis: str,
+        axis_score_basis: dict[str, str],
         rag_context: str,
         voice_analysis_summary: str,
         domain_question_counts: dict[str, int] | None,
@@ -355,6 +358,13 @@ class FeedbackConsumer:
                 rag_context=rag_context,
                 voice_analysis_summary=voice_analysis_summary,
                 domain_question_counts=domain_question_counts,
+                # 패널만 축별 기준값을 쓴다. 단일 생성기는 네 축을 한 번에 내므로
+                # 전체 기준값이 필요하다 — 그래서 시그니처에 선택 인자로 둔다.
+                **(
+                    {"axis_score_basis": axis_score_basis}
+                    if _supports_axis_basis(self._generator)
+                    else {}
+                ),
             )
         except Exception as exc:  # noqa: BLE001
             log.warning(
@@ -780,6 +790,104 @@ def _to_100(x: float | None) -> int | None:
     return None if x is None else round(x * 20)
 
 
+def _supports_axis_basis(generator: object) -> bool:
+    """생성기가 축별 기준값을 받는가. 단일 생성기(LlmFeedbackGenerator)는 안 받는다 —
+    네 축을 한 번에 내므로 전체 기준값이 필요하다."""
+    import inspect
+
+    try:
+        return "axis_score_basis" in inspect.signature(generator.generate).parameters
+    except (TypeError, ValueError):  # 목/부분 적용 등
+        return False
+
+
+def _score_baselines(evals: list) -> dict[str, int | None]:
+    """per-answer 평가(0~5)를 차원별 0~100 기준값으로. 숫자 계산은 여기 한 곳에서만."""
+    spec = _mean([e.specificity for e in evals])
+    logic = _mean([e.logic for e in evals])
+    corr = _mean([e.correctness for e in evals])  # null 은 자동 제외
+    # 채점 불가 답변의 structure 는 빼야 한다 — "NONE" 이 0.0 이라 그냥 두면
+    # "평가할 내용 없음"이 "구조 형편없음"으로 둔갑한다(_is_scoreable 참고).
+    struct = _mean(
+        [_STRUCTURE_SCORE.get(e.structure) for e in evals if _is_scoreable(e)]
+    )
+
+    tech_100 = _to_100(corr)
+    logic_100 = _to_100(logic)
+    comm_100 = _to_100(_mean([v for v in (spec, struct) if v is not None]))
+    parts = [v for v in (tech_100, logic_100, comm_100) if v is not None]
+    return {
+        "spec": spec,
+        "logic_raw": logic,
+        "struct": struct,
+        "corr": corr,
+        "technical": tech_100,
+        "logic": logic_100,
+        "communication": comm_100,
+        "overall": round(sum(parts) / len(parts)) if parts else None,
+    }
+
+
+# 평가위원 축 → 그 위원에게만 보여줄 기준값 설명.
+_AXIS_BASIS_LABEL = {
+    "technical": ("직무 역량", "per-answer correctness(자료 근거 사실성) 평균"),
+    "logic": ("논리", "per-answer logic 평균"),
+    "communication": (
+        "전달력",
+        "per-answer specificity(명료성) + structure(구조화) 평균",
+    ),
+}
+
+
+def build_axis_score_basis(messages: list[FeedbackMessageItem]) -> dict[str, str]:
+    """평가위원 축별 기준값. **자기 축 것만** 준다.
+
+    전에는 네 축(technical/logic/communication/overall)의 기준값이 담긴 같은 블록을
+    모든 평가위원에게 똑같이 넘겼다. 문제가 셋이었다:
+
+    - 프롬프트는 "해당 축 기준값이 있으면 ±15점 이내"라고 하는데, 기준값 라벨
+      (`logic_score`)과 위원의 축 이름(`논리·인과관계 명확성`)이 **달라서** 위원이
+      스스로 짝을 찾아야 했다. 직군 위원은 축 이름이 "직무 역량·깊이"인데 라벨은
+      `technical_accuracy` 라 더 멀다.
+    - `overall_score` 까지 보였다. **어느 위원도 써서는 안 될 앵커**다.
+    - 남의 축 숫자는 앵커링으로 새어 들어간다 — 논리 위원이 technical 80 을 보면
+      자기 점수를 그쪽으로 당긴다.
+    """
+    evals = [
+        m.evaluation
+        for m in messages
+        if m.role == "INTERVIEWEE" and m.evaluation is not None
+    ]
+    if not evals:
+        return {}
+
+    b = _score_baselines(evals)
+    scoreable = sum(1 for e in evals if _is_scoreable(e))
+    unscoreable = len(evals) - scoreable
+    note = (
+        f" · 채점 대상 아님 {unscoreable}건"
+        " (모름·질문 재설명 요청·확인형 단답 — 감점 사유가 아님)"
+        if unscoreable
+        else ""
+    )
+
+    out: dict[str, str] = {}
+    for axis, (ko, source) in _AXIS_BASIS_LABEL.items():
+        value = b[axis]
+        if value is None:
+            out[axis] = (
+                f"- 채점된 답변 수: {scoreable}{note}\n"
+                f"- {ko} 기준값: 근거 없음({source} 미산정). 전사로 보수적으로 판단."
+            )
+        else:
+            out[axis] = (
+                f"- 채점된 답변 수: {scoreable}{note}\n"
+                f"- {ko} 기준값 ≈ {value} ({source})\n"
+                "- 이 값에서 ±15점 이내로 산정하세요. 다른 축의 기준값은 주어지지 않습니다."
+            )
+    return out
+
+
 def _build_score_basis(messages: list[FeedbackMessageItem]) -> str:
     """per-answer 평가(0~5)를 차원별 0~100 기준값으로 결정론적 집계(하이브리드).
 
@@ -794,21 +902,10 @@ def _build_score_basis(messages: list[FeedbackMessageItem]) -> str:
     if not evals:
         return "(per-answer 평가 없음 — 전사 내용으로만 산정. 과대평가 금지.)"
 
-    spec = _mean([e.specificity for e in evals])
-    logic = _mean([e.logic for e in evals])
-    corr = _mean([e.correctness for e in evals])  # null 은 자동 제외
-    # 채점 불가 답변의 structure 는 빼야 한다 — "NONE" 이 0.0 이라 그냥 두면
-    # "평가할 내용 없음"이 "구조 형편없음"으로 둔갑한다(_is_scoreable 참고).
-    struct = _mean(
-        [_STRUCTURE_SCORE.get(e.structure) for e in evals if _is_scoreable(e)]
-    )
-
-    tech_100 = _to_100(corr)
-    logic_100 = _to_100(logic)
-    comm_src = _mean([v for v in (spec, struct) if v is not None])
-    comm_100 = _to_100(comm_src)
-    overall_src = [v for v in (tech_100, logic_100, comm_100) if v is not None]
-    overall_100 = round(sum(overall_src) / len(overall_src)) if overall_src else None
+    b = _score_baselines(evals)
+    spec, logic, struct, corr = b["spec"], b["logic_raw"], b["struct"], b["corr"]
+    tech_100, logic_100 = b["technical"], b["logic"]
+    comm_100, overall_100 = b["communication"], b["overall"]
 
     def fmt5(x: float | None) -> str:
         return f"{x:.1f}/5" if x is not None else "없음"

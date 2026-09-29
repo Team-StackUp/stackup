@@ -839,6 +839,13 @@ def _filter_highlights(
     return out
 
 
+def axis_of(spec_key: str) -> str:
+    """평가위원 key → 기준값 축. 직군 위원은 여러 명이라 key 가 `tech:{직군}` 이다."""
+    if spec_key.startswith("tech:"):
+        return "technical"
+    return spec_key
+
+
 class PanelFeedbackGenerator:
     """직군·논리·커뮤니케이션 평가위원을 병렬 호출 → 가중평균 종합. FeedbackGenerator 호환."""
 
@@ -865,6 +872,9 @@ class PanelFeedbackGenerator:
         voice_analysis_summary: str = "",
         score_basis: str = "(없음)",
         domain_question_counts: dict[str, int] | None = None,
+        # 평가위원 축별 기준값. 주어지면 **자기 축 것만** 보여준다 — 남의 축 숫자는
+        # 앵커링으로 새어 들어가고, overall 은 어느 위원도 써서는 안 될 앵커다.
+        axis_score_basis: dict[str, str] | None = None,
     ) -> FeedbackResult:
         domain_specs = _domain_specs_weighted(
             job_category, mode, domain_question_counts or {}
@@ -890,6 +900,9 @@ class PanelFeedbackGenerator:
                         "persona": s.persona,
                         "dimension_name": s.dimension_name,
                         "dimension_guide": s.dimension_guide,
+                        "score_basis": (axis_score_basis or {}).get(
+                            axis_of(s.key), shared["score_basis"]
+                        ),
                     }
                 )
                 for s in specs
