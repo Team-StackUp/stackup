@@ -18,6 +18,8 @@ public record SelfIntroAnsweredEvent(
     String selfIntroAnswer,
     // 직무 맞춤 모드 전용 타깃 회사/JD. 다른 모드는 null.
     String targetCompanyName,
-    String targetJobDescription
+    String targetJobDescription,
+    // 희망 산업(선택). 질문 맥락에 실린다.
+    String industry
 ) {
 }

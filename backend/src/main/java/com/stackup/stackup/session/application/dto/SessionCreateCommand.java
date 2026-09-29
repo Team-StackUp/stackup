@@ -16,6 +16,8 @@ public record SessionCreateCommand(
     List<Long> contextDocumentIds,
     // 직무 맞춤 모드 전용. 지원 회사명 + 채용공고(JD) 원문.
     String targetCompanyName,
-    String targetJobDescription
+    String targetJobDescription,
+    // 희망 산업(자유 입력, 선택). 질문 맥락에 실린다.
+    String industry
 ) {
 }

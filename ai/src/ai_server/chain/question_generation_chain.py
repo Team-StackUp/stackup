@@ -88,6 +88,7 @@ class QuestionGenerator(Protocol):
         target_company_name: str | None = None,
         target_job_description: str | None = None,
         focus_areas: list[str] | None = None,
+        industry: str | None = None,
     ) -> GeneratedQuestionPool: ...
 
 
@@ -107,6 +108,7 @@ class LlmQuestionGenerator:
         target_company_name: str | None = None,
         target_job_description: str | None = None,
         focus_areas: list[str] | None = None,
+        industry: str | None = None,
     ) -> GeneratedQuestionPool:
         result = await self._chain.ainvoke(
             {
@@ -120,6 +122,8 @@ class LlmQuestionGenerator:
                     target_company_name, target_job_description
                 ),
                 "focus_areas": _format_focus_areas(focus_areas),
+                # 비어 있으면 "(지정 없음)" — 프롬프트가 산업 지침을 무시하도록.
+                "industry": (industry or "").strip() or "(지정 없음)",
             }
         )
         if not isinstance(result, GeneratedQuestionPool):

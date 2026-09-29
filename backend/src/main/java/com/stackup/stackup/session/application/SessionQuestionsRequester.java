@@ -105,7 +105,8 @@ public class SessionQuestionsRequester {
             event.selfIntroAnswer(),
             event.targetCompanyName(),
             event.targetJobDescription(),
-            focusAreas
+            focusAreas,
+            event.industry()
         );
         publisher.publishToAi(
             properties.routingKeys().generateQuestions(),

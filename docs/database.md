@@ -417,3 +417,23 @@ public class InterviewSession {
 - 면접 대상 회사 관리 (`target_companies`)
 
 추가 시 본 문서 §1, §2, §3에 반영.
+
+---
+
+## 사용자 취업 프로필 (V36)
+
+| 테이블 | 용도 |
+|---|---|
+| `user_job_profiles` | `user_id` PK/FK(1:1) · `desired_industry` · `career_level` |
+| `user_job_profile_categories` | 희망 직군 다중 (`session_job_categories` 와 같은 모양) |
+| `interview_sessions.industry` | 그 면접에 **실제로 쓰인** 산업 |
+
+**`desired_industry` 에는 CHECK 가 없다.** 직군은 평가 관점을 큐레이션해야 해서 유한 집합이지만,
+산업은 프롬프트 맥락으로만 쓰이므로 열거하면 빠진 산업의 지원자가 배제된다(반도체·건설·토목을
+넣어도 조선·방산·바이오…). 프론트가 `datalist` 로 제안만 한다.
+
+`career_level` 은 CHECK 로 막는다(`NEW`/`EXPERIENCED`/`INTERN`/`CAREER_CHANGE`) — 질문 난이도를
+가르는 값이라 오타가 조용히 흘러가면 안 된다.
+
+세션이 `industry` 를 따로 갖는 이유: 프로필은 나중에 바뀐다. "이 면접이 어떤 맥락에서
+진행됐는지" 는 세션이 스스로 기록해야 한다(직군을 세션에 복사해 두는 것과 같은 이유).

@@ -634,6 +634,26 @@ docker compose up -d
     `/api/system/health` 의 `scheduler` 가 DOWN. DB·네트워크를 건드리지 않는다 — 심장박동이
     자기가 감시하는 문제(느린 I/O)로 막히면 안 된다. `BACKUP` 과 같이 **informational** 이라
     aggregate 는 끌어내리지 않는다(스케줄러가 멈춰도 면접·로그인·조회는 된다).
+- **사용자 취업 프로필 본 구현 (`profile` 슬라이스)**: 희망 직군(다중)·희망 산업(자유 입력)·
+  경력 수준. `GET/PUT /api/users/me/job-profile`. 면접을 만들 때마다 직군을 다시 고르게 했고,
+  직군만으로는 질문 맥락이 얇았다 — **같은 '생산·품질' 이라도 반도체 공정과 건설 현장은 묻는
+  것이 전혀 다르다.**
+  - **왜 별도 슬라이스인가**: `User` 에 직접 달면 user 가 `JobCategory`(session 슬라이스)를
+    참조해 **user→session→user 순환**이 생기고 ArchUnit 이 막는다(`OAuthProvider` 를
+    `user.domain` 에 둔 것과 같은 이유). `profile → {user, session}` 이고 역방향이 없다.
+    실제로 `User` 에 붙였다가 `top_level_domain_slices_are_free_of_cycles` 로 걸렸다.
+  - **산업에는 CHECK 를 걸지 않는다.** 직군은 평가 관점을 큐레이션해야 해서 유한 집합이지만,
+    산업은 프롬프트 맥락으로만 쓰이므로 열거하면 빠진 산업의 지원자가 또 배제된다
+    (반도체·건설·토목을 넣어도 조선·방산·바이오…). 프론트는 `datalist` 로 제안만 한다.
+  - **null 은 "그대로 두기", 빈 값은 "지우기"**. 계정 화면이 일부만 보내도 나머지가 날아가면
+    안 된다. 비우는 수단이 따로 있어야 해서 빈 목록/빈 문자열을 지우기로 쓴다.
+  - **프로필 → 세션은 프론트 프리필로 잇는다.** `SessionService` 가 프로필을 읽으면
+    session→profile 이 되어 다시 순환이다. 프론트가 프로필을 읽어 기본값을 채우고 사용자가
+    그 자리에서 바꿀 수 있으며, 세션은 **실제로 쓰인 값**만 `interview_sessions.industry` 에
+    기록한다(프로필은 나중에 바뀌므로 세션이 스스로 남겨야 한다 — 직군 복사와 같은 이유).
+  - 산업은 `generate.questions` payload 에 실려 질문 프롬프트의 맥락이 된다. 프롬프트는
+    "산업은 질문의 맥락이지 새로운 근거가 아니다 — 자료에 없는 산업 지식을 지어내 묻지 않는다"
+    를 명시한다. 비어 있으면 `(지정 없음)` 이 들어가 지침이 무시된다.
 - **Spring AI 미사용** — LLM·임베딩 호출은 모두 AI 서버 위임. Core는 RabbitMQ 발행만 담당.
 - **Redis 미사용** — 휘발성 데이터는 DB short-lived 레코드 또는 인메모리로.
 

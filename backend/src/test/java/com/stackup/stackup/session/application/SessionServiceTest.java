@@ -61,7 +61,7 @@ class SessionServiceTest {
         SessionResult result = service.create(1L, new SessionCreateCommand(
             "title", "memo", SessionMode.TECHNICAL, List.of(JobCategory.BACKEND),
             5, 30, null, null, List.of(), null, null
-        ));
+        , null));
 
         assertThat(result.id()).isEqualTo(100L);
         assertThat(result.status()).isEqualTo(SessionStatus.READY);
@@ -77,7 +77,7 @@ class SessionServiceTest {
         SessionResult result = service.create(1L, new SessionCreateCommand(
             "  ", null, SessionMode.TECHNICAL, List.of(JobCategory.BACKEND),
             5, 30, null, null, List.of(), null, null
-        ));
+        , null));
 
         assertThat(result.title()).isEqualTo("백엔드 기술 면접");
     }
@@ -91,7 +91,7 @@ class SessionServiceTest {
         SessionResult result = service.create(1L, new SessionCreateCommand(
             "내가 정한 제목", null, SessionMode.INTEGRATED, List.of(JobCategory.FRONTEND),
             5, 30, null, null, List.of(), null, null
-        ));
+        , null));
 
         assertThat(result.title()).isEqualTo("내가 정한 제목");
     }
@@ -111,7 +111,7 @@ class SessionServiceTest {
         SessionResult result = service.create(1L, new SessionCreateCommand(
             "t", null, SessionMode.TECHNICAL, List.of(JobCategory.BACKEND),
             5, 30, null, null, List.of(7L, 7L), null, null
-        ));
+        , null));
 
         assertThat(result.contextDocumentIds()).containsExactly(7L);
         verify(contextRepository).save(any(SessionContext.class));
@@ -128,7 +128,7 @@ class SessionServiceTest {
         assertThatThrownBy(() -> service.create(1L, new SessionCreateCommand(
             "t", null, SessionMode.TECHNICAL, List.of(JobCategory.BACKEND),
             5, 30, null, null, List.of(8L), null, null
-        ))).isInstanceOf(DomainException.class);
+        , null))).isInstanceOf(DomainException.class);
     }
 
     @Test
@@ -141,7 +141,7 @@ class SessionServiceTest {
         assertThatThrownBy(() -> service.create(1L, new SessionCreateCommand(
             "t", null, SessionMode.TECHNICAL, List.of(JobCategory.BACKEND),
             2, 30, 5, 2, List.of(), null, null
-        ))).isInstanceOf(DomainException.class);
+        , null))).isInstanceOf(DomainException.class);
 
         verify(sessionRepository, never()).save(any(InterviewSession.class));
     }
@@ -155,7 +155,7 @@ class SessionServiceTest {
         assertThatThrownBy(() -> service.create(1L, new SessionCreateCommand(
             "t", null, SessionMode.JOB_TAILORED, List.of(JobCategory.BACKEND),
             5, 30, null, null, List.of(), "토스", "  "
-        ))).isInstanceOf(DomainException.class);
+        , null))).isInstanceOf(DomainException.class);
     }
 
     @Test
@@ -171,7 +171,7 @@ class SessionServiceTest {
         SessionResult result = service.create(1L, new SessionCreateCommand(
             "  ", null, SessionMode.JOB_TAILORED, List.of(JobCategory.BACKEND),
             5, 30, null, null, List.of(), "토스", "백엔드 엔지니어. Kotlin/Spring, 대용량 결제."
-        ));
+        , null));
 
         assertThat(result.targetCompanyName()).isEqualTo("토스");
         assertThat(result.targetJobDescription()).contains("결제");

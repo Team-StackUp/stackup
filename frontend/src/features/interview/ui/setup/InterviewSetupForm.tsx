@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/shared/ui/Button'
 import { Stepper } from '@/shared/ui/Stepper'
 import { Heading } from '@/shared/ui'
 import type { JobCategory, SessionCreateRequest, SessionMode } from '@/domain/session'
 import { ModeSelector } from './ModeSelector'
 import { JobCategorySelector } from './JobCategorySelector'
+import { IndustryField } from '@/features/profile/ui/IndustryField'
+import { fetchJobProfile } from '@/features/profile/api/jobProfileApi'
 import { ContextDocumentPicker } from './ContextDocumentPicker'
 import type { DocOption } from './ContextDocumentPicker'
 
@@ -30,6 +32,25 @@ export function InterviewSetupForm({
   const [selected, setSelected] = useState<number[]>([])
   const [companyName, setCompanyName] = useState('')
   const [jobDescription, setJobDescription] = useState('')
+  const [industry, setIndustry] = useState('')
+
+  // 내 프로필로 기본값을 채운다. 매번 같은 직군을 다시 고르게 할 이유가 없다.
+  // 사용자가 이미 건드린 값은 덮지 않는다 — 프로필은 기본값이지 강제값이 아니다.
+  useEffect(() => {
+    let alive = true
+    fetchJobProfile()
+      .then((p) => {
+        if (!alive) return
+        setJobCategories((prev) => (prev.length > 0 ? prev : p.desiredJobCategories))
+        setIndustry((prev) => (prev ? prev : (p.desiredIndustry ?? '')))
+      })
+      .catch(() => {
+        // 프로필을 못 불러와도 면접은 만들 수 있어야 한다 — 조용히 넘어간다.
+      })
+    return () => {
+      alive = false
+    }
+  }, [])
 
   const isJobTailored = mode === 'JOB_TAILORED'
 
@@ -64,6 +85,7 @@ export function InterviewSetupForm({
       contextDocumentIds: selected,
       targetCompanyName: isJobTailored ? companyName.trim() || undefined : undefined,
       targetJobDescription: isJobTailored ? jobDescription.trim() : undefined,
+      industry: industry.trim() || undefined,
     })
   }
 
@@ -151,6 +173,12 @@ export function InterviewSetupForm({
           <span className="ml-1.5 text-caption font-normal text-fg-subtle">복수 선택 가능</span>
         </Heading>
         <JobCategorySelector value={jobCategories} onToggle={toggleJob} />
+        <IndustryField
+          value={industry}
+          onChange={setIndustry}
+          label="산업 (선택)"
+          hint="내 프로필에서 채워집니다. 이 면접에서만 다르게 하려면 바꾸세요."
+        />
       </section>
       <section className="flex flex-col gap-4 border-t border-border py-7">
         <Heading level="sub">면접 구성</Heading>

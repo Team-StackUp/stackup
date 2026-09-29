@@ -45,6 +45,9 @@
     "name" : "Session Feedback",
     "description" : "세션 종합 피드백 (US-24)"
   }, {
+    "name" : "Users (Job Profile)",
+    "description" : "희망 직군·산업·경력 — 면접 생성 시 기본값으로 쓰인다."
+  }, {
     "name" : "Internal: Document Embeddings",
     "description" : "X-Internal-API-Key 필요. AI 서버가 분석 결과 청크/임베딩을 pgvector 에 idempotent upsert 할 때 호출."
   }, {
@@ -70,6 +73,84 @@
     "description" : "X-Internal-API-Key 필요. AI 서버가 질문/피드백 생성 시 컨텍스트 청크 검색 (pgvector cosine)."
   } ],
   "paths" : {
+    "/api/users/me/job-profile" : {
+      "get" : {
+        "tags" : [ "Users (Job Profile)" ],
+        "summary" : "내 취업 프로필 조회",
+        "description" : "프로필을 채운 적 없으면 404 가 아니라 빈 프로필(filled=false)을 반환한다.",
+        "operationId" : "getMyJobProfile",
+        "responses" : {
+          "200" : {
+            "description" : "프로필 반환",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JobProfileResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JobProfileResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put" : {
+        "tags" : [ "Users (Job Profile)" ],
+        "summary" : "내 취업 프로필 저장",
+        "description" : "생략한(null) 항목은 그대로 둔다. 비우려면 빈 목록 / 빈 문자열을 보낸다.",
+        "operationId" : "updateMyJobProfile",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/JobProfileUpdateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "저장 후 최신 프로필 반환",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JobProfileResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "검증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JobProfileResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "인증 실패",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JobProfileResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/sessions/{sessionId}/messages/{messageId}/bookmark" : {
       "put" : {
         "tags" : [ "Session Messages" ],
@@ -3259,6 +3340,49 @@
   },
   "components" : {
     "schemas" : {
+      "JobProfileUpdateRequest" : {
+        "type" : "object",
+        "properties" : {
+          "desiredJobCategories" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "FRONTEND", "BACKEND", "INFRA", "DBA", "MOBILE", "DATA_AI", "SECURITY", "QA", "PLANNING", "MARKETING", "SALES", "HR", "FINANCE", "DESIGN", "MANUFACTURING", "RND", "CUSTOMER_SERVICE", "LOGISTICS", "LEGAL", "PUBLIC" ]
+            }
+          },
+          "desiredIndustry" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "careerLevel" : {
+            "type" : "string",
+            "enum" : [ "NEW", "EXPERIENCED", "INTERN", "CAREER_CHANGE" ]
+          }
+        }
+      },
+      "JobProfileResponse" : {
+        "type" : "object",
+        "properties" : {
+          "desiredJobCategories" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "FRONTEND", "BACKEND", "INFRA", "DBA", "MOBILE", "DATA_AI", "SECURITY", "QA", "PLANNING", "MARKETING", "SALES", "HR", "FINANCE", "DESIGN", "MANUFACTURING", "RND", "CUSTOMER_SERVICE", "LOGISTICS", "LEGAL", "PUBLIC" ]
+            }
+          },
+          "desiredIndustry" : {
+            "type" : "string"
+          },
+          "careerLevel" : {
+            "type" : "string",
+            "enum" : [ "NEW", "EXPERIENCED", "INTERN", "CAREER_CHANGE" ]
+          },
+          "filled" : {
+            "type" : "boolean"
+          }
+        }
+      },
       "QuestionBookmarkRequest" : {
         "type" : "object",
         "properties" : {
@@ -3434,6 +3558,11 @@
           "targetJobDescription" : {
             "type" : "string",
             "maxLength" : 20000,
+            "minLength" : 0
+          },
+          "industry" : {
+            "type" : "string",
+            "maxLength" : 100,
             "minLength" : 0
           }
         },

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useAuth, useDeleteAccount, useLogout } from '@/features/auth'
 import { Button } from '@/shared/ui/Button'
 import { ConfirmDialog } from '@/shared/ui'
+import { JobProfileForm } from '@/features/profile/ui/JobProfileForm'
 
 // 탈퇴가 실제로 무엇을 하고 무엇을 하지 않는지 (docs/security.md §5.3).
 // "정말 삭제할까요?" 만 묻고 넘어가면 사용자는 GitHub 권한이 남는다는 걸 끝내 모른다.
@@ -36,6 +37,17 @@ export function AccountView() {
           <Button variant="secondary" onClick={logout} loading={loggingOut}>
             로그아웃
           </Button>
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-body font-bold tracking-[-0.02em] text-fg">취업 프로필</h2>
+        <p className="text-caption text-fg-subtle" style={{ wordBreak: 'keep-all' }}>
+          여기 채워 두면 새 면접을 만들 때 자동으로 채워집니다. 산업까지 알면 질문이 그
+          현장의 언어로 나옵니다 — 같은 생산·품질이라도 반도체와 건설은 묻는 것이 다릅니다.
+        </p>
+        <div className="rounded-xl border border-border bg-surface-raised p-5">
+          <JobProfileForm />
         </div>
       </section>
 

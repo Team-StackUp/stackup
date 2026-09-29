@@ -115,6 +115,7 @@ class QuestionsConsumer:
             target_company_name=req.target_company_name,
             target_job_description=req.target_job_description,
             focus_areas=req.focus_areas,
+            industry=req.industry,
         )
         # 실패는 예외로 위 가드에 넘어가므로 여기 도달 = 성공 —
         # FAILED 콜백 직전에 "마무리하고 있어요" 가 스치는 오해가 구조적으로 없다.

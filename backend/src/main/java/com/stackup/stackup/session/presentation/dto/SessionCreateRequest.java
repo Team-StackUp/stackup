@@ -28,7 +28,10 @@ public record SessionCreateRequest(
     List<Long> contextDocumentIds,
     // 직무 맞춤(JOB_TAILORED) 모드 전용. 회사명 + 채용공고(JD). 그 모드일 때 JD 필수(서비스에서 검증).
     @Size(max = 200) String targetCompanyName,
-    @Size(max = 20000) String targetJobDescription
+    @Size(max = 20000) String targetJobDescription,
+    // 희망 산업(자유 입력). 같은 직군이라도 반도체 공정과 건설 현장은 묻는 것이 전혀 다르다.
+    // 보통 프론트가 내 프로필에서 채워 보내고, 사용자가 이 면접에서만 바꿀 수도 있다.
+    @Size(max = 100) String industry
 ) {
     public SessionCreateCommand toCommand() {
         return new SessionCreateCommand(
@@ -42,7 +45,8 @@ public record SessionCreateRequest(
             maxFollowupsPerQuestion,
             contextDocumentIds,
             targetCompanyName,
-            targetJobDescription
+            targetJobDescription,
+            industry
         );
     }
 }
