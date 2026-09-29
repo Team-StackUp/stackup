@@ -67,7 +67,9 @@ class LlmDocumentAnalyzer:
 
 
 # 프롬프트 -> LLM -> 파서 하나로 묶어서 처리함.
-# 스키마가 커져 파싱 실패 가능성이 있으므로 with_retry 로 1회 재시도(저비용 안전장치).
+# 스키마가 커져 파싱 실패 가능성이 있으므로 with_retry 로 재시도(저비용 안전장치).
+# retry_if_exception_type 기본값이 Exception 이라 파싱 실패뿐 아니라 **타임아웃도** 여기서
+# 재시도된다 — 운영에서 실제로 걸린 건 전부 타임아웃이었다.
 def build_document_analysis_chain(
     settings: Settings, core_client: CoreClient | None = None
 ) -> Runnable:
@@ -95,8 +97,18 @@ def build_document_analysis_chain(
         model=settings.llm_pro_model,
         temperature=settings.llm_pro_temperature,
         timeout=settings.llm_pro_timeout_sec,
+        # 여기만 0 이다 — 바깥 with_retry 가 이미 재시도를 맡는다. 두 층이 곱해지면
+        # 한 메시지가 HTTP 를 최대 6번 치고, 로그 한 행이 여러 시도의 합이 되어
+        # "한 번에 얼마나 걸리는가"를 알 수 없게 된다(실패 4건이 60초 설정에서 92초로 찍힌 것).
+        max_retries=0,
         api_key=settings.llm_api_key_for("pro"),
         base_url=settings.llm_base_url_for("pro"),
         callbacks=callbacks,
     )
-    return (prompt | llm | parser).with_retry(stop_after_attempt=2)
+    return (prompt | llm | parser).with_retry(
+        stop_after_attempt=settings.document_analysis_max_attempts,
+        # 기본 대기 1초로는 게이트웨이 정지 구간을 못 넘는다(운영 4/4 실패). 15초→30초.
+        exponential_jitter_params={
+            "initial": settings.document_analysis_retry_initial_sec,
+        },
+    )

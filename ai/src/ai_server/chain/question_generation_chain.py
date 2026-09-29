@@ -160,6 +160,7 @@ def build_question_generation_chain(
         model=settings.llm_pro_model,
         temperature=settings.llm_pro_temperature,
         timeout=settings.llm_pro_timeout_sec,
+        max_retries=settings.llm_max_retries,
         api_key=settings.llm_api_key_for("pro"),
         base_url=settings.llm_base_url_for("pro"),
         callbacks=callbacks,
