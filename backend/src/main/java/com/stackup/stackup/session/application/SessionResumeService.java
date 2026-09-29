@@ -137,7 +137,8 @@ public class SessionResumeService {
             contextDocumentIds(session.getId()),
             selfIntroAnswer,
             session.getTargetCompanyName(),
-            session.getTargetJobDescription()
+            session.getTargetJobDescription(),
+            session.getIndustry()
         ));
     }
 

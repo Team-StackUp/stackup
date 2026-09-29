@@ -1110,6 +1110,8 @@ export interface components {
             contextDocumentIds?: number[];
             targetCompanyName?: string;
             targetJobDescription?: string;
+            /** @description 희망 산업(자유 입력, 선택). 질문 맥락에 실린다. */
+            industry?: string;
         };
         SessionResponse: {
             /** Format: int64 */
@@ -1140,6 +1142,8 @@ export interface components {
             contextDocumentIds?: number[];
             targetCompanyName?: string;
             targetJobDescription?: string;
+            /** @description 희망 산업(자유 입력, 선택). 질문 맥락에 실린다. */
+            industry?: string;
             focusAreas?: string[];
             /** Format: date-time */
             createdAt?: string;

@@ -80,7 +80,8 @@ public class SessionFollowupRequester {
                 contextDocumentIds,
                 answer.getContent(),
                 session.getTargetCompanyName(),
-                session.getTargetJobDescription()
+                session.getTargetJobDescription(),
+                session.getIndustry()
             ));
             log.info("self-intro answered — requesting question pool. sessionId={}", session.getId());
             return;

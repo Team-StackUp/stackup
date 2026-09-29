@@ -52,7 +52,7 @@ class SessionQuestionsRequesterTest {
     private SelfIntroAnsweredEvent event(Integer generalQuestionCount, List<Long> contextDocumentIds) {
         return new SelfIntroAnsweredEvent(
             7L, 99L, SessionMode.TECHNICAL, List.of(JobCategory.BACKEND),
-            10, generalQuestionCount, contextDocumentIds, "자기소개 답변입니다.", null, null
+            10, generalQuestionCount, contextDocumentIds, "자기소개 답변입니다.", null, null, null
         );
     }
 

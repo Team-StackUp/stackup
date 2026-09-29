@@ -21,6 +21,7 @@ import com.stackup.stackup.session.domain.SessionFeedbackRepository;
 import com.stackup.stackup.session.domain.SessionQuestionPoolRepository;
 import com.stackup.stackup.user.domain.UserRepository;
 import com.stackup.stackup.user.domain.consent.UserConsentRepository;
+import com.stackup.stackup.profile.domain.UserJobProfileRepository;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -68,6 +69,7 @@ class OpenApiSpecExportTest {
   @MockitoBean private SessionQuestionPoolRepository sessionQuestionPoolRepository;
   @MockitoBean private MessageVoiceAnalysisRepository messageVoiceAnalysisRepository;
   @MockitoBean private AiRequestLogRepository aiRequestLogRepository;
+  @MockitoBean private UserJobProfileRepository userJobProfileRepository;
 
   @Test
   void exportOpenApiSpec() throws Exception {

@@ -16,6 +16,7 @@ import com.stackup.stackup.session.domain.SessionFeedbackRepository;
 import com.stackup.stackup.session.domain.SessionQuestionPoolRepository;
 import com.stackup.stackup.user.domain.UserRepository;
 import com.stackup.stackup.user.domain.consent.UserConsentRepository;
+import com.stackup.stackup.profile.domain.UserJobProfileRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -73,6 +74,9 @@ class StackupApplicationTests {
 
 	@MockitoBean
 	private AiRequestLogRepository aiRequestLogRepository;
+
+	@MockitoBean
+	private UserJobProfileRepository userJobProfileRepository;
 
 	@Test
 	void contextLoads() {

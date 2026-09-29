@@ -90,6 +90,8 @@ public class SessionService {
             command.generalQuestionCount(),
             command.maxFollowupsPerQuestion()
         ));
+        // 산업은 모드와 무관하게 보관한다 — 질문 맥락은 어느 모드에서나 쓸모가 있다.
+        session.assignIndustry(command.industry());
         // 타깃 회사/JD 는 직무 맞춤 모드에서만 보관(다른 모드 입력값은 무시).
         if (command.mode() == SessionMode.JOB_TAILORED) {
             session.assignTargetRole(command.targetCompanyName(), command.targetJobDescription());
@@ -136,7 +138,9 @@ public class SessionService {
             source.getMaxFollowupsPerQuestion(),
             reusableDocumentIds,
             source.getTargetCompanyName(),
-            source.getTargetJobDescription()
+            source.getTargetJobDescription(),
+            // 재도전은 원본의 산업 맥락도 승계한다 — 같은 조건으로 다시 하는 게 목적이다.
+            source.getIndustry()
         ));
 
         if (!focusOnWeakness) {

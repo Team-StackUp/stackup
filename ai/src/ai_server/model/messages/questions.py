@@ -49,6 +49,9 @@ class GenerateQuestionsRequest(BaseModel):
     # 약점 집중 재도전에서만 채워진다. TECHNICAL|LOGIC|COMMUNICATION 중 1~2개.
     # 지난 면접에서 낮았던 평가 축이며, 그 영역을 검증하는 질문을 우선 배치한다.
     focus_areas: list[str] = []
+    # 희망 산업(자유 입력, 선택). 직군만으로는 맥락이 얇다 — 같은 "생산·품질" 이라도
+    # 반도체 공정과 건설 현장은 묻는 것이 전혀 다르다. 비어 있으면 프롬프트가 무시한다.
+    industry: str | None = None
 
 
 class GeneratedQuestion(BaseModel):

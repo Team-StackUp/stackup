@@ -21,7 +21,10 @@ public record GenerateQuestionsPayload(
     String targetCompanyName,
     String targetJobDescription,
     // 약점 집중 재도전에서만 채워진다(SessionFocusArea name 목록). 비어 있으면 일반 면접.
-    List<String> focusAreas
+    List<String> focusAreas,
+    // 희망 산업(자유 입력, 선택). 직군만으로는 맥락이 얇다 — 같은 생산·품질이라도
+    // 반도체 공정과 건설 현장은 묻는 것이 다르다. 비어 있으면 프롬프트가 무시한다.
+    String industry
 ) {
     public record DocumentContext(
         Long documentId,

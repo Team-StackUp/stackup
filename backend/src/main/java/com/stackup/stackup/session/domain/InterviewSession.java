@@ -90,6 +90,11 @@ public class InterviewSession extends BaseSoftDeleteEntity {
     @Column(name = "target_job_description", columnDefinition = "text")
     private String targetJobDescription;
 
+    // 이 면접이 어떤 산업 맥락에서 진행됐는지. 보통 사용자 프로필에서 채워 오지만,
+    // 프로필은 나중에 바뀌므로 세션이 스스로 기록해야 한다(직군을 복사해 두는 것과 같은 이유).
+    @Column(name = "industry", length = 100)
+    private String industry;
+
     // 약점 집중 재도전에서 겨냥할 평가 축. SessionFocusArea enum name 의 JSON 배열
     // (예: ["LOGIC","COMMUNICATION"]). 지정 없으면 null — 일반 면접과 동일하게 동작한다.
     // 직렬화/역직렬화는 application 레이어가 한다(SessionFeedback.improvementKeywords 와 같은 방식).
@@ -186,6 +191,11 @@ public class InterviewSession extends BaseSoftDeleteEntity {
     // 약점 집중 재도전에서만 채워진다. assignTargetRole 과 같은 이유로 별도 메서드.
     public void assignFocusAreas(String focusAreasJson) {
         this.focusAreas = focusAreasJson;
+    }
+
+    // 희망 산업 부여. assignTargetRole 과 같은 이유로 별도 메서드.
+    public void assignIndustry(String industry) {
+        this.industry = (industry == null || industry.isBlank()) ? null : industry.trim();
     }
 
     // 직무 맞춤 모드의 타깃 회사/JD 부여. create 시그니처를 늘리지 않으려 별도 메서드로 둔다.

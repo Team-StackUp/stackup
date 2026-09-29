@@ -21,6 +21,7 @@ import com.stackup.stackup.session.domain.SessionFeedbackRepository;
 import com.stackup.stackup.session.domain.SessionQuestionPoolRepository;
 import com.stackup.stackup.user.domain.UserRepository;
 import com.stackup.stackup.user.domain.consent.UserConsentRepository;
+import com.stackup.stackup.profile.domain.UserJobProfileRepository;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -62,6 +63,7 @@ class AuthEndpointsPermitAllTest {
   @MockitoBean private SessionQuestionPoolRepository sessionQuestionPoolRepository;
   @MockitoBean private MessageVoiceAnalysisRepository messageVoiceAnalysisRepository;
   @MockitoBean private AiRequestLogRepository aiRequestLogRepository;
+  @MockitoBean private UserJobProfileRepository userJobProfileRepository;
 
   @Test
   void unauthenticatedError_keepsKoreanMessageReadable() throws Exception {
