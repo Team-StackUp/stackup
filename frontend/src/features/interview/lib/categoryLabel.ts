@@ -5,6 +5,8 @@ const CATEGORY_LABEL: Record<string, string> = {
   PROJECT_DEEP_DIVE: '프로젝트 심화',
   TECH_CHOICE: '기술 선택',
   BEHAVIORAL: '인성·행동',
+  // 비개발 직군용. CS 기초·기술 선택이 개발 전용이라 그 자리를 대신한다.
+  DOMAIN_KNOWLEDGE: '직무 지식',
 }
 
 export function categoryLabel(category?: string | null): string | null {

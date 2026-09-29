@@ -12,6 +12,10 @@ QuestionCategory = Literal[
     "PROJECT_DEEP_DIVE",
     "TECH_CHOICE",
     "BEHAVIORAL",
+    # 비개발 직군용. CS_FUNDAMENTAL·TECH_CHOICE 가 개발 전용이라 그 자리를 대신한다
+    # (직무 지식·업무 도구·업계 이해). Core 는 category 를 문자열로만 저장하므로
+    # 마이그레이션이 필요 없고, 프론트는 categoryLabel 에 라벨이 있다.
+    "DOMAIN_KNOWLEDGE",
 ]
 CallbackKind = Literal["POOL", "FOLLOWUP"]
 GenerationStatus = Literal["OK", "FAILED"]

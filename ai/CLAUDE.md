@@ -492,6 +492,26 @@ docker run --env-file .env -p 8000:8000 stackup-ai
 - **실시간 스트리밍 음성 답변 본 구현** (RT3, `api/voice_stream.py`, `voice/stt/{live,mock_live,deepgram_live,live_factory}.py`):
   FastAPI WS `/internal/voice/stream` 수신(RealTime 프록시 경유) → Deepgram Live(`deepgram_live.py`, mock fallback)로 부분/최종 자막 다운 → 발화 종료 시 메트릭 계산 후 `callback.voice` 발행. `VoiceCallbackService`/followup 무변경 재사용. 신규 의존성 `websockets`.
 - 배치 음성 분석(STT/WPM/filler) 모듈은 `voice/stt/whisper_api.py`(+ Deepgram) + `voice/analysis/metrics.py`로 본 구현(`analyze.voice` consumer)
+- **비개발 직군 면접 본 구현 (2026-09-29)**: 서비스 대상이 취준생 전반(개발 8 + 비개발 12 직군)인데
+  **평가 패널만 직군별로 확장돼 있었고 질문·꼬리질문·첫인상·문서분석 프롬프트는 "IT 직군" 페르소나로
+  고정**돼 있었다. 그 상태의 영업·인사 지원자 면접은: IT 렌즈로 이력서가 요약되고 → IT 채용 담당자가
+  → 'CS 기초'·'기술 선택' 카테고리로 질문을 만들고 → IT 면접관이 꼬리질문을 단다. 평가만 직군 맞춤.
+  - **카테고리가 개발 전용인 것이 핵심**이다. 문구만 바꾸면 LLM 은 여전히 `CS_FUNDAMENTAL` 을 고른다.
+    `DOMAIN_KNOWLEDGE`(직무 지식·업무 도구·업계 이해)를 추가하고, 비개발이면 `CS_FUNDAMENTAL`·
+    `TECH_CHOICE` 를 **쓰지 말라고 명시**한다. Core 는 category 를 문자열로만 저장하므로(V9, CHECK 없음)
+    마이그레이션이 없고 프론트 `categoryLabel` 에 라벨만 더하면 된다.
+  - `job_category.py` 에 `ENGINEERING_CATEGORIES`(8개) + `is_engineering()` 을 **직군 목록과 같은 파일**에
+    둔다 — 목록만 늘리고 집합을 빠뜨리면 그 직군이 조용히 반대 취급을 받는다(검증에서 안 튕긴다).
+  - `_format_job_guide` 가 개발/비개발/혼합 3분기 블록을 만들어 `{job_guide}` 로 주입한다. 패널의
+    `_DOMAIN_TECH_GUIDE` 와 같은 이유로 라벨이 아니라 **무엇을 묻고 무엇을 묻지 말지**를 문장으로 준다.
+    직군이 비면 개발을 가정하지 않는다 — 틀렸을 때 비개발 지원자에게 기술 질문이 나가는 쪽이 더 나쁘다.
+  - `followup`·`self_intro` 프롬프트는 **예전부터 `{job_category}` 를 받고 있었는데 쓰지 않았다**
+    (페르소나만 IT 고정). 받은 값을 페르소나에 넣었다.
+  - `document_analysis` 는 업로드 시점이라 직군을 모른다 → 페르소나를 중립화하고 `tech_stack` 의 의미를
+    "개발이면 기술 스택, 아니면 그 직무의 실무 역량·도구·자격"으로 넓혔다(필드명 때문에 없는 기술을
+    지어내지 말라고 명시). 이게 가장 상류다 — 분석 마크다운이 RAG·질문·피드백 전부의 근거다.
+  - 운영 사용 현황은 아직 BACKEND 64 / FRONTEND 39 로 비개발 세션이 **0건**이다 — 라이브 회귀가 아니라
+    미검증 경로를 연 것이다.
 - **멀티 평가위원 패널 본 구현** (`chain/feedback_generation_chain.py: PanelFeedbackGenerator`): 세션에 등장한
   직군(질문 카테고리) 수만큼 기술 평가위원을 동적 생성(`_domain_specs_weighted`) + 논리·전달력 평가위원을
   더해 `asyncio.gather` 로 병렬 채점 → 직군 평가는 질문 등장 빈도로 가중평균해 `technical_accuracy` 산출,

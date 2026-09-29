@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from ai_server.chain.prompts.question_generation import HUMAN_PROMPT, SYSTEM_PROMPT
 from ai_server.config.settings import Settings
 from ai_server.core.client import CoreClient
+from ai_server.model.messages.job_category import is_engineering
 from ai_server.model.messages.questions import GeneratedQuestion
 from ai_server.observability.llm_logging_callback import CoreAiLogCallback
 
@@ -122,6 +123,7 @@ class LlmQuestionGenerator:
                     target_company_name, target_job_description
                 ),
                 "focus_areas": _format_focus_areas(focus_areas),
+                "job_guide": _format_job_guide(job_categories),
                 # 비어 있으면 "(지정 없음)" — 프롬프트가 산업 지침을 무시하도록.
                 "industry": (industry or "").strip() or "(지정 없음)",
             }
@@ -131,6 +133,47 @@ class LlmQuestionGenerator:
                 f"chain returned {type(result).__name__}, expected GeneratedQuestionPool"
             )
         return result
+
+
+# 직군 지침. 개발/비개발은 묻는 것이 다르고, 특히 **카테고리 자체가 개발 전용**이다
+# (CS_FUNDAMENTAL·TECH_CHOICE). 이걸 주지 않으면 영업·인사 지원자에게 'CS 기초' 질문이 나간다.
+# 라벨만 넘기면 LLM 이 제각각 해석하므로, 패널 평가의 `_DOMAIN_TECH_GUIDE` 와 같이
+# **무엇을 묻고 무엇을 묻지 말지**를 문장으로 못 박는다.
+_ENGINEERING_GUIDE = (
+    "개발 직군입니다. 기술 스택·설계 선택·트러블슈팅을 중심으로 묻고, "
+    "CS_FUNDAMENTAL·TECH_CHOICE·PROJECT_DEEP_DIVE 를 적극 활용합니다. "
+    "DOMAIN_KNOWLEDGE 는 쓰지 않습니다."
+)
+_NON_ENGINEERING_GUIDE = (
+    "비개발 직군입니다.\n"
+    "- 코드·아키텍처·기술 스택을 묻지 않습니다. **CS_FUNDAMENTAL·TECH_CHOICE 를 쓰지 마세요.**\n"
+    "- 대신 DOMAIN_KNOWLEDGE(직무 지식·업무 도구·업계 이해)와 PROJECT_DEEP_DIVE(담당 업무·"
+    "성과), BEHAVIORAL 을 씁니다.\n"
+    "- '역량·도구'는 그 직군의 실무를 뜻합니다 — 예: 마케팅이면 퍼포먼스 지표·GA4, 재무면 결산·"
+    "세무, 생산·품질이면 공정·불량률, 법무면 계약 검토, 디자인이면 사용자 리서치, "
+    "인사면 채용·평가·노무.\n"
+    "- 성과는 숫자로 확인합니다(전환율·불량률·원가 절감·처리 건수·리드타임 등).\n"
+    "- 자료에 GitHub 레포가 없는 것이 정상입니다. 없는 자료를 전제로 묻지 마세요."
+)
+_MIXED_GUIDE = (
+    "개발 직군과 비개발 직군이 함께 지정됐습니다. **질문마다 그 질문이 겨냥하는 직군의 규칙을 "
+    "따릅니다** — 개발 직군 질문에만 CS_FUNDAMENTAL·TECH_CHOICE 를 쓰고, 비개발 직군 질문에는 "
+    "DOMAIN_KNOWLEDGE 를 씁니다.\n\n"
+    "[개발] " + _ENGINEERING_GUIDE + "\n\n[비개발] " + _NON_ENGINEERING_GUIDE
+)
+
+
+def _format_job_guide(job_categories: list[str] | None) -> str:
+    cats = [c for c in (job_categories or []) if c]
+    if not cats:
+        # 직군이 비는 경로는 없지만, 비면 개발을 가정하지 않는다 — 가정이 틀렸을 때
+        # 비개발 지원자에게 기술 질문이 나가는 쪽이 반대보다 나쁘다.
+        return _NON_ENGINEERING_GUIDE
+    eng = [c for c in cats if is_engineering(c)]
+    non = [c for c in cats if not is_engineering(c)]
+    if eng and non:
+        return _MIXED_GUIDE
+    return _ENGINEERING_GUIDE if eng else _NON_ENGINEERING_GUIDE
 
 
 def build_question_generation_chain(
