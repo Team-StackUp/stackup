@@ -172,6 +172,7 @@ services:
       REALTIME_CORE_BASE_URL: ${CORE_INTERNAL_BASE_URL:-http://backend:38010}
       REALTIME_INTERNAL_API_KEY: ${CORE_INTERNAL_API_KEY:-local-development-internal-api-key}
       REALTIME_WS_WRITE_TIMEOUT: ${REALTIME_WS_WRITE_TIMEOUT:-10s}
+      REALTIME_SSE_WRITE_TIMEOUT: ${REALTIME_SSE_WRITE_TIMEOUT:-10s}
     depends_on:
       rabbitmq:
         condition: service_healthy

@@ -58,33 +58,51 @@ func (r *Registry) Unsubscribe(channel Channel, sub *Subscriber) {
 	}
 }
 
-// Dispatch sends ev to all subscribers of channel. Each send waits up to
-// slowTimeout before dropping that subscriber's delivery. Returns the number
-// of subscribers that received the event.
+// Dispatch sends ev to all subscribers of channel, giving up on stalled ones.
+// Returns the number of subscribers that received the event.
+//
+// slowTimeout is a budget for the whole call, not per subscriber. It used to be
+// reset for each one, so K stalled subscribers blocked the caller for K ×
+// slowTimeout. That matters because the AMQP consumer is single-threaded with
+// prefetch=1 (messaging.Consumer): whatever blocks here delays every *other*
+// session's events too, not just the slow one's. Three stalled tabs on one
+// channel could stall the whole fan-out for 15s at the default 5s.
+//
+// With a shared deadline the worst case is one slowTimeout per message no
+// matter how many subscribers are stuck.
 func (r *Registry) Dispatch(channel Channel, ev Event, slowTimeout time.Duration) int {
 	r.mu.RLock()
 	subs := append([]*Subscriber(nil), r.subs[channel]...)
 	r.mu.RUnlock()
 
-	// Reuse a single timer across subscribers. time.After would leak one timer
-	// goroutine per (subscriber × event) until slowTimeout elapsed.
+	if len(subs) == 0 {
+		return 0
+	}
+
+	// One timer for the whole dispatch. time.After would leak a timer goroutine
+	// per (subscriber × event) until it fired.
 	timer := time.NewTimer(slowTimeout)
 	defer timer.Stop()
 
 	delivered := 0
+	budgetLeft := true
 	for _, s := range subs {
-		if !timer.Stop() {
+		if !budgetLeft {
+			// Budget already spent by an earlier stalled subscriber. Still try a
+			// non-blocking send — a healthy subscriber must not lose an event
+			// because someone before it in the list was stuck.
 			select {
-			case <-timer.C:
+			case s.Ch <- ev:
+				delivered++
 			default:
 			}
+			continue
 		}
-		timer.Reset(slowTimeout)
 		select {
 		case s.Ch <- ev:
 			delivered++
 		case <-timer.C:
-			// drop slow consumer's delivery
+			budgetLeft = false
 		}
 	}
 	return delivered

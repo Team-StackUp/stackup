@@ -37,7 +37,7 @@ func main() {
 		Handler:   handlerAdapter{d: dispatcher},
 	}
 
-	sseHandler := transport.NewSSEHandler(registry, cfg.SSEBufferSize, cfg.SSEPingInterval)
+	sseHandler := transport.NewSSEHandler(registry, cfg.SSEBufferSize, cfg.SSEPingInterval, cfg.SSEWriteTimeout)
 	verifier := auth.NewStreamTokenVerifier(cfg.JWTSecret)
 	coreClient := core.NewClient(cfg.CoreBaseURL, cfg.InternalApiKey, cfg.WSWriteTimeout)
 	wsHandler := transport.NewWSHandler(registry, coreClient, cfg.WSWriteTimeout)

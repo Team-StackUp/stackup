@@ -26,7 +26,7 @@ func documentRequest(t *testing.T, id string, claims auth.Claims) *http.Request 
 }
 
 func newDocumentHandler() http.HandlerFunc {
-	return scopedChannel(NewSSEHandler(session.NewRegistry(), 4, time.Hour),
+	return scopedChannel(NewSSEHandler(session.NewRegistry(), 4, time.Hour, time.Second),
 		session.ChannelDocument, "DOCUMENT")
 }
 

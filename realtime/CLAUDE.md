@@ -138,7 +138,19 @@ Heartbeat (proxy keepalive):
 
 - `session.Registry`는 sync.RWMutex로 보호.
 - 한 sessionId에 여러 SSE 연결(다중 디바이스/탭) 가능 → slice.
-- slow consumer 처리: `Dispatch`가 `slowTimeout`을 초과하면 그 구독자만 drop, 다른 구독자는 영향 없음.
+- slow consumer 처리: `Dispatch`가 `slowTimeout`을 초과하면 그 구독자만 drop.
+  - **`slowTimeout` 은 호출 전체의 예산이다 — 구독자마다 새로 세지 않는다.** 2026-09-29
+    이전에는 구독자마다 리셋해서 멈춘 탭 3개면 5초 × 3 = 15초가 걸렸다. AMQP 컨슈머는
+    단일 스레드 + `prefetch=1` 이라(`messaging.Consumer`) 여기서 막히는 시간이 곧 **다른
+    세션들의 이벤트 지연**이다. "다른 구독자는 영향 없음" 이라고 적혀 있었지만 사실이
+    아니었다 — 같은 채널의 뒷 구독자도, 다른 채널의 세션도 같이 밀렸다.
+  - 예산을 다 써도 남은 구독자에게 **논블로킹 전송**은 시도한다. 앞사람이 멈췄다는 이유로
+    건강한 구독자가 이벤트를 잃으면 안 된다.
+- **SSE 쓰기에도 데드라인이 있다**(`REALTIME_SSE_WRITE_TIMEOUT`, 기본 10s). WS 는 처음부터
+  `WSWriteTimeout` 이 있었지만 SSE 는 없어서, 멈춘 클라이언트(노트북 덮개를 닫은 경우 등)가
+  TCP 를 열어둔 채 수신 창을 막으면 `Fprintf` 가 무기한 블록됐다. 그 고루틴이 `sub.Ch` 를
+  비우지 못하면 버퍼가 차고, 그 채널로 가는 모든 `Dispatch` 가 slow-consumer 타임아웃을
+  물게 된다. 데드라인이 있어야 포기하고 구독을 해제할 수 있다.
 - 단일 인스턴스 가정. 다중 인스턴스 전환 시 fanout exchange + 인스턴스별 자기 큐 패턴 필요.
 
 ---
@@ -159,6 +171,7 @@ Heartbeat (proxy keepalive):
 | `REALTIME_INTERNAL_API_KEY` | `local-development-internal-api-key` | **Core `CORE_INTERNAL_API_KEY`와 동일값 필수** (AI 서버도 공유). `X-Internal-API-Key` |
 | `REALTIME_AI_WS_URL` | `ws://localhost:8000/internal/voice/stream` | AI 음성 스트림 WS base URL (RT3 오디오 프록시 업스트림). compose 내부는 `ws://ai:8000/internal/voice/stream` |
 | `REALTIME_WS_WRITE_TIMEOUT` | `10s` | WS write 타임아웃 |
+| `REALTIME_SSE_WRITE_TIMEOUT` | `10s` | SSE write 타임아웃. 없으면 멈춘 클라이언트가 쓰기 고루틴을 무기한 붙잡는다 |
 
 ---
 

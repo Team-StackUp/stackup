@@ -111,3 +111,67 @@ func TestRegistryConcurrentSubscribeDispatchUnsubscribe(t *testing.T) {
 		t.Fatalf("expected no subscribers after full unsubscribe, delivered=%d", delivered)
 	}
 }
+
+// AMQP 컨슈머는 단일 스레드 + prefetch=1 이라, 여기서 막히는 시간이 곧 **다른 세션들의
+// 이벤트 지연**이 된다. 예전에는 구독자마다 slowTimeout 을 새로 세어서 멈춘 탭 3개면
+// 5초 × 3 = 15초 동안 전체 fan-out 이 멈췄다.
+func TestDispatchBudgetIsSharedAcrossSubscribers(t *testing.T) {
+	r := NewRegistry()
+	ch := Channel{Kind: ChannelSession, ID: 1}
+
+	// 버퍼 1짜리 구독자 3명을 만들고 전부 가득 채워 둔다(= 멈춘 클라이언트).
+	const stalled = 3
+	for i := 0; i < stalled; i++ {
+		sub := r.Subscribe(ch, 1)
+		sub.Ch <- Event{ID: "fill"}
+	}
+
+	const budget = 150 * time.Millisecond
+	start := time.Now()
+	delivered := r.Dispatch(ch, Event{ID: "x"}, budget)
+	elapsed := time.Since(start)
+
+	if delivered != 0 {
+		t.Fatalf("stalled subscribers should receive nothing, got %d", delivered)
+	}
+	// 예산이 구독자 수만큼 곱해지면 여기서 걸린다.
+	if max := budget * 2; elapsed > max {
+		t.Fatalf("dispatch took %v, expected <= %v (budget must be shared, not per subscriber)",
+			elapsed, max)
+	}
+}
+
+// 예산을 앞선 구독자가 다 써도, 뒤의 건강한 구독자가 그 이유로 이벤트를 잃으면 안 된다.
+func TestHealthySubscriberStillGetsEventAfterStalledOne(t *testing.T) {
+	r := NewRegistry()
+	ch := Channel{Kind: ChannelSession, ID: 1}
+
+	stalledSub := r.Subscribe(ch, 1)
+	stalledSub.Ch <- Event{ID: "fill"}
+	healthy := r.Subscribe(ch, 4)
+
+	delivered := r.Dispatch(ch, Event{ID: "x"}, 50*time.Millisecond)
+
+	if delivered != 1 {
+		t.Fatalf("expected the healthy subscriber to receive it, delivered=%d", delivered)
+	}
+	select {
+	case ev := <-healthy.Ch:
+		if ev.ID != "x" {
+			t.Fatalf("healthy subscriber got %q", ev.ID)
+		}
+	default:
+		t.Fatal("healthy subscriber received nothing")
+	}
+}
+
+func TestDispatchToEmptyChannelDoesNotWait(t *testing.T) {
+	r := NewRegistry()
+
+	start := time.Now()
+	r.Dispatch(Channel{Kind: ChannelSession, ID: 999}, Event{ID: "x"}, time.Second)
+
+	if elapsed := time.Since(start); elapsed > 50*time.Millisecond {
+		t.Fatalf("dispatch to an empty channel took %v", elapsed)
+	}
+}
