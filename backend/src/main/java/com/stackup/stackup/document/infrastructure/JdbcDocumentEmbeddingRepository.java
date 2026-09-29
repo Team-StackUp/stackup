@@ -42,6 +42,21 @@ public class JdbcDocumentEmbeddingRepository implements DocumentEmbeddingReposit
     //
     // 호출부마다 필터를 거는 대신 쿼리에서 막는 이유: 호출자가 늘 때마다 같은 실수를 반복할 수
     // 있고, 실제로 3개 호출부 중 어디도 삭제를 확인하지 않았다. 여기 한 곳이 마지막 관문이다.
+    /**
+     * 삭제된 문서의 청크를 거르는 방어선.
+     *
+     * <p><b>오늘 기준 아무것도 거르지 않는다.</b> 문서 삭제 시 임베딩을 함께 지우고
+     * (soft delete 된 문서 19개의 청크가 0개), {@code DocumentEmbeddingService} 가 이미
+     * 활성 소유 문서로 범위를 좁혀 넘긴다. 그래도 남겨 둔다 — 삭제 경로가 언젠가 새면
+     * 이게 마지막 방어선이고 비용은 0.3ms 안쪽이다.
+     *
+     * <p><b>대가는 알고 있어야 한다.</b> {@code ORDER BY <=>} 가 조인된 관계 위에 놓이면
+     * 플래너가 HNSW ANN 인덱스로 밀어 넣지 못한다 — {@code enable_seqscan=off} 로도
+     * 안 쓴다. 즉 인덱스가 있어도 **근사 최근접 탐색이 도는 게 아니라** 범위 안에서 정확
+     * 거리 계산 후 정렬한다. 지금 규모(청크 57행, 실행 0.338ms)에서는 그게 더 빠르다.
+     *
+     * <p>바꿔야 할 시점과 방법은 {@code docs/database.md} 의 pgvector 인덱스 절에 적었다.
+     */
     private static final String ACTIVE_DOC_JOIN =
         "JOIN analyzed_documents d ON d.id = e.document_id AND d.is_deleted = FALSE ";
 
