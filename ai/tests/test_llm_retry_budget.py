@@ -40,6 +40,9 @@ def _settings(**over) -> Settings:
         s3_access_key="a",
         s3_secret_key="b",
         s3_bucket_name="c",
+        # 키를 반드시 준다 — 빈 값이면 ChatOpenAI 생성 자체가 OpenAIError 로 터진다.
+        # 로컬에는 ai/.env 가 있어 통과하고 CI 에서만 깨지는 함정이다.
+        llm_api_key="test-key",
     )
     base.update(over)
     return Settings(**base)
