@@ -47,12 +47,37 @@ print(state, detail)
   [ -n "${current:-}" ] || { current="UNPARSEABLE"; detail="헬스 응답 해석 실패"; }
 fi
 
-previous=$(cat "$STATE_FILE" 2>/dev/null || echo "")
-printf '%s' "$current" > "$STATE_FILE"
+# 상태 파일은 두 줄이다: 1) 마지막으로 **알린** 상태 2) 아직 확정되지 않은 비정상 후보.
+# 예전에는 한 줄(마지막 관측 상태)이었고, 그래서 **한 번만 나쁘면 바로 알렸다.**
+#
+# 그게 배포마다 헛울렸다. 배포는 컨테이너를 재생성하므로 그 직후 몇십 초 동안
+#   · scheduler = 아직 첫 박동 전 (백엔드에서 따로 고쳤다)
+#   · aiServer  = 큐 컨슈머 0 (AI 컨테이너가 다시 붙는 중)
+# 이 정상적으로 관측된다. 지표만 보고는 "배포 중"과 "죽었다"를 구분할 수 없다 —
+# 구분되는 건 **지속 시간**뿐이다. 그래서 같은 비정상을 연속 2회(≈5분 간격) 봐야 알린다.
+#
+# 대가: 진짜 장애 감지가 최대 한 주기 늦는다(≈10분). 스위퍼 주기가 2~5분인 서비스라
+# 감당할 수 있고, 배포마다 헛울려 아무도 안 읽는 알림보다 낫다.
+# 한계: 한 번 걸러 한 번씩 나빠지는 플래핑은 잡지 못한다.
+previous=$(sed -n '1p' "$STATE_FILE" 2>/dev/null || echo "")
+pending=$(sed -n '2p' "$STATE_FILE" 2>/dev/null || echo "")
+
+write_state() { printf '%s\n%s\n' "$1" "${2:-}" > "$STATE_FILE"; }
 
 if [ "$current" = "$previous" ]; then
+  write_state "$previous" ""  # 후보 취소 — 알린 상태로 되돌아왔다
   exit 0                      # 같은 상태 반복 — 조용히 넘어간다
 fi
+
+# 복구는 즉시 알린다. 지연시킬 이유가 없고(나쁜 소식이 아니다), 늦추면 "아직도 장애중"
+# 으로 오해한다. 단, 애초에 알린 적 없는 비정상의 '복구'는 보내지 않는다 —
+# previous 가 UP 이면 위 분기에서 이미 걸러진다.
+if [ "$current" != "UP" ] && [ "$current" != "$pending" ]; then
+  write_state "$previous" "$current"   # 1회차 — 확정 보류
+  exit 0
+fi
+
+write_state "$current" ""
 
 if [ "$current" = "UP" ]; then
   # 첫 실행(previous 없음)에 "복구됨"을 보내지 않는다 — 처음부터 정상인 게 정상이다.

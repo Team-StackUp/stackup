@@ -27,7 +27,15 @@ public class SchedulerHeartbeat {
 
     private static final Logger log = LoggerFactory.getLogger(SchedulerHeartbeat.class);
 
-    private final AtomicReference<Instant> lastBeat = new AtomicReference<>();
+    // 기동 시각으로 채워 둔다. 비워 두면 **부팅 직후가 "스케줄러가 죽었다"로 보고된다** —
+    // Tomcat 이 뜬 뒤 첫 박동(initialDelay 10초)까지 10초 동안 엔드포인트는 정상 응답하면서
+    // scheduler=DOWN 을 돌려준다. 2026-09-29 배포에서 실제로 그 창에 5분 주기 감시가
+    // 꽂혀 팀 채널에 "[실패] 헬스 이상: DEGRADED" 가 나갔다(12:09:53 기동 / 12:10:00 폴링).
+    // 배포마다 헛울리는 알림은 읽히지 않게 되고, 그러면 진짜 장애도 같이 묻힌다.
+    //
+    // 스케줄러가 영영 안 뛰는 경우도 여전히 잡힌다 — 이 값이 그대로 늙어 maxAge(5분)를
+    // 넘으면 DOWN 이다. 감지가 최대 5분 늦어질 뿐이고, 그건 "안 뛴다"의 정의와 같다.
+    private final AtomicReference<Instant> lastBeat = new AtomicReference<>(Instant.now());
 
     @Scheduled(
         fixedDelayString = "${scheduling.heartbeat-interval-ms:60000}",
@@ -40,7 +48,7 @@ public class SchedulerHeartbeat {
         }
     }
 
-    /** 마지막 박동. 한 번도 뛰지 않았으면 null(기동 직후 또는 스케줄러 미동작). */
+    /** 마지막 박동. 기동 시각으로 시작하므로 null 이 아니다(위 주석 참고). */
     public Instant lastBeat() {
         return lastBeat.get();
     }
