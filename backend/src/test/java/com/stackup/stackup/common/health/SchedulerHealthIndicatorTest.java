@@ -49,22 +49,36 @@ class SchedulerHealthIndicatorTest {
         assertThat(health.getStatus()).isEqualTo(Status.UP);
     }
 
+    // 이 두 테스트는 예전에 정반대를 고정하고 있었다("한 번도 안 뛰었으면 DOWN").
+    // 그게 곧 버그였다 — 부팅 직후 10초(첫 박동 전)를 "스케줄러가 죽었다"로 보고해
+    // 2026-09-29 배포에서 팀 채널에 헛알림이 나갔다.
     @Test
-    void 한_번도_안_뛰었으면_DOWN() {
+    void 기동_직후_첫_박동_전에도_UP() {
         Health health = new SchedulerHealthIndicator(new SchedulerHeartbeat(), 300).health();
 
-        assertThat(health.getStatus()).isEqualTo(Status.DOWN);
-        assertThat(health.getDetails().get("reason").toString())
-            .contains("아직 한 번도 실행되지 않았습니다");
+        assertThat(health.getStatus())
+            .as("방금 부팅한 것과 스케줄러가 죽은 것은 다르다")
+            .isEqualTo(Status.UP);
+    }
+
+    @Test
+    void 한_번도_안_뛴_채_한도를_넘기면_DOWN() {
+        // 기동 시각으로 시드해도 스케줄러가 영영 안 뛰면 그 값이 늙어 잡힌다.
+        // 감지가 최대 maxAge 만큼 늦어질 뿐이고, 그게 "안 뛴다"의 정의다.
+        SchedulerHeartbeat neverBeat = heartbeatAt(Instant.now().minus(6, ChronoUnit.MINUTES));
+
+        assertThat(new SchedulerHealthIndicator(neverBeat, 300).health().getStatus())
+            .isEqualTo(Status.DOWN);
     }
 
     @Test
     void beat_는_시각을_갱신한다() {
         SchedulerHeartbeat hb = new SchedulerHeartbeat();
-        assertThat(hb.lastBeat()).isNull();
+        Instant seeded = hb.lastBeat();
+        assertThat(seeded).as("기동 시각으로 시드된다").isNotNull();
 
         hb.beat();
 
-        assertThat(hb.lastBeat()).isNotNull();
+        assertThat(hb.lastBeat()).isAfterOrEqualTo(seeded);
     }
 }

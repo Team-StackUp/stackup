@@ -74,9 +74,15 @@ check '첫 실행 정상: 무발송' 0 "$(sent)"
 ./health-check.sh; check '정상 반복: exit 0' 0 $?
 check '정상 반복: 무발송' 0 "$(sent)"
 
+# 비정상은 **연속 2회** 봐야 알린다 — 배포 직후의 일시 상태로 헛울리지 않기 위해서다.
 echo "$DEGRADED" > "$HEALTH"
-./health-check.sh; check '집계 UP·backup DOWN 포착: exit 0' 0 $?
-check '집계 UP·backup DOWN 포착: 1건' 1 "$(sent)"
+./health-check.sh; check '이상 1회차: exit 0' 0 $?
+check '이상 1회차: 보류(무발송)' 0 "$(sent)"
+check '이상 1회차: 알린 상태는 그대로 UP' UP "$(sed -n 1p "$STATE")"
+check '이상 1회차: 후보로 기록' DEGRADED "$(sed -n 2p "$STATE")"
+
+./health-check.sh; check '이상 2회차: exit 0' 0 $?
+check '이상 2회차: 1건 발송' 1 "$(sent)"
 ./health-check.sh
 check '같은 이상 반복: 발송 늘지 않음' 1 "$(sent)"
 
@@ -84,11 +90,21 @@ echo "$UP" > "$HEALTH"
 ./health-check.sh; check '복구: exit 0' 0 $?
 check '복구: 2건' 2 "$(sent)"
 
+# 이 서비스에서 가장 자주 일어나는 오탐 — 배포가 컨테이너를 재생성하는 동안
+# scheduler 첫 박동 전 / aiServer 컨슈머 0 이 정상적으로 관측된다.
+echo "$DEGRADED" > "$HEALTH"; ./health-check.sh
+echo "$UP" > "$HEALTH";       ./health-check.sh
+check '배포 블립(이상 1회 후 복귀): 발송 늘지 않음' 2 "$(sent)"
+check '배포 블립: 후보가 지워진다' '' "$(sed -n 2p "$STATE")"
+
 # 리스너를 죽이는 대신 죽은 포트를 가리킨다 — kill 하면 셸이 "Terminated" 를
 # 결과 사이에 끼워 넣어 읽기 나빠진다(리스너는 EXIT trap 이 정리한다).
 HEALTH_URL="http://127.0.0.1:9/health" ./health-check.sh
-check '도달 불가: exit 0' 0 $?
-check '도달 불가: UNREACHABLE 로 기록' UNREACHABLE "$(cat "$STATE")"
+check '도달 불가 1회차: exit 0' 0 $?
+check '도달 불가 1회차: 후보로 기록' UNREACHABLE "$(sed -n 2p "$STATE")"
+HEALTH_URL="http://127.0.0.1:9/health" ./health-check.sh
+check '도달 불가 2회차: 확정 기록' UNREACHABLE "$(sed -n 1p "$STATE")"
+check '도달 불가 2회차: 발송' 3 "$(sent)"
 
 echo
 echo "통과 $pass, 실패 $fail"
