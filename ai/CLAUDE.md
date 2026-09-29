@@ -400,6 +400,23 @@ docker run --env-file .env -p 8000:8000 stackup-ai
   (직무가 무엇을 하는 자리인지 이해·지원동기). 두 축을 `panelBreakdown` 의 `evaluator="직무 적합도"`·
   `evaluator="직무 이해도"` 항목으로 append(첫인상과 같은 병렬·미집계 메커니즘). 그 외 모드/빈 JD/실패는 건너뜀.
 - **꼬리질문 토큰 스트리밍 본 구현**: followup 출력을 `<intent>…</intent><question>…</question><meta>{json}</meta>` 구분자 포맷으로 바꾸고(`chain/prompts/followup_generation.py`), `StreamingFollowupGenerator`(`astream`)가 `<question>` 토큰만 `SessionRealtimeNotifier`(`messaging/session_notify.py`)로 `SESSION_MESSAGE_DELTA` 발행(`stackup.realtime`/`realtime.session.notify`, Core 우회). `DONT_KNOW` 면 델타 미발행. 종료 후 `parse_followup_result` 로 검증해 기존 `callback.questions(FOLLOWUP, followupMessageId)` 발행. 와이어링은 `messaging/runner.py`(분석 진행 publisher 재사용).
+- **정직한 "모르겠습니다" 채점 정정 (2026-09-29)**: 답변 평가 점수를 전부 nullable 로
+  바꾸고 "null = 채점 대상 아님"을 집계 전 구간에 관철했다. `_mean` 이 None 을 제외하므로
+  **0 과 null 의 차이가 곧 점수 차이**인데, 세 곳이 어긋나 있었다.
+  - `AnswerEvaluation.specificity/logic` 이 **required** 였다. 프롬프트는 DONT_KNOW·
+    확인형 단답에 null 을 지시하고 있었는데, LLM 이 그대로 따르면
+    `model_validate_json` 이 터지고 `parse_followup_result` 가 그 예외를 삼켜
+    **평가가 통째로 사라졌다**(structure 까지). 진짜 파싱 실패와 구분도 안 됐다.
+    → `float | None` 로. 받는 쪽(`MessageEvaluation`)은 처음부터 전부 nullable 이었다.
+  - 프롬프트가 `"보수적으로(낮게/null)"` 로 **모호**했다. 모호하면 LLM 이 매번 다르게
+    고른다. → `"반드시 null"` + meta 스키마에도 `<0~5 또는 null>` 명시.
+  - `_STRUCTURE_SCORE["NONE"] = 0.0` 이라 채점 불가 답변의 structure 가 0 으로 집계됐다.
+    전부 모름인 세션이 **communication ≈ 0, overall ≈ 0** 으로 나왔다(테스트가 잡았다).
+    → `_is_scoreable`(specificity·logic 이 둘 다 null 이면 채점 불가)로 structure 도 제외.
+    **structure="NONE" 자체는 정상 감점 사유다** — 길게 답했는데 구조가 없는 경우.
+    구분 기준은 structure 값이 아니라 채점 가능 여부다.
+  - 기준값 문자열에 `"채점 대상 아님 N건(… 감점 사유가 아님)"` 을 넣는다. 숫자만 주면
+    LLM 이 "답변 수가 적네" 로 읽고 깎을 수 있다.
 - **짧은 확인 질문/답변 커버 본 구현**: followup 프롬프트(`chain/prompts/followup_generation.py`)가 매 턴 깊이 파기 대신 "그럼 OO 하신 건가요?" 같은 **짧은 확인형 질문**도 던지도록 안내하고, 직전 답변이 확인형 단답('네 맞습니다'·'아뇨 그건 아닙니다')이면 specificity/logic/correctness=null·structure=NONE 으로 두어 짧다는 이유로 감점하지 않도록 지시. 피드백 단계에선 `feedback_consumer._is_short_confirmation`(확인/부정 표현으로 시작 + 짧은 길이) 으로 그런 단답을 **질문별 복기(코칭) 대상에서 제외** — '네 맞습니다'에 모범답안/리라이트가 붙지 않게 한다(결정론적). 출력 포맷·콜백 스키마 무변경.
 - **문장 단위 TTS 본 구현 (Part B)**: followup consumer 스트림 루프가 `chain/sentence_split.next_sentences` 로 문장 경계를 잡아, 문장마다 `TtsProvider` 인라인 합성(`asyncio.create_task` 백그라운드, 텍스트 델타 비차단)→S3 `interview/tts/{sid}/{mid}/seg-{seq}.{ext}` PUT→`SessionRealtimeNotifier.emit_audio`(`SESSION_MESSAGE_AUDIO`). 콜백 전 `gather` 로 수거. 라이브 세그먼트는 휘발성(DB 미기록).
 - **임베딩 본 구현** (`rag/`): `MarkdownChunker` + `GeminiEmbeddingProvider` (1536d, `gemini-embedding-001`).

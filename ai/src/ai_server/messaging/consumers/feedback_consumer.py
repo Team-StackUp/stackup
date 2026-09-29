@@ -753,6 +753,24 @@ def _format_evaluation(e) -> str:
 _STRUCTURE_SCORE = {"FULL_STAR": 5.0, "PARTIAL_STAR": 2.5, "NONE": 0.0}
 
 
+def _is_scoreable(evaluation) -> bool:
+    """채점 대상인 답변인가.
+
+    specificity·logic 이 **둘 다** null 이면 채점할 내용이 없다는 뜻이다 — 정직한
+    "모르겠습니다"(DONT_KNOW), 질문 재설명 요청(CLARIFICATION), 확인형 질문에 대한
+    "네 맞습니다" 가 여기 해당한다.
+
+    이때 structure 까지 같이 빼야 한다. `_STRUCTURE_SCORE["NONE"] = 0.0` 이라서, 그냥
+    두면 "평가할 내용이 없음"이 **구조가 형편없는 답변(0점)** 으로 집계돼 전달력과 종합
+    점수를 끌어내린다. 실제로 전부 모름인 세션이 communication_score ≈ 0, overall ≈ 0
+    으로 나왔다.
+
+    structure 가 "NONE" 인 것 자체는 정상 감점 사유다 — 길게 답했는데 구조가 없는 경우.
+    구분 기준은 structure 값이 아니라 **채점 가능 여부**다.
+    """
+    return evaluation.specificity is not None or evaluation.logic is not None
+
+
 def _mean(values: list[float]) -> float | None:
     vals = [v for v in values if v is not None]
     return sum(vals) / len(vals) if vals else None
@@ -779,7 +797,11 @@ def _build_score_basis(messages: list[FeedbackMessageItem]) -> str:
     spec = _mean([e.specificity for e in evals])
     logic = _mean([e.logic for e in evals])
     corr = _mean([e.correctness for e in evals])  # null 은 자동 제외
-    struct = _mean([_STRUCTURE_SCORE.get(e.structure) for e in evals])
+    # 채점 불가 답변의 structure 는 빼야 한다 — "NONE" 이 0.0 이라 그냥 두면
+    # "평가할 내용 없음"이 "구조 형편없음"으로 둔갑한다(_is_scoreable 참고).
+    struct = _mean(
+        [_STRUCTURE_SCORE.get(e.structure) for e in evals if _is_scoreable(e)]
+    )
 
     tech_100 = _to_100(corr)
     logic_100 = _to_100(logic)
@@ -792,8 +814,16 @@ def _build_score_basis(messages: list[FeedbackMessageItem]) -> str:
         return f"{x:.1f}/5" if x is not None else "없음"
 
     corr_count = sum(1 for e in evals if e.correctness is not None)
+    scoreable = sum(1 for e in evals if _is_scoreable(e))
+    unscoreable = len(evals) - scoreable
     lines = [
-        f"- 채점된 답변 수: {len(evals)} (correctness 산정 {corr_count}건)",
+        f"- 채점된 답변 수: {scoreable} (correctness 산정 {corr_count}건)"
+        + (
+            f" · 채점 대상 아님 {unscoreable}건"
+            " (모름·질문 재설명 요청·확인형 단답 — 감점 사유가 아님)"
+            if unscoreable
+            else ""
+        ),
         f"- specificity 평균: {fmt5(spec)}, logic 평균: {fmt5(logic)}, "
         f"structure 평균: {fmt5(struct)}, correctness 평균: {fmt5(corr)}",
         "[차원별 기준값(0~100)]",
