@@ -12,7 +12,7 @@ import (
 
 func TestSSEDocumentChannelReceivesEvent(t *testing.T) {
 	reg := session.NewRegistry()
-	h := NewSSEHandler(reg, 4, time.Hour)
+	h := NewSSEHandler(reg, 4, time.Hour, time.Second)
 
 	req := httptest.NewRequest("GET", "/realtime/stream/documents/101", nil)
 	ctx, cancel := context.WithCancel(req.Context())
