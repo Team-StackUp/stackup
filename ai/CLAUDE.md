@@ -141,6 +141,35 @@ async def consume_resume_analyze(message: AbstractIncomingMessage) -> None:
 > 정식 별칭으로 넘어가면 되고 재배포·코드 수정이 필요 없다 — 이 표와 `settings.py` 기본값은
 > "지금 게이트웨이에서 검증된 이름"의 기록이지 유일한 진실이 아니다.
 
+### 6.2-1 재시도 예산 — 타임아웃은 호출 상한이 아니었다 (2026-09-29)
+
+`llm_*_timeout_sec` 를 "이 호출은 최대 N초" 로 읽으면 틀린다. **OpenAI SDK 클라이언트의
+`max_retries` 기본값이 2 라 LangChain 호출 1회가 HTTP 3회**이고, 코드가 그 값을 지정한 적이
+없었다. 그래서 실제 상한은 설정값의 (1+n)배다.
+
+- `ai_request_logs` 는 LangChain 호출 1건에 한 행이므로 **`latency_ms` 는 숨은 시도의 합**이다.
+  운영 `analyze.document` 실패 4건이 타임아웃 60초 설정에서 전부 92.1~92.6초로 찍힌 이유이고,
+  §6.2 주석의 "타임아웃 30초 + 재시도 26초 = 56초" 관측도 같은 현상이다.
+- 이제 12개 `ChatOpenAI` 전부가 `max_retries=settings.llm_max_retries` 를 **명시**한다
+  (기본 2 — 현 동작 유지). 게이트웨이 429 를 흡수하는 값이라 0 으로 내리지 않았지만,
+  보이지 않는 채로 두지 않는다. 한 곳만 빠지면 그 경로만 조용히 3배로 돌아간다 —
+  `tests/test_llm_retry_budget.py` 가 전 빌더를 훑는다.
+- **문서 분석만 `max_retries=0`** 이다. 바깥에 `with_retry` 가 있어 두 층이 곱해지면 한 메시지가
+  HTTP 를 6번 치고 로그 한 행이 여러 시도의 합이 된다.
+
+#### 문서 분석 재시도 간격 (같은 커밋)
+
+`with_retry` 의 기본 대기는 1초(+지터 1초)라 **사실상 연속 시도**다. 게이트웨이가 구간적으로
+멎으면 두 시도가 같은 구간에 들어가 함께 죽는다 — 운영에서 4/4 가 그랬다.
+
+- 실측: `resume_id=18` 이 연속 2시도(각 92초)로 실패해 **4일간 FAILED** 로 남았고(문서 34),
+  사용자가 재분석을 눌러도 또 2시도 실패(문서 35), 3분 뒤 세 번째 재분석이 **37초에 성공**
+  (문서 36)했다. 입력 문제가 아니라 상류 간헐 정지다(Deepgram 배치 호출과 같은 성질 — §8).
+- `document_analysis_max_attempts`(3) + `document_analysis_retry_initial_sec`(15) 로 간격을
+  15초→30초로 벌린다. 소비자 `prefetch` 가 10 이라 한 문서가 오래 붙잡혀도 다른 분석을 막지 않는다.
+- `retry_if_exception_type` 기본값이 `Exception` 이라 이 재시도는 파싱 실패뿐 아니라
+  **타임아웃도** 잡는다 — 원래 의도(스키마 파싱 안전장치)와 달리 실제로 걸린 건 전부 타임아웃이었다.
+
 ### 6.3 LangChain 사용 (OpenAI 호환 클라이언트)
 ```python
 from langchain_core.prompts import ChatPromptTemplate

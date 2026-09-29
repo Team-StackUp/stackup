@@ -117,12 +117,30 @@ class Settings(BaseSettings):
     # 60초면 관측 최대(31.9초)의 1.9배 — 재시도로 같은 호출을 두 번 물지 않게 한다.
     llm_pro_timeout_sec: float = 60.0
 
+    # **OpenAI SDK 클라이언트의 재시도 기본값이 2 라, LangChain 호출 1회가 HTTP 3회다.**
+    # 코드가 max_retries 를 지정한 적이 없어 이 곱셈이 보이지 않았다 — 그래서
+    # llm_*_timeout_sec 는 호출 상한이 아니고 실제 상한은 그 (1+n)배다. 위 주석이
+    # "타임아웃 30초 + 재시도 26초 = 56초" 로 관측한 것도 이 현상이고, 운영
+    # analyze.document 실패 4건이 타임아웃 60초 설정에서 전부 92초로 찍힌 이유다.
+    # ai_request_logs 는 LangChain 호출 1건에 한 행이라 latency_ms 는 숨은 시도의 합이다.
+    # 명시해 보이게 하고, 필요할 때 환경변수로 줄일 수 있게 둔다(기본값은 현 동작 유지).
+    llm_max_retries: int = 2
+
     # 꼬리질문용 Flash 모델 (저지연 < 3s)
     llm_flash_model: str = "gemini-3.5-flash-lite"
     llm_flash_temperature: float = 0.4
     llm_flash_max_tokens: int = 512
     # Flash 는 저지연 요구사항이 있어 Pro 보다 짧게.
     llm_flash_timeout_sec: float = 10.0
+
+    # 문서 분석 재시도(바깥 with_retry). LangChain 기본 대기는 1초(+지터 1초)라 사실상
+    # 연속 시도다 — 게이트웨이가 구간적으로 멎으면 두 시도가 같은 구간에 들어가 함께 죽는다.
+    # 운영 실측: resume_id=18 이 연속 2시도(각 92초)로 실패해 4일간 FAILED 로 남았고,
+    # 같은 입력이 3분 뒤 수동 재분석에서 37초로 성공했다(그 재분석도 2시도 실패 후 3번째).
+    # 시도를 3회로 늘리고 간격을 15초→30초로 벌린다. 소비자 prefetch 가 10 이라
+    # 한 문서가 오래 붙잡혀도 다른 문서 분석을 막지 않는다.
+    document_analysis_max_attempts: int = 3
+    document_analysis_retry_initial_sec: float = 15.0
 
     # 티어별 엔드포인트 오버라이드 (OpenAI 호환). 비우면 위 llm_base_url / llm_api_key 공유.
     # 예: 꼬리질문(Flash)만 로컬 Ollama 로 → LLM_FLASH_BASE_URL=http://ollama:11434/v1,
