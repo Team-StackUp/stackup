@@ -296,15 +296,18 @@ def _domain_spec(job_category: str, mode: str) -> _EvaluatorSpec:
             dimension_name="인성·협업 역량",
             dimension_guide=(
                 "- 협업/갈등 해결, 성장 경험, 태도, 자기주도성을 봅니다. "
-                "기술 정확도는 평가하지 않습니다."
+                "직무 역량은 평가하지 않습니다."
             ),
         )
     ko = _DOMAIN_KO.get((job_category or "").upper(), job_category)
     return _EvaluatorSpec(
         key="technical",
-        label="기술",
-        persona=f"{ko} 직군 시니어 기술 면접관",
-        dimension_name="기술 정확도·깊이",
+        label=ko,
+        # "기술 면접관" 이 아니다. 영업·인사 지원자를 기술 면접관이 기술 정확도로 채점하면
+        # **표시가 아니라 채점이 틀어진다** — 프롬프트가 평가의 틀을 정하기 때문이다.
+        # 직군별 실제 관점은 dimension_guide(_DOMAIN_TECH_GUIDE)가 이미 구분한다.
+        persona=f"{ko} 직군 시니어 실무 면접관",
+        dimension_name="직무 역량·깊이",
         dimension_guide=_tech_guide_for(job_category),
     )
 
@@ -324,8 +327,8 @@ def _domain_specs_weighted(
                 _EvaluatorSpec(
                     key=f"tech:{dom}",
                     label=ko,
-                    persona=f"{ko} 직군 시니어 기술 면접관",
-                    dimension_name="기술 정확도·깊이",
+                    persona=f"{ko} 직군 시니어 실무 면접관",
+                    dimension_name="직무 역량·깊이",
                     dimension_guide=_tech_guide_for(dom),
                 ),
                 weight,

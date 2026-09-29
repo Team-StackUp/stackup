@@ -20,7 +20,7 @@ class _FakeSynthesis:
 
 
 # 평가축(dimension_name) 으로 라우팅하는 가짜 체인.
-TECH = "기술 정확도·깊이"
+TECH = "직무 역량·깊이"
 PERSONALITY = "인성·협업 역량"
 LOGIC = "논리·인과관계 명확성"
 COMM = "명료성·구조화·전달력"
@@ -67,10 +67,12 @@ async def test_weighted_overall_and_dimension_mapping():
     assert r.communication_score == 40
     # 0.5*80 + 0.25*60 + 0.25*40 = 65
     assert r.overall_score == 65
-    assert "[기술]" in r.strengths_summary and "[논리]" in r.strengths_summary
+    # 평가위원 라벨이 "기술" → 직군명("백엔드")이 됐다. 다직군 경로는 원래 직군명을
+    # 썼으므로 이제 단일/다직군이 일관되고, 표시도 더 구체적이다.
+    assert "[백엔드]" in r.strengths_summary and "[논리]" in r.strengths_summary
     assert set(r.improvement_keywords) == {"JPA", "trade-off", "STAR"}
     # 평가위원별 분해
-    assert [b.evaluator for b in r.panel_breakdown] == ["기술", "논리", "전달"]
+    assert [b.evaluator for b in r.panel_breakdown] == ["백엔드", "논리", "전달"]
     assert [b.score for b in r.panel_breakdown] == [80, 60, 40]
 
 
@@ -273,7 +275,7 @@ def test_literal_matches_db_check_constraint():
 
 def test_domain_spec_uses_domain_specific_guide():
     spec = _domain_spec("FRONTEND", "TECHNICAL")
-    assert spec.persona == "프론트엔드 직군 시니어 기술 면접관"
+    assert spec.persona == "프론트엔드 직군 시니어 실무 면접관"
     assert "렌더링" in spec.dimension_guide
 
 
@@ -315,8 +317,8 @@ async def test_multi_domain_generate_sends_domain_specific_guide_to_chain():
         rag_context="(none)",
         domain_question_counts={"BACKEND": 3, "FRONTEND": 1},
     )
-    be_guide = chain.guides_by_persona["백엔드 직군 시니어 기술 면접관"]
-    fe_guide = chain.guides_by_persona["프론트엔드 직군 시니어 기술 면접관"]
+    be_guide = chain.guides_by_persona["백엔드 직군 시니어 실무 면접관"]
+    fe_guide = chain.guides_by_persona["프론트엔드 직군 시니어 실무 면접관"]
     assert be_guide != fe_guide
     assert "트랜잭션" in be_guide
     assert "렌더링" in fe_guide
@@ -345,7 +347,7 @@ async def test_one_evaluator_failure_does_not_break_the_others():
             "논리·문제해결 평가위원": EvaluatorResult(score=60),
             "커뮤니케이션·전달력 평가위원": EvaluatorResult(score=40),
         },
-        fail_personas={"백엔드 직군 시니어 기술 면접관"},
+        fail_personas={"백엔드 직군 시니어 실무 면접관"},
     )
     gen = PanelFeedbackGenerator(chain)
     r = await gen.generate(
@@ -360,7 +362,7 @@ async def test_one_evaluator_failure_does_not_break_the_others():
     assert r.technical_accuracy is None
     # (60*0.25 + 40*0.25) / 0.5 = 50
     assert r.overall_score == 50
-    tech_item = next(b for b in r.panel_breakdown if b.evaluator == "기술")
+    tech_item = next(b for b in r.panel_breakdown if b.evaluator == "백엔드")
     assert tech_item.score is None
     assert tech_item.detail == _EVAL_FAILED_DETAIL
 
@@ -373,8 +375,8 @@ async def test_all_domain_evaluators_failing_still_returns_logic_and_comm():
             "커뮤니케이션·전달력 평가위원": EvaluatorResult(score=70),
         },
         fail_personas={
-            "백엔드 직군 시니어 기술 면접관",
-            "프론트엔드 직군 시니어 기술 면접관",
+            "백엔드 직군 시니어 실무 면접관",
+            "프론트엔드 직군 시니어 실무 면접관",
         },
     )
     gen = PanelFeedbackGenerator(chain)
@@ -394,3 +396,39 @@ async def test_all_domain_evaluators_failing_still_returns_logic_and_comm():
         item = next(b for b in r.panel_breakdown if b.evaluator == label)
         assert item.score is None
         assert item.detail == _EVAL_FAILED_DETAIL
+
+
+# ── 직군 중립 명명 ───────────────────────────────────────────────────────────
+#
+# 영업·인사 지원자를 "기술 면접관" 이 "기술 정확도" 로 채점하면 **표시가 아니라 채점이
+# 틀어진다** — 페르소나와 평가 축 이름이 프롬프트에 들어가 평가의 틀을 정하기 때문이다.
+# 서비스 대상이 취준생 전반이 된 이상 기본 명명은 중립이어야 한다.
+
+
+def test_persona_and_axis_are_not_engineering_flavoured():
+    from ai_server.chain.feedback_generation_chain import _domain_spec
+    from ai_server.model.messages.job_category import JobCategory
+    from typing import get_args
+
+    for category in get_args(JobCategory):
+        spec = _domain_spec(category, "TECHNICAL")
+        assert "기술 면접관" not in spec.persona, f"{category}: {spec.persona}"
+        assert "기술" not in spec.dimension_name, f"{category}: {spec.dimension_name}"
+
+
+def test_non_engineering_domain_spec_reads_naturally():
+    from ai_server.chain.feedback_generation_chain import _domain_spec
+
+    sales = _domain_spec("SALES", "TECHNICAL")
+    assert sales.persona == "영업·영업관리 직군 시니어 실무 면접관"
+    assert sales.dimension_name == "직무 역량·깊이"
+    # 직군별 실제 관점은 그대로 달라야 한다 — 이름만 중립으로 바꾼 게 아니다.
+    assert "고객 문제 파악" in sales.dimension_guide
+
+
+def test_engineering_domain_still_gets_engineering_guide():
+    """중립 명명이 개발 직군의 평가 관점까지 뭉개면 안 된다."""
+    from ai_server.chain.feedback_generation_chain import _domain_spec
+
+    backend = _domain_spec("BACKEND", "TECHNICAL")
+    assert "트랜잭션" in backend.dimension_guide

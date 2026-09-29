@@ -15,7 +15,7 @@ export function StatsSummary({ stats }: { stats: UserStats }) {
         <div className="flex flex-col gap-3 border-t border-border pt-4">
           <Eyebrow>평균 점수</Eyebrow>
           <ScoreBar label="종합" score={a.overall} />
-          <ScoreBar label="기술 정확도" score={a.technical} />
+          <ScoreBar label="직무 역량" score={a.technical} />
           <ScoreBar label="논리력" score={a.logic} />
           <ScoreBar label="전달력" score={a.communication} />
         </div>

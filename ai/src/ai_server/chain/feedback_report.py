@@ -53,7 +53,7 @@ def _render_scores(lines: list[str], result: FeedbackResult) -> None:
     lines.append("| 항목 | 점수 |")
     lines.append("| --- | ---: |")
     lines.append(f"| 종합 | {_fmt_score(result.overall_score)} |")
-    lines.append(f"| 기술 정확도 | {_fmt_score(result.technical_accuracy)} |")
+    lines.append(f"| 직무 역량 | {_fmt_score(result.technical_accuracy)} |")
     lines.append(f"| 논리 | {_fmt_score(result.logic_score)} |")
     lines.append(f"| 전달력 | {_fmt_score(result.communication_score)} |")
 

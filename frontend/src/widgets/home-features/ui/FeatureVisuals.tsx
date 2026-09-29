@@ -73,7 +73,7 @@ export function ScoringVisual() {
   return (
     <Card>
       <div className="flex items-baseline justify-between gap-3">
-        <span className="text-[14px] font-semibold text-fg-strong">기술 정확도·깊이</span>
+        <span className="text-[14px] font-semibold text-fg-strong">직무 역량·깊이</span>
         <span className="text-h5 font-bold text-fg">79</span>
       </div>
 

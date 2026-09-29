@@ -115,7 +115,7 @@ export function FeedbackReport({
           </div>
 
           <div className="flex flex-1 flex-col gap-4 sm:pb-2">
-            <ScoreBar label="기술 정확도" score={feedback.technicalAccuracy} />
+            <ScoreBar label="직무 역량" score={feedback.technicalAccuracy} />
             <ScoreBar label="논리력" score={feedback.logicScore} />
             <ScoreBar label="전달력" score={feedback.communicationScore} />
           </div>
