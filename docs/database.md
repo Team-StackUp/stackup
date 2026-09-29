@@ -339,9 +339,47 @@ CREATE TABLE document_embeddings (
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (document_id, chunk_index)
 );
-CREATE INDEX idx_embeddings_ivfflat
-    ON document_embeddings USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+-- 실제 인덱스는 V8 에서 ivfflat → HNSW 로 교체됐다(ivfflat 은 k-means 학습 기반이라
+-- 빈 테이블에서 centroid 가 부정확하고 probes 튜닝이 필요하다).
+CREATE INDEX idx_document_embeddings_hnsw
+    ON document_embeddings USING hnsw (embedding vector_cosine_ops);
+-- 하이브리드 검색용 full-text 색인(V8). chunk_text 의 generated tsvector 컬럼.
+CREATE INDEX idx_document_embeddings_tsv
+    ON document_embeddings USING GIN (chunk_text_tsv);
 ```
+
+#### 이 두 인덱스는 **현재 한 번도 쓰이지 않는다** (2026-09-29 실측)
+
+`pg_stat_user_indexes` 기준 둘 다 `idx_scan = 0` 이다. 이유는 고장이 아니라 **쿼리 모양**이다.
+
+`DocumentEmbeddingService.search` 는 항상 요청자가 소유한 활성 문서 id 로 범위를 좁혀
+(`findActiveIdsByOwner`) 넘기고, 비면 조회 자체를 건너뛴다. 그래서 리포지토리에 도달하는
+쿼리는 **예외 없이** `WHERE document_id IN (...)` 를 달고 있다. 이 필터가 선택적이라
+플래너는 `idx_document_embeddings_document_id`(btree) + 정렬을 고른다 — 그게 더 빠르기
+때문이며, 옳은 선택이다.
+
+`EXPLAIN` 으로 확인한 것:
+
+| 쿼리 모양 | 계획 |
+|---|---|
+| JOIN 없음 · 필터 없음 | **`Index Scan using idx_document_embeddings_hnsw`** (ANN 사용) |
+| `ACTIVE_DOC_JOIN` 있음 | `Sort` ← `Nested Loop` — `enable_seqscan=off` 로도 ANN 미사용 |
+| `document_id IN (...)` 있음 | btree + `Sort` (선택적 필터라 이게 맞다) |
+
+즉 **ANN 인덱스가 붙어 있다고 해서 근사 최근접 탐색이 도는 것이 아니다.** 실제로는 사용자
+범위 안에서 정확(brute-force) 거리 계산 후 정렬한다. 지금 규모에서는 그게 더 빠르다 —
+운영 쿼리 실측 **실행 0.338ms**(계획 1.69ms, 청크 57행).
+
+`ORDER BY <=>` 가 조인된 관계 위에 놓이면 플래너가 ANN 인덱스로 밀어 넣지 못한다.
+`ACTIVE_DOC_JOIN` 은 오늘 기준 **아무것도 거르지 않는다**(문서 삭제 시 임베딩을 지우므로
+soft delete 된 문서 19개의 청크는 0개, 게다가 서비스가 이미 활성 문서로 범위를 좁힌다).
+그래도 남겨 둔다 — 삭제 경로가 언젠가 새면 이게 마지막 방어선이고, 비용은 0.3ms 안쪽이다.
+
+**언제 다시 볼 것인가**: 한 사용자의 세션에 걸린 청크가 수천 줄로 늘면 정렬 비용이
+RAG 하드 타임아웃(`questions_rag_timeout_sec`/`followup_rag_timeout_sec` 각 1.5초)에
+닿기 시작한다. 그때는 ANN 을 서브쿼리로 먼저 돌리고 JOIN 을 바깥으로 빼면
+(`EXPLAIN` 으로 HNSW 사용 확인함) 인덱스가 살아난다. **그 전에는 손대지 않는다** —
+지금 바꾸면 얻는 것 없이 방어선만 잃는다.
 
 ---
 
