@@ -100,6 +100,56 @@ class DocumentEmbeddingSearchTest {
         assertThat(hits).isEmpty();
     }
 
+    /**
+     * 하이브리드의 full-text 절반이 실제 질의 형태에서 죽어 있지 않아야 한다.
+     *
+     * <p>`plainto_tsquery` 는 토큰을 전부 AND 로 묶는다. 그런데 이 검색의 질의는
+     * 꼬리질문이면 "직전질문 + 답변", 질문 풀이면 "모드 + 직군 + 자기소개 600자"라
+     * 토큰이 수십 개다 — 그 전부를 담은 청크는 없으므로 full-text 브랜치가 **항상 0건**이었고
+     * RRF 가 조용히 벡터 단독으로 퇴화했다(운영 실측 47/47, 30/30 이 0건).
+     *
+     * <p>고장이 "결과가 없다"가 아니라 "벡터 결과와 같다"로 나타나 눈에 띄지 않는다. 그래서
+     * **벡터만으로는 top_k 밖인 청크를 키워드로만 끌어올리게** 만들어 두 절반을 구분한다 —
+     * 미끼를 top_k 만큼 채우지 않으면 벡터가 어차피 전부 반환해 AND 에서도 통과한다.
+     */
+    @Test
+    void hybridMatchesOnAnySignificantTokenNotAllOfThem() {
+        AnalyzedDocument doc = document(97010L, "or-tsquery");
+        List<EmbeddingChunk> chunks = new java.util.ArrayList<>();
+        // 질의와 같은 방향(=가까운) 미끼를 top_k 개. 질의 토큰은 하나도 담지 않는다.
+        for (int i = 0; i < 5; i++) {
+            chunks.add(new EmbeddingChunk(i, "미끼 문단 " + i, axis(0)));
+        }
+        // 질의 토큰 중 "카프카" 하나만 담은 청크. 방향이 직교라 벡터로는 꼴찌다.
+        chunks.add(new EmbeddingChunk(5, "카프카 컨슈머 랙을 줄인 경험", axis(1)));
+        embeddingRepository.upsertAll(doc.getId(), "test-model", chunks);
+
+        // 실제 호출자를 흉내 낸 여러 토큰 질의 — 이 전부를 담은 청크는 없다.
+        String query = "앞서 말씀하신 카프카 이야기를 이어가면 파티션 재배치와 리밸런싱을 "
+            + "어떻게 처리하셨는지 궁금합니다";
+
+        List<SearchHit> hits = embeddingRepository.search(axis(0), query, List.of(doc.getId()), 5);
+
+        assertThat(hits)
+            .as("키워드 절반이 죽어 있으면 벡터가 고른 미끼 5개만 남는다")
+            .extracting(SearchHit::chunkIndex)
+            .contains(5);
+    }
+
+    // 질의에 어휘소가 없으면(구두점만 등) tsquery 가 비는데, 그때도 깨지지 않고
+    // 벡터 단독으로 동작해야 한다 — 수정 전과 같은 동작.
+    @Test
+    void hybridFallsBackToVectorWhenQueryHasNoLexemes() {
+        AnalyzedDocument doc = document(97011L, "empty-tsquery");
+        embeddingRepository.upsertAll(doc.getId(), "test-model",
+            List.of(new EmbeddingChunk(0, "레디스 캐시 도입", axis(0))));
+
+        List<SearchHit> hits = embeddingRepository.search(
+            axis(0), "!!! ??? ...", List.of(doc.getId()), 5);
+
+        assertThat(hits).extracting(SearchHit::chunkIndex).containsExactly(0);
+    }
+
     // 검색 범위는 호출자가 뭘 보내든 요청자 소유 문서를 벗어나면 안 된다.
     // 이전에는 documentIds 를 그대로 믿었고, 비면 전체 사용자 청크가 대상이었다.
     @Test
@@ -166,6 +216,14 @@ class DocumentEmbeddingSearchTest {
 
     private List<SearchHit> search(List<Long> documentIds) {
         return embeddingRepository.search(vector(0.9f), null, documentIds, 10);
+    }
+
+    // 서로 직교하는 단위 벡터. 기존 vector(head) 는 0번 차원만 크기를 달리해서
+    // **모든 벡터가 평행**이다 — 코사인 거리가 언제나 0이라 순위가 갈리지 않는다.
+    private static float[] axis(int dim) {
+        float[] v = new float[1536];
+        v[dim] = 1f;
+        return v;
     }
 
     private static float[] vector(float head) {

@@ -344,6 +344,8 @@ CREATE TABLE document_embeddings (
 CREATE INDEX idx_document_embeddings_hnsw
     ON document_embeddings USING hnsw (embedding vector_cosine_ops);
 -- 하이브리드 검색용 full-text 색인(V8). chunk_text 의 generated tsvector 컬럼.
+-- 질의 쪽 tsquery 는 OR 결합으로 만든다(JdbcDocumentEmbeddingRepository) — AND 로는
+-- 실제 질의가 길어 이 색인이 한 번도 매칭되지 않았다.
 CREATE INDEX idx_document_embeddings_tsv
     ON document_embeddings USING GIN (chunk_text_tsv);
 ```
