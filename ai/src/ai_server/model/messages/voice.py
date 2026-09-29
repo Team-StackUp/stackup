@@ -3,6 +3,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from ai_server.model._config import camel_config
+from ai_server.model.messages.job_category import JobCategory
 
 InterviewMode = Literal["PERSONALITY", "TECHNICAL", "INTEGRATED"]
 
@@ -19,7 +20,7 @@ class AnalyzeVoiceRequest(BaseModel):
     content_type: str
     previous_question_text: str | None = None
     mode: InterviewMode
-    job_category: Literal["FRONTEND", "BACKEND", "INFRA", "DBA"]
+    job_category: JobCategory
 
 
 class VoiceCallbackPayload(BaseModel):

@@ -3393,7 +3393,7 @@
             "type" : "array",
             "items" : {
               "type" : "string",
-              "enum" : [ "FRONTEND", "BACKEND", "INFRA", "DBA" ]
+              "enum" : [ "FRONTEND", "BACKEND", "INFRA", "DBA", "MOBILE", "DATA_AI", "SECURITY", "QA", "PLANNING", "MARKETING", "SALES", "HR", "FINANCE", "DESIGN", "MANUFACTURING", "RND", "CUSTOMER_SERVICE", "LOGISTICS", "LEGAL", "PUBLIC" ]
             },
             "minItems" : 1
           },
@@ -3458,13 +3458,13 @@
           },
           "jobCategory" : {
             "type" : "string",
-            "enum" : [ "FRONTEND", "BACKEND", "INFRA", "DBA" ]
+            "enum" : [ "FRONTEND", "BACKEND", "INFRA", "DBA", "MOBILE", "DATA_AI", "SECURITY", "QA", "PLANNING", "MARKETING", "SALES", "HR", "FINANCE", "DESIGN", "MANUFACTURING", "RND", "CUSTOMER_SERVICE", "LOGISTICS", "LEGAL", "PUBLIC" ]
           },
           "jobCategories" : {
             "type" : "array",
             "items" : {
               "type" : "string",
-              "enum" : [ "FRONTEND", "BACKEND", "INFRA", "DBA" ]
+              "enum" : [ "FRONTEND", "BACKEND", "INFRA", "DBA", "MOBILE", "DATA_AI", "SECURITY", "QA", "PLANNING", "MARKETING", "SALES", "HR", "FINANCE", "DESIGN", "MANUFACTURING", "RND", "CUSTOMER_SERVICE", "LOGISTICS", "LEGAL", "PUBLIC" ]
             }
           },
           "maxQuestions" : {

@@ -3,9 +3,10 @@ from typing import Literal
 from pydantic import BaseModel
 
 from ai_server.model._config import camel_config
+from ai_server.model.messages.job_category import JobCategory  # noqa: F401
 
 InterviewMode = Literal["PERSONALITY", "TECHNICAL", "INTEGRATED", "JOB_TAILORED"]
-JobCategory = Literal["FRONTEND", "BACKEND", "INFRA", "DBA"]
+
 QuestionCategory = Literal[
     "CS_FUNDAMENTAL",
     "PROJECT_DEEP_DIVE",

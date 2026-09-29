@@ -1098,7 +1098,7 @@ export interface components {
             memo?: string;
             /** @enum {string} */
             mode: "TECHNICAL" | "PERSONALITY" | "INTEGRATED" | "JOB_TAILORED";
-            jobCategories: ("FRONTEND" | "BACKEND" | "INFRA" | "DBA")[];
+            jobCategories: ("FRONTEND" | "BACKEND" | "INFRA" | "DBA" | "MOBILE" | "DATA_AI" | "SECURITY" | "QA" | "PLANNING" | "MARKETING" | "SALES" | "HR" | "FINANCE" | "DESIGN" | "MANUFACTURING" | "RND" | "CUSTOMER_SERVICE" | "LOGISTICS" | "LEGAL" | "PUBLIC")[];
             /** Format: int32 */
             maxQuestions?: number;
             /** Format: int32 */
@@ -1119,8 +1119,8 @@ export interface components {
             /** @enum {string} */
             mode?: "TECHNICAL" | "PERSONALITY" | "INTEGRATED" | "JOB_TAILORED";
             /** @enum {string} */
-            jobCategory?: "FRONTEND" | "BACKEND" | "INFRA" | "DBA";
-            jobCategories?: ("FRONTEND" | "BACKEND" | "INFRA" | "DBA")[];
+            jobCategory?: "FRONTEND" | "BACKEND" | "INFRA" | "DBA" | "MOBILE" | "DATA_AI" | "SECURITY" | "QA" | "PLANNING" | "MARKETING" | "SALES" | "HR" | "FINANCE" | "DESIGN" | "MANUFACTURING" | "RND" | "CUSTOMER_SERVICE" | "LOGISTICS" | "LEGAL" | "PUBLIC";
+            jobCategories?: ("FRONTEND" | "BACKEND" | "INFRA" | "DBA" | "MOBILE" | "DATA_AI" | "SECURITY" | "QA" | "PLANNING" | "MARKETING" | "SALES" | "HR" | "FINANCE" | "DESIGN" | "MANUFACTURING" | "RND" | "CUSTOMER_SERVICE" | "LOGISTICS" | "LEGAL" | "PUBLIC")[];
             /** Format: int32 */
             maxQuestions?: number;
             /** Format: int32 */
