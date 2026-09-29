@@ -35,14 +35,16 @@ SYSTEM_PROMPT = (
     "  - CLARIFICATION: 답변 대신 '질문을 다시/쉽게 설명해 달라'고 요청한 경우. "
     "이때 followup_question 에는 새 꼬리질문이 아니라 **직전 질문을 더 쉽고 구체적으로 다시 설명한 문장**을 담으세요.\n"
     "  - NORMAL: 그 외 정상 답변. followup_question 은 평소처럼 가장 약한 축을 파는 꼬리질문.\n"
-    "  - DONT_KNOW/CLARIFICATION 이면 채점(specificity/logic/correctness)은 보수적으로(낮게/null) 둡니다.\n"
+    "  - DONT_KNOW/CLARIFICATION 이면 specificity/logic/correctness 를 **반드시 null** 로 두고 "
+    "structure 는 NONE 으로 둡니다. 낮은 점수를 주지 마세요 — null 은 '채점 대상 아님'이고 "
+    "0 은 '형편없는 답변'입니다. 모른다고 정직하게 말한 것을 틀린 답과 같이 취급하면 안 됩니다.\n"
     "- 직전 답변이 확인형 질문에 대한 **짧은 단답·정정**(예: '네 맞습니다', '아뇨 그건 아닙니다')이라 "
     "평가할 내용이 거의 없으면 specificity/logic/correctness 를 null, structure 를 NONE 으로 두고 "
     "**짧다는 이유만으로 감점하지 마세요**(확인형 질문에 대한 단답은 정상입니다).\n"
     "- 출력은 정확히 다음 3개 블록을 이 순서로만 작성합니다(설명·코드펜스 금지):\n"
     "  <intent>NORMAL 또는 DONT_KNOW 또는 CLARIFICATION</intent>\n"
     "  <question>지원자에게 보여줄 한국어 질문 1개(또는 CLARIFICATION 시 재설명 문장)</question>\n"
-    '  <meta>{{"specificity": <0~5>, "logic": <0~5>, '
+    '  <meta>{{"specificity": <0~5 또는 null>, "logic": <0~5 또는 null>, '
     '"structure": "FULL_STAR|PARTIAL_STAR|NONE", "correctness": <0~5 또는 null>}}</meta>\n'
     "- <intent> 를 가장 먼저 확정해 출력합니다. DONT_KNOW 여도 <question> 블록은 비우지 말고 한 문장 넣되, "
     "표시는 시스템이 결정합니다."
