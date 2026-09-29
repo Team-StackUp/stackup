@@ -3,7 +3,7 @@ import { StatusBadge } from '@/shared/ui/StatusBadge'
 import { focusAreaLabel } from '../../lib/focusArea'
 import { Button } from '@/shared/ui/Button'
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
-import { isQuestion, isTranscribing, sessionProgress } from '@/domain/session'
+import { isAnswer, isQuestion, isTranscribing, sessionProgress } from '@/domain/session'
 import type { Session } from '@/domain/session'
 import type { ConnectionStatus, ThreadItem } from '../../model/useLiveInterview'
 import type { DeliveryMode } from '../../model/useDeliveryMode'
@@ -106,6 +106,12 @@ export function InterviewStage({
       ? lastItem.id
       : null
   const speaking = currentQuestion ? isSpeaking(currentQuestion.id ?? -1) : false
+  // 답변이 하나도 없으면 서버가 COMPLETED 가 아니라 INTERRUPTED 로 끝낸다
+  // (SessionService.end) — 피드백을 만들지 않고 이어서 할 수도 있으므로,
+  // "피드백 단계로 넘어갑니다 / 되돌릴 수 없습니다" 는 그 경우 둘 다 거짓이다.
+  const endDescription = items.some(isAnswer)
+    ? '진행 중인 면접이 끝나고 피드백 단계로 넘어갑니다. 이 작업은 되돌릴 수 없습니다.'
+    : '아직 답변한 질문이 없어 피드백은 만들어지지 않습니다. 중단된 면접으로 남고, 나중에 이어서 진행할 수 있어요.'
 
   return (
     <section className="anim-screen-power-on relative flex h-full flex-col overflow-hidden">
@@ -255,7 +261,7 @@ export function InterviewStage({
       <ConfirmDialog
         open={endConfirmOpen}
         title="면접을 종료하시겠습니까?"
-        description="진행 중인 면접이 끝나고 피드백 단계로 넘어갑니다. 이 작업은 되돌릴 수 없습니다."
+        description={endDescription}
         confirmLabel="종료"
         cancelLabel="계속 진행"
         danger

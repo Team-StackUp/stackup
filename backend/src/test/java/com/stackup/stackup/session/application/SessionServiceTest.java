@@ -3,6 +3,7 @@ package com.stackup.stackup.session.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -16,9 +17,11 @@ import com.stackup.stackup.session.application.dto.SessionCreateCommand;
 import com.stackup.stackup.session.application.dto.SessionResult;
 import com.stackup.stackup.session.application.event.SessionCreatedEvent;
 import com.stackup.stackup.session.application.event.SessionEndedEvent;
+import com.stackup.stackup.session.domain.InterviewMessageRepository;
 import com.stackup.stackup.session.domain.InterviewSession;
 import com.stackup.stackup.session.domain.InterviewSessionRepository;
 import com.stackup.stackup.session.domain.JobCategory;
+import com.stackup.stackup.session.domain.MessageRole;
 import com.stackup.stackup.session.domain.SessionContext;
 import com.stackup.stackup.session.domain.SessionContextRepository;
 import com.stackup.stackup.session.domain.SessionFeedback;
@@ -42,6 +45,7 @@ class SessionServiceTest {
 
     @Mock InterviewSessionRepository sessionRepository;
     @Mock SessionContextRepository contextRepository;
+    @Mock InterviewMessageRepository messageRepository;
     @Mock AnalyzedDocumentRepository documentRepository;
     @Mock UserRepository userRepository;
     @Mock SessionFeedbackRepository feedbackRepository;
@@ -394,11 +398,51 @@ class SessionServiceTest {
         session.start();
         when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(50L, 1L))
             .thenReturn(Optional.of(session));
-        when(sessionRepository.finishIfInProgress(any(), any(), any())).thenReturn(1);
+        when(messageRepository.existsBySession_IdAndRole(50L, MessageRole.INTERVIEWEE))
+            .thenReturn(true);
+        when(sessionRepository.finishIfInProgress(eq(50L), eq(SessionStatus.COMPLETED), any()))
+            .thenReturn(1);
 
         SessionResult result = service.end(1L, 50L);
 
         assertThat(result.status()).isEqualTo(SessionStatus.COMPLETED);
+        verify(events).publishEvent(any(SessionEndedEvent.class));
+    }
+
+    @Test
+    void end_withoutAnyAnswer_interruptsInsteadOfCompleting() {
+        // 자기소개만 받고(답변 0개) 종료를 누른 세션. 예전엔 COMPLETED 로 남아
+        // SessionEndedEvent → generate.feedback 까지 태웠고, 점수가 전부 null 인
+        // 피드백이 만들어졌다(운영 10건). 시간초과 스위퍼는 처음부터 이 규칙이었다.
+        InterviewSession session = sessionFixture(50L);
+        session.start();
+        when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(50L, 1L))
+            .thenReturn(Optional.of(session));
+        when(messageRepository.existsBySession_IdAndRole(50L, MessageRole.INTERVIEWEE))
+            .thenReturn(false);
+        when(sessionRepository.finishIfInProgress(eq(50L), eq(SessionStatus.INTERRUPTED), any()))
+            .thenReturn(1);
+
+        SessionResult result = service.end(1L, 50L);
+
+        assertThat(result.status()).isEqualTo(SessionStatus.INTERRUPTED);
+        verify(events, never()).publishEvent(any(SessionEndedEvent.class));
+    }
+
+    @Test
+    void end_withoutAnyAnswer_stillFailsWhenTransitionIsLost() {
+        // 전이를 놓친 쪽은 부수효과를 내지 않는다 — 답변 없는 경로에서도 같아야 한다.
+        InterviewSession session = sessionFixture(50L);
+        session.start();
+        when(sessionRepository.findByIdAndUser_IdAndDeletedFalse(50L, 1L))
+            .thenReturn(Optional.of(session));
+        when(messageRepository.existsBySession_IdAndRole(50L, MessageRole.INTERVIEWEE))
+            .thenReturn(false);
+        when(sessionRepository.finishIfInProgress(eq(50L), eq(SessionStatus.INTERRUPTED), any()))
+            .thenReturn(0);
+
+        assertThatThrownBy(() -> service.end(1L, 50L)).isInstanceOf(DomainException.class);
+        verify(events, never()).publishEvent(any(SessionEndedEvent.class));
     }
 
     @Test
