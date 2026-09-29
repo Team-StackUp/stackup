@@ -425,6 +425,8 @@ HTTP/1.1 202 Accepted
 
 RAG 검색. AI가 질문 풀·꼬리질문·피드백 생성 시 컨텍스트 청크를 가져온다. `document_embeddings`에서 pgvector cosine topK — `queryText`가 주어지면 벡터 + full-text(BM25) RRF 하이브리드로 검색한다.
 
+> full-text 쪽 tsquery 는 **OR 결합**이다(2026-09-29). `plainto_tsquery` 기본값인 AND 로는 이 API 의 실제 질의(꼬리질문 = 직전질문+답변, 질문 풀 = 모드+직군+자기소개 600자, 토큰 수십 개)를 전부 담은 청크가 없어 full-text 브랜치가 항상 0건이었고 RRF 가 벡터 단독으로 퇴화했다 — 운영 실측 47/47·30/30 이 0건. OR 로 바꾼 뒤 운영과 같은 헤딩 청킹 인덱스에서 MRR 0.791→0.885, Top-1 0.681→0.830, Recall 0.936→0.979.
+
 **Request body**
 ```json
 {

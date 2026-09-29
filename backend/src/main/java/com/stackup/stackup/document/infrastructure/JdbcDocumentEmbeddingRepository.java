@@ -140,6 +140,19 @@ public class JdbcDocumentEmbeddingRepository implements DocumentEmbeddingReposit
     // 벡터(코사인) 랭킹과 full-text(ts_rank_cd) 랭킹을 각각 구한 뒤
     // RRF(Reciprocal Rank Fusion, k=60): score = 1/(k+rank) 합으로 융합한다.
     // 점수 스케일이 다른 두 랭킹을 "순위"만으로 합치므로 가중치 튜닝이 불필요.
+    //
+    // **tsquery 는 OR 로 묶는다.** `plainto_tsquery` 는 토큰을 전부 `&`(AND)로 묶는데, 이쪽
+    // 호출자의 질의는 "직전질문 + 답변"(꼬리질문)이나 "모드 + 직군 + 자기소개 600자"
+    // (질문 풀)라 토큰이 10~90개다. 그 전부를 담은 청크는 존재하지 않으므로 full-text
+    // 브랜치가 **항상 0건**이었고, RRF 가 조용히 벡터 단독으로 퇴화했다 — 운영 실측으로
+    // 꼬리질문 47/47, 질문 풀 30/30 이 0건이었다. 구현돼 있고 테스트도 통과하지만 실제
+    // 질의 형태에서는 무효인 상태였다.
+    //
+    // OR 로 바꾼 효과(운영과 같은 헤딩 청킹 인덱스, 질의 47개, top_k=5):
+    // MRR 0.791 → 0.885, Top-1 0.681 → 0.830, Recall 0.936 → 0.979
+    // (paired bootstrap 95% CI: MRR +0.029~+0.162, Top-1 +0.043~+0.277).
+    // 후보 풀 `:cand` 은 손대지 않았다 — 측정한 구성이 `cand = top_k` 였고, 바꾸면
+    // 측정하지 않은 것을 배포하는 셈이 된다.
     private List<SearchHit> searchHybrid(
         float[] queryEmbedding,
         String queryText,
@@ -153,7 +166,13 @@ public class JdbcDocumentEmbeddingRepository implements DocumentEmbeddingReposit
         // 쪼개면 `.formatted` 가 마지막 조각에만 걸려 placeholder 가 밀린다(실제로 그렇게 깨졌다).
         // 조각을 넣어야 하면 여기처럼 %%s 인자로 주입한다 — 순서는 등장 순.
         String sql = """
-            WITH v AS (
+            WITH tq AS (
+                -- plainto_tsquery 의 AND 결합을 OR 로 바꾼다. 어휘소 사이의 구분자만
+                -- 치환하므로 어휘소 안의 문자는 건드리지 않는다(`&` 는 구분자라 어휘소가
+                -- 되지 못한다). 빈 질의는 빈 tsquery 가 되어 0건 — 현행과 같다.
+                SELECT replace(plainto_tsquery('simple', :qtext)::text, ' & ', ' | ')::tsquery AS tsq
+            ),
+            v AS (
                 SELECT e.document_id, e.chunk_index, e.chunk_text,
                        (e.embedding <=> CAST(:qvec AS vector)) AS distance,
                        ROW_NUMBER() OVER (ORDER BY e.embedding <=> CAST(:qvec AS vector)) AS rnk
@@ -166,13 +185,13 @@ public class JdbcDocumentEmbeddingRepository implements DocumentEmbeddingReposit
             t AS (
                 SELECT e.document_id, e.chunk_index, e.chunk_text,
                        ROW_NUMBER() OVER (
-                           ORDER BY ts_rank_cd(e.chunk_text_tsv, plainto_tsquery('simple', :qtext)) DESC
+                           ORDER BY ts_rank_cd(e.chunk_text_tsv, (SELECT tsq FROM tq)) DESC
                        ) AS rnk
                 FROM document_embeddings e
                 %s
-                WHERE e.chunk_text_tsv @@ plainto_tsquery('simple', :qtext)
+                WHERE e.chunk_text_tsv @@ (SELECT tsq FROM tq)
                 %s
-                ORDER BY ts_rank_cd(e.chunk_text_tsv, plainto_tsquery('simple', :qtext)) DESC
+                ORDER BY ts_rank_cd(e.chunk_text_tsv, (SELECT tsq FROM tq)) DESC
                 LIMIT :cand
             )
             SELECT COALESCE(v.document_id, t.document_id) AS document_id,
