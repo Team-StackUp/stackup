@@ -12,9 +12,11 @@ import com.stackup.stackup.session.application.dto.SessionCreateCommand;
 import com.stackup.stackup.session.application.dto.SessionResult;
 import com.stackup.stackup.session.application.event.SessionCreatedEvent;
 import com.stackup.stackup.session.application.event.SessionEndedEvent;
+import com.stackup.stackup.session.domain.InterviewMessageRepository;
 import com.stackup.stackup.session.domain.InterviewSession;
 import com.stackup.stackup.session.domain.InterviewSessionRepository;
 import com.stackup.stackup.session.domain.JobCategory;
+import com.stackup.stackup.session.domain.MessageRole;
 import com.stackup.stackup.session.domain.SessionMode;
 import com.stackup.stackup.session.domain.SessionContext;
 import com.stackup.stackup.session.domain.SessionContextRepository;
@@ -51,6 +53,7 @@ public class SessionService {
 
     private final InterviewSessionRepository sessionRepository;
     private final SessionContextRepository contextRepository;
+    private final InterviewMessageRepository messageRepository;
     private final AnalyzedDocumentRepository documentRepository;
     private final SessionFeedbackRepository feedbackRepository;
     private final UserRepository userRepository;
@@ -237,15 +240,31 @@ public class SessionService {
     @Transactional
     public SessionResult end(Long userId, Long sessionId) {
         InterviewSession session = loadOwned(userId, sessionId);
+        // 답변이 하나도 없으면 COMPLETED 가 아니라 INTERRUPTED 다 — 시간초과 스위퍼
+        // (SessionTimeoutService.endTimedOut)가 처음부터 쓰던 규칙이고, 수동 종료만 빠져 있었다.
+        // 그래서 자기소개만 받고 종료를 누른 세션이 COMPLETED 로 남아 피드백 생성까지 태웠다
+        // (운영 10건: 평가위원 패널·종합·첫인상·코칭·임베딩으로 LLM 을 세션당 7회 가까이 쓰고,
+        // 점수가 전부 null 인 피드백 페이지가 만들어졌다).
+        // INTERRUPTED 로 두면 피드백을 만들지 않고 `PATCH /resume` 로 이어서 할 수 있다 —
+        // COMPLETED + 피드백 없음은 조회가 FEEDBACK_NOT_READY(404)라 "생성 중"에서 멈춘다.
+        boolean hasAnswer =
+            messageRepository.existsBySession_IdAndRole(sessionId, MessageRole.INTERVIEWEE);
+        SessionStatus target = hasAnswer ? SessionStatus.COMPLETED : SessionStatus.INTERRUPTED;
         // 원자적 종료 전이: IN_PROGRESS 일 때만 1행 갱신. 0이면 다른 트랜잭션(스위퍼 등)이
         // 먼저 종료한 것 → 기존 동작과 동일하게 INVALID_STATE. 1을 받은 호출자만 종료 이벤트 발행.
-        int claimed = sessionRepository.finishIfInProgress(
-            sessionId, SessionStatus.COMPLETED, Instant.now());
+        int claimed = sessionRepository.finishIfInProgress(sessionId, target, Instant.now());
         if (claimed == 0) {
             throw new DomainException(ApiErrorCode.SESSION_INVALID_STATE);
         }
-        session.end();  // 응답·인메모리 동기화(DB는 위 조건부 UPDATE 로 이미 COMPLETED).
-        events.publishEvent(new SessionEndedEvent(userId, sessionId, "USER_REQUEST"));
+        // 응답·인메모리 동기화(DB는 위 조건부 UPDATE 로 이미 전이됨).
+        if (target == SessionStatus.COMPLETED) {
+            session.end();
+            events.publishEvent(new SessionEndedEvent(userId, sessionId, "USER_REQUEST"));
+        } else {
+            session.interrupt();
+            log.info("session ended with no answers — interrupted instead of completed. sessionId={}",
+                sessionId);
+        }
         return SessionResult.of(session, contextDocumentIds(sessionId));
     }
 

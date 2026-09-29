@@ -411,6 +411,18 @@ docker compose up -d
   호출 — 답변 있으면 COMPLETED(→`SessionEndedEvent(DURATION_EXCEEDED)`→피드백), 없으면 INTERRUPTED(피드백 없음).
   좀비 세션(자기소개 미답변·STT 실패·탭 종료) 방지.
   주기: `interview.session.sweep-interval-ms`(기본 300000)·`sweep-initial-delay-ms`(기본 60000).
+  - **"답변 0개면 COMPLETED 가 아니다" 는 수동 종료에도 적용된다**(2026-09-29). 위 규칙은 스위퍼에만
+    있었고 `SessionService.end` 는 무조건 COMPLETED + `SessionEndedEvent` 였다 — 자기소개만 받고
+    '종료' 를 누른 세션이 완료로 남아 피드백 생성까지 탔다(운영 10건, 최근 session 98). 세션당
+    LLM 을 7회 가까이 쓰고(패널·종합·첫인상·코칭·임베딩) 점수가 전부 null 인 피드백 페이지가
+    만들어진다. 이제 `existsBySession_IdAndRole(INTERVIEWEE)` 로 분기해 없으면 INTERRUPTED.
+    - **COMPLETED 로 두고 이벤트만 막으면 더 나쁘다** — 피드백 없는 COMPLETED 는 조회가
+      `FEEDBACK_NOT_READY`(404)라 화면이 "생성 중"에서 영구히 멈춘다. INTERRUPTED 는 피드백을
+      기대하지 않고 `PATCH /resume` 로 이어서 할 수 있다.
+    - 콜백 종료(`QuestionsCallbackService.endSession`)에는 같은 가드를 두지 않았다 — POOL 요청이
+      자기소개 **답변** 이후에만 발행되므로 그 경로에 답변 0개 세션이 도달하지 않는다.
+    - 프론트 종료 확인 문구도 답변 유무로 갈린다(`InterviewStage`) — 답변이 없을 때
+      "피드백 단계로 넘어갑니다 / 되돌릴 수 없습니다" 는 둘 다 거짓이다.
   - **동시 종료 안전(원자적 전이)**: 모든 종료 경로(스위퍼·수동 `SessionService.end`·콜백 `endSession`)는
     `InterviewSessionRepository.finishIfInProgress`(조건부 UPDATE `WHERE status=IN_PROGRESS`)로 전이를
     차지하고, **영향 행 1인 트랜잭션만** `SessionEndedEvent` 를 발행한다 → DB 행 락으로 직렬화돼 동시
