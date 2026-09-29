@@ -59,7 +59,7 @@
 |--------|------|------|
 | 종합 피드백 | `session feedback` | 세션 종료 후 생성 |
 | 종합 점수 | `overall score` | 0~100 |
-| 기술 정확도 | `technical accuracy` | |
+| 직무 역량 | `technical accuracy` | 컬럼·필드명은 `technical_accuracy` 유지(하위호환). 표시는 직군 중립 — 영업·인사 지원자에게 '기술 정확도'는 맞지 않는다 |
 | 논리 점수 | `logic score` | |
 | 커뮤니케이션 점수 | `communication score` | |
 | 잘한 점 | `strengths summary` | |

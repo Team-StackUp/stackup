@@ -50,7 +50,7 @@ def _result(**overrides) -> FeedbackResult:
         panel_breakdown=[
             PanelBreakdownItem(
                 evaluator="기술",
-                dimension="기술 정확도",
+                dimension="직무 역량",
                 score=82.0,
                 strength="개념 정확",
                 weakness="사례 부족",
@@ -89,10 +89,10 @@ def test_renders_full_report_sections():
     assert "- 종료 사유: 질문 수 도달" in md
     # 점수 표: 85.0 → "85", 82.5 는 유지, None 은 —.
     assert "| 종합 | 85 |" in md
-    assert "| 기술 정확도 | 82.5 |" in md
+    assert "| 직무 역량 | 82.5 |" in md
     assert "| 전달력 | — |" in md
     # 패널.
-    assert "### 기술 — 기술 정확도 (82점)" in md
+    assert "### 기술 — 직무 역량 (82점)" in md
     assert "> 점수 근거: 예시 부재 감점" in md
     # 요약·키워드·플랜·하이라이트.
     assert "## 강점 요약" in md and "ACID 4요소를 명확히 답변." in md

@@ -510,7 +510,7 @@
       { "messageId": 203, "modelAnswer": "이 질문에 강한 답변 예시…", "answerRewrite": "내 답변을 이렇게 고치면…", "coachingComment": "결론을 먼저 말하세요." }
     ],
     "panelBreakdown": [
-      { "evaluator": "백엔드", "dimension": "기술 정확도·깊이", "score": 80.0, "detail": "...", "scoreRationale": "..." },
+      { "evaluator": "백엔드", "dimension": "직무 역량·깊이", "score": 80.0, "detail": "...", "scoreRationale": "..." },
       { "evaluator": "첫인상", "dimension": "자기소개 전달력·구성·직무적합성", "score": 78.0, "detail": "...", "scoreRationale": "..." }
     ],
     "reportS3Key": "feedback/99/report.md"

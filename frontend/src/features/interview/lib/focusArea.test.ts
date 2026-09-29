@@ -3,7 +3,7 @@ import { focusAreaLabel } from './focusArea'
 
 describe('focusAreaLabel', () => {
   it('알려진 축은 한국어 표시명으로 바꾼다', () => {
-    expect(focusAreaLabel('TECHNICAL')).toBe('기술 정확도')
+    expect(focusAreaLabel('TECHNICAL')).toBe('직무 역량')
     expect(focusAreaLabel('LOGIC')).toBe('논리력')
     expect(focusAreaLabel('COMMUNICATION')).toBe('전달력')
   })
